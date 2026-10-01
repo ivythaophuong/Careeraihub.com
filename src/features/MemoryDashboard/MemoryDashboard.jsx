@@ -50,7 +50,9 @@ Return ONLY raw JSON:
     updateMemory(() => ({
       scanHistory: [], starBank: [], mockSessions: [], applications: [], 
       rejections: [], negotiationPractice: 0, coverLetters: [], jdAnalyses: [],
-      insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null
+      insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null,
+      resumeText: null, scanResult: null, scanFileName: null, scanPdfBase64: null,
+      resumeData: null, activeTemplateId: null, originalFileUrl: null, visibleSections: null, suggestions: {}
     }));
     setAiSummary(null);
     setCleared(true);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { C } from '../../styles/theme';
-import { Card, Btn, Badge, Spinner } from '../../components/CommonUI';
+import { Card, Btn, Badge, Spinner, PreviewBanner } from '../../components/CommonUI';
 import { AnimatedScore } from '../../components/OriginalFeatures';
 
 export default function JDAnalyzer({ resumeText, form, memory, updateMemory }) {
@@ -31,9 +31,7 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory }) {
       };
       setResult(parsed);
       setLoading(false);
-      if (updateMemory) updateMemory(m => ({ 
-        jdAnalyses: [{ date: new Date().toISOString(), company: parsed.company, matchScore: parsed.matchScore, role: parsed.roleTitle }, ...(m.jdAnalyses || [])].slice(-20) 
-      }));
+      // Sample output is not saved to history until this module calls the real AI.
     }, 3000);
   };
 
@@ -41,6 +39,7 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <PreviewBanner />
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Job Description Analyzer</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Paste any JD. Get match score, ATS keywords, red flags, and your positioning strategy.</div>

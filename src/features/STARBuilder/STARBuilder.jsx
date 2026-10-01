@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { C } from '../../styles/theme';
-import { Card, Btn, Badge, Spinner } from '../../components/CommonUI';
+import { Card, Btn, Badge, Spinner, PreviewBanner } from '../../components/CommonUI';
 
 export default function STARBuilder({ resumeText, form, memory, updateMemory }) {
   const [S, setS] = useState(""); const [T, setT] = useState(""); const [A, setA] = useState(""); const [R, setR] = useState("");
@@ -28,8 +28,7 @@ export default function STARBuilder({ resumeText, form, memory, updateMemory }) 
       };
       setRefined(p);
       setLoading(false);
-      const story = { id: Date.now(), oneLiner: p.oneLiner, score: p.score, situation: S, refined: p.refined };
-      if (updateMemory) updateMemory(m => ({ starBank: [story, ...(m.starBank || [])].slice(-20) }));
+      // Sample output is not banked until this module calls the real AI.
     }, 3000);
   };
 
@@ -43,6 +42,7 @@ export default function STARBuilder({ resumeText, form, memory, updateMemory }) 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <PreviewBanner />
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>STAR Story Builder</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Build, score, and bank your best interview stories.</div>

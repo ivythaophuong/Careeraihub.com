@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { C } from '../../styles/theme';
-import { Card, Btn, Badge, Spinner } from '../../components/CommonUI';
+import { Card, Btn, Badge, Spinner, PreviewBanner } from '../../components/CommonUI';
 
 export default function CoverLetterGen({ resumeText, form, memory, updateMemory }) {
   const [jd, setJd] = useState("");
@@ -35,6 +35,7 @@ export default function CoverLetterGen({ resumeText, form, memory, updateMemory 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <PreviewBanner />
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>Cover Letter Generator</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>AI writes a tailored letter from your real resume + JD. No generic templates.</div>

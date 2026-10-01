@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { C } from '../../styles/theme';
-import { Card, Btn, Badge, Spinner } from '../../components/CommonUI';
+import { Card, Btn, Badge, Spinner, PreviewBanner } from '../../components/CommonUI';
 
 export default function HiringManagerSim({ resumeText, scanResult, form, memory, updateMemory }) {
   const [mode, setMode] = useState(null);
@@ -39,6 +39,7 @@ export default function HiringManagerSim({ resumeText, scanResult, form, memory,
 
   if (!mode) return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <PreviewBanner />
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>Hiring Manager Simulator</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Select a persona to begin a personalized AI interview simulation.</div>
@@ -59,6 +60,7 @@ export default function HiringManagerSim({ resumeText, scanResult, form, memory,
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <PreviewBanner />
        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div><div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>{mode.icon} {mode.label}</div><div style={{ color: C.muted, fontSize: 12 }}>Personalized simulation active</div></div>
           <button onClick={() => { setMode(null); setFb(null); }} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.muted, borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>← Reset</button>
