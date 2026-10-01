@@ -3,6 +3,8 @@ import { sb } from './lib/supabase';
 import { C, MODULES } from './styles/theme';
 import { Badge, Btn, Card, Spinner } from './components/CommonUI';
 import { useMemory } from './hooks/useMemory';
+import { useDevice } from './hooks/useDevice';
+import BottomNav, { BOTTOM_NAV_HEIGHT } from './components/BottomNav';
 
 // ── Feature Modules ──────────────────────────────────────────────────────────
 import ResumeScan from './features/ResumeScan/ResumeScan';
@@ -36,6 +38,8 @@ function App() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [toast, setToast] = useState(null);
+  const { device, isMobile } = useDevice();
+  const showBottomNav = isMobile && !!user;
 
   const [showLanding, setShowLanding] = useState(true);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -258,7 +262,7 @@ function App() {
         <TickerBar />
 
         {/* Content Wrapper */}
-        <div style={{ maxWidth: 960, margin: "0 auto", padding: "24px 16px", animation: "fadeIn 0.4s ease" }}>
+        <div className="app-container" style={{ animation: "fadeIn 0.4s ease" }}>
           <div key={activeModule}>
             {renderActiveModule()}
           </div>
@@ -268,7 +272,7 @@ function App() {
   };
 
   return (
-    <div data-theme={darkMode ? "dark" : "light"} style={{ minHeight: "100vh", background: darkMode ? C.bg : "#F8FAFC", fontFamily: "var(--font-body)", color: darkMode ? C.text : "#0F172A" }}>
+    <div data-theme={darkMode ? "dark" : "light"} data-device={device} style={{ "--bottom-nav-h": showBottomNav ? `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))` : "0px", paddingBottom: "var(--bottom-nav-h)", minHeight: "100dvh", background: darkMode ? C.bg : "#F8FAFC", fontFamily: "var(--font-body)", color: darkMode ? C.text : "#0F172A" }}>
       
       {/* Modals */}
       {authModal && <AuthModal 
@@ -305,30 +309,32 @@ function App() {
             <button onClick={() => setDarkMode(d => !d)} title="Toggle light/dark mode" style={{ background: "transparent", border: `1px solid var(--lp-bdr2)`, color: "var(--lp-text2)", borderRadius: 6, padding: "4px 8px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}>
               {darkMode ? "☀️" : "🌙"}
             </button>
-            <button onClick={() => setCmdOpen(true)} title="Command palette (⌘K)" style={{ background: "transparent", border: `1px solid var(--lp-bdr2)`, color: "var(--lp-text2)", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            {!isMobile && <button onClick={() => setCmdOpen(true)} title="Command palette (⌘K)" style={{ background: "transparent", border: `1px solid var(--lp-bdr2)`, color: "var(--lp-text2)", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
               ⌘K
-            </button>
+            </button>}
             <UserMenu user={user} onLogout={logout} />
           </div>
         </nav>
-        <div className="lp-mod-nav">
+        {!isMobile && <div className="lp-mod-nav">
           {MODULES.map(m => (
             <button key={m.id} onClick={() => setActiveModule(m.id)} className={`lp-mpill${activeModule === m.id ? " on" : ""}`}>
               <span>{m.icon}</span>
               <span>{m.label}</span>
             </button>
           ))}
-        </div>
+        </div>}
       </>}
+
+      {showBottomNav && <BottomNav activeModule={activeModule} setActiveModule={setActiveModule} onOpenLegal={setActiveModule} />}
 
       {/* Main Content Area */}
       {renderMainContent()}
 
       {/* Trust Footer — only shown when logged in */}
-      {user && <footer style={{ marginTop: "auto", borderTop: `1px solid ${C.border}`, padding: "20px 24px", background: C.surface }}>
-        <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+      {user && <footer style={{ marginTop: "auto", borderTop: `1px solid ${C.border}`, padding: "20px clamp(12px, 3vw, 24px)", background: C.surface }}>
+        <div className="app-footer-inner" style={{ margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
           <div style={{ color: C.muted, fontSize: 11 }}>© 2026 CareerAiHub. All rights reserved.</div>
-          <div style={{ display: "flex", gap: 20 }}>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
             <button onClick={() => setActiveModule("privacy")} style={{ background: "transparent", border: "none", cursor: "pointer", color: C.muted, fontSize: 11, textDecoration: "none", fontWeight: 600 }}>Privacy Policy</button>
             <button onClick={() => setActiveModule("terms")} style={{ background: "transparent", border: "none", cursor: "pointer", color: C.muted, fontSize: 11, textDecoration: "none", fontWeight: 600 }}>Terms of Service</button>
             <a href="mailto:hello@careeraihub.com" style={{ color: C.muted, fontSize: 11, textDecoration: "none", fontWeight: 600 }}>Support & Trust</a>
@@ -338,7 +344,7 @@ function App() {
 
       {/* Toast Notification */}
       {toast && (
-        <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: toast.type === "error" ? C.red : toast.type === "success" ? C.green : C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 24px", color: (toast.type === "error" || toast.type === "success") ? "#000" : C.text, fontWeight: 800, fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.4)", animation: "slideUp 0.3s ease", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ position: "fixed", bottom: "calc(var(--bottom-nav-h, 0px) + 24px)", left: "50%", transform: "translateX(-50%)", background: toast.type === "error" ? C.red : toast.type === "success" ? C.green : C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: "12px 24px", color: (toast.type === "error" || toast.type === "success") ? "#000" : C.text, fontWeight: 800, fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.4)", animation: "slideUp 0.3s ease", display: "flex", alignItems: "center", gap: 10 }}>
           <span>{toast.type === "error" ? "⚠️" : toast.type === "success" ? "✓" : "ℹ️"}</span>
           {toast.msg}
         </div>
