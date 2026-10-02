@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sb } from './lib/supabase';
+import { loadSession, saveSession, clearSession, getValidSession, refreshSession, isAuthRejection, REFRESH_SKEW_MS } from './lib/session';
 import { C, MODULES } from './styles/theme';
 import { Badge, Btn, Card, Spinner } from './components/CommonUI';
 import { useMemory } from './hooks/useMemory';
@@ -53,43 +54,67 @@ function App() {
   const setResumeText = (val) => updateMemory(m => ({ ...m, resumeText: val }));
   const setScanResult = (val) => updateMemory(m => ({ ...m, scanResult: val }));
 
-  // Restore session
+  const userFromSession = (session) => {
+    const userObj = session.user || {};
+    const meta = userObj.user_metadata || {};
+    return {
+      id: userObj.id,
+      email: userObj.email,
+      name: meta.full_name || userObj.email?.split("@")[0] || "User",
+      token: session.access_token,
+      expiresAt: session.expiresAt ?? null,
+    };
+  };
+
+  const handleSessionExpired = () => {
+    clearSession();
+    setUser(null);
+    setSetupDone(false);
+    setAuthModal("login");
+    showToast("Your session expired. Please sign in again.", "error");
+  };
+
+  // Restore session (refreshing the token if it has expired or is about to)
   useEffect(() => {
-    const raw = localStorage.getItem("supabase.auth.token");
-    if (raw) {
-      try {
-        const data = JSON.parse(raw);
-        const session = data.currentSession;
-        if (session) {
-          const userObj = session.user;
-          const meta = userObj.user_metadata || {};
-          setUser({ 
-            id: userObj.id, 
-            email: userObj.email, 
-            name: meta.full_name || userObj.email?.split("@")[0] || "User",
-            token: session.access_token 
-          });
-          setIsRestoring(true); // Trigger composite fetch on session restore
-          setSetupDone(true);
-        }
-      } catch (e) {
-        console.error("Session restore failed", e);
-        setIsRestoring(false);
-      }
-    }
+    let cancelled = false;
+    (async () => {
+      if (!loadSession()) return;
+      const session = await getValidSession();
+      if (cancelled) return;
+      if (!session) { handleSessionExpired(); return; }
+      setUser(userFromSession(session));
+      setIsRestoring(true); // Trigger composite fetch on session restore
+      setSetupDone(true);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  const login = (session) => {
-    const userObj = session.user;
-    const meta = userObj.user_metadata || {};
-    const newUser = { 
-      id: userObj.id, 
-      email: userObj.email, 
-      name: meta.full_name || userObj.email?.split("@")[0] || "User",
-      token: session.access_token 
+  // Keep the token fresh while the app is open so database calls don't start failing.
+  useEffect(() => {
+    if (!user?.expiresAt) return;
+    let timer;
+    const attempt = async () => {
+      try {
+        const next = await refreshSession(loadSession());
+        setUser(u => (u ? { ...u, token: next.access_token, expiresAt: next.expiresAt } : u));
+      } catch (e) {
+        if (isAuthRejection(e)) handleSessionExpired();
+        else timer = setTimeout(attempt, 30000); // network blip: try again shortly
+      }
     };
-    setUser(newUser);
-    localStorage.setItem("supabase.auth.token", JSON.stringify({ currentSession: session }));
+    timer = setTimeout(attempt, Math.max(user.expiresAt - Date.now() - REFRESH_SKEW_MS, 5000));
+    return () => clearTimeout(timer);
+  }, [user?.expiresAt]);
+
+  const login = (session) => {
+    if (!session?.access_token) {
+      // Sign-up that needs email confirmation returns no session.
+      setAuthModal("login");
+      showToast("Check your email to confirm your account, then sign in.", "info");
+      return;
+    }
+    const saved = saveSession(session);
+    setUser(userFromSession(saved));
     setIsRestoring(true); // Trigger composite fetch
     setAuthModal(null);
     setSetupDone(true);
@@ -97,11 +122,11 @@ function App() {
   };
 
   const logout = () => {
-    sb.signOut(user?.token);
-    localStorage.removeItem("supabase.auth.token");
+    const token = user?.token;
+    clearSession();
     setUser(null);
     setSetupDone(false);
-    window.location.reload();
+    Promise.resolve(sb.signOut(token)).catch(() => {}).finally(() => window.location.reload());
   };
 
   const showToast = (msg, type = "info") => {
@@ -260,6 +285,13 @@ function App() {
       <>
         {/* Ticker */}
         <TickerBar />
+
+        {restoreError && (
+          <div role="alert" style={{ maxWidth: 1200, margin: "12px auto 0", padding: "10px 16px", background: `${C.red}14`, border: `1px solid ${C.red}55`, borderRadius: 10, color: C.text, fontSize: 13, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ flex: 1, minWidth: 220 }}>We couldn't load your saved data, so changes are <strong>not being saved</strong> right now. Your existing data is untouched.</span>
+            <Btn color={C.red} onClick={() => { setRestoreError(false); setIsRestoring(true); }} style={{ padding: "6px 16px", fontSize: 12 }}>Retry</Btn>
+          </div>
+        )}
 
         {/* Content Wrapper */}
         <div className="app-container" style={{ animation: "fadeIn 0.4s ease" }}>

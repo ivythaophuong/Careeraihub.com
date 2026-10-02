@@ -64,6 +64,11 @@ describe('sb.refreshToken / getUser', () => {
     fetchMock.mockResolvedValue(res(401, { msg: 'JWT expired' }));
     await expect(sb.getUser('old')).rejects.toThrow(/expired/i);
   });
+
+  it('refreshToken errors carry the HTTP status', async () => {
+    fetchMock.mockResolvedValue(res(400, { error: 'invalid_grant' }));
+    await expect(sb.refreshToken('bad')).rejects.toMatchObject({ status: 400 });
+  });
 });
 
 describe('sb database helpers', () => {
@@ -78,7 +83,7 @@ describe('sb database helpers', () => {
 
   it('select throws on a database error', async () => {
     fetchMock.mockResolvedValue(res(401, { message: 'JWT expired' }));
-    await expect(sb.select('x', {}, 't')).rejects.toThrow('JWT expired');
+    await expect(sb.select('x', {}, 't')).rejects.toMatchObject({ message: 'JWT expired', status: 401 });
   });
 
   it('upsert uses on_conflict=user_id when the row has a user_id', async () => {
