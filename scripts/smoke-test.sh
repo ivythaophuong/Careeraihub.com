@@ -58,7 +58,12 @@ try:
 except Exception: print("could not read the sign-in response")')
     bad "sign-in failed - Supabase says: $WHY"
   else
-    call ai "$TOKEN" "$AIBODY"
+    # Google sometimes answers "high demand" (502/503) or "slow down" (429); that is temporary, so retry a few times.
+    for attempt in 1 2 3 4 5; do
+      call ai "$TOKEN" "$AIBODY"
+      case "$CODE" in 429|502|503) [ "$attempt" -lt 5 ] && { echo "   The AI provider is busy (HTTP $CODE), trying again in 10 seconds ($attempt/5)..."; sleep 10; continue; } ;; esac
+      break
+    done
     if [ "$CODE" = "200" ]; then ok "HTTP 200 - the model answered: $(echo "$BODY" | field text)"
     else
       bad "HTTP $CODE - $(echo "$BODY" | field message)"
