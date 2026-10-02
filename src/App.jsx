@@ -262,21 +262,6 @@ function App() {
               )}
             </div>
           </div>
-
-          {/* Stats Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginTop: 32, width: "100%" }}>
-            {[
-              { stat: "75%", label: "rejection rate", color: C.red },
-              { stat: "$18K", label: "salary gap", color: C.gold },
-              { stat: "5 mo", label: "avg search", color: C.muted },
-              { stat: "3.2×", label: "offer rate", color: C.green },
-            ].map((p, i) => (
-              <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, textAlign: "center" }}>
-                <div style={{ fontWeight: 900, fontSize: 20, color: p.color, marginBottom: 4 }}>{p.stat}</div>
-                <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>{p.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       );
     }
