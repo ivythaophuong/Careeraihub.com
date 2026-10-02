@@ -28,4 +28,5 @@ export const MODULES = [
   { id: "score",    icon: "🏆", label: "Readiness Score", color: C.accent   },
   { id: "market",   icon: "🌏", label: "Market Intel",    color: C.muted    },
   { id: "memory",   icon: "🧬", label: "AI Memory",        color: C.purple   },
+  { id: "culture",  icon: "🧭", label: "Culture Quiz",     color: C.accent   },
 ];

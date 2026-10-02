@@ -166,9 +166,9 @@ function Teaser({ persona }) {
   );
 }
 
-function Gate({ onUnlock }) {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+function Gate({ onUnlock, defaultEmail = '', defaultName = '' }) {
+  const [email, setEmail] = useState(defaultEmail || '');
+  const [name, setName] = useState(defaultName || '');
   const [consent, setConsent] = useState(false);
   const [trap, setTrap] = useState(''); // honeypot: real people never see or fill this
   const [status, setStatus] = useState('idle');
@@ -238,7 +238,7 @@ function Section({ title, items }) {
   );
 }
 
-function FullReport({ persona, scores, onShareEvent }) {
+function FullReport({ persona, scores, onScan, onShareEvent }) {
   const shareUrl = `${window.location.origin}/culture-quiz?utm_source=share&utm_medium=result`;
   const shareText = `I'm a ${persona.name}. What's your work culture persona? Take the free 2-minute quiz:`;
   const [copied, setCopied] = useState(false);
@@ -310,19 +310,30 @@ function FullReport({ persona, scores, onShareEvent }) {
           Culture is one part of the fit. See how your CV scores against the requirements and
           where it needs stronger evidence.
         </p>
-        <a
-          href={`${SITE_URL}/?utm_source=culture_quiz&utm_medium=result`}
-          onClick={() => track('cta_click', { target: 'scan' })}
-          style={{ ...primaryBtn(false), textDecoration: 'none', display: 'inline-block' }}
-        >
-          Scan my CV free
-        </a>
+        {onScan ? (
+          <button
+            onClick={() => { track('cta_click', { target: 'scan', embedded: true }); onScan(); }}
+            style={primaryBtn(false)}
+          >
+            Scan my CV
+          </button>
+        ) : (
+          <a
+            href={`${SITE_URL}/?utm_source=culture_quiz&utm_medium=result`}
+            onClick={() => track('cta_click', { target: 'scan' })}
+            style={{ ...primaryBtn(false), textDecoration: 'none', display: 'inline-block' }}
+          >
+            Scan my CV free
+          </a>
+        )}
       </div>
     </div>
   );
 }
 
-export default function CultureQuiz() {
+// embedded: rendered inside the logged-in app (no page header, prefilled from the account,
+// and the CV button switches module instead of leaving the app).
+export default function CultureQuiz({ embedded = false, user = null, onScan }) {
   const [answers, setAnswers] = useState(() => load(ANSWERS_KEY, {}));
   const [started, setStarted] = useState(() => Object.keys(load(ANSWERS_KEY, {})).length > 0);
   const [unlocked, setUnlocked] = useState(() => load(UNLOCKED_KEY, false));
@@ -336,8 +347,8 @@ export default function CultureQuiz() {
   const persona = useMemo(() => (scores ? personaFor(scores) : null), [scores]);
 
   useEffect(() => {
-    document.title = 'Work Culture Quiz | CareerAIHub';
-    track('view');
+    if (!embedded) document.title = 'Work Culture Quiz | CareerAIHub';
+    track('view', embedded ? { embedded: true } : {});
   }, []);
 
   useEffect(() => { window.scrollTo({ top: 0 }); }, [started, complete, unlocked, index]);
@@ -384,8 +395,8 @@ export default function CultureQuiz() {
       <>
         <Teaser persona={persona} />
         {unlocked
-          ? <FullReport persona={persona} scores={scores} onShareEvent={(channel) => track('share', { channel })} />
-          : <Gate onUnlock={unlock} />}
+          ? <FullReport persona={persona} scores={scores} onScan={onScan} onShareEvent={(channel) => track('share', { channel })} />
+          : <Gate onUnlock={unlock} defaultEmail={user?.email} defaultName={user?.name} />}
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <button onClick={retake} style={{ ...ghostBtn, color: C.muted }}>Retake the quiz</button>
         </div>
@@ -394,8 +405,8 @@ export default function CultureQuiz() {
   }
 
   return (
-    <div style={page}>
-      <Header />
+    <div style={embedded ? { ...page, minHeight: 'auto', padding: '8px 0 32px', background: 'transparent' } : page}>
+      {!embedded && <Header />}
       <div style={column}>{body}</div>
     </div>
   );

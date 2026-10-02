@@ -1100,6 +1100,35 @@ function PlatformLayers({ onJoin }) {
   );
 }
 
+// ── CULTURE QUIZ PROMO ────────────────────────────────────────────────────────
+
+function CultureQuizPromo() {
+  return (
+    <section className="section" id="culture-sec">
+      <div className="reveal" style={{
+        background: 'var(--lp-bg3)', border: '1px solid var(--lp-teal-b)', borderRadius: 'var(--lp-rl)',
+        padding: '36px 32px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 24,
+      }}>
+        <div style={{ flex: '1 1 380px' }}>
+          <div className="ey">Free · 2 minutes · No signup</div>
+          <h2 className="sh" style={{ marginBottom: 10 }}>What is your work culture persona?</h2>
+          <p className="ss" style={{ marginBottom: 0 }}>
+            Answer 10 quick questions to find the kind of workplace where you do your best work,
+            and what to look for in your next role.
+          </p>
+        </div>
+        <a
+          className="btn-p"
+          href="/culture-quiz?utm_source=landing&utm_medium=section"
+          style={{ textDecoration: 'none', display: 'inline-block', whiteSpace: 'nowrap' }}
+        >
+          Take the free quiz →
+        </a>
+      </div>
+    </section>
+  );
+}
+
 // ── FEATURES ──────────────────────────────────────────────────────────────────
 
 function FeatureSection({ onJoin, activePill, onModuleSelect }) {
@@ -1517,6 +1546,10 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
       <div className="sec-divider" />
 
       <PlatformLayers onJoin={onJoin} />
+
+      <div className="sec-divider" />
+
+      <CultureQuizPromo />
 
       <div className="sec-divider" />
 

@@ -17,6 +17,7 @@ import MarketIntel from './features/MarketIntel/MarketIntel';
 import JobSearch from './features/JobSearch/JobSearch';
 import MemoryDashboard from './features/MemoryDashboard/MemoryDashboard';
 import ATSBuilder from './features/ATSBuilder/ATSBuilder';
+import CultureQuiz from './features/CultureQuiz/CultureQuiz';
 import PrivacyPolicy from './features/Legal/PrivacyPolicy';
 import TermsOfService from './features/Legal/TermsOfService';
 import LandingPage, { GuestNav, ModulePills, PILLS, LogoMark, TickerBar } from './features/Landing/LandingPage';
@@ -135,6 +136,7 @@ function App() {
       case "jobs":     return <JobSearch {...props} />;
       case "memory":   return <MemoryDashboard {...props} />;
       case "ats":      return <ATSBuilder {...props} />;
+      case "culture":  return <CultureQuiz embedded user={user} onScan={() => setActiveModule("scan")} />;
       case "privacy":  return <PrivacyPolicy onBack={() => setActiveModule("jobs")} />;
       case "terms":    return <TermsOfService onBack={() => setActiveModule("jobs")} />;
       default:         return <ResumeScan {...props} />;
