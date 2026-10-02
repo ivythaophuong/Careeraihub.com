@@ -52,7 +52,11 @@ if [ -n "$EMAIL" ]; then
 try: print(json.load(sys.stdin).get("access_token",""))
 except Exception: print("")')
   if [ -z "$TOKEN" ]; then
-    bad "sign-in failed (wrong email/password, or the account needs email confirmation)"
+    WHY=$(echo "$LOGIN" | python3 -c 'import sys,json
+try:
+    d=json.load(sys.stdin); print(d.get("error_description") or d.get("msg") or d.get("message") or d.get("error") or "no reason given")
+except Exception: print("could not read the sign-in response")')
+    bad "sign-in failed - Supabase says: $WHY"
   else
     call ai "$TOKEN" "$AIBODY"
     if [ "$CODE" = "200" ]; then ok "HTTP 200 - the model answered: $(echo "$BODY" | field text)"
