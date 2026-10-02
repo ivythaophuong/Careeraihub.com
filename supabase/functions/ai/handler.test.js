@@ -168,6 +168,17 @@ describe('provider call', () => {
     expect(ro.body.text).toBe('o');
   });
 
+  it('turns off Gemini flash "thinking" so hidden tokens cannot cut the answer off', async () => {
+    const run = async (model) => {
+      const f = makeFetch({ provider: () => ok({ candidates: [{ content: { parts: [{ text: 'g' }] } }] }) });
+      await call(VALID, { env: { ...ENV, AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'gk', AI_MODEL: model }, fetchImpl: f });
+      return JSON.parse(f.mock.calls.at(-1)[1].body).generationConfig;
+    };
+    expect((await run('gemini-2.5-flash')).thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect((await run(undefined)).thinkingConfig).toEqual({ thinkingBudget: 0 }); // default model is flash
+    expect((await run('gemini-2.5-pro')).thinkingConfig).toBeUndefined();
+  });
+
   it('500 "not configured" when no provider key exists', async () => {
     const r = await call(VALID, { env: { SUPABASE_URL: ENV.SUPABASE_URL, SUPABASE_ANON_KEY: 'a' } });
     expect(r).toMatchObject({ status: 500, body: { error: { message: 'AI service is not configured.' } } });

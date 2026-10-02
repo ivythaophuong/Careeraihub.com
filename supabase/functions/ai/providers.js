@@ -39,7 +39,17 @@ function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) 
     return {
       url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: { contents: [{ parts }], generationConfig: { maxOutputTokens: maxTokens, temperature: 0.1 } },
+      body: {
+        contents: [{ parts }],
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+          temperature: 0.1,
+          // Gemini 2.5 Flash "thinks" before answering and those hidden tokens count against
+          // maxOutputTokens, which can cut a JSON answer off. Our prompts don't need it, so turn it off.
+          // (Pro models can't disable thinking, so only flash models get this.)
+          ...(/flash/i.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
+      },
     };
   }
   if (provider === 'openai') {
