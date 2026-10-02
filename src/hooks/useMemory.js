@@ -1,9 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
 import { sb } from '../lib/supabase';
 
+// Fields that must not be written to the JSON backup: large binaries and
+// browser-session-only handles (a blob: URL is meaningless after a reload).
+const SESSION_ONLY_KEYS = ['scanPdfBase64', 'originalFileUrl'];
+export const BACKUP_DEBOUNCE_MS = 1000;
+export const toBackup = (state) => {
+  const out = { ...state };
+  SESSION_ONLY_KEYS.forEach(k => { delete out[k]; });
+  return out;
+};
+
 // ── Production-Grade Relational Memory Hook ──────────────────────────────────
 export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
   const [memory, setMemory] = useState({});
+  const memoryRef = useRef({});
+  const userRef = useRef(user);
+  userRef.current = user;
+  const queueRef = useRef(Promise.resolve());
+  const timerRef = useRef(null);
   const syncLockedRef = useRef(true); // Atomic lock to prevent race conditions during initial load
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -14,11 +29,15 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
       console.log("[useMemory] Refactor Boot Initializing:", { email: user.email, id: user.id });
       
       try {
-        const fetch = async (table, query = {}) => {
+        // Auth failures and a failed load of the main backup row are fatal: carrying on
+        // with empty data would let the next save overwrite the user's real memory.
+        // Other tables are best-effort (they fall back to the JSON backup).
+        const fetch = async (table, query = {}, { critical = false } = {}) => {
            try {
              const res = await sb.select(table, { user_id: `eq.${user.id}`, ...query }, user.token);
              return res || [];
            } catch (e) {
+             if (critical || e.status === 401 || e.status === 403) throw e;
              console.warn(`[useMemory] Partial Fetch Error for ${table}:`, e.message);
              return [];
            }
@@ -28,7 +47,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
         const [
           dbMem, scans, apps, stars, covers, jds, sessions, practice, insights
         ] = await Promise.all([
-          fetch("user_memory"),
+          fetch("user_memory", {}, { critical: true }),
           fetch("resume_scans", { order: "created_at.desc", limit: 20 }),
           fetch("applications", { order: "created_at.desc", limit: 50 }),
           fetch("star_stories", { order: "created_at.desc", limit: 30 }),
@@ -74,55 +93,103 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
           negotiationPractice: practice?.length ? practice.length : (base.negotiationPractice || 0),
           insights: insights?.length ? insights : (base.insights || []),
         };
+        memoryRef.current = compositeMap;
         setMemory(compositeMap);
         syncLockedRef.current = false; // Release lock for UI edits
         setIsRestoring(false);
         console.log("[useMemory] Refactor Boot Complete. Memory state live.");
       } catch (e) {
         console.error("[useMemory] Refactor Global Error:", e.message);
+        // Stay locked (no saves) and let the UI offer a retry.
         setRestoreError(true);
+        setIsRestoring(false);
       }
     }
     loadAll();
   }, [user, isRestoring]);
 
-  // 3. TARGETED UPDATE: Specific persistence logic
-  const updateMemory = async (updater, relational = null) => {
-    let nextState;
-    setMemory(prev => {
-      nextState = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
-      return nextState;
-    });
+  // 3. TARGETED UPDATE: merge into current state, then persist in order.
+  //
+  // - State is mirrored in a ref so the next state is computed synchronously
+  //   (React runs setState updaters lazily, so reading it back is unreliable).
+  // - Updates MERGE into the previous state. Callers may return just the keys
+  //   they own; they can no longer wipe unrelated memory.
+  // - Relational inserts run immediately; the JSON backup is debounced so rapid
+  //   edits (e.g. typing in the ATS builder) produce one write, not one per keystroke.
+  // - All writes run through one promise chain so they never overlap or reorder.
+  const updateMemory = (updater, relational = null) => {
+    const prev = memoryRef.current;
+    const patch = typeof updater === 'function' ? updater(prev) : updater;
+    const next = { ...prev, ...(patch || {}) };
+    memoryRef.current = next;
+    setMemory(next);
 
-    if (user && !syncLockedRef.current) {
+    const u = userRef.current;
+    if (!u) return Promise.resolve();
+    if (syncLockedRef.current) {
+      console.warn("[Sync] Persistence Blocked: Boot in progress.");
+      return Promise.resolve();
+    }
+
+    if (relational && relational.table && relational.data) {
+      enqueue(async () => {
+        try {
+          await sb.insert(relational.table, { ...relational.data, user_id: u.id }, u.token);
+        } catch (e) {
+          // The JSON backup below still carries this change.
+          console.error(`[Sync] Relational insert failed (${relational.table}):`, e.message);
+        }
+      });
+    }
+
+    scheduleBackup();
+    return Promise.resolve();
+  };
+
+  const enqueue = (task) => {
+    queueRef.current = queueRef.current.then(task, task);
+    return queueRef.current;
+  };
+
+  const writeBackup = () => {
+    const u = userRef.current;
+    if (!u) return Promise.resolve();
+    return enqueue(async () => {
       setIsSyncing(true);
       try {
-        if (relational && relational.table && relational.data) {
-          console.log(`[Sync] Relational Push: ${relational.table}`);
-          await sb.insert(relational.table, { ...relational.data, user_id: user.id }, user.token);
-        }
-        
-        const syncPayload = { 
-          user_id: user.id, 
-          data: nextState, 
-          updated_at: new Date().toISOString() 
-        };
-        
-        await sb.upsert("user_memory", syncPayload, user.token);
-        console.log("[Sync] Memory Object Updated Successfully");
+        await sb.upsert("user_memory", {
+          user_id: u.id,
+          data: toBackup(memoryRef.current),
+          updated_at: new Date().toISOString(),
+        }, u.token);
       } catch (e) {
-        console.error("[Sync] CRITICAL PERSISTENCE ERROR:", e.message);
-        // Fallback: If relational failed, ensure it's at least in the JSON blob next time
-        try {
-           await sb.upsert("user_memory", { user_id: user.id, data: nextState }, user.token);
-        } catch (inner) { console.error("[Sync] Total Persistence Blackout:", inner.message); }
+        console.error("[Sync] Memory backup failed:", e.message);
       } finally {
         setIsSyncing(false);
       }
-    } else if (syncLockedRef.current) {
-      console.warn("[Sync] Persistence Blocked: Boot in progress.");
-    }
+    });
   };
 
-  return { memory, updateMemory, isSyncing };
+  const scheduleBackup = () => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => { timerRef.current = null; writeBackup(); }, BACKUP_DEBOUNCE_MS);
+  };
+
+  // Save any pending change right away (tab hidden / unmount) instead of losing it.
+  const flush = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+      return writeBackup();
+    }
+    return queueRef.current;
+  };
+
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => { document.removeEventListener('visibilitychange', onHide); flush(); };
+  }, []);
+
+  return { memory, updateMemory, flushMemory: flush, isSyncing };
 }

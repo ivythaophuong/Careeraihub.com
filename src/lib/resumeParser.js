@@ -17,7 +17,7 @@ Rules:
 - If a field has no data, use empty string or empty array.
 - Do not invent data. Only extract what is present.`;
 
-// ── PDF: send directly to LLM as base64 (Gemini reads layout natively) ───────
+// ── PDF: send directly to the model as base64 (models read the layout natively) ──
 export const extractResumeFromPdf = async (file) => {
   const arrayBuffer = await file.arrayBuffer();
   const base64 = _arrayBufferToBase64(arrayBuffer);
@@ -38,7 +38,7 @@ export const extractResumeFromDocx = async (file) => {
   const raw = await callLLM([{
     role: 'user',
     content: `${EXTRACT_PROMPT}\n\nResume Text:\n${rawText}`
-  }], 3000);
+  }], 8192);
   const parsed = extractJSON(raw);
   if (parsed.error) throw new Error('Failed to parse resume structure from DOCX');
   return parsed;
@@ -46,8 +46,9 @@ export const extractResumeFromDocx = async (file) => {
 
 // ── Router: pick the right extractor based on file type ─────────────────────
 export const extractResume = async (file) => {
-  if (file.name.endsWith('.pdf')) return extractResumeFromPdf(file);
-  if (file.name.endsWith('.docx')) return extractResumeFromDocx(file);
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')) return extractResumeFromPdf(file);
+  if (name.endsWith('.docx')) return extractResumeFromDocx(file);
   throw new Error('Please upload a .pdf or .docx file');
 };
 

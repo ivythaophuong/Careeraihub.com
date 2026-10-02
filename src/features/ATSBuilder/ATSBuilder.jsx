@@ -273,7 +273,7 @@ Rules: group skills by category, description fields are arrays of strings, empty
   const pendingCount = Object.values(suggestions).filter(s => s.status === 'ready' || s.status === 'loading').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', background: C.bg, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 64px - var(--bottom-nav-h, 0px))', background: C.bg, overflow: 'hidden' }}>
 
       {showTemplateSelector && (
         <TemplateSelector activeId={activeTemplateId} data={data}
@@ -330,7 +330,7 @@ Rules: group skills by category, description fields are arrays of strings, empty
       {/* Workspace */}
       <div style={{ display: 'flex', flex: 1, flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden', position: 'relative' }}>
         {isMobile && (
-          <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', background: C.surface, border: `1px solid ${C.border}`, padding: 4, borderRadius: 50, zIndex: 1000, boxShadow: `0 10px 30px rgba(0,0,0,0.5)` }}>
+          <div style={{ position: 'fixed', bottom: 'calc(var(--bottom-nav-h, 0px) + 16px)', left: '50%', transform: 'translateX(-50%)', display: 'flex', background: C.surface, border: `1px solid ${C.border}`, padding: 4, borderRadius: 50, zIndex: 1000, boxShadow: `0 10px 30px rgba(0,0,0,0.5)` }}>
             <button onClick={() => setActiveView('edit')} style={{ background: activeView === 'edit' ? C.accent : 'transparent', color: activeView === 'edit' ? '#000' : C.muted, border: 'none', padding: '8px 24px', borderRadius: 24, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Edit</button>
             <button onClick={() => setActiveView('preview')} style={{ background: activeView === 'preview' ? C.accent : 'transparent', color: activeView === 'preview' ? '#000' : C.muted, border: 'none', padding: '8px 24px', borderRadius: 24, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Preview</button>
           </div>

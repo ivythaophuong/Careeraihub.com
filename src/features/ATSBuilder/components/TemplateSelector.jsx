@@ -97,7 +97,7 @@ const TemplateSelector = ({ activeId, onSelect, onClose, data }) => {
               ))}
             </div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", position: "relative", gap: 40 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", position: "relative", gap: "clamp(8px, 3vw, 40px)" }}>
               <button 
                 onClick={prevThumbnail}
                 style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "50%", padding: 12, color: C.text, cursor: "pointer", transition: "all 0.2s" }}
@@ -107,7 +107,7 @@ const TemplateSelector = ({ activeId, onSelect, onClose, data }) => {
                 <ChevronLeft size={24} />
               </button>
 
-              <div style={{ width: 450, transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)", animation: "fadeIn 0.5s ease" }}>
+              <div style={{ width: "min(450px, 100%)", minWidth: 0, flex: "0 1 450px", transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)", animation: "fadeIn 0.5s ease" }}>
                 <Card style={{ padding: 20, border: activeId === TEMPLATE_LIST[carouselIdx].id ? `2px solid ${C.accent}` : `1px solid ${C.border}` }}>
                   <div style={{ aspectRatio: "1/1.4", background: "#fff", borderRadius: 12, marginBottom: 24, overflow: "hidden" }}>
                      <ThumbnailPreview id={TEMPLATE_LIST[carouselIdx].id} />

@@ -1,71 +1,74 @@
 import React from 'react';
+import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
+import { getValidSession } from './session';
 
-const PROVIDER = import.meta.env.VITE_LLM_PROVIDER || 'gemini';
-const MODEL    = import.meta.env.VITE_LLM_MODEL    || 'gemini-1.5-flash';
-const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
-const OPENAI_KEY    = import.meta.env.VITE_OPENAI_API_KEY;
-const GEMINI_KEY    = import.meta.env.VITE_GEMINI_API_KEY;
+// All model calls go through the `ai` Supabase Edge Function (supabase/functions/ai), which holds
+// the provider keys, picks the provider/model, and enforces limits. No API key ships to the browser.
+const AI_ENDPOINT = `${SUPABASE_URL}/functions/v1/ai`;
+
+const REQUEST_TIMEOUT_MS = 100_000; // the function waits up to 80s on the provider
+const MAX_RETRIES = 1;
+const RETRY_DELAY_MS = Number(import.meta.env.VITE_LLM_RETRY_DELAY_MS ?? 600);
+
+export class LLMError extends Error {
+  constructor(message, { status = 0, truncated = false, retryable } = {}) {
+    super(message);
+    this.name = 'LLMError';
+    this.status = status;
+    this.truncated = truncated;
+    // Rate limits and server errors are worth one retry; bad requests and auth problems are not.
+    this.retryable = retryable ?? (status === 429 || status >= 500);
+  }
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// POST to the function with timeout and one retry on transient failure.
+async function postToProxy(token, payload) {
+  let lastErr;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(AI_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal,
+      });
+      let data = null;
+      try { data = await res.json(); } catch { /* non-JSON body (e.g. a gateway error page) */ }
+      if (res.ok && typeof data?.text === 'string') return data.text;
+      const err = data?.error || {};
+      const message = res.status === 401
+        ? 'Your session expired. Please sign in again.'
+        : (typeof err === 'string' ? err : err.message) || `AI request failed (${res.status}).`;
+      throw new LLMError(message, { status: res.status, truncated: !!err.truncated });
+    } catch (e) {
+      lastErr = e instanceof LLMError ? e
+        : new LLMError(e?.name === 'AbortError' ? 'The AI request timed out.' : `Network error: ${e?.message || e}`, { retryable: true });
+      if (!lastErr.retryable) throw lastErr;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS * (attempt + 1));
+  }
+  throw lastErr;
+}
 
 // ── callLLM ──────────────────────────────────────────────────────────────────
-// Generic LLM caller. Routes to the configured provider.
-// pdfBase64: optional — if provided, the PDF is sent alongside the prompt.
-//            Only Gemini supports inline PDF; other providers receive text only.
+// messages: [{ role: 'user' | 'assistant', content: string }]
+// pdfBase64: optional PDF sent alongside the prompt.
+// Returns the reply text. Throws LLMError: `.status === 401` means the user must sign in;
+// `.truncated` means the reply hit the length limit.
 export async function callLLM(messages, maxTokens = 8192, pdfBase64 = null) {
-  if (PROVIDER === 'gemini') return _callGemini(messages, maxTokens, pdfBase64);
-  if (PROVIDER === 'openai') return _callOpenAI(messages, maxTokens);
-  return _callAnthropic(messages, maxTokens);
-}
-
-async function _callGemini(messages, maxTokens, pdfBase64) {
-  const model = MODEL.startsWith('gemini') ? MODEL : 'gemini-1.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
-
-  // Flatten messages into a single prompt for Gemini
-  const text = messages.map(m => m.content).join('\n\n');
-  const parts = pdfBase64
-    ? [{ inline_data: { mime_type: 'application/pdf', data: pdfBase64 } }, { text }]
-    : [{ text }];
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts }],
-      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.1 }
-    })
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message || 'Gemini call failed');
-  return data.candidates[0].content.parts[0].text;
-}
-
-async function _callAnthropic(messages, maxTokens) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages })
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message || 'Anthropic call failed');
-  return data.content[0].text;
-}
-
-async function _callOpenAI(messages, maxTokens) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_KEY}`
-    },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages })
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message || 'OpenAI call failed');
-  return data.choices[0].message.content;
+  const session = await getValidSession(); // refreshes the token if it is about to expire
+  if (!session?.access_token) {
+    throw new LLMError('Please sign in to use AI features.', { status: 401, retryable: false });
+  }
+  const payload = { messages, maxTokens };
+  if (pdfBase64) payload.pdfBase64 = pdfBase64;
+  return postToProxy(session.access_token, payload);
 }
 
 // ── extractJSON ──────────────────────────────────────────────────────────────

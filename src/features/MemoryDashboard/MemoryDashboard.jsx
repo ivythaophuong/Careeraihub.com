@@ -13,12 +13,17 @@ function buildMemoryContext(mem, form) {
       : "first scan";
     lines.push(`Resume scan history: ${mem.scanHistory.length} scans, latest score ${latest.score}/100 (${trend})`);
   }
-  if (mem.starBank?.length) lines.push(`STAR story bank: ${mem.starBank.length} stories banked, avg score ${Math.round(mem.starBank.reduce((s,x)=>s+x.score,0)/mem.starBank.length)}/100`);
+  if (mem.starBank?.length) {
+    const scored = mem.starBank.filter(x => Number.isFinite(x.score));
+    lines.push(`STAR story bank: ${mem.starBank.length} stories banked${scored.length ? `, avg score ${Math.round(scored.reduce((s,x)=>s+x.score,0)/scored.length)}/100` : ''}`);
+  }
   if (mem.mockSessions?.length) lines.push(`Mock interview history: ${mem.mockSessions.length} sessions completed`);
   if (mem.negotiationPractice > 0) lines.push(`Negotiation practice: ${mem.negotiationPractice} roleplay sessions`);
   if (mem.jdAnalyses?.length) {
-    const avgMatch = Math.round(mem.jdAnalyses.reduce((s,x)=>s+x.matchScore,0)/mem.jdAnalyses.length);
-    lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed, avg match score ${avgMatch}%`);
+    // JD-only analyses (no resume to compare) have a null matchScore and must not skew the average.
+    const scored = mem.jdAnalyses.filter(x => Number.isFinite(x.matchScore));
+    const avgMatch = scored.length ? Math.round(scored.reduce((s,x)=>s+x.matchScore,0)/scored.length) : null;
+    lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed${avgMatch == null ? '' : `, avg match score ${avgMatch}%`}`);
   }
   lines.push(`Target: ${form.level} ${form.role} in ${form.industry}, ${form.market}`);
   return lines.length ? "\n\nUSER HISTORY CONTEXT:\n" + lines.join("\n") : "";
@@ -50,7 +55,9 @@ Return ONLY raw JSON:
     updateMemory(() => ({
       scanHistory: [], starBank: [], mockSessions: [], applications: [], 
       rejections: [], negotiationPractice: 0, coverLetters: [], jdAnalyses: [],
-      insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null
+      insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null,
+      resumeText: null, scanResult: null, scanFileName: null, scanPdfBase64: null,
+      resumeData: null, activeTemplateId: null, originalFileUrl: null, visibleSections: null, suggestions: {}
     }));
     setAiSummary(null);
     setCleared(true);
