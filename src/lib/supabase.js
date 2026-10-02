@@ -1,5 +1,5 @@
-const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  || "https://ruibdsvrcctxgxctaxwe.supabase.co";
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1aWJkc3ZyY2N0eGd4Y3RheHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Nzg3MjksImV4cCI6MjA4OTA1NDcyOX0.TB2jdImKiHx6oP0aNNXObShT_eHk0wvtN_As5tkbcmE";
+export const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  || "https://ruibdsvrcctxgxctaxwe.supabase.co";
+export const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1aWJkc3ZyY2N0eGd4Y3RheHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Nzg3MjksImV4cCI6MjA4OTA1NDcyOX0.TB2jdImKiHx6oP0aNNXObShT_eHk0wvtN_As5tkbcmE";
 
 // Senior Refactored Supabase Client
 export const sb = {
@@ -63,7 +63,7 @@ export const sb = {
       body: JSON.stringify({ refresh_token: refreshToken })
     });
     const d = await r.json();
-    if (r.status >= 400) throw new Error("Session recovery failed.");
+    if (r.status >= 400) throw Object.assign(new Error("Session recovery failed."), { status: r.status });
     return d;
   },
 

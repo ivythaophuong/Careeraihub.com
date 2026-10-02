@@ -52,10 +52,13 @@ Return ONLY raw JSON:
   const clearMemory = async () => {
     setCleared(true);
     setAiSummary(null);
-    updateMemory(() => ({
+    // Updates merge into memory, so to clear everything we explicitly empty every key that exists
+    // (lists become [], numbers 0, everything else null) on top of the known defaults.
+    updateMemory(m => ({
       scanHistory: [], starBank: [], mockSessions: [], applications: [],
       rejections: [], negotiationPractice: 0, coverLetters: [], jdAnalyses: [],
-      insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null
+      insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null,
+      ...Object.fromEntries(Object.keys(m || {}).map(k => [k, Array.isArray(m[k]) ? [] : typeof m[k] === 'number' ? 0 : null])),
     }));
     if (user?.id && user?.token) {
       const filter = { user_id: `eq.${user.id}` };
