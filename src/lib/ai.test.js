@@ -1,21 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// ai.jsx reads import.meta.env at module load, so each test stubs env first and re-imports.
-async function loadAi(env = {}) {
+vi.mock('./session', () => ({ getValidSession: vi.fn() }));
+import { getValidSession } from './session';
+
+// ai.jsx reads import.meta.env at module load, so each test re-imports after stubbing.
+async function loadAi() {
   vi.resetModules();
   vi.stubEnv('VITE_LLM_RETRY_DELAY_MS', '0');
-  for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
   return import('./ai.jsx');
 }
 
 const res = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
-const GEMINI = { VITE_LLM_PROVIDER: 'gemini', VITE_GEMINI_API_KEY: 'g-key' };
-const CLAUDE = { VITE_LLM_PROVIDER: 'anthropic', VITE_ANTHROPIC_API_KEY: 'a-key' };
-const OPENAI = { VITE_LLM_PROVIDER: 'openai', VITE_OPENAI_API_KEY: 'o-key' };
 const msg = [{ role: 'user', content: 'hi' }];
 const bodyOf = (fetchMock, n = 0) => JSON.parse(fetchMock.mock.calls[n][1].body);
 
-beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  getValidSession.mockResolvedValue({ access_token: 'user-jwt' });
+});
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('extractJSON', () => {
@@ -37,129 +39,113 @@ describe('extractJSON', () => {
   });
 });
 
-describe('resolveModel', () => {
-  it('keeps a model that belongs to the provider', async () => {
-    const { resolveModel } = await loadAi();
-    expect(resolveModel('anthropic', 'claude-haiku-4-5-20251001')).toBe('claude-haiku-4-5-20251001');
-    expect(resolveModel('openai', 'gpt-4o')).toBe('gpt-4o');
-    expect(resolveModel('gemini', 'gemini-2.0-flash')).toBe('gemini-2.0-flash');
+describe('callLLM → ai Edge Function', () => {
+  it('posts messages, maxTokens and the PDF to the function with the user token', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ text: 'hello' }));
+    vi.stubGlobal('fetch', f);
+    expect(await callLLM(msg, 500, 'BASE64PDF')).toBe('hello');
+    const [url, init] = f.mock.calls[0];
+    expect(url).toMatch(/\/functions\/v1\/ai$/);
+    expect(init.headers.Authorization).toBe('Bearer user-jwt');
+    expect(init.headers.apikey).toBeTruthy();
+    expect(bodyOf(f)).toEqual({ messages: msg, maxTokens: 500, pdfBase64: 'BASE64PDF' });
   });
-  it('falls back to the provider default on a mismatched or missing model', async () => {
-    const { resolveModel } = await loadAi();
-    expect(resolveModel('anthropic', 'gemini-1.5-flash')).toBe('claude-sonnet-5-5');
-    expect(resolveModel('openai', undefined)).toBe('gpt-4o-mini');
+
+  it('omits pdfBase64 when there is no PDF', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ text: 'ok' }));
+    vi.stubGlobal('fetch', f);
+    await callLLM(msg);
+    expect(bodyOf(f)).not.toHaveProperty('pdfBase64');
+    expect(bodyOf(f).maxTokens).toBe(8192);
+  });
+
+  it('never sends provider, model or any API key from the browser', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ text: 'ok' }));
+    vi.stubGlobal('fetch', f);
+    await callLLM(msg, 100, 'AAAA');
+    const sent = JSON.stringify([f.mock.calls[0][1].headers, f.mock.calls[0][1].body]).toLowerCase();
+    for (const bad of ['x-api-key', 'x-goog-api-key', 'provider', 'model']) expect(sent).not.toContain(bad);
+  });
+
+  it('asks the user to sign in, without calling the network, when there is no session', async () => {
+    getValidSession.mockResolvedValue(null);
+    const { callLLM } = await loadAi();
+    const f = vi.fn();
+    vi.stubGlobal('fetch', f);
+    await expect(callLLM(msg)).rejects.toMatchObject({ status: 401, message: /sign in/i });
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it('uses a freshly refreshed token (getValidSession is called per request)', async () => {
+    getValidSession.mockResolvedValueOnce({ access_token: 'a' }).mockResolvedValueOnce({ access_token: 'b' });
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ text: 'ok' }));
+    vi.stubGlobal('fetch', f);
+    await callLLM(msg); await callLLM(msg);
+    expect(f.mock.calls.map(c => c[1].headers.Authorization)).toEqual(['Bearer a', 'Bearer b']);
   });
 });
 
-describe('Gemini', () => {
-  it('attaches the PDF as inline_data and puts the key in a header, not the URL', async () => {
-    const { callLLM } = await loadAi(GEMINI);
-    const f = vi.fn().mockResolvedValue(res({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }));
-    vi.stubGlobal('fetch', f);
-    expect(await callLLM(msg, 100, 'BASE64PDF')).toBe('ok');
-    expect(bodyOf(f).contents[0].parts[0].inline_data.data).toBe('BASE64PDF');
-    expect(f.mock.calls[0][0]).not.toContain('g-key');
-    expect(f.mock.calls[0][1].headers['x-goog-api-key']).toBe('g-key');
-  });
-  it('reports a blocked prompt instead of crashing on missing candidates', async () => {
-    const { callLLM } = await loadAi(GEMINI);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res({ promptFeedback: { blockReason: 'SAFETY' } })));
-    await expect(callLLM(msg)).rejects.toThrow(/blocked.*SAFETY/i);
-  });
-  it('flags a response cut off by the token limit', async () => {
-    const { callLLM } = await loadAi(GEMINI);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"a":' }] } }] })));
-    await expect(callLLM(msg)).rejects.toMatchObject({ truncated: true });
-  });
-});
-
-describe('Anthropic', () => {
-  it('uses the messages endpoint with the browser-access header', async () => {
-    const { callLLM } = await loadAi(CLAUDE);
-    const f = vi.fn().mockResolvedValue(res({ content: [{ type: 'text', text: 'hello' }] }));
-    vi.stubGlobal('fetch', f);
-    expect(await callLLM(msg)).toBe('hello');
-    expect(f.mock.calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
-    expect(f.mock.calls[0][1].headers['anthropic-dangerous-direct-browser-access']).toBe('true');
-    expect(bodyOf(f).model).toBe('claude-sonnet-5-5');
-  });
-  it('sends the PDF as a document block (audit 1.4)', async () => {
-    const { callLLM } = await loadAi(CLAUDE);
-    const f = vi.fn().mockResolvedValue(res({ content: [{ type: 'text', text: 'ok' }] }));
-    vi.stubGlobal('fetch', f);
-    await callLLM([{ role: 'user', content: 'scan this' }], 100, 'BASE64PDF');
-    const content = bodyOf(f).messages[0].content;
-    expect(content[0]).toEqual({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'BASE64PDF' } });
-    expect(content[1]).toEqual({ type: 'text', text: 'scan this' });
-  });
-  it('joins multiple text blocks and flags max_tokens', async () => {
-    const { callLLM } = await loadAi(CLAUDE);
+describe('error handling (audit 2.4)', () => {
+  it('retries once on 429 then succeeds', async () => {
+    const { callLLM } = await loadAi();
     const f = vi.fn()
-      .mockResolvedValueOnce(res({ content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] }))
-      .mockResolvedValueOnce(res({ stop_reason: 'max_tokens', content: [{ type: 'text', text: '{"x":' }] }));
-    vi.stubGlobal('fetch', f);
-    expect(await callLLM(msg)).toBe('ab');
-    await expect(callLLM(msg)).rejects.toMatchObject({ truncated: true });
-  });
-});
-
-describe('OpenAI', () => {
-  it('sends the PDF as a file part and reads the choice', async () => {
-    const { callLLM } = await loadAi(OPENAI);
-    const f = vi.fn().mockResolvedValue(res({ choices: [{ message: { content: 'yo' }, finish_reason: 'stop' }] }));
-    vi.stubGlobal('fetch', f);
-    expect(await callLLM(msg, 100, 'BASE64PDF')).toBe('yo');
-    const part = bodyOf(f).messages[0].content[0];
-    expect(part.type).toBe('file');
-    expect(part.file.file_data).toBe('data:application/pdf;base64,BASE64PDF');
-    expect(f.mock.calls[0][1].headers.Authorization).toBe('Bearer o-key');
-  });
-  it('flags finish_reason=length', async () => {
-    const { callLLM } = await loadAi(OPENAI);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res({ choices: [{ message: { content: '{' }, finish_reason: 'length' }] })));
-    await expect(callLLM(msg)).rejects.toMatchObject({ truncated: true });
-  });
-});
-
-describe('request handling (audit 2.4)', () => {
-  it('retries once on 429 and then succeeds', async () => {
-    const { callLLM } = await loadAi(CLAUDE);
-    const f = vi.fn()
-      .mockResolvedValueOnce(res({ error: { message: 'rate limited' } }, 429))
-      .mockResolvedValueOnce(res({ content: [{ type: 'text', text: 'ok' }] }));
+      .mockResolvedValueOnce(res({ error: { message: 'busy' } }, 429))
+      .mockResolvedValueOnce(res({ text: 'ok' }));
     vi.stubGlobal('fetch', f);
     expect(await callLLM(msg)).toBe('ok');
     expect(f).toHaveBeenCalledTimes(2);
   });
-  it('retries once on a network error, then gives up with a clear message', async () => {
-    const { callLLM } = await loadAi(CLAUDE);
-    const f = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-    vi.stubGlobal('fetch', f);
-    await expect(callLLM(msg)).rejects.toThrow(/network error: Failed to fetch/);
-    expect(f).toHaveBeenCalledTimes(2);
+
+  it('retries once on 502 and on a network error, then gives up with a clear message', async () => {
+    const { callLLM } = await loadAi();
+    const f1 = vi.fn().mockResolvedValue(res({ error: { message: 'The AI provider is down.' } }, 502));
+    vi.stubGlobal('fetch', f1);
+    await expect(callLLM(msg)).rejects.toThrow('The AI provider is down.');
+    expect(f1).toHaveBeenCalledTimes(2);
+
+    const f2 = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.stubGlobal('fetch', f2);
+    await expect(callLLM(msg)).rejects.toThrow(/Network error: Failed to fetch/);
+    expect(f2).toHaveBeenCalledTimes(2);
   });
-  it('does not retry a 400 or 401', async () => {
-    const { callLLM } = await loadAi(CLAUDE);
-    const f = vi.fn().mockResolvedValue(res({ error: { message: 'invalid x-api-key' } }, 401));
+
+  it('does not retry a 400', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ error: { message: 'The prompt is too long.' } }, 400));
     vi.stubGlobal('fetch', f);
-    await expect(callLLM(msg)).rejects.toMatchObject({ message: 'invalid x-api-key', status: 401 });
+    await expect(callLLM(msg)).rejects.toMatchObject({ message: 'The prompt is too long.', status: 400 });
     expect(f).toHaveBeenCalledTimes(1);
   });
-  it('surfaces a provider error returned with HTTP 200', async () => {
-    const { callLLM } = await loadAi(CLAUDE);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res({ error: { message: 'overloaded' } })));
-    await expect(callLLM(msg)).rejects.toThrow('overloaded');
+
+  it('turns a 401 into a "session expired" message and does not retry', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ error: { message: 'Please sign in to use AI features.' } }, 401));
+    vi.stubGlobal('fetch', f);
+    await expect(callLLM(msg)).rejects.toMatchObject({ status: 401, message: /session expired/i });
+    expect(f).toHaveBeenCalledTimes(1);
   });
-  it('handles a non-JSON error body', async () => {
-    const { callLLM } = await loadAi(CLAUDE);
+
+  it('flags a cut-off reply (422 + truncated) without retrying', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ error: { message: 'The response hit the length limit.', truncated: true } }, 422));
+    vi.stubGlobal('fetch', f);
+    await expect(callLLM(msg)).rejects.toMatchObject({ truncated: true, status: 422 });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles a non-JSON gateway error page', async () => {
+    const { callLLM } = await loadAi();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 502, json: async () => { throw new Error('html'); } }));
     await expect(callLLM(msg)).rejects.toThrow(/502/);
   });
-  it('fails fast with a clear message when the API key is missing', async () => {
-    const { callLLM } = await loadAi({ VITE_LLM_PROVIDER: 'anthropic', VITE_ANTHROPIC_API_KEY: '' });
-    const f = vi.fn();
-    vi.stubGlobal('fetch', f);
-    await expect(callLLM(msg)).rejects.toThrow(/VITE_ANTHROPIC_API_KEY/);
-    expect(f).not.toHaveBeenCalled();
+
+  it('treats a 200 without text as a failure instead of returning undefined', async () => {
+    const { callLLM } = await loadAi();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res({})));
+    await expect(callLLM(msg)).rejects.toBeInstanceOf(Error);
   });
 });

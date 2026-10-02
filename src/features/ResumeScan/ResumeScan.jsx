@@ -107,7 +107,7 @@ function ScanHistoryCard({ item, initExpanded }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function ResumeScan({ resumeText, setResumeText, scanResult, setScanResult, form, memory, updateMemory, setActiveModule }) {
+export default function ResumeScan({ resumeText, setResumeText, scanResult, setScanResult, form, memory, updateMemory, setActiveModule, setAuthModal }) {
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState('');
@@ -200,7 +200,13 @@ export default function ResumeScan({ resumeText, setResumeText, scanResult, setS
       }
     } catch (e) {
       clearInterval(iv);
-      setFileErr(e.message || 'Scan failed. Please try again.');
+      if (e.status === 401 && setAuthModal) {
+        // AI calls need a signed-in user (the server checks who is calling).
+        setFileErr('Create a free account or sign in to scan your resume.');
+        setAuthModal('register');
+      } else {
+        setFileErr(e.message || 'Scan failed. Please try again.');
+      }
       console.error('[ResumeScan] Scan error:', e);
     } finally {
       setScanning(false);
