@@ -78,14 +78,3 @@ export const EmptyState = ({ icon, title, desc, cta, onCta, ctaColor = C.accent 
     {cta && <Btn onClick={onCta} color={ctaColor} dark style={{ margin: "0 auto" }}>{cta}</Btn>}
   </div>
 );
-
-// Shown on modules that still return sample output instead of calling the AI.
-export const PreviewBanner = () => (
-  <div role="note" style={{ display: "flex", gap: 10, alignItems: "flex-start", background: `${C.gold}12`, border: `1px solid ${C.gold}44`, borderRadius: 10, padding: "10px 14px" }}>
-    <span style={{ fontSize: 14 }}>🧪</span>
-    <div style={{ color: C.text, fontSize: 12, lineHeight: 1.5 }}>
-      <strong style={{ color: C.gold }}>Preview — sample output.</strong> This module is still being connected to the AI.
-      The results below are examples, not an analysis of your input, and are not saved to your history.
-    </div>
-  </div>
-);
