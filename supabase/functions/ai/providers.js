@@ -1,7 +1,7 @@
 // Provider adapters used by the `ai` Edge Function. Pure JS (no Deno APIs) so the same
 // code runs under Deno in production and under Vitest in tests.
 
-export const DEFAULT_MODELS = { anthropic: 'claude-sonnet-5-5', gemini: 'gemini-2.5-flash', openai: 'gpt-4o-mini' };
+export const DEFAULT_MODELS = { anthropic: 'claude-sonnet-5-5', gemini: 'gemini-3.8-flash', openai: 'gpt-4o-mini' };
 const MODEL_FAMILY = { anthropic: /^claude/i, gemini: /^gemini/i, openai: /^(gpt|o\d|chatgpt)/i };
 export const PROVIDERS = Object.keys(DEFAULT_MODELS);
 export const KEY_ENV = { anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY' };
@@ -36,6 +36,17 @@ const withAttachment = (messages, build) => {
   return messages.map((m, i) => (i === last ? { ...m, content: build(m.content) } : m));
 };
 
+// Gemini models can spend output tokens on hidden "thinking", which would cut a JSON answer off.
+// - 2.5 Flash: thinking can be switched off with thinkingBudget 0, so do that.
+// - Other/newer models use different thinking controls that this code can't verify, so send no
+//   thinking setting and instead leave extra room in the output budget (it is only an upper limit;
+//   the model stops when it is done, so this does not make answers longer).
+export function geminiGenerationConfig(model, maxTokens) {
+  const base = { temperature: 0.1 };
+  if (/gemini-2\.5-flash/i.test(model)) return { ...base, maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } };
+  return { ...base, maxOutputTokens: Math.min(8192, Math.max(maxTokens * 2, 4096)) };
+}
+
 function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) {
   if (provider === 'gemini') {
     const text = messages.map(m => m.content).join('\n\n');
@@ -45,14 +56,7 @@ function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) 
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       body: {
         contents: [{ parts }],
-        generationConfig: {
-          maxOutputTokens: maxTokens,
-          temperature: 0.1,
-          // Gemini 2.5 Flash "thinks" before answering and those hidden tokens count against
-          // maxOutputTokens, which can cut a JSON answer off. Our prompts don't need it, so turn it off.
-          // (Pro models can't disable thinking, so only flash models get this.)
-          ...(/flash/i.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-        },
+        generationConfig: geminiGenerationConfig(model, maxTokens),
       },
     };
   }

@@ -168,23 +168,28 @@ describe('provider call', () => {
     expect(ro.body.text).toBe('o');
   });
 
-  it('turns off Gemini flash "thinking" so hidden tokens cannot cut the answer off', async () => {
-    const run = async (model) => {
+  it('turns off thinking only for 2.5 Flash, and leaves token headroom for other Gemini models', async () => {
+    const run = async (model, maxTokens = 1800) => {
       const f = makeFetch({ provider: () => ok({ candidates: [{ content: { parts: [{ text: 'g' }] } }] }) });
-      await call(VALID, { env: { ...ENV, AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'gk', AI_MODEL: model }, fetchImpl: f });
+      await call({ ...VALID, maxTokens }, { env: { ...ENV, AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'gk', AI_MODEL: model }, fetchImpl: f });
       return JSON.parse(f.mock.calls.at(-1)[1].body).generationConfig;
     };
-    expect((await run('gemini-2.5-flash')).thinkingConfig).toEqual({ thinkingBudget: 0 });
-    expect((await run(undefined)).thinkingConfig).toEqual({ thinkingBudget: 0 }); // default model is flash
+    expect(await run('gemini-2.5-flash')).toMatchObject({ maxOutputTokens: 1800, thinkingConfig: { thinkingBudget: 0 } });
+    const newer = await run('gemini-3.8-flash');
+    expect(newer.thinkingConfig).toBeUndefined();   // an unverified setting could be rejected by a newer model
+    expect(newer.maxOutputTokens).toBe(4096);       // headroom for hidden thinking
+    expect((await run('gemini-3.8-flash', 3000)).maxOutputTokens).toBe(6000);
+    expect((await run('gemini-3.8-flash', 8192)).maxOutputTokens).toBe(8192); // never above the cap
     expect((await run('gemini-2.5-pro')).thinkingConfig).toBeUndefined();
+    expect((await run(undefined)).thinkingConfig).toBeUndefined(); // default model is the current one
   });
 
   it('tolerates stray spaces or newlines in pasted settings', async () => {
     const f = makeFetch({ provider: () => ok({ candidates: [{ content: { parts: [{ text: 'g' }] } }] }) });
-    const r = await call(VALID, { env: { ...ENV, AI_PROVIDER: ' Gemini\n', GEMINI_API_KEY: '  gk-with-space \n', AI_MODEL: ' gemini-2.5-flash ' }, fetchImpl: f });
+    const r = await call(VALID, { env: { ...ENV, AI_PROVIDER: ' Gemini\n', GEMINI_API_KEY: '  gk-with-space \n', AI_MODEL: ' gemini-3.8-flash ' }, fetchImpl: f });
     expect(r).toMatchObject({ status: 200, body: { text: 'g' } });
     const [url, init] = f.mock.calls.at(-1);
-    expect(url).toContain('/models/gemini-2.5-flash:');
+    expect(url).toContain('/models/gemini-3.8-flash:');
     expect(init.headers['x-goog-api-key']).toBe('gk-with-space');
   });
 
