@@ -6,6 +6,9 @@ import { scoreAnswers, personaFor, bandFor, isComplete } from './scoring';
 import { track, saveLead, submittedRecently, EMAIL_RE } from './tracking';
 import { downloadShareCard } from './shareCard';
 
+// Links out of the quiz always go to the official live site, even when testing locally.
+const SITE_URL = 'https://careeraihub.com';
+
 const ANSWERS_KEY = 'cq_answers';
 const UNLOCKED_KEY = 'cq_unlocked';
 
@@ -61,7 +64,7 @@ const ghostBtn = {
 function Header() {
   return (
     <div style={{ ...column, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-      <a href="/" style={{ color: C.text, fontWeight: 800, fontSize: 18, textDecoration: 'none' }}>
+      <a href={SITE_URL} style={{ color: C.text, fontWeight: 800, fontSize: 18, textDecoration: 'none' }}>
         Career<span style={{ color: C.accent }}>AI</span>Hub
       </a>
       <span style={{ color: C.muted, fontSize: 13 }}>Work Culture Quiz</span>
@@ -308,7 +311,7 @@ function FullReport({ persona, scores, onShareEvent }) {
           where it needs stronger evidence.
         </p>
         <a
-          href="/?utm_source=culture_quiz&utm_medium=result"
+          href={`${SITE_URL}/?utm_source=culture_quiz&utm_medium=result`}
           onClick={() => track('cta_click', { target: 'scan' })}
           style={{ ...primaryBtn(false), textDecoration: 'none', display: 'inline-block' }}
         >
