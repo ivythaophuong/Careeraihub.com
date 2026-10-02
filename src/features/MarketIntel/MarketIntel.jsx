@@ -45,6 +45,7 @@ export default function MarketIntel({ form, memory }) {
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Market Intelligence</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Hiring playbooks and negotiation norms differ radically across global regions.</div>
+        <div role="note" style={{ color: C.muted, fontSize: 11, marginTop: 8, padding: "6px 10px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>General guidance and rules of thumb, not live market data. Practices vary a lot between companies, so confirm with the employer.</div>
       </div>
 
       {/* ── INTERACTIVE REGION GRID ── */}

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './landing.css';
+import { MODULES } from '../../styles/theme';
+import { PERSONAS } from '../HiringManagerSim/interview';
 import { SUPABASE_URL, SUPABASE_ANON } from '../../lib/supabase';
 
 // ── DATA ─────────────────────────────────────────────────────────────────────
@@ -13,16 +15,16 @@ const TYPEWRITER_PHRASES = [
 ];
 
 const AC_DATA = [
-  { title: 'Product Manager', sal: 'SGD 7K–11K', meta: '340 open roles · Most in demand' },
-  { title: 'Senior Product Manager', sal: 'SGD 9K–13K', meta: '128 open roles · +22% YoY' },
-  { title: 'Product Designer', sal: 'SGD 6K–9K', meta: '210 open roles · High velocity' },
-  { title: 'Software Engineer', sal: 'SGD 6K–12K', meta: '890 open roles · Always hiring' },
-  { title: 'Data Analyst', sal: 'SGD 5K–8K', meta: '180 open roles · Growing fast' },
-  { title: 'Marketing Manager', sal: 'SGD 5K–9K', meta: '140 open roles' },
-  { title: 'Business Analyst', sal: 'SGD 5K–8K', meta: '160 open roles' },
-  { title: 'UX Designer', sal: 'SGD 5.5K–8.5K', meta: '95 open roles' },
-  { title: 'DevOps Engineer', sal: 'SGD 7K–12K', meta: '210 open roles · Hot skill' },
-  { title: 'Data Scientist', sal: 'SGD 7K–13K', meta: '150 open roles · AI boom' },
+  { title: 'Product Manager' },
+  { title: 'Senior Product Manager' },
+  { title: 'Product Designer' },
+  { title: 'Software Engineer' },
+  { title: 'Data Analyst' },
+  { title: 'Marketing Manager' },
+  { title: 'Business Analyst' },
+  { title: 'UX Designer' },
+  { title: 'DevOps Engineer' },
+  { title: 'Data Scientist' },
 ];
 
 const ATS_KW_MAP = {
@@ -173,18 +175,13 @@ const FEAT_DATA = [
   {
     icon: '🔍', label: 'Job Search', isFree: true, moduleId: 'jobs',
     ey: 'Module 1 — Always free', title: 'Job Search Engine',
-    desc: 'Find live jobs from 20+ platforms in one place. AI ranks results by fit to your memory profile, surfaces salary data for each role, and shows which companies are actively hiring.',
-    bullets: ['Live jobs from LinkedIn, Indeed, Glassdoor, and 17 more in one search', 'AI salary intel shows market rate for each role before you apply', 'Application tracker logs every job across all platforms in one dashboard', "Market intelligence shows hiring velocity — who's growing fast, who's slowing"],
-    previewHd: 'Job Search · Live AI-ranked results',
-    preview: `<div class="mk-lbl">Live results · "Product Manager · Singapore"</div>
-      <div class="mk-row"><span class="mk-l">Senior PM · Tech company · SGD 8K–11K</span><span class="mk-v">94% fit</span></div>
-      <div class="mk-row"><span class="mk-l">Product Manager · E-commerce · SGD 7K–10K</span><span class="mk-v">87% fit</span></div>
-      <div class="mk-row"><span class="mk-l">Associate PM · Fintech · SGD 5K–7.5K</span><span class="mk-v">81% fit</span></div>
-      <div class="mk-stat-row" style="margin-top:12px">
-        <div class="mk-stat"><div class="mk-stat-n">340</div><div class="mk-stat-l">Open PM roles SG</div></div>
-        <div class="mk-stat"><div class="mk-stat-n">SGD 8.2K</div><div class="mk-stat-l">Median salary</div></div>
-        <div class="mk-stat"><div class="mk-stat-n">+18%</div><div class="mk-stat-l">YoY demand</div></div>
-      </div>`,
+    desc: 'Search LinkedIn, Indeed, Glassdoor and more from one form, see live listings when available, and track every application in one place.',
+    bullets: ['One search opens the major job boards with your title and location filled in', 'Live listings appear here when the job feed is available; direct board links otherwise', 'Application tracker logs every job you save or apply to', 'Market guides explain hiring norms for a few regions (general guidance, not live data)'],
+    previewHd: 'Job Search · Example',
+    preview: `<div class="mk-lbl">Example search · "Product Manager · Singapore"</div>
+      <div class="mk-row"><span class="mk-l">LinkedIn</span><span class="mk-v">Open search ↗</span></div>
+      <div class="mk-row"><span class="mk-l">Indeed</span><span class="mk-v">Open search ↗</span></div>
+      <div class="mk-row"><span class="mk-l">Glassdoor</span><span class="mk-v">Open search ↗</span></div>`,
     pw: null,
   },
   {
@@ -351,9 +348,9 @@ const FEAT_DATA = [
 const FAQ_DATA = [
   { q: 'What is CareerAiHub and how is it different from LinkedIn?', a: "CareerAiHub owns professional execution — the active, AI-guided layer that turns a static LinkedIn profile into a verified, interview-ready, AI-matched candidate. LinkedIn owns professional identity. We complete it, not compete with it. CareerAiHub has 10 AI modules across 4 layers at $19/month, replacing 5 tools costing $175+/month." },
   { q: 'How does the AI memory work across all 10 modules?', a: 'Upload your resume once at onboarding. The AI memory core reads it and seeds context to every module instantly. Your mock interview knows your target role. Your Salary Coach knows your experience level. Your cover letter knows your latest resume version. Every session writes back to the core — compounding switching costs no point solution can replicate.' },
-  { q: 'Is the ATS resume scanner accurate for Singapore job applications?', a: "Yes — CareerAiHub scores your resume against the specific job description you're applying to, not generic templates. Users consistently see ATS scores jump from under 40% to above 85% in a single session. The scanner shows exactly which keywords are missing, which sections need work, and which changes will have the biggest impact on your score." },
+  { q: 'Is the ATS resume scanner accurate for Singapore job applications?', a: "Resume Scan reviews your resume the way a hiring manager would, flagging vague bullets and missing metrics, and the JD Analyzer shows which keywords from a specific job posting your resume is missing. No tool can see how every employer's ATS behaves, so treat these as guidance, not a guarantee." },
   { q: 'Can I try CareerAiHub free without a credit card?', a: "Yes. The free tier includes 1 ATS resume scan, 1–2 uses per module, and unlimited access to the job search engine and market intelligence. No credit card required. Premium is $19/month or $180/year — replacing $175+/month of separate tools, saving $156/month." },
-  { q: 'What is the Hiring Manager Simulator?', a: "The HM Simulator is an AI that behaves like a real hiring manager — asking follow-up questions, probing vague answers, and challenging unsupported claims. Unlike generic interview bots, it knows your resume and target role from your AI memory, making every question contextually relevant to your actual background." },
+  { q: 'What is the Hiring Manager Simulator?', a: "The HM Simulator runs a five-question mock interview in the style of a startup founder, a Series B manager, a large-company manager or a tech lead. The questions are written from your resume and target role, and every answer gets a score and specific feedback." },
   { q: 'Is CareerAiHub only for Singapore?', a: "Not at all — CareerAiHub is built for every English-speaking professional. Singapore is our launch market because it is the ideal environment: high digital maturity, English as the dominant business language, and a concentration of ambitious professionals at every career stage. From Singapore, we expand across Southeast Asia, then into Australia, the UK, Canada, and the USA. Wherever you are, if you are navigating a job search in English, CareerAiHub works for you." },
 ];
 
@@ -523,97 +520,40 @@ export function TickerBar() {
 // ── ATS INTERCEPT per job card ────────────────────────────────────────────────
 
 function AtsIntercept({ jobId, role, company, link, state, onApply, onClose, onOpenImprove }) {
-  const circleRef = useRef(null);
-
-  useEffect(() => {
-    if (state?.loading === false && state?.score && circleRef.current) {
-      let cur = 0;
-      const target = state.score;
-      const interval = setInterval(() => {
-        cur = Math.min(cur + Math.ceil(target / 20), target);
-        if (circleRef.current) circleRef.current.textContent = cur + '%';
-        if (cur >= target) clearInterval(interval);
-      }, 50);
-      return () => clearInterval(interval);
-    }
-  }, [state?.loading, state?.score]);
-
   if (!state?.show) return null;
+  const kws = [...state.kws.found, ...state.kws.missing];
 
   return (
     <div className="ats-intercept show">
       <div className="ats-int-hd">
         <div>
-          <div className="ats-int-title">ATS Score Check — {role}</div>
-          <div className="ats-int-subtitle">Most ATS systems filter 7 in 10 resumes before a human reads them</div>
+          <div className="ats-int-title">Keywords to consider — {role}</div>
+          <div className="ats-int-subtitle">Common terms for roles like this. Only add the ones that are true for you.</div>
         </div>
         <button className="ats-int-close" onClick={() => onClose(jobId)}>✕</button>
       </div>
       <div className="ats-int-body">
-        {state.loading ? (
-          <div className="ats-int-loading">
-            <div className="res-spinner" />
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Scanning your resume against this role...</div>
-              <div className="ats-int-bar"><div className="ats-int-bar-fill" style={{ width: '85%' }} /></div>
-            </div>
+        <div className="ats-int-kw">
+          <div>{kws.slice(0, 8).map(k => <span key={k} className="mk-tag m">{k}</span>)}</div>
+        </div>
+        <div className="ats-int-cta">
+          <button className="ats-int-primary" onClick={() => onApply(jobId, role, company, link)}>Apply now →</button>
+          <button className="ats-int-secondary" onClick={() => onOpenImprove(jobId)}>How to add keywords</button>
+          <button className="ats-int-skip" onClick={() => onClose(jobId)}>Close</button>
+        </div>
+        {state.showImprove && (
+          <div className="ats-improve show">
+            <div className="ats-improve-title">How to add these keywords naturally</div>
+            {state.kws.missing.slice(0, 4).map((kw, i) => (
+              <div key={i} className="ats-improve-tip">
+                <span className="ats-improve-num">{i + 1}</span>
+                <span>If it's true, mention <strong style={{ color: 'var(--lp-text)' }}>"{kw}"</strong> with a specific example in your experience or skills section</span>
+              </div>
+            ))}
+            <button className="ats-rescan" onClick={() => { onClose(jobId); document.getElementById('feat-sec')?.scrollIntoView({ behavior: 'smooth' }); }}>
+              ✦ Build an ATS-friendly resume — see the tools →
+            </button>
           </div>
-        ) : (
-          <>
-            <div className="ats-int-score-row">
-              <div className={`ats-int-score-circle ${state.level}`} ref={circleRef}>0%</div>
-              <div className="ats-int-verdict">
-                <div className="ats-int-verdict-title">
-                  {state.level === 'good' ? "Strong match — you're ready to apply" : state.level === 'mid' ? 'A few gaps — worth a quick fix' : 'Resume needs work for this role'}
-                </div>
-                <div className="ats-int-verdict-sub">
-                  {state.level === 'good'
-                    ? 'Your resume passes this ATS filter. Apply with confidence, or fine-tune a few keywords to push your score even higher.'
-                    : state.level === 'mid'
-                    ? 'Your resume partially matches this role. Closing the keyword gaps below could significantly increase your chance of a phone screen.'
-                    : 'Your resume is likely to be filtered out before a recruiter reads it. Add the missing keywords below before applying.'}
-                </div>
-                <div className="ats-stat-highlight">
-                  {state.level === 'good' ? '✓ Resume passes ATS filter for this role' : '⬤ Fixing these gaps increases phone screen rate by up to 3×'}
-                </div>
-              </div>
-            </div>
-            <div className="ats-int-kw">
-              <div className="ats-int-kw-label">Keywords matched</div>
-              <div style={{ marginBottom: 10 }}>{state.kws.found.slice(0, 3).map(k => <span key={k} className="mk-tag m">{k}</span>)}</div>
-              <div className="ats-int-kw-label">Missing — add these to improve score</div>
-              <div>{state.kws.missing.slice(0, 4).map(k => <span key={k} className="mk-tag x">{k}</span>)}</div>
-            </div>
-            <div className="ats-int-cta">
-              {state.level === 'good' ? (
-                <>
-                  <button className="ats-int-primary" onClick={() => onApply(jobId, role, company, link)}>Apply now →</button>
-                  <button className="ats-int-secondary" onClick={() => onOpenImprove(jobId)}>Fine-tune keywords</button>
-                  <button className="ats-int-skip" onClick={() => onClose(jobId)}>Close</button>
-                </>
-              ) : (
-                <>
-                  <button className="ats-int-primary" onClick={() => onOpenImprove(jobId)}>✦ Fix it — improve score</button>
-                  <button className="ats-int-secondary" onClick={() => onApply(jobId, role, company, link)}>Apply anyway →</button>
-                  <button className="ats-int-skip" onClick={() => onClose(jobId)}>Skip</button>
-                </>
-              )}
-            </div>
-            {state.showImprove && (
-              <div className="ats-improve show">
-                <div className="ats-improve-title">How to add these keywords naturally</div>
-                {state.kws.missing.slice(0, 4).map((kw, i) => (
-                  <div key={i} className="ats-improve-tip">
-                    <span className="ats-improve-num">{i + 1}</span>
-                    <span>Add <strong style={{ color: 'var(--lp-text)' }}>"{kw}"</strong> — mention a specific example in your experience or skills section</span>
-                  </div>
-                ))}
-                <button className="ats-rescan" onClick={() => { onClose(jobId); document.getElementById('feat-sec')?.scrollIntoView({ behavior: 'smooth' }); }}>
-                  ✦ Re-scan after edits — open ATS Builder →
-                </button>
-              </div>
-            )}
-          </>
         )}
       </div>
     </div>
@@ -635,7 +575,6 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
   const [resCount, setResCount] = useState('');
   const [resOpen, setResOpen] = useState(false);
   const [atsMap, setAtsMap] = useState({});
-  const [ms1, setMs1] = useState(306);
   const [appCount, setAppCount] = useState(0);
 
   useEffect(() => {
@@ -645,16 +584,6 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
     refresh();
     window.addEventListener('storage', refresh);
     return () => window.removeEventListener('storage', refresh);
-  }, []);
-
-  useEffect(() => {
-    let v = 306, dir = 1;
-    const t = setInterval(() => {
-      v += dir * (Math.floor(Math.random() * 3) + 1);
-      if (v > 360) dir = -1; if (v < 300) dir = 1;
-      setMs1(v);
-    }, 3200);
-    return () => clearInterval(t);
   }, []);
 
   const showAc = (val) => {
@@ -680,17 +609,13 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
     if (link && link !== '#') window.open(link, '_blank', 'noopener');
   };
 
-  const toggleAts = async (jobId, role, company, link) => {
+  // There is no resume on the landing page, so no score is possible. Show the keywords commonly
+  // expected for this kind of role, for the visitor to consider.
+  const toggleAts = (jobId, role, company, link) => {
     setAtsMap(prev => {
-      const cur = prev[jobId];
-      if (cur?.show && !cur?.loading) return { ...prev, [jobId]: { show: false } };
-      return { ...prev, [jobId]: { show: true, loading: true } };
+      if (prev[jobId]?.show) return { ...prev, [jobId]: { show: false } };
+      return { ...prev, [jobId]: { show: true, role, company, link, kws: getKwSet(role), showImprove: false } };
     });
-    await new Promise(r => setTimeout(r, 1600));
-    const kws = getKwSet(role);
-    const score = Math.min(91, Math.max(32, 42 + Math.floor(Math.random() * 35)));
-    const level = score >= 75 ? 'good' : score >= 50 ? 'mid' : 'low';
-    setAtsMap(prev => ({ ...prev, [jobId]: { show: true, loading: false, score, level, role, company, link, kws, showImprove: false } }));
   };
 
   const closeAts = (jobId) => setAtsMap(prev => ({ ...prev, [jobId]: { show: false } }));
@@ -751,25 +676,11 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
 
   return (
     <div className="hero-right">
-      <div className="search-card-label">Find your next role — AI-ranked from 20+ platforms, free</div>
+      <div className="search-card-label">Find your next role — search the major job boards in one place, free</div>
       <div className="search-card">
         <div className="search-card-hd">
           <div className="search-card-title"><span className="search-card-dot" />Job Search</div>
           <span className="search-card-badge">Always Free</span>
-        </div>
-        <div className="market-signals">
-          <div className="ms-pill">
-            <div className="ms-top"><span className="ms-val">{ms1}</span><span className="ms-live">live</span></div>
-            <span className="ms-lbl">open roles in Singapore</span>
-          </div>
-          <div className="ms-pill">
-            <div className="ms-top"><span className="ms-val">SGD 8.2K</span><span className="ms-live">live</span></div>
-            <span className="ms-lbl">median salary</span>
-          </div>
-          <div className="ms-pill">
-            <div className="ms-top"><span className="ms-val">+18%</span><span className="ms-live">↑ YoY</span></div>
-            <span className="ms-lbl">hiring velocity</span>
-          </div>
         </div>
         <div className="search-body">
           <div className="fg2">
@@ -781,8 +692,7 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
               <div className={`ac-dropdown${acOpen ? ' show' : ''}`}>
                 {acItems.map((d, i) => (
                   <div key={i} className="ac-item" onMouseDown={() => pickAc(d.title)}>
-                    <div><div className="ac-item-title">{d.title}</div><div className="ac-item-meta">{d.meta}</div></div>
-                    <div className="ac-item-sal">{d.sal}</div>
+                    <div><div className="ac-item-title">{d.title}</div></div>
                   </div>
                 ))}
               </div>
@@ -826,15 +736,15 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
               <span className="results-count">{resCount}</span>
             </div>
             {results[0]?.type === 'loading' ? (
-              <div className="res-loading"><div className="res-spinner" /><span>Searching live jobs across 20+ platforms...</span></div>
+              <div className="res-loading"><div className="res-spinner" /><span>Searching...</span></div>
             ) : (
               <>
                 {results[0]?.type === 'fallback' && (
                   <div className="res-redirect">
                     <div className="res-redirect-icon">🔍</div>
                     <div>
-                      <div className="res-redirect-title">Live jobs across 20+ platforms</div>
-                      <div className="res-redirect-sub">Apply from here to track your application automatically. Check ATS score before applying.</div>
+                      <div className="res-redirect-title">Search these job boards directly</div>
+                      <div className="res-redirect-sub">Open a board in a new tab. Applications you start from here are tracked for you.</div>
                     </div>
                   </div>
                 )}
@@ -855,7 +765,7 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
                     {job.desc && <div className="result-desc-strip">{job.desc}</div>}
                     <div className="result-actions">
                       <button className="btn-apply-now" onClick={() => applyNow(job.id, job.role, job.company, job.link)}>Apply now →</button>
-                      <button className={`btn-ats-check${atsMap[job.id]?.show ? ' active' : ''}`} onClick={() => toggleAts(job.id, job.role, job.company, job.link)}>✦ Check ATS first</button>
+                      <button className={`btn-ats-check${atsMap[job.id]?.show ? ' active' : ''}`} onClick={() => toggleAts(job.id, job.role, job.company, job.link)}>✦ Keywords to consider</button>
                       <button className="btn-skip-apply" onClick={() => applyNow(job.id, job.role, job.company, job.link)}>Skip and apply anyway ↗</button>
                     </div>
                     <AtsIntercept
@@ -867,7 +777,7 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
                 ))}
                 {renderedResults.length > 0 && (
                   <div className="results-nudge">
-                    <div className="rn-text"><strong>Sign up free</strong> to unlock your full AI fit score and salary intel for every role</div>
+                    <div className="rn-text"><strong>Sign up free</strong> to scan your resume, analyse job descriptions and track every application</div>
                     <button className="rn-btn" onClick={onJoin}>✦ Join free →</button>
                   </div>
                 )}
@@ -884,26 +794,14 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
 
 function HeroSection({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
   const text = useTypewriter(TYPEWRITER_PHRASES);
-  const [liveCount, setLiveCount] = useState(512);
   const [statsStarted, setStatsStarted] = useState(false);
 
   // Hero ATS scanner state
   const [atsJob, setAtsJob] = useState('');
   const [atsResume, setAtsResume] = useState('Led a team of 5 engineers to deliver a new payment feature, improving checkout conversion by 15%.');
-  const [atsScanning, setAtsScanning] = useState(false);
   const [atsResult, setAtsResult] = useState(null);
 
   const statsRef = useRef(null);
-
-  useEffect(() => {
-    let v = 512, dir = 1;
-    const t = setInterval(() => {
-      const delta = Math.floor(Math.random() * 3) + 1;
-      v += dir * delta; if (v >= 750) dir = -1; if (v <= 480) dir = 1;
-      setLiveCount(v);
-    }, 3800);
-    return () => clearInterval(t);
-  }, []);
 
   useEffect(() => {
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setStatsStarted(true); io.disconnect(); } }, { threshold: 0.2 });
@@ -911,17 +809,17 @@ function HeroSection({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
     return () => io.disconnect();
   }, []);
 
-  const runHeroAts = async () => {
-    setAtsScanning(true); setAtsResult(null);
-    await new Promise(r => setTimeout(r, 1400));
+  // A simple, deterministic keyword check against a short list for the job family.
+  // It is not an ATS simulation; the score is the share of those keywords the snippet contains.
+  const runHeroAts = () => {
     const kws = getHeroKwSet(atsJob);
     const resume = atsResume.toLowerCase();
-    const found = kws.found.filter(k => resume.includes(k.toLowerCase()));
-    const missing = kws.missing.filter(k => !resume.includes(k.toLowerCase()));
-    const score = Math.min(92, Math.max(28, 30 + found.length * 8 + Math.floor(Math.random() * 10)));
-    const verdict = score >= 70 ? { text: '✓ Good match', cls: 'good' } : score >= 50 ? { text: '⚠ Needs work', cls: 'mid' } : { text: '✗ Low match', cls: 'low' };
-    setAtsResult({ score, verdict, found: found.length ? found : kws.found.slice(0, 3), missing: missing.slice(0, 4) });
-    setAtsScanning(false);
+    const all = [...kws.found, ...kws.missing];
+    const found = all.filter(k => resume.includes(k.toLowerCase()));
+    const missing = all.filter(k => !resume.includes(k.toLowerCase()));
+    const score = all.length ? Math.round((found.length / all.length) * 100) : 0;
+    const verdict = score >= 70 ? { text: '✓ Good coverage', cls: 'good' } : score >= 50 ? { text: '⚠ Partial coverage', cls: 'mid' } : { text: '✗ Low coverage', cls: 'low' };
+    setAtsResult({ score, verdict, found: found.slice(0, 6), missing: missing.slice(0, 4) });
   };
 
   return (
@@ -939,30 +837,24 @@ function HeroSection({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
           <div className="hero-fill">
             <div className="hf-stats">
               <div className="hf-stat">
-                <div className="hf-stat-n">10</div>
-                <div className="hf-stat-l">AI modules<br />in one platform</div>
+                <div className="hf-stat-n">{MODULES.length}</div>
+                <div className="hf-stat-l">tools<br />in one platform</div>
               </div>
               <div className="hf-stat">
-                <div className="hf-stat-n"><span className="hf-acc">38%</span> → <span className="hf-acc">91%</span></div>
-                <div className="hf-stat-l">ATS score lift<br />in 90 seconds</div>
+                <div className="hf-stat-n"><span className="hf-acc">{Object.keys(PERSONAS).length}</span></div>
+                <div className="hf-stat-l">interviewer styles<br />to practise with</div>
               </div>
               <div className="hf-stat">
-                <div className="hf-stat-n"><span className="hf-acc">5×</span></div>
-                <div className="hf-stat-l">faster job search<br />with AI memory</div>
+                <div className="hf-stat-n"><span className="hf-acc">PDF + Word</span></div>
+                <div className="hf-stat-l">resumes<br />supported</div>
               </div>
             </div>
             <div className="hf-free">
-              <div className="hf-free-label">No account needed to start</div>
+              <div className="hf-free-label">Open without an account</div>
               <div className="hf-free-items">
                 <div className="hf-free-item"><span className="hf-free-icon">🔍</span><span className="hf-free-text">Job search</span><span className="hf-free-badge">Free</span></div>
-                <div className="hf-free-item"><span className="hf-free-icon">📊</span><span className="hf-free-text">Market intel</span><span className="hf-free-badge">Free</span></div>
-                <div className="hf-free-item"><span className="hf-free-icon">💰</span><span className="hf-free-text">Salary data</span><span className="hf-free-badge">Free</span></div>
+                <div className="hf-free-item"><span className="hf-free-icon">📊</span><span className="hf-free-text">Market guides</span><span className="hf-free-badge">Free</span></div>
               </div>
-            </div>
-            <div className="hf-live">
-              <span className="hf-live-dot" />
-              <span className="hf-live-text"><strong>{liveCount.toLocaleString()}</strong> job seekers using CareerAiHub right now in Singapore</span>
-              <span className="hf-live-badge">Live</span>
             </div>
           </div>
         </div>
@@ -976,8 +868,8 @@ function HeroSection({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
         <div className="ats-card">
           <div className="ats-card-hd">
             <span className="ats-card-dot" />
-            <span>ATS Resume Scanner</span>
-            <span className="ats-live-badge">Live</span>
+            <span>ATS Keyword Check</span>
+            <span className="ats-live-badge">Quick check</span>
           </div>
           <div className="ats-body">
             <div className="ats-input-row">
@@ -990,14 +882,13 @@ function HeroSection({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
                 <textarea className="ats-input ats-ta" placeholder="Paste a few lines from your resume..." value={atsResume} onChange={e => setAtsResume(e.target.value)} />
               </div>
             </div>
-            <button className="ats-scan-btn" disabled={atsScanning} onClick={runHeroAts}>
-              {atsScanning ? 'Scanning...' : 'Scan with AI →'}
-            </button>
+            <button className="ats-scan-btn" onClick={runHeroAts}>Check keywords →</button>
+            <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 8 }}>A quick keyword check against common terms for this kind of role. Create a free account for a full AI review of your resume.</div>
             {atsResult && (
               <div className="ats-result">
                 <div className="ats-score-row">
                   <div className="ats-score-wrap">
-                    <div className="ats-score-label">ATS Match Score</div>
+                    <div className="ats-score-label">Keyword coverage</div>
                     <div className="ats-score-num">{atsResult.score}%</div>
                     <div className="ats-score-bar-wrap"><div className="ats-score-bar" style={{ width: atsResult.score + '%' }} /></div>
                   </div>
@@ -1006,7 +897,7 @@ function HeroSection({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
                 <div className="ats-keywords">
                   <div className="ats-kw-label">Keywords found</div>
                   <div>{atsResult.found.map(k => <span key={k} className="mk-tag m">{k}</span>)}</div>
-                  <div className="ats-kw-label" style={{ marginTop: 8 }}>Missing — add these to improve score</div>
+                  <div className="ats-kw-label" style={{ marginTop: 8 }}>Not found — add the ones that are true for you</div>
                   <div>{atsResult.missing.map(k => <span key={k} className="mk-tag x">{k}</span>)}</div>
                 </div>
                 <div className="ats-cta-strip">
@@ -1141,6 +1032,7 @@ function FeatureSection({ onJoin, activePill, onModuleSelect }) {
           </div>
           <div className="fp-right">
             <div className="fp-preview-hd"><span className="fp-pdot" />{f.previewHd}</div>
+            <div style={{ fontSize: 10, color: 'var(--lp-text3)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '.08em' }}>Illustrative example — sample data</div>
             <div className="fp-body fp-anim" key={active + '-right'} dangerouslySetInnerHTML={{ __html: f.preview }} />
           </div>
           {f.pw && (
