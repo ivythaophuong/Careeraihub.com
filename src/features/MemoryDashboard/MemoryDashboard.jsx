@@ -13,7 +13,10 @@ function buildMemoryContext(mem, form) {
       : "first scan";
     lines.push(`Resume scan history: ${mem.scanHistory.length} scans, latest score ${latest.score}/100 (${trend})`);
   }
-  if (mem.starBank?.length) lines.push(`STAR story bank: ${mem.starBank.length} stories banked, avg score ${Math.round(mem.starBank.reduce((s,x)=>s+x.score,0)/mem.starBank.length)}/100`);
+  if (mem.starBank?.length) {
+    const scored = mem.starBank.filter(x => Number.isFinite(x.score));
+    lines.push(`STAR story bank: ${mem.starBank.length} stories banked${scored.length ? `, avg score ${Math.round(scored.reduce((s,x)=>s+x.score,0)/scored.length)}/100` : ''}`);
+  }
   if (mem.mockSessions?.length) lines.push(`Mock interview history: ${mem.mockSessions.length} sessions completed`);
   if (mem.negotiationPractice > 0) lines.push(`Negotiation practice: ${mem.negotiationPractice} roleplay sessions`);
   if (mem.jdAnalyses?.length) {
