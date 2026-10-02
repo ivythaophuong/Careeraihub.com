@@ -109,8 +109,12 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
 
   // 3. TARGETED UPDATE: Specific persistence logic
   const updateMemory = async (updater, relational = null) => {
-    // Compute nextState synchronously from memoryRef — avoids undefined from React's async batching
-    const nextState = typeof updater === 'function' ? updater(memoryRef.current) : { ...memoryRef.current, ...updater };
+    // Compute nextState synchronously from memoryRef — avoids undefined from React's async batching.
+    // Updates MERGE into the current memory. Many callers return only the keys they own
+    // (e.g. `m => ({ starBank: [...] })`), and replacing the whole state with that would silently
+    // wipe unrelated memory such as the resume text, scan result and saved PDF.
+    const patch = typeof updater === 'function' ? updater(memoryRef.current) : updater;
+    const nextState = { ...memoryRef.current, ...(patch || {}) };
     memoryRef.current = nextState; // Update ref immediately so subsequent calls stack correctly
     setMemory(nextState);
 
