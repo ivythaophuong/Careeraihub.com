@@ -947,6 +947,7 @@ function HeroSection({ onJoin, onModuleSelect, onTrackerOpen, onSnack }) {
           <div className="hero-btns">
             <button className="btn-p" onClick={onJoin}>✦ Start free — no card needed</button>
             <button className="btn-o" onClick={() => document.getElementById('feat-sec')?.scrollIntoView({ behavior: 'smooth' })}>See all 10 tools ↓</button>
+            <a className="btn-o" href="/culture-quiz?utm_source=landing&utm_medium=hero" style={{ textDecoration: 'none' }}>Free culture quiz →</a>
           </div>
           <div className="hero-fill">
             <div className="hf-stats">
