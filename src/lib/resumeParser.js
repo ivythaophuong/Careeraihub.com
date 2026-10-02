@@ -17,7 +17,7 @@ Rules:
 - If a field has no data, use empty string or empty array.
 - Do not invent data. Only extract what is present.`;
 
-// ── PDF: send directly to LLM as base64 (Gemini reads layout natively) ───────
+// ── PDF: send directly to the model as base64 (models read the layout natively) ──
 export const extractResumeFromPdf = async (file) => {
   const arrayBuffer = await file.arrayBuffer();
   const base64 = _arrayBufferToBase64(arrayBuffer);
