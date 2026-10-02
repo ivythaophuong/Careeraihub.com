@@ -179,7 +179,6 @@ describe('provider call', () => {
     expect((await run('gemini-2.5-pro')).thinkingConfig).toBeUndefined();
   });
 
-  it('500 "not configured" when no provider key exists', async () => {
   it('tolerates stray spaces or newlines in pasted settings', async () => {
     const f = makeFetch({ provider: () => ok({ candidates: [{ content: { parts: [{ text: 'g' }] } }] }) });
     const r = await call(VALID, { env: { ...ENV, AI_PROVIDER: ' Gemini\n', GEMINI_API_KEY: '  gk-with-space \n', AI_MODEL: ' gemini-2.5-flash ' }, fetchImpl: f });
@@ -201,6 +200,7 @@ describe('provider call', () => {
     expect(JSON.stringify(r.body)).not.toContain('sk-ant-SECRET');
   });
 
+  it('500 "not configured" when no provider key exists', async () => {
     const r = await call(VALID, { env: { SUPABASE_URL: ENV.SUPABASE_URL, SUPABASE_ANON_KEY: 'a' } });
     expect(r).toMatchObject({ status: 500, body: { error: { message: 'AI service is not configured.' } } });
   });
