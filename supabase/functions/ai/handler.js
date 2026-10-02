@@ -1,6 +1,6 @@
 // Request handling for the `ai` Edge Function: authenticate the caller, validate and cap the
 // request, call the configured provider with a server-held key, return { text }.
-import { callProvider, pickProvider, resolveModel, KEY_ENV, ProviderError } from './providers.js';
+import { callProvider, pickProvider, resolveModel, setting, KEY_ENV, ProviderError } from './providers.js';
 
 export const LIMITS = {
   maxBodyBytes: 12 * 1024 * 1024, // resume PDFs travel as base64
@@ -120,15 +120,22 @@ export async function handleRequest(req, deps = {}) {
   // The server, not the caller, decides provider and model, so a client can't pick an expensive one.
   const provider = pickProvider(env);
   if (!provider) {
-    console.error('[ai] No provider key configured (set one of ' + Object.values(KEY_ENV).join(', ') + ').');
-    return fail(500, 'AI service is not configured.', cors);
+    // Only presence flags and a length are reported (never a value), and only to a signed-in caller,
+    // so a misconfiguration can be diagnosed without reading the server's logs.
+    const diag = {
+      aiProvider: setting(env, 'AI_PROVIDER') || null,
+      keysPresent: Object.fromEntries(Object.entries(KEY_ENV).map(([p, name]) => [p, setting(env, name) !== ''])),
+      keyLengths: Object.fromEntries(Object.entries(KEY_ENV).map(([p, name]) => [p, setting(env, name).length])),
+    };
+    console.error('[ai] No provider key configured:', JSON.stringify(diag));
+    return fail(500, 'AI service is not configured.', cors, { diag });
   }
 
   try {
     const text = await callProvider({
       provider,
-      model: resolveModel(provider, env.AI_MODEL),
-      key: env[KEY_ENV[provider]],
+      model: resolveModel(provider, setting(env, 'AI_MODEL')),
+      key: setting(env, KEY_ENV[provider]),
       messages: body.messages,
       maxTokens: Math.min(Math.floor(body.maxTokens ?? LIMITS.maxTokensCap), LIMITS.maxTokensCap),
       pdfBase64: body.pdfBase64 || null,

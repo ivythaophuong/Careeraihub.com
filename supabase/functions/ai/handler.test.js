@@ -180,6 +180,27 @@ describe('provider call', () => {
   });
 
   it('500 "not configured" when no provider key exists', async () => {
+  it('tolerates stray spaces or newlines in pasted settings', async () => {
+    const f = makeFetch({ provider: () => ok({ candidates: [{ content: { parts: [{ text: 'g' }] } }] }) });
+    const r = await call(VALID, { env: { ...ENV, AI_PROVIDER: ' Gemini\n', GEMINI_API_KEY: '  gk-with-space \n', AI_MODEL: ' gemini-2.5-flash ' }, fetchImpl: f });
+    expect(r).toMatchObject({ status: 200, body: { text: 'g' } });
+    const [url, init] = f.mock.calls.at(-1);
+    expect(url).toContain('/models/gemini-2.5-flash:');
+    expect(init.headers['x-goog-api-key']).toBe('gk-with-space');
+  });
+
+  it('treats a blank or whitespace-only key as not configured and says which settings it saw (no values)', async () => {
+    const r = await call(VALID, { env: { SUPABASE_URL: ENV.SUPABASE_URL, SUPABASE_ANON_KEY: 'a', AI_PROVIDER: 'gemini', GEMINI_API_KEY: '   ' } });
+    expect(r.status).toBe(500);
+    expect(r.body.error.diag).toEqual({ aiProvider: 'gemini', keysPresent: { anthropic: false, gemini: false, openai: false }, keyLengths: { anthropic: 0, gemini: 0, openai: 0 } });
+  });
+
+  it('the diagnostic never contains a secret value', async () => {
+    const r = await call(VALID, { env: { SUPABASE_URL: ENV.SUPABASE_URL, SUPABASE_ANON_KEY: 'anon-key', AI_PROVIDER: 'openai', ANTHROPIC_API_KEY: 'sk-ant-SECRET' } });
+    expect(r.body.error.diag.keysPresent).toEqual({ anthropic: true, gemini: false, openai: false });
+    expect(JSON.stringify(r.body)).not.toContain('sk-ant-SECRET');
+  });
+
     const r = await call(VALID, { env: { SUPABASE_URL: ENV.SUPABASE_URL, SUPABASE_ANON_KEY: 'a' } });
     expect(r).toMatchObject({ status: 500, body: { error: { message: 'AI service is not configured.' } } });
   });

@@ -56,7 +56,15 @@ except Exception: print("")')
   else
     call ai "$TOKEN" "$AIBODY"
     if [ "$CODE" = "200" ]; then ok "HTTP 200 - the model answered: $(echo "$BODY" | field text)"
-    else bad "HTTP $CODE - $(echo "$BODY" | field message)"; fi
+    else
+      bad "HTTP $CODE - $(echo "$BODY" | field message)"
+      DIAG=$(echo "$BODY" | python3 -c 'import sys,json
+try:
+    d=json.load(sys.stdin).get("error",{}).get("diag")
+    print(json.dumps(d) if d else "")
+except Exception: print("")')
+      [ -n "$DIAG" ] && echo "        what the server sees (no secret values): $DIAG"
+    fi
   fi
 else
   echo "  SKIP  (no email entered)"

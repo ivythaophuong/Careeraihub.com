@@ -20,10 +20,14 @@ export const resolveModel = (provider, model) =>
   (model && MODEL_FAMILY[provider].test(model) ? model : DEFAULT_MODELS[provider]);
 
 // Which provider to use: AI_PROVIDER if set and keyed, otherwise the first provider that has a key.
+// Settings pasted into a terminal often carry stray spaces or a newline, so trim before using them.
+export const setting = (env, name) => String(env[name] ?? '').trim();
+
 export function pickProvider(env) {
-  const wanted = (env.AI_PROVIDER || '').toLowerCase();
-  if (PROVIDERS.includes(wanted)) return env[KEY_ENV[wanted]] ? wanted : null;
-  return PROVIDERS.find(p => env[KEY_ENV[p]]) || null;
+  const wanted = setting(env, 'AI_PROVIDER').toLowerCase();
+  const hasKey = (p) => setting(env, KEY_ENV[p]) !== '';
+  if (PROVIDERS.includes(wanted)) return hasKey(wanted) ? wanted : null;
+  return PROVIDERS.find(hasKey) || null;
 }
 
 const lastUserIndex = (messages) => messages.map(m => m.role).lastIndexOf('user');
