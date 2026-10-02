@@ -1,6 +1,8 @@
 // Pure helpers for the STAR Story Builder: prompt, output validation, the weighted score, and a
 // guard that catches numbers the AI added that the user never wrote.
 
+import { numberKeys, findUnsupportedNumbers } from '../../lib/numberGuard';
+
 export const MIN_FIELD_CHARS = 15;
 export const MAX_FIELD_CHARS = 2000;
 const MAX_REFINED_CHARS = 700;
@@ -79,41 +81,15 @@ export function normalizeStarResult(raw) {
   };
 }
 
-// ── Invented-number guard ────────────────────────────────────────────────────
-const MULT = { k: 1e3, thousand: 1e3, m: 1e6, mm: 1e6, million: 1e6, b: 1e9, bn: 1e9, billion: 1e9 };
-const NUM_RE = /\$?\s?(\d[\d,]*(?:\.\d+)?)(?:\s?(%|(?:percent|pct|thousand|million|billion|bn|mm|k|m|b)\b))?/gi;
-const WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
-  thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20 };
-
-// Canonical keys for every number in a text: "15 percent" and "15%" both → "15%", "2M" and
-// "2,000,000" and "2 million" all → "2000000".
-export function numberKeys(text) {
-  const keys = new Set();
-  for (const m of String(text).matchAll(NUM_RE)) {
-    const base = parseFloat(m[1].replace(/,/g, ''));
-    if (!Number.isFinite(base)) continue;
-    const unit = (m[2] || '').toLowerCase();
-    if (unit === '%' || unit === 'percent' || unit === 'pct') keys.add(`${base}%`);
-    else keys.add(String(base * (MULT[unit] || 1)));
-  }
-  // "three" in the candidate's text should make "3" acceptable in the rewrite.
-  for (const w of String(text).toLowerCase().match(/\b[a-z]+\b/g) || []) if (WORDS[w]) keys.add(String(WORDS[w]));
-  return keys;
-}
+// ── Invented-number guard (implementation shared in lib/numberGuard) ────────
+export { numberKeys };
 
 // Numbers that appear in the AI's rewrite but not in what the candidate wrote.
 export function findInventedNumbers(story, result) {
-  const allowed = numberKeys(SECTIONS.map(k => story[k]).join(' '));
-  const out = new Set();
-  const outputText = [...SECTIONS.map(k => result.refined[k]), result.oneLiner].join(' ');
-  for (const m of outputText.matchAll(NUM_RE)) {
-    const base = parseFloat(m[1].replace(/,/g, ''));
-    if (!Number.isFinite(base)) continue;
-    const unit = (m[2] || '').toLowerCase();
-    const key = unit === '%' || unit === 'percent' || unit === 'pct' ? `${base}%` : String(base * (MULT[unit] || 1));
-    if (!allowed.has(key)) out.add(m[0].trim());
-  }
-  return [...out];
+  return findUnsupportedNumbers(
+    SECTIONS.map(k => story[k]).join(' '),
+    [...SECTIONS.map(k => result.refined[k]), result.oneLiner].join(' '),
+  );
 }
 
 export const scoreColorKey = (score) => (score >= 75 ? 'green' : score >= 50 ? 'gold' : 'red');
