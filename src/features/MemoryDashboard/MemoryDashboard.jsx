@@ -17,8 +17,10 @@ function buildMemoryContext(mem, form) {
   if (mem.mockSessions?.length) lines.push(`Mock interview history: ${mem.mockSessions.length} sessions completed`);
   if (mem.negotiationPractice > 0) lines.push(`Negotiation practice: ${mem.negotiationPractice} roleplay sessions`);
   if (mem.jdAnalyses?.length) {
-    const avgMatch = Math.round(mem.jdAnalyses.reduce((s,x)=>s+x.matchScore,0)/mem.jdAnalyses.length);
-    lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed, avg match score ${avgMatch}%`);
+    // JD-only analyses (no resume to compare) have a null matchScore and must not skew the average.
+    const scored = mem.jdAnalyses.filter(x => Number.isFinite(x.matchScore));
+    const avgMatch = scored.length ? Math.round(scored.reduce((s,x)=>s+x.matchScore,0)/scored.length) : null;
+    lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed${avgMatch == null ? '' : `, avg match score ${avgMatch}%`}`);
   }
   lines.push(`Target: ${form.level} ${form.role} in ${form.industry}, ${form.market}`);
   return lines.length ? "\n\nUSER HISTORY CONTEXT:\n" + lines.join("\n") : "";
