@@ -34,3 +34,7 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase local function secrets
+supabase/.env.local
+supabase/.temp/

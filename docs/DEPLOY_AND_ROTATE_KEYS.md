@@ -106,4 +106,3 @@ files used by the website. It must stay only in Supabase.
 ## 9. Optional cleanup
 - Branches `SEO-optimization` and `flow-optimization` still contain an old `.env.production`
   (placeholders only, no real keys). Safe to delete those branches if they're finished.
-- Add `supabase/.env.local` to `.gitignore` if you run functions locally.
