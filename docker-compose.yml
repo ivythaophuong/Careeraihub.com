@@ -10,8 +10,6 @@ services:
       # Exposes the container's port 80 to the host's port 8081.
       # Nginx Proxy Manager (NPM) should forward traffic to 127.0.0.1:8081
       - "127.0.0.1:8081:80"
-    env_file:
-      - .env
     networks:
       - npm_net
 

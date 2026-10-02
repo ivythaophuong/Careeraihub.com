@@ -23,9 +23,12 @@ There is no React Router. Navigation is tab-based: `App.jsx` manages an `activeM
 
 ### AI integration
 
-All LLM calls go through `src/lib/ai.jsx`. The primary provider is Anthropic Claude (configured via `VITE_LLM_PROVIDER` and `VITE_ANTHROPIC_API_KEY`). OpenAI and Gemini are partially stubbed as fallbacks. If a secondary provider key is absent, the code degrades to `claude-3-haiku-20240307`.
-
-Calls are direct HTTPS requests to `https://api.anthropic.com/v1/messages` — no proxy layer.
+All LLM calls go through `callLLM()` in `src/lib/ai.jsx`, which POSTs to the `ai` Supabase Edge Function
+(`supabase/functions/ai`) with the signed-in user's token (refreshed by `src/lib/session.js`). The function holds the
+provider keys (Anthropic / Gemini / OpenAI), chooses provider and model from its own secrets, enforces limits, and
+returns `{ text }`. The browser never sees an API key. `callLLM` retries once on 429/5xx, and throws `LLMError`
+(`.status === 401` → user must sign in; `.truncated` → reply hit the length limit). Live job search uses the `jobs`
+Edge Function (Adzuna proxy). Handler logic is plain JS in `handler.js` so it is unit-tested with mocked fetch.
 
 ### Supabase
 
@@ -43,22 +46,18 @@ No Tailwind or external UI library. All styles are inline CSS-in-JS objects. Reu
 
 ### Deployment
 
-Docker multi-stage build: Node 20 builds the app, Nginx Alpine serves `/dist`. `docker-entrypoint.sh` injects environment variables into the minified bundle at container start via `sed` on placeholder strings (e.g. `__CLAUDE_KEY_PLACEHOLDER__`). Port 8081 internally, exposed via Nginx Proxy Manager. Production runs on a VPS with Let's Encrypt SSL.
+Docker multi-stage build: Node 20 runs `npm ci` + `npm run build`, Nginx Alpine serves `/dist` on port 80 (compose maps it to
+`127.0.0.1:8081`, behind Nginx Proxy Manager with TLS). The image needs no env vars or secrets. Edge Functions are deployed
+separately with `supabase functions deploy ai` / `jobs`; secrets are set with `supabase secrets set` (see README.md).
 
 ## Environment variables
 
-All env vars are prefixed `VITE_` (Vite exposes them to the browser bundle):
-
-| Variable | Purpose |
-|---|---|
-| `VITE_LLM_PROVIDER` | Primary provider: `anthropic` |
-| `VITE_LLM_MODEL` | Model ID (e.g. `claude-3-5-sonnet-20240620`) |
-| `VITE_ANTHROPIC_API_KEY` | Anthropic API key |
-| `VITE_OPENAI_API_KEY` | Optional OpenAI key (fallback) |
-| `VITE_GEMINI_API_KEY` | Optional Gemini key (fallback) |
-
-Copy `.env` and fill in keys before running locally.
+The client reads no secrets. Server secrets live in Supabase: `AI_PROVIDER`, `AI_MODEL`, `ANTHROPIC_API_KEY`,
+`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ALLOWED_ORIGINS`. (`VITE_LLM_RETRY_DELAY_MS` is an
+optional test-only knob.)
 
 ## Testing
 
-The only test file is `src/auth.test.js` — Vitest integration tests that hit real Supabase endpoints (not mocked). No component or unit tests exist.
+`npm test` runs Vitest with jsdom and mocked network (no live Supabase or provider calls): `src/lib/ai.test.js`,
+`src/lib/session.test.js`, `src/hooks/useMemory.test.js`, `src/auth.test.js`, and the Edge Function handler tests under
+`supabase/functions/*/handler.test.js`. There are no component tests yet.
