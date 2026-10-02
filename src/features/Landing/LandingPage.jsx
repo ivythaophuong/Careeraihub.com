@@ -3774,6 +3774,9 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Scan My Resume Free
               </button>
+              <a href="/culture-quiz?utm_source=landing&utm_medium=hero" style={{color:'rgba(200,215,235,0.7)',fontSize:13,fontWeight:500,textDecoration:'none',borderBottom:'1px solid rgba(255,255,255,0.18)',paddingBottom:1,fontFamily:"'Inter',sans-serif"}}>
+                Free culture quiz →
+              </a>
             </div>
             {/* Social proof */}
             <div style={{display:'flex',alignItems:'center',gap:14}}>
@@ -3966,6 +3969,22 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
               </div>
             </React.Fragment>
           ))}
+        </div>
+      </div>
+
+      {/* ── CULTURE QUIZ (free lead magnet) ── */}
+      <div className="v36-section" id="v36-culture">
+        <div className="v36-section-inner">
+          <div className="reveal" style={{display:'flex',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:28,background:'rgba(236,72,153,0.06)',border:'1px solid rgba(236,72,153,0.25)',borderRadius:20,padding:'40px 36px'}}>
+            <div style={{flex:'1 1 380px'}}>
+              <div style={{fontSize:12,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'#ec4899',marginBottom:10}}>Free · 2 minutes · No signup</div>
+              <h2 className="v36-s-title" style={{margin:'0 0 10px'}}>What is your work culture persona?</h2>
+              <p className="v36-s-sub" style={{margin:0,maxWidth:520}}>Answer 10 quick questions to find the kind of workplace where you do your best work, and what to look for in your next role.</p>
+            </div>
+            <a href="/culture-quiz?utm_source=landing&utm_medium=section" style={{display:'inline-flex',alignItems:'center',gap:8,background:'#ec4899',color:'#fff',textDecoration:'none',fontSize:15,fontWeight:600,padding:'15px 32px',borderRadius:100,whiteSpace:'nowrap',fontFamily:"'Inter',sans-serif",boxShadow:'0 0 40px rgba(236,72,153,0.35)'}}>
+              Take the free quiz &nbsp;→
+            </a>
+          </div>
         </div>
       </div>
 

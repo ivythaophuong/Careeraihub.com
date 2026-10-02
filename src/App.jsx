@@ -51,6 +51,7 @@ import ATSBuilder from './features/ATSBuilder/ATSBuilder';
 import TrustMatch from './features/TrustMatch/TrustMatch';
 import InterviewCoach from './features/InterviewCoach/InterviewCoach';
 import VerifyCreds from './features/VerifyCreds/VerifyCreds';
+import CultureQuiz from './features/CultureQuiz/CultureQuiz';
 import PrivacyPolicy from './features/Legal/PrivacyPolicy';
 import TermsOfService from './features/Legal/TermsOfService';
 import LandingPage, { GuestNav, AppHubNav, LogoMark, StudyPlanModal, GetReadyTabStrip } from './features/Landing/LandingPage';
@@ -312,6 +313,7 @@ function App() {
       case "skillsgap":  return <SkillsGap {...props} />;
       case "roadmap":    return <CareerRoadmap {...props} />;
       case "aichat":     return <AICoach {...props} />;
+      case "culture":    return <CultureQuiz embedded user={user} onScan={() => navigate("scan")} />;
       case "privacy":  return <PrivacyPolicy onBack={() => navigate("jobs")} />;
       case "terms":    return <TermsOfService onBack={() => navigate("jobs")} />;
       default:         return <ResumeScan {...props} />;

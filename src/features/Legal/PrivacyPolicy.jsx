@@ -43,6 +43,13 @@ export default function PrivacyPolicy({ onBack }) {
         </section>
 
         <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 18, color: C.accent, marginBottom: 12 }}>Work Culture Quiz</h2>
+          <p style={{ color: C.text }}>
+            If you take our free Work Culture Quiz and request your full report, we store your email address, optional first name, your five culture scores and your persona result. If you tick the consent box, we use your email to send your report and occasional career tips; you can unsubscribe in any email or ask us to delete your data at <a href="mailto:hello@careeraihub.com" style={{ color: C.accent }}>hello@careeraihub.com</a>. Emails are sent through Resend. We also record anonymous usage events (such as starting or finishing the quiz) to improve it. Quiz results describe work preferences, not ability, and are not used to make decisions about you.
+          </p>
+        </section>
+
+        <section style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 18, color: C.accent, marginBottom: 12 }}>4. Third-Party AI Services</h2>
           <p style={{ color: C.text }}>
             When you use our scanning or generation features, relevant portions of your resume are sent to high-trust AI providers (like Anthropic) for processing. These providers do not use your data for training their models if you are using our platform.

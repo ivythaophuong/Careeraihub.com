@@ -28,6 +28,8 @@ function Icon({ id, size = 15, color = 'currentColor' }) {
       return <svg viewBox="0 0 16 16" style={s}><path {...p} d="M5 8.5C5 7.1 6.1 6 7.5 6S10 7.1 10 8.5V10H5V8.5z"/><path {...p} d="M1 14v-1.5C1 11.1 2.3 10 4 10M15 14v-1.5C15 11.1 13.7 10 12 10M4 7.5A2 2 0 104 3.5M12 7.5A2 2 0 1012 3.5"/></svg>;
     case 'aichat':
       return <svg viewBox="0 0 16 16" style={s}><rect {...p} x="1" y="2" width="14" height="9" rx="2"/><path {...p} d="M4 14l2-3M12 14l-2-3"/><path {...p} d="M5 6.5h6M5 8.5h4"/></svg>;
+    case 'culture':
+      return <svg viewBox="0 0 16 16" style={s}><circle {...p} cx="8" cy="8" r="6.5"/><path {...p} d="M10.5 5.5L9 9 5.5 10.5 7 7l3.5-1.5z"/></svg>;
     default:
       return <svg viewBox="0 0 16 16" style={s}><circle {...p} cx="8" cy="8" r="6"/></svg>;
   }
@@ -66,6 +68,7 @@ const NAV_GROUPS = [
   {
     label: 'Get Matched',
     items: [
+      { id: 'culture',    label: 'Culture Quiz',    badge: 'new'     },
       { id: 'trustmatch', label: 'TrustMatch',     badge: 'planned' },
       { id: 'aichat',     label: 'AI Career Coach', badge: 'new'    },
     ],
@@ -103,6 +106,7 @@ const MOB_DRAWER_TOOLS = [
   { id: 'trustmatch', label: 'TrustMatch'  },
   { id: 'verify',     label: 'Verify'      },
   { id: 'aichat',     label: 'AI Coach'    },
+  { id: 'culture',    label: 'Culture Quiz' },
 ];
 
 const MOB_DRAWER_IDS = new Set(MOB_DRAWER_TOOLS.map(t => t.id));

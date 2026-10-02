@@ -115,6 +115,22 @@ export const sb = {
     return r.json();
   },
 
+  // Anonymous, write-only insert for public forms (no user session). Tables must allow
+  // inserts for the anon role and nothing else; see supabase/culture_quiz.sql.
+  async insertPublic(table, data) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: { ...sb._h(), "Authorization": `Bearer ${SUPABASE_ANON}`, "Prefer": "return=minimal" },
+      body: JSON.stringify(data)
+    });
+    if (r.status >= 400) {
+      let msg = `Save failed (${r.status}).`;
+      try { msg = (await r.json()).message || msg; } catch { /* keep default */ }
+      throw new Error(msg);
+    }
+    return null;
+  },
+
   async delete(table, filters, token) {
     const params = new URLSearchParams(filters || {});
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {

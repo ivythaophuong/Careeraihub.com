@@ -27,6 +27,7 @@ export const MODULES = [
   { id: "verify",     icon: "🛡️", label: "Verify Creds",     color: C.gold     },
   { id: "trustmatch", icon: "🤝", label: "TrustMatch",       color: C.purple   },
   { id: "aichat",     icon: "🤖", label: "AI Career Coach",  color: C.green    },
+  { id: "culture",    icon: "🧭", label: "Culture Quiz",     color: C.accent   },
   // kept for internal navigation (not in sidebar)
   { id: "jobs",     icon: "🔎", label: "Job Search",      color: C.green    },
   { id: "jd",       icon: "🔍", label: "JD Analyzer",     color: C.pink     },
