@@ -26,6 +26,7 @@ const lastBackup = () => backups().at(-1)[1];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  sb.select.mockReset(); sb.select.mockResolvedValue([]);
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -107,6 +108,48 @@ describe('useMemory.updateMemory — persistence (audit 2.2 / 2.3)', () => {
     unmount();
     await waitFor(() => expect(backups()).toHaveLength(1));
     expect(lastBackup().data.resumeText).toBe('unsaved');
+  });
+});
+
+describe('useMemory — fails closed when the load fails (audit 2.1)', () => {
+  const boot = async () => {
+    const setIsRestoring = vi.fn();
+    const setRestoreError = vi.fn();
+    const hook = renderHook(() => useMemory(user, true, setIsRestoring, setRestoreError));
+    await waitFor(() => expect(setRestoreError).toHaveBeenCalledWith(true));
+    return { hook, setIsRestoring };
+  };
+
+  it('flags an error on a 401 instead of presenting empty data', async () => {
+    sb.select.mockRejectedValue(Object.assign(new Error('JWT expired'), { status: 401 }));
+    const { hook } = await boot();
+    expect(hook.result.current.memory).toEqual({});
+  });
+
+  it('flags an error when the main backup row cannot be read', async () => {
+    sb.select.mockImplementation(async (table) => {
+      if (table === 'user_memory') throw Object.assign(new Error('boom'), { status: 500 });
+      return [];
+    });
+    await boot();
+  });
+
+  it('never writes while the load is failed (so real data cannot be overwritten)', async () => {
+    sb.select.mockRejectedValue(Object.assign(new Error('JWT expired'), { status: 401 }));
+    const { hook } = await boot();
+    await act(async () => { hook.result.current.updateMemory({ resumeText: 'x' }); await hook.result.current.flushMemory(); });
+    expect(backups()).toHaveLength(0);
+  });
+
+  it('tolerates a failure of a non-critical table and falls back to the backup', async () => {
+    sb.select.mockImplementation(async (table) => {
+      if (table === 'user_memory') return [{ data: { resumeText: 'cv', starBank: [{ id: 1 }] } }];
+      if (table === 'star_stories') throw Object.assign(new Error('missing table'), { status: 404 });
+      return [];
+    });
+    const { result } = await bootedHook();
+    expect(result.current.memory.starBank).toEqual([{ id: 1 }]);
+    expect(result.current.memory.resumeText).toBe('cv');
   });
 });
 

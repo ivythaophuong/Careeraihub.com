@@ -1,6 +1,10 @@
 const SUPABASE_URL  = "https://ruibdsvrcctxgxctaxwe.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1aWJkc3ZyY2N0eGd4Y3RheHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Nzg3MjksImV4cCI6MjA4OTA1NDcyOX0.TB2jdImKiHx6oP0aNNXObShT_eHk0wvtN_As5tkbcmE";
 
+// Errors from the API carry the HTTP status so callers can tell an expired
+// session (401/403) from a transient failure.
+const httpError = (message, status) => Object.assign(new Error(message), { status });
+
 // Senior Refactored Supabase Client
 export const sb = {
   _h: () => ({ "Content-Type": "application/json", "apikey": SUPABASE_ANON }),
@@ -46,7 +50,7 @@ export const sb = {
       headers: { ...sb._au(), "Authorization": `Bearer ${token}` }
     });
     const d = await r.json();
-    if (r.status >= 400) throw new Error("Session expired. Please log in again.");
+    if (r.status >= 400) throw httpError("Session expired. Please log in again.", r.status);
     return d;
   },
 
@@ -56,7 +60,7 @@ export const sb = {
       body: JSON.stringify({ refresh_token: refreshToken })
     });
     const d = await r.json();
-    if (r.status >= 400) throw new Error("Session recovery failed.");
+    if (r.status >= 400) throw httpError("Session recovery failed.", r.status);
     return d;
   },
 
@@ -78,7 +82,7 @@ export const sb = {
     
     if (r.status >= 400) {
       const d = await r.json();
-      throw new Error(d.message || `Database save failed: ${r.status}`);
+      throw httpError(d.message || `Database save failed: ${r.status}`, r.status);
     }
     const resText = await r.text();
     if (r.status === 204 || !resText) return null;
@@ -91,7 +95,7 @@ export const sb = {
       headers: { ...sb._h(), "Authorization": `Bearer ${token}` }
     });
     const d = await r.json();
-    if (r.status >= 400) throw new Error(d.message || "Database fetch failed.");
+    if (r.status >= 400) throw httpError(d.message || "Database fetch failed.", r.status);
     return d;
   },
 
@@ -103,7 +107,7 @@ export const sb = {
     });
     if (r.status >= 400) {
       const d = await r.json();
-      throw new Error(d.message || "Database insert failed.");
+      throw httpError(d.message || "Database insert failed.", r.status);
     }
     return r.json();
   }

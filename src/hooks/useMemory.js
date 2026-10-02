@@ -29,11 +29,15 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
       console.log("[useMemory] Refactor Boot Initializing:", { email: user.email, id: user.id });
       
       try {
-        const fetch = async (table, query = {}) => {
+        // Auth failures and a failed load of the main backup row are fatal: carrying on
+        // with empty data would let the next save overwrite the user's real memory.
+        // Other tables are best-effort (they fall back to the JSON backup).
+        const fetch = async (table, query = {}, { critical = false } = {}) => {
            try {
              const res = await sb.select(table, { user_id: `eq.${user.id}`, ...query }, user.token);
              return res || [];
            } catch (e) {
+             if (critical || e.status === 401 || e.status === 403) throw e;
              console.warn(`[useMemory] Partial Fetch Error for ${table}:`, e.message);
              return [];
            }
@@ -43,7 +47,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
         const [
           dbMem, scans, apps, stars, covers, jds, sessions, practice, insights
         ] = await Promise.all([
-          fetch("user_memory"),
+          fetch("user_memory", {}, { critical: true }),
           fetch("resume_scans", { order: "created_at.desc", limit: 20 }),
           fetch("applications", { order: "created_at.desc", limit: 50 }),
           fetch("star_stories", { order: "created_at.desc", limit: 30 }),
@@ -96,7 +100,9 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
         console.log("[useMemory] Refactor Boot Complete. Memory state live.");
       } catch (e) {
         console.error("[useMemory] Refactor Global Error:", e.message);
+        // Stay locked (no saves) and let the UI offer a retry.
         setRestoreError(true);
+        setIsRestoring(false);
       }
     }
     loadAll();
