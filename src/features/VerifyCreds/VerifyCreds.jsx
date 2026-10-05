@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { C } from '../../styles/theme';
 import jsQR from 'jsqr';
+import { getValidSession } from '../../lib/session';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ruibdsvrcctxgxctaxwe.supabase.co';
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1aWJkc3ZyY2N0eGd4Y3RheHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Nzg3MjksImV4cCI6MjA4OTA1NDcyOX0.TB2jdImKiHx6oP0aNNXObShT_eHk0wvtN_As5tkbcmE';
@@ -267,17 +268,21 @@ async function verifyCredential(url) {
 
   // Coursera, Udemy, Accredible, edX, freeCodeCamp — via Supabase edge function proxy
   if (PROXY_PLATFORMS.has(platform)) {
+    // The function needs the signed-in user's token (the public anon key alone is rejected).
+    const session = await getValidSession();
+    if (!session?.access_token) throw new Error('Please sign in to verify credentials.');
     const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-cert`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ url }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Verification failed (${res.status})`);
     }
+    // `verified` comes from the server: a page that loads is not proof of a certificate.
     const data = await res.json();
-    return { ...data, verified: true, urlValid: true };
+    return { ...data, urlValid: true };
   }
 
   // All others — URL format validation only
