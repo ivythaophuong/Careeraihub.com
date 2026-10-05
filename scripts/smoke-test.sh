@@ -41,6 +41,12 @@ case "$CODE" in
   *)   bad "unexpected HTTP $CODE  $BODY" ;;
 esac
 
+echo "3b) verify-cert rejects a visitor who is not signed in (using the public key)"
+call verify-cert "$ANON" '{"url":"https://www.coursera.org/verify/ABC123"}'
+[ "$CODE" = "401" ] && ok "HTTP 401 - $(echo "$BODY" | python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("error",""))
+except Exception: print("")')" || bad "expected 401, got HTTP $CODE  $BODY"
+
 echo "4) Real AI call as a signed-in user"
 read -r -p "   Your CareerAiHub email (press Enter to skip this step): " EMAIL
 if [ -n "$EMAIL" ]; then
@@ -73,6 +79,30 @@ try:
     print(json.dumps(d) if d else "")
 except Exception: print("")')
       [ -n "$DIAG" ] && echo "        what the server sees (no secret values): $DIAG"
+    fi
+
+    echo "5) verify-cert as a signed-in user"
+    call verify-cert "$TOKEN" '{"url":"https://evil.com/coursera.org/verify/x"}'
+    [ "$CODE" = "400" ] && ok "HTTP 400 - a look-alike link is refused ($(echo "$BODY" | python3 -c 'import sys,json
+try: print(json.load(sys.stdin).get("error",""))
+except Exception: print("")'))" || bad "expected 400 for a look-alike link, got HTTP $CODE  $BODY"
+    call verify-cert "$TOKEN" '{"url":"http://www.coursera.org/verify/ABC123"}'
+    [ "$CODE" = "400" ] && ok "HTTP 400 - a plain http link is refused" || bad "expected 400 for http, got HTTP $CODE  $BODY"
+
+    read -r -p "   Optional: paste a public certificate link (Coursera, Udemy, edX, Accredible, freeCodeCamp) or press Enter to skip: " CERT
+    if [ -n "$CERT" ]; then
+      PAYLOAD=$(CERT="$CERT" python3 -c 'import os,json;print(json.dumps({"url":os.environ["CERT"]}))')
+      call verify-cert "$TOKEN" "$PAYLOAD"
+      echo "$BODY" | CODE="$CODE" python3 -c 'import sys,json,os
+code=os.environ["CODE"]
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    print("  INFO  HTTP "+code+" (unreadable reply)"); sys.exit()
+if code=="200":
+    print("  INFO  HTTP 200 - verified=%s platform=%s name=%s issuer=%s" % (d.get("verified"), d.get("platform"), d.get("name"), d.get("issuer")))
+else:
+    print("  INFO  HTTP "+code+" - "+str(d.get("error","")))'
     fi
   fi
 else
