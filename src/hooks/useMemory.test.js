@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
 vi.mock('../lib/supabase', () => ({
@@ -78,5 +78,95 @@ describe('Clear Memory pattern (empties every key on top of merging)', () => {
     await act(async () => { await result.current.updateMemory({ resumeText: 'cv', scanResult: { s: 1 }, aiChat: [{ role: 'user' }], credits: 4, starBank: [{ id: 1 }] }); });
     await act(async () => { await result.current.updateMemory(wipe); });
     expect(result.current.memory).toMatchObject({ resumeText: null, scanResult: null, aiChat: [], credits: 0, starBank: [], scanHistory: [] });
+  });
+});
+
+describe('syncError tells the UI when a save fails', () => {
+  it('is null at first and after a successful save', async () => {
+    const { result } = await booted();
+    expect(result.current.syncError).toBeNull();
+    await act(async () => { await result.current.updateMemory({ a: 1 }); });
+    expect(result.current.syncError).toBeNull();
+  });
+
+  it('is set when saving fails, with the reason', async () => {
+    const { result } = await booted();
+    sb.upsert.mockRejectedValue(new Error('JWT expired'));
+    await act(async () => { await result.current.updateMemory({ a: 1 }); });
+    expect(result.current.syncError).toMatchObject({ message: 'JWT expired' });
+  });
+
+  it('is set when only the relational row fails but the backup saves', async () => {
+    const { result } = await booted();
+    sb.insert.mockRejectedValue(new Error('insert denied'));
+    await act(async () => { await result.current.updateMemory({ a: 1 }, { table: 'mock_sessions', data: { avg_score: 5 } }); });
+    expect(result.current.syncError).toMatchObject({ message: 'insert denied' });
+  });
+
+  it('is a new object on every failure so each one can be announced, and clears after a good save', async () => {
+    const { result } = await booted();
+    sb.upsert.mockRejectedValue(new Error('down'));
+    await act(async () => { await result.current.updateMemory({ a: 1 }); });
+    const first = result.current.syncError;
+    await act(async () => { await result.current.updateMemory({ a: 2 }); });
+    expect(result.current.syncError).not.toBe(first);
+    sb.upsert.mockResolvedValue(null);
+    await act(async () => { await result.current.updateMemory({ a: 3 }); });
+    expect(result.current.syncError).toBeNull();
+  });
+});
+
+describe('fails closed when the stored memory cannot be read', () => {
+  afterEach(() => { sb.select.mockImplementation(async () => []); });
+
+  it('keeps saving locked and reports the error, so nothing is overwritten', async () => {
+    sb.select.mockImplementation(async (table) => { if (table === 'user_memory') throw new Error('network down'); return []; });
+    const setIsRestoring = vi.fn();
+    const setRestoreError = vi.fn();
+    const { result } = renderHook(() => useMemory(user, true, setIsRestoring, setRestoreError));
+    await waitFor(() => expect(setRestoreError).toHaveBeenCalledWith(true));
+    expect(setIsRestoring).not.toHaveBeenCalledWith(false);
+
+    await act(async () => { await result.current.updateMemory({ resumeText: 'typed after the failed load' }); });
+    expect(sb.upsert).not.toHaveBeenCalled();
+    expect(sb.insert).not.toHaveBeenCalled();
+  });
+
+  it('still starts when only a non-critical table fails to load', async () => {
+    sb.select.mockImplementation(async (table) => { if (table === 'resume_scans') throw new Error('table unavailable'); return []; });
+    const setIsRestoring = vi.fn();
+    const setRestoreError = vi.fn();
+    renderHook(() => useMemory(user, true, setIsRestoring, setRestoreError));
+    await waitFor(() => expect(setIsRestoring).toHaveBeenCalledWith(false));
+    expect(setRestoreError).not.toHaveBeenCalled();
+  });
+
+  it('keeps the stored memory when it loads fine', async () => {
+    sb.select.mockImplementation(async (table) => table === 'user_memory' ? [{ data: { resumeText: 'saved cv' } }] : []);
+    const setIsRestoring = vi.fn();
+    const { result } = renderHook(() => useMemory(user, true, setIsRestoring, vi.fn()));
+    await waitFor(() => expect(setIsRestoring).toHaveBeenCalledWith(false));
+    expect(result.current.memory.resumeText).toBe('saved cv');
+  });
+});
+
+describe('syncedAt lets screens re-read database-computed values', () => {
+  it('starts at 0 and changes after each fully successful save', async () => {
+    const { result } = await booted();
+    expect(result.current.syncedAt).toBe(0);
+    await act(async () => { await result.current.updateMemory({ a: 1 }); });
+    const first = result.current.syncedAt;
+    expect(first).toBeGreaterThan(0);
+    await new Promise(r => setTimeout(r, 5));
+    await act(async () => { await result.current.updateMemory({ a: 2 }); });
+    expect(result.current.syncedAt).toBeGreaterThan(first);
+  });
+
+  it('does not change when the save fails', async () => {
+    const { result } = await booted();
+    sb.upsert.mockRejectedValue(new Error('down'));
+    await act(async () => { await result.current.updateMemory({ a: 1 }); });
+    expect(result.current.syncedAt).toBe(0);
+    sb.upsert.mockResolvedValue(null);
   });
 });

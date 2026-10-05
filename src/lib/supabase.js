@@ -1,5 +1,18 @@
+import { getValidSession } from "./session";
+
 export const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  || "https://ruibdsvrcctxgxctaxwe.supabase.co";
 export const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1aWJkc3ZyY2N0eGd4Y3RheHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Nzg3MjksImV4cCI6MjA4OTA1NDcyOX0.TB2jdImKiHx6oP0aNNXObShT_eHk0wvtN_As5tkbcmE";
+
+// The `token` passed to the database helpers below comes from React state and is set at login, so it
+// goes stale after about an hour. Use the stored session's token instead, refreshing it when it is
+// about to expire, and fall back to the passed token only when there is no stored session.
+async function freshToken(passed) {
+  try {
+    const session = await getValidSession();
+    if (session?.access_token) return session.access_token;
+  } catch { /* fall back to the token we were given */ }
+  return passed;
+}
 
 // Senior Refactored Supabase Client
 export const sb = {
@@ -69,6 +82,7 @@ export const sb = {
 
   // ── Relational Database Helpers ─────────────────────────────────────────────
   async upsert(table, data, token) {
+    token = await freshToken(token);
     // Standardized Upsert with on_conflict support for relational scaling
     const hasUserId = !!data.user_id;
     const url = hasUserId ? `${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id` : `${SUPABASE_URL}/rest/v1/${table}`;
@@ -93,6 +107,7 @@ export const sb = {
   },
 
   async select(table, filters, token) {
+    token = await freshToken(token);
     const params = new URLSearchParams(filters || {});
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
       headers: { ...sb._h(), "Authorization": `Bearer ${token}` }
@@ -103,6 +118,7 @@ export const sb = {
   },
 
   async insert(table, data, token) {
+    token = await freshToken(token);
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
       headers: { ...sb._h(), "Authorization": `Bearer ${token}`, "Prefer": "return=representation" },
@@ -116,6 +132,7 @@ export const sb = {
   },
 
   async delete(table, filters, token) {
+    token = await freshToken(token);
     const params = new URLSearchParams(filters || {});
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
       method: "DELETE",

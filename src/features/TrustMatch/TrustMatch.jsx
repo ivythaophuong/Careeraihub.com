@@ -15,21 +15,6 @@ const T = {
 const FF  = "'Inter', system-ui, sans-serif";
 const FFM = "'JetBrains Mono', monospace";
 
-const FALLBACK_JOBS = [
-  { id: 'f1', title: 'Senior AI Engineer', employer_name: 'Vertex AI Labs', employer_bg: '#534AB7', employer_logo: 'VA',
-    industry: 'AI / Deep Tech', size: 'Series B · 120 pax', salary_min: 12000, salary_max: 16000, currency: 'SGD',
-    description: 'We build foundation model infrastructure for Southeast Asian enterprises. Team is ex-Google Brain, DeepMind, and Sea Group.',
-    perks: ['Remote-first', 'Visa sponsorship', 'Equity'], fit: 92 },
-  { id: 'f2', title: 'ML Research Scientist', employer_name: 'Grab', employer_bg: '#00875A', employer_logo: 'GR',
-    industry: 'Super App / Fintech', size: 'Listed · 8,000 pax', salary_min: 14000, salary_max: 18000, currency: 'SGD',
-    description: "AI team works on demand forecasting, fraud detection, and personalisation at 200M+ user scale.",
-    perks: ['Hybrid', 'L7 senior track', 'Stock options'], fit: 88 },
-  { id: 'f3', title: 'Data Engineering Lead', employer_name: 'Sea Group', employer_bg: '#185FA5', employer_logo: 'SG',
-    industry: 'E-commerce / Gaming', size: 'Listed · 67,000 pax', salary_min: 10000, salary_max: 14000, currency: 'SGD',
-    description: "Shopee and Garena's data platform team. 2 billion events per day, rebuilding the lakehouse architecture.",
-    perks: ['Hybrid', 'Annual bonus', 'Learning budget'], fit: 81 },
-];
-
 function salaryLabel(j) {
   if (!j.salary_min) return '';
   return `${j.currency || 'USD'} ${(j.salary_min / 1000).toFixed(0)}–${(j.salary_max / 1000).toFixed(0)}k`;
@@ -50,9 +35,11 @@ function ProfileModal({ user, trustProfile, onSave, onClose }) {
   const [pref,     setPref]     = useState(trustProfile?.work_preference || 'hybrid');
   const [visible,  setVisible]  = useState(trustProfile?.is_visible || false);
   const [saving,   setSaving]   = useState(false);
+  const [saveErr,  setSaveErr]  = useState('');
 
   const save = async () => {
     setSaving(true);
+    setSaveErr('');
     const data = {
       user_id:         user.id,
       full_name:       user.name || user.email,
@@ -70,6 +57,7 @@ function ProfileModal({ user, trustProfile, onSave, onClose }) {
       onSave({ ...data, trust_score: trustProfile?.trust_score || 0 });
     } catch (e) {
       console.error('Profile save failed:', e.message);
+      setSaveErr("Couldn't save your profile. Check your connection and try again.");
     }
     setSaving(false);
   };
@@ -138,6 +126,7 @@ function ProfileModal({ user, trustProfile, onSave, onClose }) {
           </div>
         </div>
 
+        {saveErr && <div role="alert" style={{ marginTop: 14, fontSize: 12, color: '#FF5A5A' }}>{saveErr}</div>}
         <button onClick={save} disabled={saving}
           style={{ width: '100%', marginTop: 20, padding: '12px', borderRadius: 10, background: saving ? 'rgba(236,72,153,.1)' : 'linear-gradient(135deg,rgba(236,72,153,.2),rgba(245,158,11,.2))', border: `1px solid ${T.tealB}`, color: T.teal, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FF, transition: 'all .2s' }}>
           {saving ? 'Saving…' : 'Save Profile →'}
@@ -148,7 +137,7 @@ function ProfileModal({ user, trustProfile, onSave, onClose }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function TrustMatch({ user, memory, updateMemory }) {
+export default function TrustMatch({ user, memory, updateMemory, syncedAt }) {
   const [jobs,          setJobs]         = useState([]);
   const [jobsLoading,   setJobsLoading]  = useState(true);
   const [trustProfile,  setTrustProfile] = useState(null);
@@ -161,7 +150,7 @@ export default function TrustMatch({ user, memory, updateMemory }) {
   const [chatMsgs,      setChatMsgs]     = useState({});
   const chatBodyRef = useRef(null);
 
-  const displayJobs = jobs.length > 0 ? jobs : FALLBACK_JOBS;
+  const displayJobs = jobs; // real listings only; never sample jobs
   const matchedJobs = displayJobs.filter(j => interested.has(j.id));
   const chatJob     = displayJobs.find(j => j.id === chatMatchId) || null;
   const unreadCount = 0;
@@ -191,7 +180,7 @@ export default function TrustMatch({ user, memory, updateMemory }) {
     };
 
     fetchAll();
-  }, [user]);
+  }, [user, syncedAt]);
 
   useEffect(() => {
     if (chatBodyRef.current) chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
@@ -276,10 +265,10 @@ export default function TrustMatch({ user, memory, updateMemory }) {
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: T.text3 }}>Trust Score</div>
+            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: T.text3 }}>Practice Score</div>
             <div style={{ fontSize: 22, fontWeight: 800, fontFamily: FFM, color: trustColor, lineHeight: 1, letterSpacing: -1 }}>{trustScore} / 100</div>
             <div style={{ fontSize: 10, color: T.text2, marginTop: 1 }}>
-              {trustScore >= 75 ? 'High trust · Top 10%' : trustScore >= 50 ? 'Growing · Keep going' : trustScore > 0 ? 'Building trust' : 'Complete modules to earn score'}
+              {trustScore >= 75 ? 'Strong practice' : trustScore >= 50 ? 'Growing · Keep going' : trustScore > 0 ? 'Getting started' : 'Practise to build your score'}
             </div>
           </div>
         </div>
@@ -313,7 +302,7 @@ export default function TrustMatch({ user, memory, updateMemory }) {
 
         {/* Boost card */}
         <div style={{ background: T.violetDim, border: `1px solid ${T.violetB}`, borderRadius: 12, padding: '12px 14px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.violetTxt, marginBottom: 8 }}>Boost your trust score</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.violetTxt, marginBottom: 8 }}>Raise your practice score</div>
           {[
             { label: 'Resume ATS scan',    done: !!(trustProfile?.ats_score),      pts: '+40 pts weight' },
             { label: 'Interview sim',      done: !!(trustProfile?.interview_score), pts: '+35 pts weight' },
@@ -355,6 +344,10 @@ export default function TrustMatch({ user, memory, updateMemory }) {
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {jobsLoading ? (
             <div style={{ textAlign: 'center', color: T.text3, padding: '40px 20px', fontSize: 12 }}>Loading opportunities…</div>
+          ) : displayJobs.length === 0 ? (
+            <div style={{ textAlign: 'center', color: T.text3, padding: '40px 20px', fontSize: 12, lineHeight: 1.7 }}>
+              No open roles from verified employers yet.<br />Complete your profile and turn on visibility, and you'll be matched when employers post roles.
+            </div>
           ) : displayJobs.map((job, i) => {
             const on = interested.has(job.id);
             const logoText = job.employer_logo || (job.employer_name || 'Co').slice(0, 2).toUpperCase();
@@ -447,14 +440,14 @@ export default function TrustMatch({ user, memory, updateMemory }) {
         <div style={{ background: T.bg3, border: `1px solid ${T.tealB}`, borderRadius: 12, padding: 14, position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: T.grad }} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.text }}>Trust score</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.text }}>Practice score</span>
             <span style={{ fontSize: 11, fontFamily: FFM, fontWeight: 700, color: trustColor }}>{trustScore} / 100</span>
           </div>
           <div style={{ height: 6, background: 'rgba(255,255,255,.06)', borderRadius: 3, marginBottom: 10, overflow: 'hidden' }}>
             <div style={{ height: 6, borderRadius: 3, background: `linear-gradient(90deg,${T.teal},${T.emerald})`, width: `${trustScore}%`, transition: 'width 1.2s ease' }} />
           </div>
           <div style={{ fontSize: 10, color: T.text3, lineHeight: 1.5 }}>
-            Earn trust by running the ATS scanner, Interview Sim, and building STAR stories.
+            Based on your own practice (resume scan, interview answers, STAR stories). It does not include verified credentials.
             {trustScore === 0 && ' Your score will appear here after completing any module.'}
           </div>
         </div>

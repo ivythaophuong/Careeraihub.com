@@ -19,14 +19,6 @@ const T = {
 };
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
-const CANDIDATES = [
-  { id:1, initials:'IN', name:'Ivy Nguyen',     title:'Senior AI Engineer',      uni:'NUS MSc AI',  exp:'5 yrs', trust:88, match:95, verified:['NUS OpenCerts','AWS REST','Credly ML'], skills:['Python','LangChain','AWS','PyTorch'], salary:'SGD 10–14k', bg:'#534AB7', ats:87, interview:82, star:'Strong', bio:'Shipped 3 production RAG pipelines. Open to Series B fintech.', blocker:'Wants remote flexibility' },
-  { id:2, initials:'BT', name:'Ben Tan',         title:'ML Research Scientist',   uni:'NTU MSc CS',  exp:'6 yrs', trust:82, match:91, verified:['NTU OpenCerts','TensorFlow cert'], skills:['TensorFlow','CUDA','Python','Research'], salary:'SGD 9–13k', bg:'#185FA5', ats:84, interview:79, star:'Good',   bio:'2 NeurIPS papers. Focused on efficient inference.', blocker:null },
-  { id:3, initials:'PS', name:'Priya Sharma',    title:'Data Engineering Lead',   uni:'SMU BSc CS',  exp:'4 yrs', trust:74, match:84, verified:['SMU OpenCerts','AWS REST'], skills:['Spark','Databricks','SQL','Python'], salary:'SGD 8–11k', bg:'#993C1D', ats:79, interview:75, star:'Good',   bio:'Built 40M event/day pipeline at Shopee.', blocker:'Needs visa sponsorship' },
-  { id:4, initials:'ML', name:'Marcus Lim',      title:'ML Research Scientist',   uni:'NUS PhD CS',  exp:'7 yrs', trust:91, match:89, verified:['NUS OpenCerts','Google ML','Credly'], skills:['PyTorch','CUDA','LLMs','Research'], salary:'SGD 14–18k', bg:'#0F6E56', ats:90, interview:88, star:'Strong', bio:'4 NeurIPS/ICML papers. Efficient LLM serving specialist.', blocker:'Senior title required' },
-  { id:5, initials:'SL', name:'Sarah Lim',       title:'Frontend Engineer',       uni:'SUTD BEng',   exp:'3 yrs', trust:61, match:67, verified:['SUTD OpenCerts'], skills:['React','TypeScript','Next.js','Figma'], salary:'SGD 6–9k', bg:'#72243E', ats:71, interview:null, star:'Developing', bio:'Component library used by 12 teams at Carousell.', blocker:null },
-];
-
 const THREADS = [
   { id:1, name:'Ivy Nguyen',   initials:'IN', bg:'#534AB7', role:'Senior AI Engineer',    trust:88, unread:true,  preview:'Hi! Yes, actively looking…', time:'2m',
     msgs:[{from:'you',text:'Hi Ivy, saw your verified profile — impressive work. Are you open to our Senior AI Engineer role?'},{from:'them',text:'Hi! Yes, actively looking. Happy to share more about my background.'},{from:'them',text:"I've been building RAG pipelines for 2 years. What tech stack does Vertex AI Labs use?"}] },
@@ -76,7 +68,7 @@ function trustColor(t) { return t >= 70 ? T.emerald : t >= 40 ? T.gold : T.red; 
 function trustLabel(t) { return t >= 70 ? 'High' : t >= 40 ? 'Mid' : 'Low'; }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
-function DashboardPage({ onNavigate, candidates = CANDIDATES }) {
+function DashboardPage({ onNavigate, candidates = [] }) {
   const kpis = [
     { n:'47', label:'Matched candidates', delta:'↑ 12 this week', color:T.teal },
     { n:'8',  label:'Active TrustChats',  delta:'↑ 3 new today',  color:T.violetTxt },
@@ -144,7 +136,7 @@ function DashboardPage({ onNavigate, candidates = CANDIDATES }) {
             </div>
             <table style={{ width:'100%', borderCollapse:'collapse' }}>
               <thead>
-                <tr>{['Candidate','Trust','Match','Stage','Action'].map(h => (
+                <tr>{['Candidate','Practice score','Match','Stage','Action'].map(h => (
                   <th key={h} style={{ padding:'9px 14px', fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', color:T.text3, textAlign:'left', borderBottom:`1px solid ${T.bdr}`, background:'rgba(255,255,255,.02)' }}>{h}</th>
                 ))}</tr>
               </thead>
@@ -166,7 +158,7 @@ function DashboardPage({ onNavigate, candidates = CANDIDATES }) {
                         </div>
                       </td>
                       <td style={{ padding:'10px 14px' }}><Pill color={T.emerald} bg={T.emeraldDim} border={T.emeraldB}>{c.trust}</Pill></td>
-                      <td style={{ padding:'10px 14px', fontSize:11, color:T.text2 }}>{c.match}%</td>
+                      <td style={{ padding:'10px 14px', fontSize:11, color:T.text2 }}>{c.match != null ? `${c.match}%` : '—'}</td>
                       <td style={{ padding:'10px 14px' }}><Pill color={sc} bg={sb2} border={sbdr}>{stage}</Pill></td>
                       <td style={{ padding:'10px 14px' }}><button onClick={() => onNavigate('inbox')} style={{ fontSize:10, color:T.violetTxt, background:'none', border:'none', cursor:'pointer', fontFamily:T.ff }}>Open chat</button></td>
                     </tr>
@@ -285,7 +277,7 @@ function JobsPage({ onNavigate, employer, user }) {
 }
 
 // ── TrustMatch Swipe ──────────────────────────────────────────────────────────
-function MatchPage({ candidates = CANDIDATES }) {
+function MatchPage({ candidates = [] }) {
   const [deck, setDeck] = useState([...candidates]);
   const [shortlisted, setShortlisted] = useState([]);
   const [passed, setPassed] = useState([]);
@@ -383,7 +375,7 @@ function MatchPage({ candidates = CANDIDATES }) {
 
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:11 }}>
                     <span style={{ color:T.text3 }}>{current.salary}</span>
-                    <span style={{ fontWeight:700, fontFamily:T.ffm, background:T.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>{current.match}% match</span>
+                    <span style={{ fontWeight:700, fontFamily:T.ffm, background:T.grad, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>{current.match != null ? `${current.match}% match` : 'Match not scored yet'}</span>
                   </div>
 
                   {current.blocker && (
@@ -424,7 +416,7 @@ function MatchPage({ candidates = CANDIDATES }) {
                 <div style={{ width:32, height:32, borderRadius:'50%', background:c.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, color:'#fff', flexShrink:0 }}>{c.initials}</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:11, fontWeight:600, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</div>
-                  <div style={{ fontSize:9, color:T.text3 }}>{c.title} · {c.match}% match</div>
+                  <div style={{ fontSize:9, color:T.text3 }}>{c.title}{c.match != null ? ` · ${c.match}% match` : ''}</div>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
                   <span style={{ fontSize:10, fontWeight:800, fontFamily:T.ffm, color:trustColor(c.trust) }}>T{c.trust}</span>
@@ -624,7 +616,7 @@ function AnalyticsPage() {
 
         {/* Trust distribution */}
         <div style={{ background:T.bg3, border:`1px solid ${T.bdr}`, borderRadius:T.r, padding:16 }}>
-          <div style={{ fontSize:11, fontWeight:700, marginBottom:14 }}>Trust score distribution</div>
+          <div style={{ fontSize:11, fontWeight:700, marginBottom:14 }}>Practice score distribution</div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {trustDist.map(d => (
               <div key={d.label} style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -755,7 +747,8 @@ function mapCandidate(row, idx) {
   return {
     id: row.user_id, initials: inits, name, bg: BG_PALETTE[idx % BG_PALETTE.length],
     title: row.headline || 'Professional', exp: '', uni: '',
-    trust: row.trust_score || 0, match: Math.min(99, Math.round((row.trust_score || 0) * 0.97 + 3)),
+    trust: row.trust_score || 0, match: null, // no real matching engine yet, so no match % is invented
+   
     ats: row.ats_score || 0, interview: row.interview_score || 0,
     star: row.star_score > 70 ? 'Strong' : row.star_score > 40 ? 'Good' : 'Developing',
     skills: row.skills || [], salary: salLabel, bio: row.bio || '',
@@ -787,7 +780,8 @@ export default function EmployerPortal({ user, onLogout }) {
         }
         setEmployer(emp);
 
-        // 2. Fetch visible candidate profiles
+        // 2. Only a verified employer may see candidates (the database enforces this too)
+        if (!emp?.verified_at) { setCandidates([]); return; }
         const rows = await sb.select('candidate_trust_profiles', { is_visible: 'eq.true', order: 'trust_score.desc', limit: 50 }, user.token);
         setCandidates((rows || []).map(mapCandidate));
       } catch (e) {
@@ -798,7 +792,25 @@ export default function EmployerPortal({ user, onLogout }) {
     bootstrap();
   }, [user]);
 
-  const displayCandidates = candidates !== null && candidates.length > 0 ? candidates : CANDIDATES;
+  const displayCandidates = candidates || [];
+
+  if (employer && !employer.verified_at) {
+    return (
+      <div role="alert" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:T.bg, color:T.text, fontFamily:T.ff, padding:24 }}>
+        <div style={{ maxWidth:440, textAlign:'center' }}>
+          <div style={{ fontSize:20, fontWeight:800, marginBottom:10 }}>Your employer account is awaiting verification</div>
+          <div style={{ fontSize:13, color:T.text2, lineHeight:1.7, marginBottom:20 }}>
+            To protect candidates, employer accounts are reviewed before they can see candidate profiles or post jobs.
+            We'll enable <strong>{employer.name}</strong> once the review is done.
+          </div>
+          <button onClick={onLogout} style={{ padding:'10px 20px', borderRadius:10, border:`1px solid ${T.bdr2}`, background:'transparent', color:T.text2, fontWeight:700, cursor:'pointer' }}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
+  if (!employer && candidates === null) {
+    return <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:T.bg, color:T.text2, fontFamily:T.ff }}>Loading…</div>;
+  }
 
   const renderPage = () => {
     switch (page) {
@@ -813,8 +825,8 @@ export default function EmployerPortal({ user, onLogout }) {
     }
   };
 
-  const companyName = user?.company || 'Vertex AI Labs';
-  const userName = user?.name || 'Sarah';
+  const companyName = employer?.name || user?.company || 'Your company';
+  const userName = user?.name || 'Recruiter';
   const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
 
   return (
@@ -838,7 +850,6 @@ export default function EmployerPortal({ user, onLogout }) {
           </div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontSize:10, fontWeight:700, padding:'4px 10px', borderRadius:5, background:T.goldDim, color:T.gold, border:`1px solid ${T.goldB}` }}>Pro Plan ✦</span>
           <div style={{ width:30, height:30, borderRadius:'50%', background:T.gradHR, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, color:'#fff', border:`2px solid rgba(245,158,11,.35)` }}>{initials}</div>
         </div>
       </div>
@@ -870,7 +881,6 @@ export default function EmployerPortal({ user, onLogout }) {
               <div style={{ width:26, height:26, borderRadius:'50%', background:T.gradHR, display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#fff', flexShrink:0 }}>{initials}</div>
               <div>
                 <div style={{ fontSize:11, fontWeight:600, color:T.text2 }}>{userName}</div>
-                <div style={{ fontSize:9, color:T.text3 }}>Head of Talent</div>
               </div>
             </div>
             <button onClick={onLogout} style={{ background:'none', border:'none', fontSize:10, color:T.text3, padding:'6px 4px', marginTop:4, width:'100%', textAlign:'left', cursor:'pointer', transition:'color .15s', fontFamily:T.ff }}>← Sign out</button>
@@ -879,6 +889,9 @@ export default function EmployerPortal({ user, onLogout }) {
 
         {/* Page content */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
+          <div role="note" style={{ padding:'8px 20px', fontSize:11, color:T.text2, background:'rgba(245,158,11,.08)', borderBottom:`1px solid ${T.bdr}` }}>
+            Preview: Pipeline, Inbox, Analytics, Team and the job and dashboard figures show sample data until those features launch. Candidate scores are practice scores from candidates' own activity and are not verified.
+          </div>
           {renderPage()}
         </div>
       </div>
