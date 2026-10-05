@@ -104,7 +104,7 @@ function App() {
     _setResumeProfile(val);
   };
   const [profileLoading, setProfileLoading] = useState(false);
-  const { memory, updateMemory, isSyncing } = useMemory(user, isRestoring, setIsRestoring, setRestoreError);
+  const { memory, updateMemory, isSyncing, syncError, syncedAt } = useMemory(user, isRestoring, setIsRestoring, setRestoreError);
   
   // State is now fully managed by useMemory relational sync
   // localStorage used as resilient fallback — survives refreshes even if Supabase write is delayed
@@ -253,6 +253,11 @@ function App() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // A failed save used to show only in the console; tell the user so they don't assume it was kept.
+  useEffect(() => {
+    if (syncError) showToast("Couldn't save your latest changes. Check your connection and try again.", "error");
+  }, [syncError]);
+
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -286,7 +291,7 @@ function App() {
   const renderActiveModule = () => {
     const props = {
       resumeText, setResumeText, scanResult, setScanResult,
-      form, memory, updateMemory,
+      form, memory, updateMemory, syncedAt,
       resumeProfile, profileLoading,
       onProTrigger: setProModal,
       user, setAuthModal, showToast, setActiveModule: navigate,
@@ -644,6 +649,17 @@ function App() {
         </div>
       );
     }
+
+    if (restoreError) return (
+      <div role="alert" style={{ maxWidth: 420, margin: '15vh auto', padding: 24, textAlign: 'center', color: C.text }}>
+        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>We couldn't load your saved data</div>
+        <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+          Nothing has been changed or lost. Check your connection and try again. Saving is paused until your data loads, so it can't be overwritten.
+        </div>
+        <button onClick={() => window.location.reload()} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: C.accent, color: '#000', fontWeight: 800, cursor: 'pointer', marginRight: 10 }}>Try again</button>
+        <button onClick={logout} style={{ padding: '10px 20px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, fontWeight: 700, cursor: 'pointer' }}>Sign out</button>
+      </div>
+    );
 
     if (isRestoring) return <AppLoader label="Restoring your session…" />;
 

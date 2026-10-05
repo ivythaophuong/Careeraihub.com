@@ -1,0 +1,28 @@
+# Database changes made outside the app
+
+The repo has no SQL migrations; these were applied by hand in the Supabase SQL Editor.
+
+## 2026-10-05: lock score columns, require verified employers
+
+Applied: `2026-10-05-lock-scores-and-verify-employers.sql`. A rollback script exists but is kept privately by the
+owner, because it restores the weaker policies this change replaced.
+
+What it does
+- Scores (`trust_score`, `ats_score`, `interview_score`, `star_score`) can't be written from the browser; the
+  database trigger `recompute_trust_score` still writes them.
+- `recompute_trust_score` / `trigger_recompute_trust_score` can't be called from the browser; `search_path` is pinned.
+- Employers need `employers.verified_at` (set only by an admin in the SQL editor) to read candidate profiles,
+  create matches or pipeline rows, or have job listings shown publicly.
+  Verify one with: `update public.employers set verified_at = now() where id = '<employer id>';`
+- `employer_id` / `candidate_id` of matches and pipeline rows can't be changed from the browser.
+- Score columns on `resume_scans`, `mock_sessions`, `star_stories` are limited to 0..100 (new and changed rows).
+
+Known gap: the three input tables still take scores sent by the browser. The real fix is to write AI scores from a
+server-side function (planned).
+
+`replica-test/` runs the attack and normal-use scenarios against an in-memory Postgres (PGlite) built from the audited
+schema, before and after the change:
+
+    npm i @electric-sql/pglite
+    node run.mjs before
+    node run.mjs after ../2026-10-05-lock-scores-and-verify-employers.sql

@@ -49,8 +49,6 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
   const [expLevel, setExpLevel] = useState("Any");
   const [jobType, setJobType] = useState("all");
   const [searched, setSearched] = useState(false);
-  const [loadingAlt, setLoadingAlt] = useState(false);
-  const [alternatives, setAlternatives] = useState(null);
 
   // Tracker State
   const [showAddTrack, setShowAddTrack] = useState(false);
@@ -67,31 +65,6 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
       return;
     }
     setSearched(true);
-    setLoadingAlt(true);
-    // Simulate AI Market Analysis
-    setTimeout(() => {
-      setAlternatives({
-        searchStrategy: `Focus on "Growth" and "Scale-up" companies in ${location}. Your background in ${form.industry || "your industry"} is a high-value multiplier here. Early-week applications have a 3x higher response rate.`,
-        insiderTip: "Remote roles for this title in this market are often posted with 'Hybrid' labels to filter local talent—apply anyway if you are within 2 hours.",
-        hiringTrends: "Hiring velocity is up 12% MoM. Major tech hubs are decentralizing.",
-        applicationVolume: "45-80 applicants/post",
-        timeToHire: "3-5 weeks",
-        salaryRange: { min: "$95k", mid: "$125k", max: "$160k", notes: "Based on recent Series B-C listings." },
-        alternativeTitles: [
-          { title: "Product Operations Manager", demandLevel: "High", why: "Strong focus on efficiency metrics", avgSalary: "$130k" },
-          { title: "Technical Program Manager", demandLevel: "High", why: "Your engineering depth", avgSalary: "$145k" }
-        ],
-        alternativeLocations: [
-          { location: "Amsterdam", hiringClimate: "Hot", costOfLiving: "Medium", why: "Visa sponsorships active" }
-        ],
-        powerKeywords: ["Scalability", "Stakeholder Mgmt", "Product-Led Growth", "Data-Driven"],
-        companiesHiring: [
-          { company: "Stripe", stage: "Late", why: "Expanding local PM team" },
-          { company: "Revolut", stage: "Growth", why: "Aggressive hiring in this region" }
-        ]
-      });
-      setLoadingAlt(false);
-    }, 2000);
   };
 
   const addToTracker = () => {
@@ -183,7 +156,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
             <Btn onClick={handleSearch} color={C.border} style={{ width: "100%", padding: 18, fontSize: 16, borderRadius: 12, border: `1px solid ${C.border}`, background: C.surface, color: C.text }}>🔎 Find Jobs Now</Btn>
           </Card>
 
-          {!searched && !loadingAlt && (
+          {!searched && (
             <>
               {/* Stats Grid Restoration */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
@@ -371,9 +344,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
           )}
 
 
-          {loadingAlt && <Card><Spinner label="AI mapping the global job market for matches..." /></Card>}
-
-          {searched && alternatives && !loadingAlt && (
+          {searched && (
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               
               {/* PLATFORMS */}
@@ -397,55 +368,8 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                 ))}
               </div>
 
-              {/* AI STRATEGY */}
-              <Card style={{ border: `1px solid ${C.accent}33`, background: C.accent + "05" }}>
-                 <div style={{ color: C.accent, fontWeight: 900, fontSize: 13, textTransform: "uppercase", marginBottom: 12 }}>🧠 AI Search Strategy</div>
-                 <div style={{ color: C.text, fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>{alternatives.searchStrategy}</div>
-                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <div style={{ background: C.card, padding: 12, borderRadius: 10, border: `1px solid ${C.gold}33` }}>
-                       <div style={{ color: C.gold, fontSize: 10, fontWeight: 900, marginBottom: 4 }}>INSIDER TIP</div>
-                       <div style={{ color: C.text, fontSize: 12 }}>{alternatives.insiderTip}</div>
-                    </div>
-                    <div style={{ background: C.card, padding: 12, borderRadius: 10, border: `1px solid ${C.purple}33` }}>
-                       <div style={{ color: C.purple, fontSize: 10, fontWeight: 900, marginBottom: 4 }}>MARKET TREND</div>
-                       <div style={{ color: C.text, fontSize: 12 }}>{alternatives.hiringTrends}</div>
-                    </div>
-                 </div>
-              </Card>
-
-              {/* SALARY QUICK CHECK */}
-              <Card style={{ border: `1px solid ${C.green}33`, background: C.green + "05" }}>
-                <div style={{ color: C.green, fontWeight: 900, fontSize: 13, textTransform: "uppercase", marginBottom: 12 }}>💰 Market Salary Estimate</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                   {["min", "mid", "max"].map(k => (
-                     <div key={k} style={{ textAlign: "center", flex: 1 }}>
-                        <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", marginBottom: 4 }}>{k}</div>
-                        <div style={{ color: k === "mid" ? C.green : C.text, fontSize: 20, fontWeight: 900 }}>{alternatives.salaryRange[k]}</div>
-                     </div>
-                   ))}
-                </div>
-              </Card>
-
-              {/* ALT TITLES */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                 <Card>
-                    <div style={{ color: C.text, fontWeight: 800, fontSize: 14, marginBottom: 12 }}>🔄 Expansion Roles</div>
-                    {alternatives.alternativeTitles.map((alt, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}33` }}>
-                        <div style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{alt.title}</div>
-                        <div style={{ color: C.green, fontSize: 11, fontWeight: 800 }}>{alt.avgSalary}</div>
-                      </div>
-                    ))}
-                 </Card>
-                 <Card>
-                    <div style={{ color: C.text, fontWeight: 800, fontSize: 14, marginBottom: 12 }}>🏢 Hiring Now</div>
-                    {alternatives.companiesHiring.map((c, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}33` }}>
-                        <div style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{c.company}</div>
-                        <Badge label={c.stage} color={C.gold} />
-                      </div>
-                    ))}
-                 </Card>
+              <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
+                These open each job board with your search. We don't show market trends, salary ranges or "companies hiring" here because we don't have live data for them yet.
               </div>
             </div>
           )}
