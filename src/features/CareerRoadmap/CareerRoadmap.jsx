@@ -59,7 +59,7 @@ function MilestoneRow({ done, label, current, target }) {
   );
 }
 
-export default function CareerRoadmap({ memory, form, user, setActiveModule }) {
+export default function CareerRoadmap({ memory, form, user, setActiveModule, syncedAt }) {
   const [trustScore, setTrustScore] = useState(0);
   const [trustVisible, setTrustVisible] = useState(false);
 
@@ -71,7 +71,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule }) {
         setTrustVisible(rows?.[0]?.is_visible || false);
       })
       .catch(() => {});
-  }, [user]);
+  }, [user, syncedAt]);
 
   // Step states derived from memory
   const atsScore      = memory.scanHistory?.[0]?.score ?? 0;
@@ -121,7 +121,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule }) {
         Your goal: <strong style={{ color: 'var(--lp-text)' }}>{targetRole}</strong>
         {form?.market ? ` in ${form.market}` : ''}. You're <strong style={{ color: '#EC4899' }}>{progressPct}%</strong> of the way there.
         {stepsCompleted < 5 && (
-          <> The next unlock: <strong style={{ color: '#F5B340' }}>{!s1Done ? 'get your ATS score above 75' : !s2Done ? 'clear 75+ interview readiness with 5+ STAR stories' : !s3Done ? 'run skills gap analysis' : !s4Done ? 'verify credentials to reach trust score 65+' : 'activate TrustMatch visibility'}</strong>. Estimated offer timeline: {estimatedDays} at current pace.</>
+          <> The next unlock: <strong style={{ color: '#F5B340' }}>{!s1Done ? 'get your ATS score above 75' : !s2Done ? 'clear 75+ interview readiness with 5+ STAR stories' : !s3Done ? 'run skills gap analysis' : !s4Done ? 'raise your practice score to 65+ with interview and STAR practice' : 'activate TrustMatch visibility'}</strong>. Estimated offer timeline: {estimatedDays} at current pace.</>
         )}
         {stepsCompleted === 5 && <> All 5 steps complete — you're fully prepared. Activate TrustMatch to start receiving recruiter matches.</>}
       </AiBubble>
@@ -158,10 +158,10 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule }) {
             isLast={false} />
 
           <RoadmapStep num={4} state={stepState(s4Done, s3Done)}
-            title="Credentials verified · trust score 65+"
-            desc={s4Done ? `Trust score ${trustScore}/100 — verified profile unlocks TrustMatch.` : `Current trust score: ${trustScore}/100. Verify your education and employment to reach 65+.`}
-            cta={!s4Done ? 'Verify creds →' : null}
-            onCta={() => setActiveModule('trustmatch')}
+            title="Practice score 65+"
+            desc={s4Done ? `Practice score ${trustScore}/100.` : `Current practice score: ${trustScore}/100. It rises as you practise interview answers, refine STAR stories and scan your resume.`}
+            cta={!s4Done ? 'Practise →' : null}
+            onCta={() => setActiveModule('simulate')}
             isLast={false} />
 
           <RoadmapStep num={5} state={stepState(s5Done, s4Done)}
@@ -203,7 +203,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule }) {
             <MilestoneRow done={readiness >= 75} label="Interview readiness > 75" current={readiness} target={75} />
             <MilestoneRow done={starCount >= 5}  label="STAR bank 5+ stories"   current={starCount} target={5} />
             <MilestoneRow done={hasSkillsGap}    label="Skills gap analysis run" current={hasSkillsGap ? 1 : 0} target={1} />
-            <MilestoneRow done={trustScore >= 65} label="Trust score 65+"        current={trustScore} target={65} />
+            <MilestoneRow done={trustScore >= 65} label="Practice score 65+"     current={trustScore} target={65} />
             <MilestoneRow done={s5Done}           label="TrustMatch activated"   current={s5Done ? 1 : 0} target={1} />
           </div>
 

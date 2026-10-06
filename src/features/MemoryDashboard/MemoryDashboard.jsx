@@ -52,10 +52,13 @@ Return ONLY raw JSON:
   const clearMemory = async () => {
     setCleared(true);
     setAiSummary(null);
-    updateMemory(() => ({
+    // Updates merge into memory, so to clear everything we explicitly empty every key that exists
+    // (lists become [], numbers 0, everything else null) on top of the known defaults.
+    updateMemory(m => ({
       scanHistory: [], starBank: [], mockSessions: [], applications: [],
       rejections: [], negotiationPractice: 0, coverLetters: [], jdAnalyses: [],
-      insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null
+      insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null,
+      ...Object.fromEntries(Object.keys(m || {}).map(k => [k, Array.isArray(m[k]) ? [] : typeof m[k] === 'number' ? 0 : null])),
     }));
     if (user?.id && user?.token) {
       const filter = { user_id: `eq.${user.id}` };
@@ -76,8 +79,10 @@ Return ONLY raw JSON:
     { icon:"📅", label:"Days Active",          val: memory.lastSeen ? Math.max(1, Math.ceil((Date.now()-new Date(memory.joinedAt||memory.lastSeen))/86400000)) : 1, color: C.muted },
   ];
 
-  const latestScore = memory.scanHistory?.length ? memory.scanHistory[memory.scanHistory.length-1].score : null;
-  const firstScore  = memory.scanHistory?.length > 1 ? memory.scanHistory[0].score : null;
+  // scanHistory is stored newest-first (index 0 is the latest scan); the chart reads oldest to newest.
+  const latestScore = memory.scanHistory?.length ? memory.scanHistory[0].score : null;
+  const firstScore  = memory.scanHistory?.length > 1 ? memory.scanHistory[memory.scanHistory.length-1].score : null;
+  const scansOldestFirst = [...(memory.scanHistory || [])].reverse();
 
   return (
     <div className="fp-wrap" style={{display:"flex",flexDirection:"column",gap:0}}>
@@ -113,7 +118,7 @@ Return ONLY raw JSON:
         <Card glow={C.accent}>
           <div style={{color:C.accent,fontWeight:700,fontSize:13,marginBottom:12}}>📈 Resume Score Progression</div>
           <div style={{display:"flex",gap:4,alignItems:"flex-end",height:60,marginBottom:10}}>
-            {memory.scanHistory.map((s,i)=>{
+            {scansOldestFirst.map((s,i)=>{
               const h=Math.max(6,Math.round((s.score/100)*60));
               const c=s.score>=70?C.green:s.score>=50?C.gold:C.red;
               return (

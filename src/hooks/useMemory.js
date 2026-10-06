@@ -8,6 +8,12 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
   const syncLockedRef = useRef(true); // Atomic lock to prevent race conditions during initial load
   const pendingRef = useRef(null); // Queued write blocked by lock — flushed after boot
   const [isSyncing, setIsSyncing] = useState(false);
+  // Set (as a fresh object each time) when a save fails, so the UI can tell the user instead of
+  // leaving the failure in the console. Cleared by the next fully successful save.
+  const [syncError, setSyncError] = useState(null);
+  // Changes after every fully successful save, so screens that read database-computed values
+  // (the practice score is recalculated by a database trigger) can re-read them.
+  const [syncedAt, setSyncedAt] = useState(0);
 
   // 1. COMPOSITE FETCH: Load from all relational tables with isolation
   useEffect(() => {
@@ -16,11 +22,14 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
       console.log("[useMemory] Refactor Boot Initializing:", { email: user.email, id: user.id });
       
       try {
-        const fetch = async (table, query = {}) => {
+        // `critical` tables must load: if the stored memory can't be read we must NOT unlock writing,
+        // or the next save would overwrite the user's saved data with an empty object.
+        const fetch = async (table, query = {}, { critical = false } = {}) => {
            try {
              const res = await sb.select(table, { user_id: `eq.${user.id}`, ...query }, user.token);
              return res || [];
            } catch (e) {
+             if (critical) throw e;
              console.warn(`[useMemory] Partial Fetch Error for ${table}:`, e.message);
              return [];
            }
@@ -30,7 +39,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
         const [
           dbMem, scans, apps, stars, covers, jds, sessions, practice, insights
         ] = await Promise.all([
-          fetch("user_memory"),
+          fetch("user_memory", {}, { critical: true }),
           fetch("resume_scans", { order: "created_at.desc", limit: 20 }),
           fetch("applications", { order: "created_at.desc", limit: 50 }),
           fetch("star_stories", { order: "created_at.desc", limit: 30 }),
@@ -109,8 +118,12 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
 
   // 3. TARGETED UPDATE: Specific persistence logic
   const updateMemory = async (updater, relational = null) => {
-    // Compute nextState synchronously from memoryRef — avoids undefined from React's async batching
-    const nextState = typeof updater === 'function' ? updater(memoryRef.current) : { ...memoryRef.current, ...updater };
+    // Compute nextState synchronously from memoryRef — avoids undefined from React's async batching.
+    // Updates MERGE into the current memory. Many callers return only the keys they own
+    // (e.g. `m => ({ starBank: [...] })`), and replacing the whole state with that would silently
+    // wipe unrelated memory such as the resume text, scan result and saved PDF.
+    const patch = typeof updater === 'function' ? updater(memoryRef.current) : updater;
+    const nextState = { ...memoryRef.current, ...(patch || {}) };
     memoryRef.current = nextState; // Update ref immediately so subsequent calls stack correctly
     setMemory(nextState);
 
@@ -124,8 +137,11 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
 
         await sb.upsert("user_memory", { user_id: user.id, data: nextState, updated_at: new Date().toISOString() }, user.token);
         console.log("[Sync] Memory Object Updated Successfully");
+        setSyncError(null);
+        setSyncedAt(Date.now());
       } catch (e) {
         console.error("[Sync] CRITICAL PERSISTENCE ERROR:", e.message);
+        setSyncError({ message: e.message || 'Save failed', at: Date.now() });
         try {
            await sb.upsert("user_memory", { user_id: user.id, data: nextState }, user.token);
         } catch (inner) { console.error("[Sync] Total Persistence Blackout:", inner.message); }
@@ -138,5 +154,5 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
     }
   };
 
-  return { memory, updateMemory, isSyncing };
+  return { memory, updateMemory, isSyncing, syncError, syncedAt };
 }

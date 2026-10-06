@@ -106,7 +106,7 @@ export default function HiringManagerSim({ resumeText, scanResult, form, memory,
       setFb(result);
       if (updateMemory) {
         updateMemory(
-          m => ({ mockSessions: [{ score: result.score, mode: archetype.id, date: new Date().toISOString() }, ...(m.mockSessions || [])].slice(0, 20) }),
+          m => ({ mockSessions: [{ score: result.score, avgScore: result.score, mode: archetype.id, date: new Date().toISOString() }, ...(m.mockSessions || [])].slice(0, 20) }),
           { table: 'mock_sessions', data: { avg_score: result.score, questions_count: 1, mode: archetype.id } }
         );
       }
