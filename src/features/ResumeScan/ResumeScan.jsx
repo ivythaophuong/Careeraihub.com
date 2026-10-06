@@ -7,6 +7,7 @@ import html2pdf from 'html2pdf.js';
 import mammoth from 'mammoth';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
 import { neutralizeInventedFigures, hasPlaceholder, revertInsertion } from '../../lib/factGuard.js';
+import { prepareJdMatch, checkKeywords } from '../../lib/resumeDigest.js';
 
 // ── Preserved scan logic ──────────────────────────────────────────────────────
 
@@ -317,6 +318,7 @@ function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMe
   const [scanErr, setScanErr] = useState('');
   const [result, setResult]   = useState(null);
   const [prevMatchScore, setPrevMatchScore] = useState(null);
+  const [scanNotice, setScanNotice] = useState(null);
   const [showVersionPicker, setShowVersionPicker] = useState(false);
   const [appliedFixes, setAppliedFixes]       = useState({});
   const [editingIdx, setEditingIdx]           = useState(null);
@@ -447,15 +449,17 @@ ${src.slice(0, 4000)}` }], 3000);
     if (!jd.trim()) return;
     const lastAnalysis = (memory?.jdAnalyses || []).find(a => a.matchScore > 0);
     setPrevMatchScore(lastAnalysis?.matchScore ?? null);
-    setLoading(true); setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditDraft(''); setEditMode(false); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false);
+    const prepared = prepareJdMatch(resumeCtx, jd);
+    setScanNotice(prepared.notice);
+    setLoading(true); setResult(null); setScanErr('');  setAppliedFixes({}); setEditingIdx(null); setEditDraft(''); setEditMode(false); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false);
     try {
       const raw = await callLLM([{ role: 'user', content:
         `Compare this resume against the job description and return a match analysis.
 Resume:
-${resumeCtx.slice(0, 3000) || 'No resume provided — infer from context.'}
+${prepared.resume || 'No resume provided.'}
 
 Job Description:
-${jd.slice(0, 2000)}
+${prepared.jd}
 
 Return ONLY raw JSON (no markdown, start with {):
 {
@@ -468,7 +472,7 @@ Return ONLY raw JSON (no markdown, start with {):
     {"label":"Skills alignment","score":0-100},
     {"label":"Format score","score":0-100}
   ],
-  "missingKeywords": ["keyword1","keyword2","keyword3","keyword4","keyword5","keyword6","keyword7"],
+  "jdKeywords": ["up to 15 distinct skills, tools or requirements copied word for word from the job description"],
   "aiInsight": "2-sentence specific advice about the biggest gap, without promising a score improvement",
   "issues": [
     {"severity":"critical|warning","type":"Vague Bullet|Missing Metric|Weak Ownership|Weak Impact","original":"exact short quote max 8 words from the resume","fix":"XYZ rewrite of the SAME bullet — keep the exact same role, company, and technologies already in the resume. Only improve structure and clarity. Never add a number, percentage, count, team size, timeline, tool, certification, or any level of ownership or scope that the resume does not already state. Where a figure would strengthen the bullet, write [X] (for example by [X]%) so the candidate fills in their real value, or leave it out."}
@@ -477,11 +481,16 @@ Return ONLY raw JSON (no markdown, start with {):
 Generate 3-5 issues. Each issue must target an actual weak bullet from the resume. Fix must rewrite that bullet only — same context, better structure and impact. Do NOT reference the target company's specific tools, products, or proprietary services unless the candidate already mentions them in their resume.` }], 1500);
       const parsed = extractJSON(raw);
       if (!parsed.error) {
-        setResult({ ...parsed, issues: guardIssues(parsed.issues, resumeCtx) });
+        // Keyword presence is decided by code over the full resume and JD, not by what the AI happened to see.
+        const kw = checkKeywords(parsed.jdKeywords, resumeCtx, jd);
+        const total = kw.matched.length + kw.missing.length;
+        const bars = (parsed.bars || []).map(b => (total > 0 && /keyword/i.test(b.label) ? { ...b, score: Math.round((kw.matched.length / total) * 100) } : b));
+        const finalResult = { ...parsed, bars, missingKeywords: kw.missing, matchedKeywords: kw.matched, issues: guardIssues(parsed.issues, resumeCtx) };
+        setResult(finalResult);
         if (updateMemory) {
           updateMemory(
             m => ({ jdAnalyses: [{ date: new Date().toISOString(), roleTitle: parsed.roleTitle, matchScore: parsed.matchScore }, ...(m.jdAnalyses || [])].slice(0, 20) }),
-            { table: 'jd_analyses', data: { role_title: parsed.roleTitle || form?.role || '', company: parsed.company || '', match_score: parsed.matchScore, keywords: parsed.bars || [], gaps: parsed.missingKeywords || [], advice: parsed.aiInsight || '' } }
+            { table: 'jd_analyses', data: { role_title: parsed.roleTitle || form?.role || '', company: parsed.company || '', match_score: parsed.matchScore, keywords: finalResult.bars || [], gaps: finalResult.missingKeywords || [], advice: parsed.aiInsight || '' } }
           );
         }
       }
@@ -918,6 +927,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
             {/* Verdict + bars */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--lp-text)', lineHeight: 1.3 }}>{result.verdict}</div>
+              {scanNotice && <div style={{ fontSize: 11, color: '#FFB84D', lineHeight: 1.5 }}>{scanNotice}</div>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {(result.bars || []).map((b, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
