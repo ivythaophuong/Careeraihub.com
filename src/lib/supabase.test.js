@@ -63,3 +63,20 @@ describe('errors still surface to the caller', () => {
     await expect(sb.upsert('t', { a: 1 }, 'x')).rejects.toThrow('permission denied');
   });
 });
+
+describe('errors carry the HTTP status so callers can tell an expired session from a blip', () => {
+  const failWith = (status, body = { message: 'nope' }) => { fetchMock.mockResolvedValue(okJson(body, status)); };
+  beforeEach(() => getValidSession.mockResolvedValue({ access_token: 't' }));
+
+  it.each([
+    ['select', () => sb.select('profiles', {}, 'x'), 401],
+    ['upsert', () => sb.upsert('t', { a: 1 }, 'x'), 403],
+    ['insert', () => sb.insert('t', { a: 1 }, 'x'), 401],
+    ['delete', () => sb.delete('t', { id: 'eq.1' }, 'x'), 500],
+    ['getUser', () => sb.getUser('x'), 401],
+    ['refreshToken', () => sb.refreshToken('r'), 400],
+  ])('%s', async (_name, call, status) => {
+    failWith(status);
+    await expect(call()).rejects.toMatchObject({ status });
+  });
+});
