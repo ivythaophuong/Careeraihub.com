@@ -1,8 +1,22 @@
 node_modules
 dist
 .git
-.env
-.env.local
-.env.development.local
-.env.test.local
+coverage
 *.log
+
+# Secrets and local state must never enter the build context (and therefore the image).
+# .env.production is excluded too: a build without it is byte-identical to production.
+.env
+.env.*
+*.pem
+.mcp.json
+.claude
+
+# Not build inputs
+supabase
+tests
+docs
+scripts
+**/*.test.js
+**/*.test.jsx
+*.md
