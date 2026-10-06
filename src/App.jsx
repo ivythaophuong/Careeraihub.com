@@ -71,7 +71,7 @@ import EmployerPortal from './features/EmployerPortal/EmployerPortal';
 function App() {
   const [setupDone, setSetupDone] = useState(false);
   const [onboardStep, setOnboardStep] = useState(1);
-  const [form, setForm] = useState({ role: "", industry: "", level: "Senior", market: "Singapore", urgency: "7 days" });
+  const [form, setForm] = useState({ role: "", industry: "", level: "", market: "Singapore", urgency: "7 days" });
   const profileSyncRef = useRef(null);
   const [user, setUser] = useState(null);
   const [activeModule, _setActiveModule] = useState("dashboard");
@@ -291,7 +291,7 @@ function App() {
   const renderActiveModule = () => {
     const props = {
       resumeText, setResumeText, scanResult, setScanResult,
-      form, memory, updateMemory, syncedAt,
+      form, setForm, memory, updateMemory, syncedAt,
       resumeProfile, profileLoading,
       onProTrigger: setProModal,
       user, setAuthModal, showToast, setActiveModule: navigate,
@@ -472,7 +472,7 @@ function App() {
                 </div>
                 {/* Experience level chips */}
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: 8 }}>Experience Level</div>
+                  <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: 8 }}>Experience Level <span style={{ textTransform: 'none', fontWeight: 400, letterSpacing: 0 }}>(optional)</span></div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                     {LEVELS.map(l => (
                       <button key={l} onClick={() => setForm(p => ({ ...p, level: l }))}

@@ -23,7 +23,7 @@ function buildMemoryContext(mem, form) {
     const avgMatch = Math.round(mem.jdAnalyses.reduce((s,x)=>s+x.matchScore,0)/mem.jdAnalyses.length);
     lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed, avg match score ${avgMatch}%`);
   }
-  lines.push(`Target: ${form.level} ${form.role} in ${form.industry}, ${form.market}`);
+  lines.push(`Target: ${[form.level, form.role].filter(Boolean).join(' ')} in ${form.industry}, ${form.market}`);
   return lines.length ? "\n\nUSER HISTORY CONTEXT:\n" + lines.join("\n") : "";
 }
 
