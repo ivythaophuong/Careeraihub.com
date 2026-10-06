@@ -6,22 +6,38 @@ import { sb } from '../../lib/supabase';
 import { GetReadyTabStrip } from '../Landing/LandingPage';
 import '../../styles/featurePage.css';
 
-function buildMemoryContext(mem, form) {
+// Missing data is left out, never turned into a number: an item without a finite score does not
+// count towards an average, and with nothing to average there is no average to show.
+const finiteScores = (list, key) => (list || []).map(x => x?.[key]).filter(Number.isFinite);
+const average = (list, key) => {
+  const v = finiteScores(list, key);
+  return v.length ? Math.round(v.reduce((s, x) => s + x, 0) / v.length) : null;
+};
+
+// scanHistory is stored newest-first, so index 0 is the latest scan.
+export function buildMemoryContext(mem, form) {
   if (!mem) return "";
   const lines = [];
   if (mem.scanHistory?.length) {
-    const latest = mem.scanHistory[mem.scanHistory.length - 1];
-    const trend = mem.scanHistory.length > 1
-      ? (latest.score - mem.scanHistory[0].score > 0 ? "improving" : "declining")
-      : "first scan";
-    lines.push(`Resume scan history: ${mem.scanHistory.length} scans, latest score ${latest.score}/100 (${trend})`);
+    const scored = mem.scanHistory.filter(s => Number.isFinite(s?.score)); // newest first
+    if (scored.length) {
+      const latest = scored[0].score, first = scored[scored.length - 1].score;
+      const trend = scored.length > 1 ? (latest > first ? "improving" : latest < first ? "declining" : "unchanged") : "first scan";
+      lines.push(`Resume scan history: ${mem.scanHistory.length} scans, latest score ${latest}/100 (${trend})`);
+    } else {
+      lines.push(`Resume scan history: ${mem.scanHistory.length} scans, no score recorded`);
+    }
   }
-  if (mem.starBank?.length) lines.push(`STAR story bank: ${mem.starBank.length} stories banked, avg score ${Math.round(mem.starBank.reduce((s,x)=>s+x.score,0)/mem.starBank.length)}/100`);
+  if (mem.starBank?.length) {
+    const avg = average(mem.starBank, 'score');
+    lines.push(`STAR story bank: ${mem.starBank.length} stories banked${avg == null ? '' : `, avg score ${avg}/100`}`);
+  }
   if (mem.mockSessions?.length) lines.push(`Mock interview history: ${mem.mockSessions.length} sessions completed`);
   if (mem.negotiationPractice > 0) lines.push(`Negotiation practice: ${mem.negotiationPractice} roleplay sessions`);
   if (mem.jdAnalyses?.length) {
-    const avgMatch = Math.round(mem.jdAnalyses.reduce((s,x)=>s+x.matchScore,0)/mem.jdAnalyses.length);
-    lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed, avg match score ${avgMatch}%`);
+    // JD-only analyses (no resume to compare) have no match score and must not count as 0.
+    const avgMatch = average(mem.jdAnalyses, 'matchScore');
+    lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed${avgMatch == null ? '' : `, avg match score ${avgMatch}%`}`);
   }
   lines.push(`Target: ${[form.level, form.role].filter(Boolean).join(' ')} in ${form.industry}, ${form.market}`);
   return lines.length ? "\n\nUSER HISTORY CONTEXT:\n" + lines.join("\n") : "";
@@ -80,9 +96,11 @@ Return ONLY raw JSON:
   ];
 
   // scanHistory is stored newest-first (index 0 is the latest scan); the chart reads oldest to newest.
-  const latestScore = memory.scanHistory?.length ? memory.scanHistory[0].score : null;
-  const firstScore  = memory.scanHistory?.length > 1 ? memory.scanHistory[memory.scanHistory.length-1].score : null;
-  const scansOldestFirst = [...(memory.scanHistory || [])].reverse();
+  // Only scans that have a score are drawn or compared; a scan without one is not shown as a 0 bar.
+  const scoredScans = (memory.scanHistory || []).filter(s => Number.isFinite(s?.score)); // newest first
+  const latestScore = scoredScans.length ? scoredScans[0].score : null;
+  const firstScore  = scoredScans.length > 1 ? scoredScans[scoredScans.length-1].score : null;
+  const scansOldestFirst = [...scoredScans].reverse();
 
   return (
     <div className="fp-wrap" style={{display:"flex",flexDirection:"column",gap:0}}>
@@ -117,6 +135,7 @@ Return ONLY raw JSON:
       {memory.scanHistory?.length > 0 && (
         <Card glow={C.accent}>
           <div style={{color:C.accent,fontWeight:700,fontSize:13,marginBottom:12}}>📈 Resume Score Progression</div>
+          {scoredScans.length === 0 && <div style={{color:C.muted,fontSize:12}}>No score recorded yet.</div>}
           <div style={{display:"flex",gap:4,alignItems:"flex-end",height:60,marginBottom:10}}>
             {scansOldestFirst.map((s,i)=>{
               const h=Math.max(6,Math.round((s.score/100)*60));
@@ -130,7 +149,7 @@ Return ONLY raw JSON:
               );
             })}
           </div>
-          {firstScore && latestScore && (
+          {firstScore != null && latestScore != null && (
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div style={{color:C.muted,fontSize:12}}>Started: <strong style={{color:C.text}}>{firstScore}/100</strong></div>
               <div style={{color:latestScore>firstScore?C.green:C.red,fontWeight:800,fontSize:13}}>

@@ -33,6 +33,6 @@ export const MODULES = [
   { id: "star",     icon: "⭐", label: "STAR Builder",     color: C.gold     },
   { id: "radar",    icon: "📡", label: "Weakness Radar",   color: C.red      },
   { id: "score",    icon: "🏆", label: "Readiness Score",  color: C.accent   },
-  { id: "market",   icon: "🌏", label: "Market Intel",     color: C.muted    },
+  { id: "market",   icon: "🌏", label: "Regional Guide",     color: C.muted    },
   { id: "memory",   icon: "🧬", label: "AI Memory",        color: C.purple   },
 ];

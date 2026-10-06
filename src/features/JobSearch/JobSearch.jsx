@@ -173,7 +173,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                     { title: "Job Search", desc: "Search 20+ boards — LinkedIn, Glassdoor, Indeed, Jobstreet and more in one place", color: C.green, tag: "Always Free" },
                     { title: "Resume Scan", desc: "AI credibility score and specific issues quoted from YOUR resume", color: C.accent, tag: "Free account" },
                     { title: "Weakness Radar", desc: "7-dimension gap map showing exactly which skills are costing you interviews right now", color: C.red, tag: "Free account" },
-                    { title: "Market Intel", desc: "General guidance on hiring norms and interview styles for 4 regions (not live data)", color: C.muted, tag: "Always Free" },
+                    { title: "Regional Guide", desc: "General guidance on hiring norms and interview styles for 4 regions (not live data)", color: C.muted, tag: "Always Free" },
                   ].map((f, i) => (
                     <Card key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 16 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>

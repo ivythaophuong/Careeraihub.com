@@ -314,11 +314,11 @@ const FEAT_DATA = [
     pw: { h: "You've used your 1 free readiness check.", s: 'Unlock full readiness tracking to monitor your score as you work through every module.', cta: 'Unlock readiness score →' },
   },
   {
-    icon: '🌏', label: 'Market Intel', isFree: true, moduleId: 'market',
-    ey: 'Module 11 — Always free', title: 'Market Intelligence',
+    icon: '🌏', label: 'Regional Guide', isFree: true, moduleId: 'market',
+    ey: 'Module 11 — Always free', title: 'Regional Hiring Guide',
     desc: "General guidance on hiring norms and interview styles for a few regions. These are rules of thumb, not live market data, so confirm details with the employer.",
     bullets: ['Regional guides: Singapore, US Tech, Europe and Remote-First', 'Hiring norms and interview styles to expect in each region', 'Clearly labelled as general guidance, not live data', 'No salary or hiring-demand figures are shown'],
-    previewHd: 'Market Intel · Example',
+    previewHd: 'Regional Guide · Example',
     preview: `<div class="mk-lbl">Example · Singapore guide</div>
       <div class="mk-row"><span class="mk-l">Hiring norms</span><span class="mk-v">General guidance</span></div>
       <div class="mk-row"><span class="mk-l">Interview styles</span><span class="mk-v">General guidance</span></div>
@@ -438,7 +438,7 @@ export const NAV_CATEGORIES = [
     icon: '🔍', label: 'Job Search', tag: 'Free',
     tools: [
       { icon: '🔎', label: 'Job Search',   sub: 'Browse & track open roles',      moduleId: 'jobs'   },
-      { icon: '🌏', label: 'Market Intel',  sub: 'Salary & hiring demand data',    moduleId: 'market' },
+      { icon: '🌏', label: 'Regional Guide',  sub: 'Hiring norms by region (general guidance)',    moduleId: 'market' },
     ],
   },
   {
@@ -712,7 +712,7 @@ export const PILLS = [
   { icon: '📄', label: 'Cover Letter',   moduleId: 'cover'    },
   { icon: '📡', label: 'Weakness Radar', moduleId: 'radar'    },
   { icon: '🏆', label: 'Readiness Score',moduleId: 'score'    },
-  { icon: '🌏', label: 'Market Intel',   moduleId: 'market'   },
+  { icon: '🌏', label: 'Regional Guide',   moduleId: 'market'   },
   { icon: '🧬', label: 'AI Memory',      moduleId: 'memory'      },
   { icon: '',   label: 'TrustMatch',    moduleId: 'trustmatch'  },
 ];
@@ -759,7 +759,7 @@ const ALL_TOOLS_LIST = [
   { icon: '📋', label: 'App Tracker', moduleId: '__tracker__' },
   { icon: '📡', label: 'Weakness Radar', moduleId: 'radar' },
   { icon: '🏆', label: 'Readiness Score', moduleId: 'score' },
-  { icon: '🌏', label: 'Market Intel', moduleId: 'market' },
+  { icon: '🌏', label: 'Regional Guide', moduleId: 'market' },
   { icon: '🧬', label: 'AI Memory', moduleId: 'memory' },
 ];
 
@@ -1083,7 +1083,7 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
         <div className="search-sub-btns">
           <button className="ssb" onClick={onTrackerOpen}>📋 App Tracker {appCount > 0 && <span style={{ background: 'var(--lp-teal)', color: '#08090D', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '1px 5px', marginLeft: 3 }}>{appCount}</span>}</button>
           <button className="ssb" onClick={() => onModuleSelect?.('salary')}>💰 Salary Intel</button>
-          <button className="ssb" onClick={() => onModuleSelect?.('market')}>📈 Market Intel</button>
+          <button className="ssb" onClick={() => onModuleSelect?.('market')}>🌏 Regional Guide</button>
         </div>
         <div className={`search-results${resOpen ? ' open' : ''}`} id="searchResults">
           <div className="results-inner">
@@ -1317,7 +1317,7 @@ const JOURNEY_STAGES = [
     pain: '"I always take the first number."',
     bullets: [
       'Salary Coach — negotiation scripts and practice',
-      'Market Intel — general hiring guidance by region',
+      'Regional Guide — general hiring guidance by region',
       'Counter-offer scripts with position anchors',
       'Pushback simulation with AI playing the recruiter',
     ],
@@ -1776,7 +1776,7 @@ function S2Card3({ color: c, active }) {
         <span style={{fontFamily:'monospace',fontSize:10.5,color:'#1ec98a',fontWeight:700}}>+SGD 3,500/mo</span>
       </div>
       <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:7}}>
-        {['Salary Coach','Market Intel','Negotiation Script'].map((t,i)=>(
+        {['Salary Coach','Regional Guide','Negotiation Script'].map((t,i)=>(
           <span key={i} className={`jny-kpill match${pills[i]?' vis':''}`}>{t}</span>
         ))}
       </div>
@@ -2820,7 +2820,7 @@ function PricingSection({ onJoin, onGetReady }) {
             <li className="pcf"><span className="ck">✓</span>1 resume ATS scan</li>
             <li className="pcf"><span className="ck">✓</span>1–2 free uses per module</li>
             <li className="pcf"><span className="ck">✓</span>Job search — always free</li>
-            <li className="pcf"><span className="ck">✓</span>Market intelligence — always free</li>
+            <li className="pcf"><span className="ck">✓</span>Regional hiring guide — always free</li>
           </ul>
           <button className="pbtn" onClick={onJoin}>Start free — no card →</button>
         </article>

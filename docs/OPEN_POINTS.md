@@ -56,3 +56,16 @@ Needs a database-level integration test, not a UI change. Expected flow:
 
 Until this is proven, do not work around it in the UI.
 
+
+## Backlog from the main/hotfix reconciliation (not fixed there on purpose)
+
+Each item was seen while reconciling and left alone to keep the groups small. Order is a suggestion.
+
+- **OP-4 (P1) Password reset:** the "Forgot your password?" button now says reset is not available, because the old text claimed a link was sent when nothing happened. A real flow needs Supabase's recover endpoint, handling of the recovery link when the app opens, and a new-password form.
+- **OP-5 (P1) Missing data shown as 0:** `ATSBuilder` stores `atsScore ?? 0` as the scan's credibility score; `Dashboard` and `CareerRoadmap` use `mockSessions[0]?.avgScore ?? 0` as readiness. A missing score should show as "no data yet", never as 0.
+- **OP-6 Verify claims in `LandingPage`:** testimonials with star ratings, "500+ beta users", "4.8★/4.9★", pricing, "Readiness Certificate", "blockchain-verifiable credentials", Singpass. Not removed because they cannot be checked from the code; each needs evidence or removal. `HeroSection`, `SearchCard` and `TickerBar` are unreachable code and can be deleted.
+- **OP-7 Landing responsive rules from `main` (`.lp ...`):** about 25 rules were not ported (see `src/responsive.css`). Check the landing page at 375 / 768 / 1280 px and port only what is still needed.
+- **OP-8 Mobile "All tools" drawer:** no Escape key or focus handling yet (it is now marked as a dialog).
+- **OP-9 `useMemory`:** relational rows written while the stored memory is still loading are dropped (only the JSON backup is saved afterwards).
+- **OP-10 EmployerPortal sample data:** candidate threads, names and KPIs are sample data shown under a "Preview" banner; replace with real data or remove.
+- **OP-11 `star_stories` delete:** see OP-3.

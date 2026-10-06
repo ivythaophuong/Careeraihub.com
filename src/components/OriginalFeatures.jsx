@@ -246,7 +246,7 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal }) {
 
         <div style={{ textAlign: 'center', marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {mode === 'login' && (
-            <button onClick={() => setErr('Reset link sent! (Simulated)')} style={{ background: 'transparent', border: 'none', color: LP.muted, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
+            <button onClick={() => setErr("Password reset isn't available yet.")} style={{ background: 'transparent', border: 'none', color: LP.muted, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
               Forgot your password?
             </button>
           )}

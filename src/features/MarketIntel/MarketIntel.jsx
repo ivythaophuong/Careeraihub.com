@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Badge, Btn } from '../../components/CommonUI';
 
-// ── Market Intel Component (Restored 100%) ────────────────────────────────────
+// ── Regional hiring guide ─────────────────────────────────────────────────────
+// Static, hand-written rules of thumb. There is no data feed, no model call and no timestamp, so
+// nothing here may be presented as measured or live market data.
 export default function MarketIntel({ form, memory }) {
   const markets = [
     { 
@@ -43,8 +45,9 @@ export default function MarketIntel({ form, memory }) {
       
       {/* ── HEADER ── */}
       <div>
-        <div style={{ color: C.text, fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Market Intelligence</div>
-        <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Hiring playbooks and negotiation norms differ radically across global regions.</div>
+        <div style={{ color: C.text, fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Regional Hiring Guide</div>
+        <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Hiring playbooks and negotiation norms differ across regions.</div>
+        <div role="note" style={{ color: C.muted, fontSize: 11, marginTop: 8, padding: "6px 10px", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8 }}>General guidance and rules of thumb, not live market data. Practices vary a lot between companies, so confirm with the employer.</div>
       </div>
 
       {/* ── INTERACTIVE REGION GRID ── */}
@@ -77,10 +80,10 @@ export default function MarketIntel({ form, memory }) {
         {/* METRIC GRID */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {[
-            { label: "Interview Rounds", val: selectedMarket.metrics.rounds },
-            { label: "Decision Speed", val: selectedMarket.metrics.speed },
+            { label: "Interview Rounds (typical)", val: selectedMarket.metrics.rounds },
+            { label: "Decision Speed (typical)", val: selectedMarket.metrics.speed },
             { label: "Negotiation Norms", val: selectedMarket.metrics.negotiation },
-            { label: "Top Hiring Signal", val: selectedMarket.metrics.signal },
+            { label: "What employers often look for", val: selectedMarket.metrics.signal },
           ].map((m, i) => (
             <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
               <div style={{ color: C.muted, fontSize: 9, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4, fontWeight: 800 }}>{m.label}</div>
