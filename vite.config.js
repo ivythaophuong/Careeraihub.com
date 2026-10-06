@@ -7,6 +7,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: false,
-    include: ['src/**/*.test.{js,jsx}', 'supabase/**/*.test.js'],
+    include: ['src/**/*.test.{js,jsx}', 'tests/**/*.test.{js,jsx}', 'supabase/**/*.test.js'],
   },
 })
