@@ -57,7 +57,6 @@ export const Btn = ({ children, onClick, disabled, color, dark, style }) => (
       alignItems: "center",
       justifyContent: "center",
       gap: 10,
-      outline: "none",
       ...style
     }}
   >

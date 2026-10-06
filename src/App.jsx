@@ -690,10 +690,10 @@ function App() {
           <div className={`app-sidebar-layout${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
             {/* Thin top bar: ⌘K + dark mode toggle */}
             <div className="desktop-topbar" style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--lp-bg)', borderBottom: '1px solid var(--lp-bdr)', padding: '0 20px', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setDarkMode(d => !d)} title="Toggle theme" style={{ background: 'transparent', border: `1px solid var(--lp-bdr2)`, color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }}>
+              <button onClick={() => setDarkMode(d => !d)} title="Toggle theme" aria-label={darkMode ? "Switch to light theme" : "Switch to dark theme"} style={{ background: 'transparent', border: `1px solid var(--lp-bdr2)`, color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }}>
                 {darkMode ? 'Light' : 'Dark'}
               </button>
-              <button onClick={() => setCmdOpen(true)} title="Command palette (⌘K)" style={{ background: 'transparent', border: `1px solid var(--lp-bdr2)`, color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={() => setCmdOpen(true)} title="Command palette (⌘K)" aria-label="Open command palette" style={{ background: 'transparent', border: `1px solid var(--lp-bdr2)`, color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                 ⌘K
               </button>
             </div>

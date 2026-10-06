@@ -31,6 +31,15 @@
   box-shadow: 0 0 0 2px rgba(236,72,153,.07);
 }
 
+/* Keyboard users still get a visible ring (the rule above only hides the mouse-focus outline) */
+.fp-wrap textarea:focus-visible,
+.fp-wrap input:focus-visible,
+.fp-wrap select:focus-visible,
+.fp-wrap button:focus-visible {
+  outline:        2px solid #EC4899;
+  outline-offset: 2px;
+}
+
 /* ── Typography defaults ── */
 .fp-wrap .fp-title {
   color:       var(--fp-text);

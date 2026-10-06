@@ -1,0 +1,49 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Responsive layer (ported from main, limited to what applies to this UI)
+
+   Most layout is inline-styled (React style objects), which can't carry media
+   queries. This sheet is imported last and uses !important + attribute
+   selectors on the serialized inline `grid-template-columns` to reflow grids.
+   Breakpoints: ≤1024 tablet-landscape · ≤768 tablet · ≤480 phone
+
+   Not ported on purpose:
+   - main's `.lp ...` landing rules: the landing page was redesigned here and has its own
+     media queries; porting them blind could change its look. Check them against the
+     landing page at 375 / 768 / 1280 px first.
+   - `.app-container` / `.app-footer-inner` / data-device shell rules: those classes do not
+     exist in this app (its shell is AppSidebar, with its own mobile nav in appTheme.css).
+   - body overflow-x and the 44px touch targets: appTheme.css already sets them (≤768px).
+   `data-device` / `data-touch` are still set on <html> by useDevice, for CSS to use.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+img, svg, video, canvas { max-width: 100%; }
+input, select, textarea { max-width: 100%; }
+
+/* ── ≤1024px — tablet landscape ─────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  [style*="repeat(5,"], [style*="repeat(5, "] { grid-template-columns: repeat(3, 1fr) !important; }
+}
+
+/* ── ≤768px — tablet / large phone ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* inline grids: 3+ columns collapse to 2, 2-column forms collapse to 1 */
+  [style*="repeat(4,"], [style*="repeat(4, "],
+  [style*="repeat(5,"], [style*="repeat(5, "],
+  [style*="1fr 1fr 1fr"] { grid-template-columns: repeat(2, 1fr) !important; }
+  [style*="grid-template-columns: 1fr 1fr;"],
+  [style*="grid-template-columns: 1fr 2fr"],
+  [style*="grid-template-columns: 1.5fr 1fr"] { grid-template-columns: 1fr !important; }
+}
+
+/* ── ≤480px — phone ─────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  [style*="repeat(5,"], [style*="repeat(5, "] { grid-template-columns: repeat(2, 1fr) !important; }
+  [style*="grid-template-columns: 1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
+}
+
+/* Touch devices of any width (tablets too): comfortable tap targets, and no iOS zoom-on-focus */
+@media (hover: none) and (pointer: coarse) {
+  button, .mod-tab, .lp-nl { min-height: 40px; }
+  input, select, textarea { font-size: 16px; }
+}
