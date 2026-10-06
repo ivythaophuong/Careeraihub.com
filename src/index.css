@@ -78,4 +78,5 @@ body {
 @media(max-width:600px){.grid-2{grid-template-columns:1fr}}
 
 /* Visible keyboard focus (mouse clicks do not show it) */
-:focus-visible{outline:2px solid #EC4899;outline-offset:2px}
+/* !important because many inputs carry an inline `outline: none`, which would otherwise win */
+:focus-visible{outline:2px solid #EC4899 !important;outline-offset:2px}

@@ -36,13 +36,14 @@ describe('responsive layer is wired', () => {
 
 describe('keyboard focus stays visible', () => {
   it('has a global :focus-visible ring', () => {
-    expect(read('src/index.css')).toMatch(/:focus-visible\s*\{\s*outline:\s*2px solid/);
+    // !important matters: many inputs have an inline `outline: none` that would otherwise win (found in a real browser)
+    expect(read('src/index.css')).toMatch(/:focus-visible\s*\{\s*outline:\s*2px solid #EC4899 !important/);
   });
 
   it('feature pages hide the mouse-focus outline but keep a ring for the keyboard', () => {
     const css = read('src/styles/featurePage.css');
     expect(css).toMatch(/\.fp-wrap input:focus\s*\{[^}]*outline:\s*none/);
-    expect(css).toMatch(/\.fp-wrap input:focus-visible[\s\S]*outline:\s*2px solid/);
+    expect(css).toMatch(/\.fp-wrap input:focus-visible[\s\S]*outline:\s*2px solid #EC4899 !important/);
   });
 
   it('Card no longer removes outlines', () => {

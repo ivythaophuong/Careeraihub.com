@@ -36,7 +36,7 @@
 .fp-wrap input:focus-visible,
 .fp-wrap select:focus-visible,
 .fp-wrap button:focus-visible {
-  outline:        2px solid #EC4899;
+  outline:        2px solid #EC4899 !important;
   outline-offset: 2px;
 }
 

@@ -513,10 +513,11 @@ export default function SalaryCoach({ resumeText, form, setForm, memory, updateM
             : 'AI negotiation roleplay and anchoring scripts you fill in with your own numbers.'}
         </div>
         {/* Tab bar */}
-        <div style={{ display: 'flex', gap: 0, marginTop: 14 }}>
+        {/* The tabs scroll inside this bar on a phone; without that they widen the whole page (418px at 375px). */}
+        <div role="tablist" style={{ display: 'flex', gap: 0, marginTop: 14, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              padding: '10px 18px', fontSize: 13,
+            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} style={{
+              flexShrink: 0, padding: '10px 18px', fontSize: 13,
               fontWeight: tab === t.id ? 700 : 500,
               color: tab === t.id ? 'var(--lp-teal)' : 'var(--lp-text3)',
               background: 'transparent', border: 'none',
