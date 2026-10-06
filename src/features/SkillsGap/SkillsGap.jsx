@@ -80,7 +80,7 @@ export default function SkillsGap({ resumeText, form, memory, updateMemory, show
 
 Target role: ${form?.role || 'Software professional'}
 Market: ${form?.market || 'Singapore'}
-Level: ${form?.level || 'Senior'}
+Level: ${form?.level || 'not stated'}
 Resume summary: ${scanCtx || resumeCtx.slice(0, 800) || 'Not provided'}
 Recent JDs analyzed: ${memory.jdAnalyses?.map(j => j.roleTitle).join(', ') || 'None'}
 

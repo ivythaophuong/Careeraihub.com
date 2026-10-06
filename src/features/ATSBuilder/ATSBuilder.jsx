@@ -2,11 +2,12 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import mammoth from 'mammoth';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
+import { digestResume } from '../../lib/resumeDigest.js';
 import { OrbitSpinner } from '../../components/OrbitMark';
 import { NextStepBanner } from '../../components/CommonUI';
 import {
   SEVERITY_ORDER, CATEGORIES,
-  genId, arrayBufferToBase64, computeLineDiff, sortGapsBySeverity, buildRebuildPrompt, stripHtmlToText,
+  genId, arrayBufferToBase64, computeLineDiff, sortGapsBySeverity, buildRebuildPrompt, stripHtmlToText, buildAnalysisPrompt,
 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
@@ -318,13 +319,6 @@ Score calibration: most real resumes score 25–65. A well-written resume with g
 RESUME:
 `;
 
-
-function buildAnalysisPrompt(originalText, newText) {
-  return `Compare these two resumes. Return ONLY raw JSON (start with {):
-{"atsScore":0,"parameters":{"keywords":0,"impactMetrics":0,"formatting":0,"missingSections":0,"summaryHeadline":0},"addedKeywords":[],"changesSummary":[]}
-ORIGINAL (first 2000 chars): ${originalText.slice(0, 2000)}
-IMPROVED (first 2000 chars): ${newText.slice(0, 2000)}`;
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function base64ToBlobUrl(b64) {
@@ -1434,7 +1428,7 @@ function BulletRewriteTab({ resumeText: sharedResume, targetRole: sharedRole }) 
   const [loading, setLoading]   = useState(false);
   const [rewrites, setRewrites] = useState([]);
 
-  const resumeCtx = sharedResume ? sharedResume.slice(0, 2000) : null;
+  const resumeCtx = sharedResume ? digestResume(sharedResume, 3000).text : null;
 
   const rewrite = async () => {
     if (!bullets.trim()) return;
