@@ -4136,7 +4136,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             </div>
             <p style={{fontSize:13,color:'var(--text3)',fontWeight:300,lineHeight:1.7,maxWidth:300,margin:0}}>Try everything free. Upgrade when you're ready to be found by the right recruiters.</p>
           </div>
-          <div className="reveal" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:1,background:'var(--border)',borderRadius:16,overflow:'hidden',border:'1px solid var(--border)'}}>
+          <div className="reveal v36-price-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:1,background:'var(--border)',borderRadius:16,overflow:'hidden',border:'1px solid var(--border)'}}>
             {/* Free */}
             <div style={{background:'var(--bg2)',padding:'28px 24px',display:'flex',flexDirection:'column',gap:0}}>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text3)',marginBottom:20}}>Free</div>
