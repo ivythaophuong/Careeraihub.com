@@ -20,7 +20,8 @@ function walk(dir, out = []) {
 }
 const files = walk(SRC).map(f => ({ rel: path.relative(SRC, f).replace(/\\/g, '/'), lines: fs.readFileSync(f, 'utf8').split('\n') }));
 
-const NEGATED = /\b(not|no|never|don't|doesn't|do not|does not|without|isn't)\b/i;
+// A line that says the data is missing, or not ready yet, is a disclaimer, not a claim.
+const NEGATED = /\b(not|no|never|don't|doesn't|do not|does not|without|isn't)\b|being prepared|we're preparing|temporarily unavailable/i;
 // Code comments and input placeholders are not shown as claims.
 const NOT_A_CLAIM = (l) => /^\s*(\/\/|\{?\/\*|\*)/.test(l) || /placeholder\s*=/.test(l);
 

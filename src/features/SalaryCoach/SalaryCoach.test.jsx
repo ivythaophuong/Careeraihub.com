@@ -156,10 +156,9 @@ describe('Salary Prep page (three tabs)', () => {
     for (const t of ['Market data', 'Negotiation roleplay', 'Your strategy']) expect(screen.getByText(t)).toBeTruthy();
   });
 
-  it('does not call the AI on open when no target role is set', () => {
+  it('does not call the AI on open', () => {
     open();
     expect(callLLM).not.toHaveBeenCalled();
-    expect(screen.getByText(/Set your target role/)).toBeTruthy();
   });
 
   it('the negotiation tab never asks the model for market figures', async () => {
@@ -179,5 +178,35 @@ describe('Salary Prep page (three tabs)', () => {
     fireEvent.click(screen.getByText('Your strategy'));
     expect(screen.getByText(/Word-for-word scripts/i)).toBeTruthy();
     expect(screen.getByText(/Negotiation checklist/i)).toBeTruthy();
+  });
+});
+
+describe('Market data tab is switched off until a verified source exists', () => {
+  const open = (props = {}) => render(<SalaryCoach resumeText={null} form={{ role: 'Product Manager', level: 'Senior', market: 'Singapore' }} memory={{}} setAuthModal={vi.fn()} {...props} />);
+
+  it('opens on the negotiation tab, not on a page with no data', () => {
+    open();
+    expect(screen.getByLabelText('Situation')).toBeTruthy();
+  });
+
+  it('says the data is unavailable and never calls the model, even with a role set', () => {
+    open();
+    fireEvent.click(screen.getByText('Market data'));
+    expect(screen.getByRole('status').textContent).toMatch(/Market salary data is temporarily unavailable/);
+    expect(screen.getByRole('status').textContent).toMatch(/verified market sources/);
+    expect(callLLM).not.toHaveBeenCalled();
+  });
+
+  it('shows no salary figures on that tab', () => {
+    open();
+    fireEvent.click(screen.getByText('Market data'));
+    expect(screen.queryByText(/P50|P75|AI estimate|\d+\s?K/)).toBeNull();
+  });
+
+  it('does not use cached AI estimates from earlier sessions either', () => {
+    const memory = { salaryMarket: { v: 2, forRole: 'Product Manager', forLevel: 'Senior', forMarket: 'Singapore', computedAt: '2026-01-01', data: { levels: [{ label: 'Senior', range: '9–12K', pct: 50 }], employerTypes: [], aiInsight: 'x' } } };
+    open({ memory });
+    fireEvent.click(screen.getByText('Market data'));
+    expect(screen.queryByText('9–12K')).toBeNull();
   });
 });

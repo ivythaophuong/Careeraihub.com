@@ -14,3 +14,11 @@ export function isCacheCurrent(cache, { role, level, market }) {
   return !!cache && cache.v === MARKET_CACHE_VERSION
     && cache.forRole === role && cache.forLevel === level && cache.forMarket === market;
 }
+
+// Market salary data is switched off until it comes from a verified source. A number the model
+// guessed is not market data, even when it is labelled as an estimate. The tab and its code stay in
+// place; this flag only decides whether the tab shows data or the "temporarily unavailable" notice.
+// A real feed should return { role, market, currency, period, source, sourceType, sampleSize,
+// methodology, p25, median, p75, retrievedAt }, calculated on the server, with the model only
+// explaining it.
+export const MARKET_DATA_ENABLED = false;

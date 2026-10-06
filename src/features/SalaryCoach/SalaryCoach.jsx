@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { C } from '../../styles/theme';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { OrbitSpinner } from '../../components/OrbitMark';
-import { userLevelIndex, isCacheCurrent, MARKET_CACHE_VERSION } from './salaryLevel';
+import { userLevelIndex, isCacheCurrent, MARKET_CACHE_VERSION, MARKET_DATA_ENABLED } from './salaryLevel';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
 import { pickResumeSource } from '../../lib/resumeSource';
 import { copyToClipboard } from '../CoverLetterGen/coverLetter';
@@ -38,6 +38,18 @@ function AiBubble({ children }) {
 }
 
 // ── Market Data Tab ───────────────────────────────────────────────────────────
+// Shown instead of the data while MARKET_DATA_ENABLED is false. No model call, no numbers.
+function MarketDataUnavailable() {
+  return (
+    <div role="status" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 560 }}>
+      <div style={{ color: 'var(--lp-text)', fontWeight: 800, fontSize: 15 }}>Market salary data is temporarily unavailable.</div>
+      <div style={{ color: 'var(--lp-text3)', fontSize: 13, lineHeight: 1.6 }}>
+        We're preparing salary benchmarks from verified market sources. Negotiation roleplay and Your strategy work in the meantime, using the numbers you enter.
+      </div>
+    </div>
+  );
+}
+
 const CURRENCY = { Singapore: 'SGD', 'Southeast Asia': 'USD', Global: 'USD' };
 
 function MarketDataTab({ form, memory, updateMemory, setForm }) {
@@ -488,7 +500,7 @@ const TABS = [
 ];
 
 export default function SalaryCoach({ resumeText, form, setForm, memory, updateMemory, setAuthModal }) {
-  const [tab, setTab] = useState('market');
+  const [tab, setTab] = useState(MARKET_DATA_ENABLED ? 'market' : 'roleplay');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', fontFamily: 'var(--lp-ff)' }}>
@@ -496,7 +508,9 @@ export default function SalaryCoach({ resumeText, form, setForm, memory, updateM
       <div style={{ padding: '18px 24px 0', borderBottom: '1px solid var(--lp-bdr)' }}>
         <div style={{ color: 'var(--lp-text)', fontWeight: 900, fontSize: 22, marginBottom: 2 }}>Salary Prep</div>
         <div style={{ color: 'var(--lp-text3)', fontSize: 13, marginBottom: 0 }}>
-          {form?.market || 'Singapore'} {form?.role || 'PM'} market estimates, AI negotiation roleplay, and anchoring scripts you fill in with your own numbers.
+          {MARKET_DATA_ENABLED
+            ? `${form?.market || 'Singapore'} ${form?.role || 'PM'} market estimates, AI negotiation roleplay, and anchoring scripts you fill in with your own numbers.`
+            : 'AI negotiation roleplay and anchoring scripts you fill in with your own numbers.'}
         </div>
         {/* Tab bar */}
         <div style={{ display: 'flex', gap: 0, marginTop: 14 }}>
@@ -515,7 +529,9 @@ export default function SalaryCoach({ resumeText, form, setForm, memory, updateM
       </div>
 
       {/* Content */}
-      {tab === 'market'   && <MarketDataTab   form={form} setForm={setForm} memory={memory} updateMemory={updateMemory} />}
+      {tab === 'market'   && (MARKET_DATA_ENABLED
+        ? <MarketDataTab form={form} setForm={setForm} memory={memory} updateMemory={updateMemory} />
+        : <MarketDataUnavailable />)}
       {tab === 'roleplay' && <NegotiationTab  form={form} resumeText={resumeText} memory={memory} setAuthModal={setAuthModal} />}
       {tab === 'strategy' && <StrategyTab     form={form} />}
     </div>
