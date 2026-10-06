@@ -1229,9 +1229,9 @@ export default function ResumeScan({ resumeText, setResumeText, scanResult, setS
       if (resumeText.type === 'pdf' && rawFile) {
         const arrayBuffer = await rawFile.arrayBuffer();
         base64 = arrayBufferToBase64(arrayBuffer);
-        raw = await callLLM([{ role: 'user', content: prompt }], 8192, base64);
+        raw = await callLLM([{ role: 'user', content: prompt }], 8192, base64, { task: 'resume_scan' });
       } else {
-        raw = await callLLM([{ role: 'user', content: `${prompt}\n\nResume Text:\n${resumeText.content}` }], 8192);
+        raw = await callLLM([{ role: 'user', content: `${prompt}\n\nResume Text:\n${resumeText.content}` }], 8192, null, { task: 'resume_scan' });
       }
 
       clearInterval(iv);

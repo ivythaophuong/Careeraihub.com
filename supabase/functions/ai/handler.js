@@ -1,6 +1,6 @@
 // Request handling for the `ai` Edge Function: authenticate the caller, validate and cap the
 // request, call the configured provider with a server-held key, return { text }.
-import { callProvider, pickProvider, resolveModel, setting, KEY_ENV, ProviderError } from './providers.js';
+import { callRoutes, buildRoutes, createHealth, TASKS, setting, KEY_ENV, ProviderError } from './providers.js';
 
 export const LIMITS = {
   maxBodyBytes: 12 * 1024 * 1024, // resume PDFs travel as base64
@@ -31,6 +31,14 @@ export function createRateLimiter({ windowMs = LIMITS.rateWindowMs, max = LIMITS
   };
 }
 const defaultLimiter = createRateLimiter();
+const defaultHealth = createHealth();
+
+// Optional tuning from secrets, clamped to sane bounds; anything missing or invalid keeps the default.
+function retrySettings(env) {
+  const secs = (name, lo, hi) => { const n = Number(setting(env, name)); return Number.isFinite(n) && n >= lo && n <= hi ? n * 1000 : undefined; };
+  const out = { attemptTimeoutMs: secs('AI_ATTEMPT_TIMEOUT_SECONDS', 10, 75), budgetMs: secs('AI_TOTAL_TIMEOUT_SECONDS', 15, 80) };
+  return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== undefined));
+}
 
 function corsHeaders(req, env) {
   const allowed = (env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -82,17 +90,28 @@ function validate(body) {
   return null;
 }
 
-function statusFor(err) {
-  if (err.kind === 'truncated' || err.kind === 'blocked') return 422;
-  if (err.kind === 'empty') return 502;
-  if (err.status === 429) return 429;
-  if (err.status === 401 || err.status === 403) return 500; // our key is bad: not the caller's fault
-  if (err.status >= 400 && err.status < 500) return 400;
-  return 502;
+// What we tell the caller about a provider failure that survived our retries. `code` is a stable
+// machine-readable label; `message` is safe to show to a user (never the provider's raw text for
+// outages, never anything that could contain a key).
+function describeFailure(err) {
+  if (err.kind === 'truncated') return { status: 422, code: 'truncated', message: err.message };
+  if (err.kind === 'blocked') return { status: 422, code: 'blocked', message: err.message.slice(0, 300) };
+  if (err.kind === 'empty') return { status: 502, code: 'empty', message: 'The AI returned an empty answer. Please try again.' };
+  if (err.status === 401 || err.status === 403) return { status: 500, code: 'misconfigured', message: 'AI service is misconfigured.' }; // our key is bad: not the caller's fault
+  if (err.status === 429) return { status: 429, code: 'rate_limited', message: 'The AI provider is busy. Please try again in a minute.' };
+  if (err.status >= 400 && err.status < 500 && err.status !== 408) return { status: 400, code: 'bad_request', message: err.message.slice(0, 300) };
+  if (err.reason === 'timeout') return { status: 503, code: 'timeout', message: 'The AI took too long to respond. Please try again.' };
+  return { status: 503, code: 'busy', message: 'The AI service is busy right now. Please try again in a minute.' };
+}
+
+// One structured line per provider call, readable in the Supabase function logs. It holds no keys,
+// prompts, answers or user identifiers: only what is needed to see how the provider is behaving.
+function logCall(fields) {
+  console.log(JSON.stringify({ evt: 'ai_call', ...fields }));
 }
 
 export async function handleRequest(req, deps = {}) {
-  const { env = {}, fetchImpl = fetch, limiter = defaultLimiter, now = Date.now } = deps;
+  const { env = {}, fetchImpl = fetch, limiter = defaultLimiter, health = defaultHealth, now = Date.now, retry = {} } = deps;
   const cors = corsHeaders(req, env);
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
@@ -118,8 +137,10 @@ export async function handleRequest(req, deps = {}) {
   if (problem) return fail(400, problem, cors);
 
   // The server, not the caller, decides provider and model, so a client can't pick an expensive one.
-  const provider = pickProvider(env);
-  if (!provider) {
+  // The caller may only name a task, which selects a server-side chain of routes to try in order.
+  const task = typeof body.task === 'string' && TASKS.includes(body.task) ? body.task : 'general';
+  const routes = buildRoutes(env, task);
+  if (routes.length === 0) {
     // Only presence flags and a length are reported (never a value), and only to a signed-in caller,
     // so a misconfiguration can be diagnosed without reading the server's logs.
     const diag = {
@@ -131,26 +152,23 @@ export async function handleRequest(req, deps = {}) {
     return fail(500, 'AI service is not configured.', cors, { diag });
   }
 
+  const t0 = now();
   try {
-    const text = await callProvider({
-      provider,
-      model: resolveModel(provider, setting(env, 'AI_MODEL')),
-      key: setting(env, KEY_ENV[provider]),
+    const out = await callRoutes(routes, {
       messages: body.messages,
       maxTokens: Math.min(Math.floor(body.maxTokens ?? LIMITS.maxTokensCap), LIMITS.maxTokensCap),
       pdfBase64: body.pdfBase64 || null,
-    }, fetchImpl);
-    return json(200, { text }, cors);
+    }, { fetchImpl, now, health, ...retrySettings(env), ...retry });
+    logCall({ task, provider: out.route.provider, model: out.route.model, ok: true, attempts: out.attempts, fallback: out.tried.length > 1, tried: out.tried.map(t => t.id + (t.ok ? '' : '!')), ms: now() - t0 });
+    return json(200, { text: out.text }, cors);
   } catch (e) {
     if (!(e instanceof ProviderError)) {
       console.error('[ai] Unexpected error:', e?.message);
       return fail(500, 'AI service error.', cors);
     }
-    const status = statusFor(e);
-    if (status === 500) console.error(`[ai] Provider rejected our credentials (${e.status}).`); // never log keys or bodies
-    const message = status === 500 ? 'AI service is misconfigured.'
-      : status === 429 ? 'The AI provider is busy. Please try again shortly.'
-      : e.message.slice(0, 300);
-    return fail(status, message, cors, { truncated: e.kind === 'truncated' });
+    const { status, code, message } = describeFailure(e);
+    if (code === 'misconfigured') console.error(`[ai] Provider rejected our credentials (${e.status}).`); // never log keys or bodies
+    logCall({ task, ok: false, status: e.status || null, code, attempts: e.attempts ?? 1, tried: (e.tried || []).map(t => t.id + (t.ok ? '' : '!')), ms: now() - t0 });
+    return fail(status, message, cors, { code, truncated: e.kind === 'truncated' });
   }
 }

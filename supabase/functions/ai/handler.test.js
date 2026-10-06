@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleRequest, createRateLimiter, LIMITS } from './handler.js';
-import { pickProvider, resolveModel } from './providers.js';
+import { pickProvider, resolveModel, buildRoutes, createHealth, parseRouteEntry, MAX_CHAIN } from './providers.js';
 
 const ENV = {
   SUPABASE_URL: 'https://proj.supabase.co',
@@ -20,14 +20,18 @@ function makeFetch({ user = { id: 'user-1' }, authStatus = 200, provider = () =>
   });
 }
 
-const call = (body, { headers = {}, method = 'POST', env = ENV, fetchImpl = makeFetch(), limiter } = {}) =>
+// Tests never really sleep: retries are instant and jitter is zero, so timing is deterministic.
+const FAST = { sleep: async () => {}, jitter: () => 0 };
+const providerCalls = (f) => f.mock.calls.filter(([u]) => !String(u).includes('/auth/')).length;
+
+const call = (body, { headers = {}, method = 'POST', env = ENV, fetchImpl = makeFetch(), limiter, retry = FAST, health = createHealth(), now } = {}) =>
   handleRequest(
     new Request('https://proj.supabase.co/functions/v1/ai', {
       method,
       headers: { authorization: 'Bearer user-jwt', 'content-type': 'application/json', ...headers },
       body: method === 'POST' ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
     }),
-    { env, fetchImpl, limiter: limiter || createRateLimiter() },
+    { env, fetchImpl, limiter: limiter || createRateLimiter(), retry, health, ...(now && { now }) },
   ).then(async r => ({ status: r.status, headers: r.headers, body: r.status === 204 ? null : await r.json() }));
 
 const VALID = { messages: [{ role: 'user', content: 'hi' }], maxTokens: 100 };
@@ -225,10 +229,6 @@ describe('provider failures', () => {
     expect(r.status).toBe(429);
   });
 
-  it('maps provider outages to 502', async () => {
-    expect((await call(VALID, { fetchImpl: failing(503, { error: { message: 'down' } }) })).status).toBe(502);
-  });
-
   it('hides a bad-credentials failure behind a generic 500 and never leaks the key', async () => {
     const r = await call(VALID, { fetchImpl: failing(401, { error: { message: 'invalid x-api-key sk-ant-SECRET' } }) });
     expect(r.status).toBe(500);
@@ -240,10 +240,339 @@ describe('provider failures', () => {
     const r = await call(VALID, { fetchImpl: failing(400, { error: { message: 'Could not process PDF' } }) });
     expect(r).toMatchObject({ status: 400, body: { error: { message: 'Could not process PDF' } } });
   });
+});
 
-  it('maps a network failure to 502', async () => {
+describe('retrying transient provider failures', () => {
+  const OVERLOAD = 'This model is currently experiencing high demand. Spikes in demand are usually temporary.';
+  const sequence = (...results) => { let i = 0; return makeFetch({ provider: () => results[Math.min(i++, results.length - 1)]() }); };
+  const fail = (status, message = 'x', headers) => () => new Response(JSON.stringify({ error: { message } }), { status, headers });
+  const good = () => ok({ content: [{ type: 'text', text: 'recovered' }] });
+
+  it('recovers from a brief overload without the user seeing an error', async () => {
+    const f = sequence(fail(503, OVERLOAD), good);
+    const r = await call(VALID, { fetchImpl: f });
+    expect(r).toMatchObject({ status: 200, body: { text: 'recovered' } });
+    expect(providerCalls(f)).toBe(2);
+  });
+
+  it('gives up after 3 attempts on a lasting overload, with a plain message instead of the provider text', async () => {
+    const f = sequence(fail(503, OVERLOAD));
+    const r = await call(VALID, { fetchImpl: f });
+    expect(providerCalls(f)).toBe(3);
+    expect(r).toMatchObject({ status: 503, body: { error: { code: 'busy' } } });
+    expect(r.body.error.message).toMatch(/busy right now/i);
+    expect(JSON.stringify(r.body)).not.toContain('high demand');
+  });
+
+  it('retries a 429, waits at least the provider Retry-After, then reports rate_limited if it persists', async () => {
+    const sleep = vi.fn(async () => {});
+    const f = sequence(fail(429, 'slow', { 'retry-after': '2' }));
+    const r = await call(VALID, { fetchImpl: f, retry: { sleep, jitter: () => 0 } });
+    expect(providerCalls(f)).toBe(3);
+    expect(sleep.mock.calls[0][0]).toBeGreaterThanOrEqual(2000);
+    expect(r).toMatchObject({ status: 429, body: { error: { code: 'rate_limited' } } });
+  });
+
+  it('caps an absurd Retry-After so the user never waits minutes', async () => {
+    const sleep = vi.fn(async () => {});
+    await call(VALID, { fetchImpl: sequence(fail(429, 'slow', { 'retry-after': '600' })), retry: { sleep, jitter: () => 0 } });
+    expect(Math.max(...sleep.mock.calls.map(c => c[0]))).toBeLessThanOrEqual(5000);
+  });
+
+  it('retries a network failure and reports it as busy', async () => {
     const f = vi.fn(async (url) => { if (String(url).includes('/auth/')) return ok({ id: 'u' }); throw new TypeError('fetch failed'); });
-    expect((await call(VALID, { fetchImpl: f })).status).toBe(502);
+    const r = await call(VALID, { fetchImpl: f });
+    expect(providerCalls(f)).toBe(3);
+    expect(r).toMatchObject({ status: 503, body: { error: { code: 'busy' } } });
+  });
+
+  it('retries a timeout and reports it as timeout', async () => {
+    const f = vi.fn(async (url) => { if (String(url).includes('/auth/')) return ok({ id: 'u' }); throw Object.assign(new Error('aborted'), { name: 'AbortError' }); });
+    const r = await call(VALID, { fetchImpl: f });
+    expect(providerCalls(f)).toBe(3);
+    expect(r).toMatchObject({ status: 503, body: { error: { code: 'timeout' } } });
+    expect(r.body.error.message).toMatch(/took too long/i);
+  });
+
+  it('retries an empty reply once it is clear it can recover', async () => {
+    const f = sequence(() => ok({ content: [] }), good);
+    expect((await call(VALID, { fetchImpl: f })).body.text).toBe('recovered');
+    expect(providerCalls(f)).toBe(2);
+  });
+
+  it('stops retrying when the time budget would be exceeded', async () => {
+    const f = sequence(fail(503, OVERLOAD));
+    const r = await call(VALID, { fetchImpl: f, retry: { ...FAST, budgetMs: 5000 } });
+    expect(providerCalls(f)).toBe(2); // third attempt would not fit in the budget
+    expect(r.status).toBe(503);
+  });
+});
+
+describe('timeout tuning from secrets', () => {
+  const slow = () => vi.fn(async (url, init) => {
+    if (String(url).includes('/auth/')) return ok({ id: 'u' });
+    return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+  });
+
+  it('gives each attempt the configured number of seconds before timing out', async () => {
+    vi.useFakeTimers();
+    const f = slow();
+    const p = call(VALID, { fetchImpl: f, env: { ...ENV, AI_ATTEMPT_TIMEOUT_SECONDS: '12', AI_TOTAL_TIMEOUT_SECONDS: '15' } });
+    await vi.advanceTimersByTimeAsync(12_000);
+    const r = await p;
+    vi.useRealTimers();
+    expect(r).toMatchObject({ status: 503, body: { error: { code: 'timeout' } } });
+    expect(providerCalls(f)).toBe(1); // 12s used of a 15s budget: no time left for another attempt
+  });
+
+  it('ignores nonsense or out-of-range values and keeps the defaults', async () => {
+    for (const bad of ['abc', '0', '-5', '9999', '']) {
+      const f = makeFetch({ provider: () => ok({ content: [{ type: 'text', text: 'fine' }] }) });
+      const r = await call(VALID, { fetchImpl: f, env: { ...ENV, AI_ATTEMPT_TIMEOUT_SECONDS: bad, AI_TOTAL_TIMEOUT_SECONDS: bad } });
+      expect(r.status).toBe(200);
+    }
+  });
+});
+
+describe('failures that must NOT be retried', () => {
+  const failOnce = (status, body) => makeFetch({ provider: () => ok(body, status) });
+
+  it('does not retry a bad API key (and says so without leaking it)', async () => {
+    const f = failOnce(401, { error: { message: 'invalid x-api-key sk-ant-SECRET' } });
+    const r = await call(VALID, { fetchImpl: f });
+    expect(providerCalls(f)).toBe(1);
+    expect(r).toMatchObject({ status: 500, body: { error: { code: 'misconfigured' } } });
+    expect(JSON.stringify(r.body)).not.toContain('sk-ant-SECRET');
+  });
+
+  it('does not retry a 403', async () => {
+    const f = failOnce(403, { error: { message: 'forbidden' } });
+    await call(VALID, { fetchImpl: f });
+    expect(providerCalls(f)).toBe(1);
+  });
+
+  it('does not retry a bad request', async () => {
+    const f = failOnce(400, { error: { message: 'Could not process PDF' } });
+    const r = await call(VALID, { fetchImpl: f });
+    expect(providerCalls(f)).toBe(1);
+    expect(r).toMatchObject({ status: 400, body: { error: { code: 'bad_request', message: 'Could not process PDF' } } });
+  });
+
+  it('does not retry a reply cut off at the length limit', async () => {
+    const f = failOnce(200, { stop_reason: 'max_tokens', content: [{ type: 'text', text: '{' }] });
+    const r = await call(VALID, { fetchImpl: f });
+    expect(providerCalls(f)).toBe(1);
+    expect(r).toMatchObject({ status: 422, body: { error: { truncated: true, code: 'truncated' } } });
+  });
+});
+
+describe('call logging', () => {
+  it('logs one line per call with provider, model, attempts and timing, and no secrets or content', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const f = makeFetch({ provider: (() => { let n = 0; return () => (n++ === 0 ? new Response(JSON.stringify({ error: { message: 'down' } }), { status: 503 }) : ok({ content: [{ type: 'text', text: 'SECRET-ANSWER' }] })); })() });
+    await call({ messages: [{ role: 'user', content: 'PRIVATE-PROMPT' }], maxTokens: 50 }, { fetchImpl: f });
+    const lines = log.mock.calls.map(c => String(c[0])).filter(l => l.includes('ai_call'));
+    log.mockRestore();
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toMatchObject({ evt: 'ai_call', provider: 'anthropic', ok: true, attempts: 2 });
+    for (const secret of ['sk-ant-SECRET', 'PRIVATE-PROMPT', 'SECRET-ANSWER', 'user-jwt']) expect(lines[0]).not.toContain(secret);
+  });
+
+  it('logs the failure code when every attempt fails', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await call(VALID, { fetchImpl: makeFetch({ provider: () => ok({ error: { message: 'down' } }, 503) }) });
+    const line = JSON.parse(log.mock.calls.map(c => String(c[0])).find(l => l.includes('ai_call')));
+    log.mockRestore();
+    expect(line).toMatchObject({ ok: false, status: 503, code: 'busy', attempts: 3 });
+  });
+});
+
+const TWO = { ...ENV, GEMINI_API_KEY: 'gem-SECRET', AI_PROVIDER: 'gemini', AI_FALLBACK: 'anthropic' };
+const byHost = ({ gemini, anthropic }) => makeFetch({
+  provider: (url, init) => (String(url).includes('generativelanguage') ? gemini(url, init) : anthropic(url, init)),
+});
+const gemOk = () => ok({ candidates: [{ content: { parts: [{ text: 'from-gemini' }] }, finishReason: 'STOP' }] });
+const antOk = () => ok({ content: [{ type: 'text', text: 'from-claude' }] });
+const status = (code, message = 'x') => () => ok({ error: { message } }, code);
+const callsTo = (f, host) => f.mock.calls.filter(([u]) => String(u).includes(host)).length;
+
+describe('building the route chain', () => {
+  it('parses provider and provider:model, and rejects unknown providers', () => {
+    expect(parseRouteEntry(' Gemini:gemini-2.5-flash ')).toEqual({ provider: 'gemini', model: 'gemini-2.5-flash' });
+    expect(parseRouteEntry('anthropic')).toEqual({ provider: 'anthropic', model: null });
+    expect(parseRouteEntry('openai:ft:gpt-4o:org')).toEqual({ provider: 'openai', model: 'ft:gpt-4o:org' });
+    expect(parseRouteEntry('mistral')).toBeNull();
+    expect(parseRouteEntry('')).toBeNull();
+  });
+
+  it('is primary then AI_FALLBACK entries, each with its own key', () => {
+    const r = buildRoutes({ ...TWO, AI_MODEL: 'gemini-2.5-flash' });
+    expect(r.map(x => x.id)).toEqual(['gemini:gemini-2.5-flash', 'anthropic:claude-sonnet-5-5']);
+    expect(r[0].key).toBe('gem-SECRET');
+    expect(r[1].key).toBe('sk-ant-SECRET');
+  });
+
+  it('skips entries with no key, unknown providers and duplicates instead of failing', () => {
+    const r = buildRoutes({ ...TWO, AI_FALLBACK: 'openai, mistral, gemini, anthropic, anthropic' });
+    expect(r.map(x => x.provider)).toEqual(['gemini', 'anthropic']); // openai has no key; duplicates dropped
+  });
+
+  it('uses the provider default when a fallback model name belongs to another provider', () => {
+    const r = buildRoutes({ ...TWO, AI_FALLBACK: 'anthropic:gemini-2.5-flash' });
+    expect(r[1].model).toBe('claude-sonnet-5-5');
+  });
+
+  it(`never builds a chain longer than ${MAX_CHAIN}`, () => {
+    const env = { ...TWO, OPENAI_API_KEY: 'oa', AI_FALLBACK: 'anthropic:claude-a,anthropic:claude-b,openai' };
+    expect(buildRoutes(env)).toHaveLength(MAX_CHAIN);
+  });
+
+  it('AI_ROUTES overrides the chain per task and falls back to its default entry', () => {
+    const env = { ...TWO, OPENAI_API_KEY: 'oa', AI_ROUTES: JSON.stringify({ default: ['gemini'], interview_eval: ['anthropic', 'gemini'] }) };
+    expect(buildRoutes(env, 'interview_eval').map(x => x.provider)).toEqual(['anthropic', 'gemini']);
+    expect(buildRoutes(env, 'star').map(x => x.provider)).toEqual(['gemini']);
+    expect(buildRoutes(env).map(x => x.provider)).toEqual(['gemini']);
+  });
+
+  it('ignores a broken AI_ROUTES and uses the normal chain', () => {
+    expect(buildRoutes({ ...TWO, AI_ROUTES: '{not json' }).map(x => x.provider)).toEqual(['gemini', 'anthropic']);
+    expect(buildRoutes({ ...TWO, AI_ROUTES: '[1,2]' }).map(x => x.provider)).toEqual(['gemini', 'anthropic']);
+  });
+
+  it('is empty when no keyed provider is configured', () => {
+    expect(buildRoutes({ AI_PROVIDER: 'gemini' })).toEqual([]);
+  });
+});
+
+describe('routing between providers', () => {
+  it('serves the request from the fallback when the primary stays overloaded', async () => {
+    const f = byHost({ gemini: status(503, 'high demand'), anthropic: antOk });
+    const r = await call(VALID, { env: TWO, fetchImpl: f });
+    expect(r).toMatchObject({ status: 200, body: { text: 'from-claude' } });
+    expect(callsTo(f, 'generativelanguage')).toBe(2); // fewer retries when a fallback is waiting
+    expect(callsTo(f, 'anthropic')).toBe(1);
+  });
+
+  it('does not touch the fallback when the primary works', async () => {
+    const f = byHost({ gemini: gemOk, anthropic: antOk });
+    expect((await call(VALID, { env: TWO, fetchImpl: f })).body.text).toBe('from-gemini');
+    expect(callsTo(f, 'anthropic')).toBe(0);
+  });
+
+  it('reports busy only after every route has failed, using all retries on the last one', async () => {
+    const f = byHost({ gemini: status(503), anthropic: status(529) });
+    const r = await call(VALID, { env: TWO, fetchImpl: f });
+    expect(r).toMatchObject({ status: 503, body: { error: { code: 'busy' } } });
+    expect(callsTo(f, 'generativelanguage')).toBe(2);
+    expect(callsTo(f, 'anthropic')).toBe(3);
+  });
+
+  it('does NOT fall back on a bad request: another model will not fix it', async () => {
+    const f = byHost({ gemini: status(400, 'Could not process PDF'), anthropic: antOk });
+    const r = await call(VALID, { env: TWO, fetchImpl: f });
+    expect(r).toMatchObject({ status: 400, body: { error: { code: 'bad_request' } } });
+    expect(callsTo(f, 'anthropic')).toBe(0);
+  });
+
+  it('does NOT fall back on a reply cut off at the length limit', async () => {
+    const cut = () => ok({ candidates: [{ content: { parts: [{ text: '{' }] }, finishReason: 'MAX_TOKENS' }] });
+    const f = byHost({ gemini: cut, anthropic: antOk });
+    const r = await call(VALID, { env: TWO, fetchImpl: f });
+    expect(r.status).toBe(422);
+    expect(callsTo(f, 'anthropic')).toBe(0);
+  });
+
+  it('falls back when the primary key is rejected, and tells nobody the key', async () => {
+    const f = byHost({ gemini: status(403, 'API key gem-SECRET invalid'), anthropic: antOk });
+    const r = await call(VALID, { env: TWO, fetchImpl: f });
+    expect(r.body.text).toBe('from-claude');
+    expect(callsTo(f, 'generativelanguage')).toBe(1); // a bad key is not retried
+  });
+
+  it('is "misconfigured" only when every route has a bad key', async () => {
+    const f = byHost({ gemini: status(403), anthropic: status(401, 'sk-ant-SECRET') });
+    const r = await call(VALID, { env: TWO, fetchImpl: f });
+    expect(r).toMatchObject({ status: 500, body: { error: { code: 'misconfigured' } } });
+    expect(JSON.stringify(r.body)).not.toMatch(/SECRET/);
+  });
+
+  it('prefers telling the user "busy" over "misconfigured" when one route was merely overloaded', async () => {
+    const f = byHost({ gemini: status(503), anthropic: status(401) });
+    expect((await call(VALID, { env: TWO, fetchImpl: f })).body.error.code).toBe('busy');
+  });
+
+  it('remembers a failing route: the next request goes to the healthy one first', async () => {
+    const health = createHealth();
+    const f = byHost({ gemini: status(503), anthropic: antOk });
+    await call(VALID, { env: TWO, fetchImpl: f, health });
+    const g1 = callsTo(f, 'generativelanguage');
+    const r = await call(VALID, { env: TWO, fetchImpl: f, health });
+    expect(r.body.text).toBe('from-claude');
+    expect(callsTo(f, 'generativelanguage')).toBe(g1); // not retried again while it is cooling down
+  });
+
+  it('tries the primary first again once its cooldown has passed', async () => {
+    const health = createHealth({ cooldownMs: 60_000 });
+    let clock = 1_000_000;
+    const f = byHost({ gemini: status(503), anthropic: antOk });
+    await call(VALID, { env: TWO, fetchImpl: f, health, now: () => clock });
+    clock += 61_000;
+    const f2 = byHost({ gemini: gemOk, anthropic: antOk });
+    expect((await call(VALID, { env: TWO, fetchImpl: f2, health, now: () => clock })).body.text).toBe('from-gemini');
+  });
+
+  it('still uses a route that is cooling down when it is the only one left', async () => {
+    const health = createHealth();
+    await call(VALID, { env: TWO, fetchImpl: byHost({ gemini: status(503), anthropic: status(503) }), health });
+    const r = await call(VALID, { env: TWO, fetchImpl: byHost({ gemini: gemOk, anthropic: status(503) }), health });
+    expect(r.body.text).toBe('from-gemini');
+  });
+});
+
+describe('routing by task', () => {
+  const ENV_T = { ...TWO, AI_ROUTES: JSON.stringify({ default: ['gemini'], interview_eval: ['anthropic', 'gemini'] }) };
+
+  it('sends a labelled task down its own chain and everything else down the default', async () => {
+    const f1 = byHost({ gemini: gemOk, anthropic: antOk });
+    expect((await call({ ...VALID, task: 'interview_eval' }, { env: ENV_T, fetchImpl: f1 })).body.text).toBe('from-claude');
+    const f2 = byHost({ gemini: gemOk, anthropic: antOk });
+    expect((await call(VALID, { env: ENV_T, fetchImpl: f2 })).body.text).toBe('from-gemini');
+  });
+
+  it('treats an unknown or non-string task as general', async () => {
+    for (const task of ['drop-tables', 42, null, { a: 1 }]) {
+      const f = byHost({ gemini: gemOk, anthropic: antOk });
+      expect((await call({ ...VALID, task }, { env: ENV_T, fetchImpl: f })).body.text).toBe('from-gemini');
+    }
+  });
+
+  it('ignores a provider or model named by the caller', async () => {
+    const f = byHost({ gemini: gemOk, anthropic: antOk });
+    const r = await call({ ...VALID, provider: 'anthropic', model: 'claude-opus-expensive' }, { env: ENV_T, fetchImpl: f });
+    expect(r.body.text).toBe('from-gemini');
+    expect(callsTo(f, 'anthropic')).toBe(0);
+  });
+});
+
+describe('routing logs', () => {
+  it('never writes a caller-supplied task name into the logs: unknown labels are logged as general', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await call({ ...VALID, task: 'x'.repeat(5000) + '\n{"evt":"forged"}' }, { env: TWO, fetchImpl: byHost({ gemini: gemOk, anthropic: antOk }) });
+    const lines = log.mock.calls.map(c => String(c[0])).filter(l => l.includes('ai_call'));
+    log.mockRestore();
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0]).task).toBe('general');
+    expect(lines[0].length).toBeLessThan(500);
+  });
+
+  it('records the task, the route used, whether a fallback was needed and what was tried', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await call({ ...VALID, task: 'star' }, { env: TWO, fetchImpl: byHost({ gemini: status(503), anthropic: antOk }) });
+    const line = JSON.parse(log.mock.calls.map(c => String(c[0])).find(l => l.includes('ai_call')));
+    log.mockRestore();
+    expect(line).toMatchObject({ task: 'star', provider: 'anthropic', ok: true, fallback: true });
+    expect(line.tried[0]).toMatch(/^gemini:.*!$/); // '!' marks a route that failed
+    expect(JSON.stringify(line)).not.toMatch(/SECRET/);
   });
 });
 

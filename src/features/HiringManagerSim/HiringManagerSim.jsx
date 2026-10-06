@@ -48,7 +48,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     if (!role.trim() && resume.kind === 'none') { setErr('Enter the role you are interviewing for, or add your resume, so the questions fit you.'); return; }
     setBusy('questions'); setErr('');
     try {
-      const raw = await callLLM([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
+      const raw = await callLLM([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64, { task: 'interview_questions' });
       setQuestions(normalizeQuestions(extractJSON(raw)));
       setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false);
       setPhase('interview');
@@ -64,7 +64,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     if (answer.trim().length < MIN_ANSWER_CHARS) { setErr(`Answer a bit more fully (at least ${MIN_ANSWER_CHARS} characters) so there is something to evaluate.`); return; }
     setBusy('feedback'); setErr('');
     try {
-      const raw = await callLLM([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume }) }], 1800);
+      const raw = await callLLM([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume }) }], 1800, null, { task: 'interview_eval' });
       const fb = normalizeEvaluation(extractJSON(raw));
       setCurrent(fb);
       setWarnings(findInventedInFeedback({ question: q.question, answer }, fb));

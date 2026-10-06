@@ -35,7 +35,7 @@ ${jd}
 Return ONLY raw JSON (no markdown, start with {):
 {"matchScore":0-100,"roleTitle":"extracted job title","company":"extracted company name or Unknown","keyRequirements":["req1","req2","req3"],"candidateStrengths":["strength specific to this resume and JD","strength2"],"criticalGaps":["specific gap1","specific gap2"],"hiddenKeywords":["keyword1","keyword2","keyword3","keyword4","keyword5"],"applicationAdvice":"2-3 sentence specific advice on how to tailor their application","interviewFocus":["topic1","topic2","topic3"]}
 
-Be specific to the actual content — no generic advice.` }], 1500);
+Be specific to the actual content — no generic advice.` }], 1500, null, { task: 'jd_analysis' });
       const parsed = extractJSON(raw);
       if (parsed.error) throw new Error(parsed.msg);
       setResult(parsed);

@@ -52,6 +52,15 @@ describe('callLLM → ai Edge Function', () => {
     expect(bodyOf(f)).toEqual({ messages: msg, maxTokens: 500, pdfBase64: 'BASE64PDF' });
   });
 
+  it('sends only a task label, never a provider or model, when the caller names a task', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ text: 'ok' }));
+    vi.stubGlobal('fetch', f);
+    await callLLM(msg, 100, null, { task: 'interview_eval' });
+    expect(bodyOf(f)).toMatchObject({ task: 'interview_eval' });
+    expect(Object.keys(bodyOf(f)).sort()).toEqual(['maxTokens', 'messages', 'task']);
+  });
+
   it('omits pdfBase64 when there is no PDF', async () => {
     const { callLLM } = await loadAi();
     const f = vi.fn().mockResolvedValue(res({ text: 'ok' }));
@@ -90,27 +99,44 @@ describe('callLLM → ai Edge Function', () => {
 });
 
 describe('error handling (audit 2.4)', () => {
-  it('retries once on 429 then succeeds', async () => {
+  it('does not retry an error the function reported: it already retried the provider', async () => {
     const { callLLM } = await loadAi();
-    const f = vi.fn()
-      .mockResolvedValueOnce(res({ error: { message: 'busy' } }, 429))
-      .mockResolvedValueOnce(res({ text: 'ok' }));
+    const f = vi.fn().mockResolvedValue(res({ error: { message: 'The AI service is busy right now. Please try again in a minute.', code: 'busy' } }, 503));
+    vi.stubGlobal('fetch', f);
+    await expect(callLLM(msg)).rejects.toMatchObject({ status: 503, code: 'busy', message: /busy right now/ });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a reported rate limit either', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ error: { message: 'busy', code: 'rate_limited' } }, 429));
+    vi.stubGlobal('fetch', f);
+    await expect(callLLM(msg)).rejects.toMatchObject({ status: 429, code: 'rate_limited' });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries once when the connection drops before any answer, then recovers', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(res({ text: 'ok' }));
     vi.stubGlobal('fetch', f);
     expect(await callLLM(msg)).toBe('ok');
     expect(f).toHaveBeenCalledTimes(2);
   });
 
-  it('retries once on 502 and on a network error, then gives up with a clear message', async () => {
+  it('gives up after one retry on a persistent network error, with a clear message', async () => {
     const { callLLM } = await loadAi();
-    const f1 = vi.fn().mockResolvedValue(res({ error: { message: 'The AI provider is down.' } }, 502));
-    vi.stubGlobal('fetch', f1);
-    await expect(callLLM(msg)).rejects.toThrow('The AI provider is down.');
-    expect(f1).toHaveBeenCalledTimes(2);
-
-    const f2 = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
-    vi.stubGlobal('fetch', f2);
+    const f = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.stubGlobal('fetch', f);
     await expect(callLLM(msg)).rejects.toThrow(/Network error: Failed to fetch/);
-    expect(f2).toHaveBeenCalledTimes(2);
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry after the browser-side timeout (the user already waited)', async () => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockRejectedValue(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    vi.stubGlobal('fetch', f);
+    await expect(callLLM(msg)).rejects.toMatchObject({ code: 'timeout', message: /took too long/i });
+    expect(f).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry a 400', async () => {

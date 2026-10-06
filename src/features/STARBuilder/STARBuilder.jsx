@@ -32,7 +32,7 @@ Result: ${R}
 Return ONLY raw JSON (no markdown, start with {):
 {"score":0-100,"feedback":"1-2 sentences on what's strong and what was weak in the raw story","refined":{"situation":"polished, concise situation — 1-2 sentences","task":"clear ownership statement — 1 sentence","action":"3-5 specific actions with strong verbs — no passive voice","result":"quantified outcome with metrics where possible — include business impact"},"oneLiner":"one powerful sentence that captures the full story — suitable for a resume bullet or elevator pitch","bankAs":"short memorable name for this story (e.g. Checkout Migration Win)"}
 
-Be specific — use the candidate's actual content. Add plausible metrics if they gave vague results but note it's an estimate.` }], 1200);
+Be specific — use the candidate's actual content. Add plausible metrics if they gave vague results but note it's an estimate.` }], 1200, null, { task: 'star' });
       const p = extractJSON(raw);
       if (p.error) throw new Error(p.msg);
       setRefined(p);

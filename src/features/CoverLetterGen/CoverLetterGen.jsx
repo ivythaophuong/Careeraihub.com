@@ -45,7 +45,7 @@ ${jd || 'Not provided — write a targeted letter based on the role.'}
 Return ONLY raw JSON (no markdown, start with {):
 {"subject":"compelling email subject line","coverLetter":"full cover letter with proper paragraphs and line breaks — personalized to the actual resume and JD content, NOT generic","sellingPoints":["specific strength 1","specific strength 2","specific strength 3"]}
 
-Write a real letter — no [brackets] or placeholders. Match the tone exactly.` }], 2000);
+Write a real letter — no [brackets] or placeholders. Match the tone exactly.` }], 2000, null, { task: 'cover_letter' });
       const parsed = extractJSON(raw);
       if (parsed.error) throw new Error(parsed.msg);
       setResult(parsed);

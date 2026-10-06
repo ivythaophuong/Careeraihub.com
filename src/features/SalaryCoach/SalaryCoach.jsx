@@ -86,7 +86,7 @@ Return ONLY raw JSON (no markdown, start with {):
   "totalComp": {"base":"${cur} <low>–<high>K / mo","bonus":"<low>–<high>% of base","equity":"typical equity at larger tech employers, or varies"},` : ''}
   "aiInsight": "2 sentences about pay for this role family in this market. Do not mention the candidate's level, current salary or equity."
 }
-${level ? `The totalComp values are typical for the ${level} level, not for any specific person.` : ''}` }], 900);
+${level ? `The totalComp values are typical for the ${level} level, not for any specific person.` : ''}` }], 900, null, { task: 'salary' });
       const parsed = extractJSON(raw);
       if (parsed.error) throw new Error(parsed.msg);
       if (!Array.isArray(parsed.levels) || parsed.levels.length === 0) throw new Error('The market data came back incomplete.');
@@ -264,7 +264,7 @@ Resume: ${resumeCtx.slice(0, 600) || 'Not provided'}
 Use only what the candidate wrote above. Do not assume their current salary, level, equity or employer; if something is missing, say it is missing. Market figures are estimates.
 Return ONLY raw JSON (start with {):
 {"marketMin":"$X","marketMid":"$X","marketMax":"$X","assessment":"2-3 sentence honest market position","scripts":[{"label":"Opening Move","text":"ready-to-say script"},{"label":"When They Push Back","text":"counter script"},{"label":"Closing Strong","text":"closing script"}],"leverage":["point 1","point 2","point 3"],"winCondition":"what success looks like"}
-Be specific. Scripts must be ready to say out loud.` }], 1200);
+Be specific. Scripts must be ready to say out loud.` }], 1200, null, { task: 'salary' });
       const parsed = extractJSON(raw);
       if (parsed.error) throw new Error(parsed.msg);
       setResult(parsed);
