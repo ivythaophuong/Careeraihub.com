@@ -150,7 +150,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal }) {
               </div>
             </div>
             <div style={{ color: C.text, fontSize: 12, lineHeight: 1.7, background: C.surface, padding: 16, borderRadius: 8, fontStyle: "italic", borderLeft: `3px solid ${C.gold}` }}>"{result.oneLiner}"</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+            <div className="grid-2" style={{ display: "grid", gap: 12, marginTop: 12 }}>
               {SECTIONS.map((k, i) => (
                 <div key={k} style={{ background: C.surface, borderRadius: 8, padding: 12, borderLeft: `2px solid ${fc[i]}` }}>
                   <div style={{ color: fc[i], fontSize: 9, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>{k}</div>

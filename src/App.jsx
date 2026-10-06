@@ -323,10 +323,10 @@ function App() {
             CareerAiHub
           </button>
           <div className="lp-nav-r">
-            <button onClick={() => setDarkMode(d => !d)} title="Toggle light/dark mode" style={{ background: "transparent", border: `1px solid var(--lp-bdr2)`, color: "var(--lp-text2)", borderRadius: 6, padding: "4px 8px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}>
+            <button onClick={() => setDarkMode(d => !d)} title="Toggle light/dark mode" aria-label="Toggle light/dark mode" style={{ background: "transparent", border: `1px solid var(--lp-bdr2)`, color: "var(--lp-text2)", borderRadius: 6, padding: "4px 8px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}>
               {darkMode ? "☀️" : "🌙"}
             </button>
-            {!isMobile && <button onClick={() => setCmdOpen(true)} title="Command palette (⌘K)" style={{ background: "transparent", border: `1px solid var(--lp-bdr2)`, color: "var(--lp-text2)", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            {!isMobile && <button onClick={() => setCmdOpen(true)} title="Command palette (⌘K)" aria-label="Open command palette" style={{ background: "transparent", border: `1px solid var(--lp-bdr2)`, color: "var(--lp-text2)", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
               ⌘K
             </button>}
             <UserMenu user={user} onLogout={logout} />
@@ -334,8 +334,8 @@ function App() {
         </nav>
         {!isMobile && <div className="lp-mod-nav">
           {MODULES.map(m => (
-            <button key={m.id} onClick={() => setActiveModule(m.id)} className={`lp-mpill${activeModule === m.id ? " on" : ""}`}>
-              <span>{m.icon}</span>
+            <button key={m.id} onClick={() => setActiveModule(m.id)} className={`lp-mpill${activeModule === m.id ? " on" : ""}`} aria-current={activeModule === m.id ? "page" : undefined}>
+              <span aria-hidden="true">{m.icon}</span>
               <span>{m.label}</span>
             </button>
           ))}
