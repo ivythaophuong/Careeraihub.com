@@ -82,6 +82,7 @@
 /* ══ MODULE PILLS — global (also used by ModulePills outside .lp) ════ */
 .lp-mod-nav{display:flex;gap:4px;padding:10px 32px;background:var(--lp-bg2);border-bottom:1px solid var(--lp-bdr);overflow-x:auto;scrollbar-width:none;position:sticky;top:58px;z-index:190;backdrop-filter:blur(16px)}
 .lp-mod-nav::-webkit-scrollbar{display:none}
+@media(max-width:768px){.lp-mod-nav{padding:10px 16px}}
 .lp-mpill{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:20px;font-size:12px;font-weight:500;color:var(--lp-text2);border:1px solid transparent;background:none;cursor:pointer;white-space:nowrap;transition:all .2s var(--lp-ease);font-family:var(--lp-ff)}
 .lp-mpill:hover{background:var(--lp-bg3);color:var(--lp-text);transform:translateY(-1px)}
 .lp-mpill.on{background:var(--lp-teal-dim);border-color:var(--lp-teal-b);color:var(--lp-teal)}
