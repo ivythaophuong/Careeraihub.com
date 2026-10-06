@@ -25,10 +25,10 @@ function sourceFiles(dir) {
 }
 
 describe('no manufactured trust claims in the UI', () => {
-  const files = sourceFiles(path.resolve(__dirname));
+  const files = sourceFiles(path.resolve(__dirname, '../../src'));
   for (const phrase of FORBIDDEN) {
     it(`"${phrase}" does not appear`, () => {
-      const hits = files.filter(f => fs.readFileSync(f, 'utf8').includes(phrase)).map(f => path.relative(__dirname, f));
+      const hits = files.filter(f => fs.readFileSync(f, 'utf8').includes(phrase)).map(f => path.relative(path.resolve(__dirname, '../../src'), f));
       expect(hits).toEqual([]);
     });
   }
