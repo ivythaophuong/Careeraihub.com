@@ -5,6 +5,8 @@ import { SUPABASE_URL, SUPABASE_ANON } from '../../lib/supabase';
 import './landing-v10.css';
 import './landing-v36.css';
 import { OrbitMark } from '../../components/OrbitMark';
+import { MODULES } from '../../styles/theme';
+import { PERSONAS } from '../HiringManagerSim/interview';
 import { l1Html, l1HtmlHeight, l2Html, l2HtmlHeight, l3Html, l3HtmlHeight, l4Html, l4HtmlHeight } from './demoHtml';
 
 // ── DATA ─────────────────────────────────────────────────────────────────────
@@ -96,11 +98,11 @@ function formatDate(iso) {
   } catch (e) { return ''; }
 }
 
+// Facts that can be checked in the code (no outcome or market statistics).
 const STATS = [
-  { value: 75, suffix: '%', cls: 'n-r', label: 'of resumes rejected by ATS before a human reads them' },
-  { value: 18, prefix: '$', suffix: 'K', cls: 'n-a', label: 'average salary left on table without negotiation prep' },
-  { value: 5, suffix: ' mo', cls: 'n-t', label: 'average job search going in blind with no system' },
-  { value: 32, suffix: '×', scale: 10, cls: 'n-p', label: 'higher return when AI memory tracks your progress' },
+  { value: MODULES.length, suffix: '', cls: 'n-t', label: 'tools in one platform' },
+  { value: Object.keys(PERSONAS).length, suffix: '', cls: 'n-p', label: 'interviewer styles to practise with' },
+  { value: 2, suffix: '', cls: 'n-a', label: 'resume file types supported (PDF and Word)' },
 ];
 
 const LAYER_DATA = [
@@ -130,7 +132,7 @@ const LAYER_DATA = [
     mods: [
       { n: 'Mock interviews', d: 'Role-specific question sets. AI scoring and feedback. Tracks improvement across sessions.' },
       { n: 'HM simulator', d: 'Simulates a hiring manager. Pressure-tests your answers. Knows your experience from memory.' },
-      { n: 'Salary coach', d: 'Market benchmarks. Live AI negotiation roleplay. Multi-offer comparison.' },
+      { n: 'Salary coach', d: 'Negotiation scripts and AI negotiation practice, based on the numbers you enter.' },
     ],
     mem: [
       { n: 'Interview log', l: 'Sessions tracked' }, { n: 'Answer score', l: 'Trend visible' },
@@ -178,18 +180,13 @@ const FEAT_DATA = [
   {
     icon: '🔍', label: 'Job Search', isFree: true, moduleId: 'jobs',
     ey: 'Module 1 — Always free', title: 'Job Search Engine',
-    desc: 'Find live jobs from 20+ platforms in one place. AI ranks results by fit to your memory profile, surfaces salary data for each role, and shows which companies are actively hiring.',
-    bullets: ['Live jobs from LinkedIn, Indeed, Glassdoor, and 17 more in one search', 'AI salary intel shows market rate for each role before you apply', 'Application tracker logs every job across all platforms in one dashboard', "Market intelligence shows hiring velocity — who's growing fast, who's slowing"],
-    previewHd: 'Job Search · Live AI-ranked results',
-    preview: `<div class="mk-lbl">Live results · "Product Manager · Singapore"</div>
-      <div class="mk-row"><span class="mk-l">Senior PM · Tech company · SGD 8K–11K</span><span class="mk-v">94% fit</span></div>
-      <div class="mk-row"><span class="mk-l">Product Manager · E-commerce · SGD 7K–10K</span><span class="mk-v">87% fit</span></div>
-      <div class="mk-row"><span class="mk-l">Associate PM · Fintech · SGD 5K–7.5K</span><span class="mk-v">81% fit</span></div>
-      <div class="mk-stat-row" style="margin-top:12px">
-        <div class="mk-stat"><div class="mk-stat-n">340</div><div class="mk-stat-l">Open PM roles SG</div></div>
-        <div class="mk-stat"><div class="mk-stat-n">SGD 8.2K</div><div class="mk-stat-l">Median salary</div></div>
-        <div class="mk-stat"><div class="mk-stat-n">+18%</div><div class="mk-stat-l">YoY demand</div></div>
-      </div>`,
+    desc: 'Search LinkedIn, Indeed, Glassdoor and more from one form, see live listings when available, and track every application in one place.',
+    bullets: ['One search opens the major job boards with your title and location filled in', 'Live listings appear here when the job feed is available; direct board links otherwise', 'Application tracker logs every job you save or apply to', 'Market guides explain hiring norms for a few regions (general guidance, not live data)'],
+    previewHd: 'Job Search · Example',
+    preview: `<div class="mk-lbl">Example search · "Product Manager · Singapore"</div>
+      <div class="mk-row"><span class="mk-l">LinkedIn</span><span class="mk-v">Open search ↗</span></div>
+      <div class="mk-row"><span class="mk-l">Indeed</span><span class="mk-v">Open search ↗</span></div>
+      <div class="mk-row"><span class="mk-l">Glassdoor</span><span class="mk-v">Open search ↗</span></div>`,
     pw: null,
   },
   {
@@ -197,7 +194,7 @@ const FEAT_DATA = [
     ey: 'Module 2 — Premium', title: 'Resume Scan + ATS Scorer',
     desc: "Upload your resume and a job description. Real-time ATS match score, keyword gap analysis, and specific improvement suggestions — all informed by your AI memory.",
     bullets: ["Real-time ATS score vs the exact job description you're applying to", "Keyword gap analysis — see exactly what's missing before you submit", 'AI memory means it already knows your work history from onboarding', 'Version control tracks every resume iteration and its ATS score over time'],
-    previewHd: 'Resume Scan + ATS · live scoring',
+    previewHd: 'Resume Scan + ATS · Example',
     preview: `<div class="roast-toggle"><button class="roast-opt on">Professional</button><button class="roast-opt snarky">Snarky Roast</button></div>
       <div class="mk-lbl">ATS score vs Senior PM · Job description</div>
       <div class="mk-score" style="margin-bottom:12px"><div class="mk-track"><div class="mk-bar" style="width:91%"></div></div><span class="mk-pct">91%</span></div>
@@ -212,7 +209,7 @@ const FEAT_DATA = [
     ey: 'Module 3 — Premium', title: 'In-App ATS Builder',
     desc: 'Write and edit your resume directly in CareerAiHub with live ATS scoring as you type. XYZ bullet guidance shows you exactly how to quantify each achievement. Version control means you never lose a draft.',
     bullets: ['XYZ formula: Achieved X, measured by Y, by doing Z — for every bullet', 'Live ATS score updates as you type — see impact of every change in real time', 'Version control with named snapshots — revert to any previous draft instantly', 'One-click download as PDF or DOCX with formatting preserved'],
-    previewHd: 'ATS Builder · live edit mode',
+    previewHd: 'ATS Builder · Example',
     preview: `<div class="mk-lbl">Before XYZ formula</div>
       <div class="mk-chat" style="border-left:2px solid var(--red);margin-bottom:8px;font-size:11px">Led product team to ship new checkout flow.</div>
       <div class="mk-lbl">AI suggestion — XYZ format</div>
@@ -264,14 +261,14 @@ const FEAT_DATA = [
   {
     icon: '💰', label: 'Salary Coach', isFree: false, moduleId: 'salary',
     ey: 'Module 7 — Premium', title: 'Salary Coach + Negotiation Roleplay',
-    desc: 'Know your market rate before any negotiation. Live Singapore market data, AI negotiation roleplay, and multi-offer comparison. The coach already knows your level from your AI memory.',
-    bullets: ['Real-time salary benchmarks by role, experience, and company size in Singapore', 'Live AI negotiation roleplay — practice the number before the real call', 'Multi-offer comparison: total comp, equity, benefits, and growth trajectory', 'AI memory means the coach already knows your current salary and target level'],
+    desc: 'Prepare for a negotiation using the numbers you enter. AI negotiation practice and scripts. CareerAiHub does not provide market salary data, so check current ranges on the salary sites linked in Job Search.',
+    bullets: ['Negotiation scripts built from the offer and target you enter', 'Live AI negotiation roleplay — practice the number before the real call', 'Multi-offer comparison: total comp, equity, benefits, and growth trajectory', 'AI memory means the coach already knows your current salary and target level'],
     previewHd: 'Salary Coach · negotiation prep',
-    preview: `<div class="mk-lbl">Your market position · Senior PM · Singapore</div>
-      <div class="mk-row"><span class="mk-l">25th percentile</span><span class="mk-v" style="color:var(--text2)">SGD 6,500/mo</span></div>
-      <div class="mk-row"><span class="mk-l">Median (50th)</span><span class="mk-v">SGD 8,200/mo</span></div>
-      <div class="mk-row"><span class="mk-l">Your current offer</span><span class="mk-v neg">SGD 7,500/mo — below median</span></div>
-      <div class="mk-chat ai" style="margin-top:10px"><strong style="color:var(--teal)">Coach:</strong> They offered SGD 7,500. Based on your 7 years, anchor at SGD 9,000. Say: "Based on my research and the scope, I was expecting closer to SGD 9,000." Try it.</div>`,
+    preview: `<div class="mk-lbl">Example · offer and target you enter</div>
+      <div class="mk-row"><span class="mk-l">Offer you enter</span><span class="mk-v">SGD 7,500/mo</span></div>
+      <div class="mk-row"><span class="mk-l">Target you enter</span><span class="mk-v">SGD 9,000/mo</span></div>
+      <div class="mk-row"><span class="mk-l">Gap (calculated)</span><span class="mk-v neg">SGD 1,500/mo</span></div>
+      <div class="mk-chat ai" style="margin-top:10px"><strong style="color:var(--teal)">Coach:</strong> You entered an offer of SGD 7,500 and a target of SGD 9,000. Try: "Given the scope of the role, I was hoping for something closer to SGD 9,000." Say it out loud.</div>`,
     pw: { h: "You've used your 1 free salary coaching session.", s: "Unlock negotiation roleplay — practice your counter-offer out loud so you're ready when it matters.", cta: 'Unlock negotiation roleplay →' },
   },
   {
@@ -288,7 +285,7 @@ const FEAT_DATA = [
   {
     icon: '📡', label: 'Weakness Radar', isFree: false, moduleId: 'radar',
     ey: 'Module 9 — Premium', title: 'Weakness Radar',
-    desc: 'AI maps your full skill profile and flags the exact gaps most likely to cost you the offer. Not generic advice — targeted intelligence built from your resume, target role, and live Singapore market demand.',
+    desc: 'AI maps your full skill profile and flags the exact gaps most likely to cost you the offer. Not generic advice — targeted intelligence built from your resume and target role.',
     bullets: ['6-dimension skill radar: technical, leadership, communication, execution, and more', 'Gaps ranked by impact — which ones hurt you most for your specific target role', 'Prioritised action plan: close these gaps before your next application', 'Tracks improvement across sessions as you develop new skills'],
     previewHd: 'Weakness Radar · skill gap analysis',
     preview: `<div class="mk-lbl">Skill gaps · Senior PM · Singapore</div>
@@ -296,7 +293,7 @@ const FEAT_DATA = [
       <div class="mk-row"><span class="mk-l">Data analysis / SQL</span><span class="mk-v neg">Gap ⚠</span></div>
       <div class="mk-row"><span class="mk-l">Stakeholder management</span><span class="mk-v">Strong ✓</span></div>
       <div class="mk-row"><span class="mk-l">Technical depth</span><span class="mk-v neg">Gap ⚠</span></div>
-      <div class="mk-chat ai" style="margin-top:10px"><strong style="color:var(--teal)">AI:</strong> Close the SQL gap first — it appears in 73% of senior PM JDs in Singapore. One project reference lifts ATS by ~8 points.</div>`,
+      <div class="mk-chat ai" style="margin-top:10px"><strong style="color:var(--teal)">AI:</strong> Close the SQL gap first — it is a common requirement in senior PM job descriptions. If it is true for you, add one project that shows it.</div>`,
     pw: { h: "You've used your 1 free weakness analysis.", s: 'Unlock unlimited radar scans to track improvement across every application cycle.', cta: 'Unlock weakness radar →' },
   },
   {
@@ -319,18 +316,13 @@ const FEAT_DATA = [
   {
     icon: '🌏', label: 'Market Intel', isFree: true, moduleId: 'market',
     ey: 'Module 11 — Always free', title: 'Market Intelligence',
-    desc: "Live Singapore job market data — hiring velocity by company, salary benchmarks by role and level, and demand trends by skill. Know who's growing, which roles are oversupplied, and where to focus your energy.",
-    bullets: ['Hiring velocity: who is growing fast, who is slowing — updated weekly', 'Salary benchmarks by role, level, and company size in Singapore', 'Skill demand trends: which skills are rising, which are declining in demand', 'Company intel: funding stage, headcount growth, recent layoffs'],
-    previewHd: 'Market Intel · Singapore · live data',
-    preview: `<div class="mk-lbl">Hiring velocity · Product roles · Singapore</div>
-      <div class="mk-row"><span class="mk-l">Grab</span><span class="mk-v">↑ Growing fast</span></div>
-      <div class="mk-row"><span class="mk-l">Sea Group</span><span class="mk-v">↑ Growing</span></div>
-      <div class="mk-row"><span class="mk-l">Shopee</span><span class="mk-v neg">→ Flat</span></div>
-      <div class="mk-stat-row" style="margin-top:12px">
-        <div class="mk-stat"><div class="mk-stat-n">340</div><div class="mk-stat-l">PM roles open</div></div>
-        <div class="mk-stat"><div class="mk-stat-n">+18%</div><div class="mk-stat-l">YoY demand</div></div>
-        <div class="mk-stat"><div class="mk-stat-n">SGD 8.2K</div><div class="mk-stat-l">Median salary</div></div>
-      </div>`,
+    desc: "General guidance on hiring norms and interview styles for a few regions. These are rules of thumb, not live market data, so confirm details with the employer.",
+    bullets: ['Regional guides: Singapore, US Tech, Europe and Remote-First', 'Hiring norms and interview styles to expect in each region', 'Clearly labelled as general guidance, not live data', 'No salary or hiring-demand figures are shown'],
+    previewHd: 'Market Intel · Example',
+    preview: `<div class="mk-lbl">Example · Singapore guide</div>
+      <div class="mk-row"><span class="mk-l">Hiring norms</span><span class="mk-v">General guidance</span></div>
+      <div class="mk-row"><span class="mk-l">Interview styles</span><span class="mk-v">General guidance</span></div>
+      <div class="mk-row"><span class="mk-l">Live market data</span><span class="mk-v neg">Not included</span></div>`,
     pw: null,
   },
   {
@@ -860,26 +852,9 @@ export function HubNav({ onModuleSelect, onTrackerOpen, onGetReady, onFeatModal 
   );
 }
 
-// ── TRANSIT BANNER ───────────────────────────────────────────────────────────
-
-function TransitBanner() {
-  return (
-    <div className="lp-transit">
-      <span className="lp-transit-pulse" />
-      <span className="lp-transit-label">Career Market Signal</span>
-      <span className="lp-transit-sep">·</span>
-      <span className="lp-transit-phase">Current Phase: Expansion</span>
-      <span className="lp-transit-sep">·</span>
-      <span className="lp-transit-desc">Hiring Velocity High — Singapore tech roles up 18% YoY</span>
-      <span className="lp-transit-sep">·</span>
-      <span className="lp-transit-cta">Opportunity window: Apply now, market favours candidates</span>
-    </div>
-  );
-}
-
 // ── TICKER ────────────────────────────────────────────────────────────────────
 
-const TICKER_ITEMS = ['✦ 10 AI modules active', 'Market Signal: Expansion Phase — Hiring velocity high in Tech & Fintech SG', 'Job search & market intel — always free', 'Premium — $19/month · save $156/mo vs separate tools', 'ATS resume scanner Singapore', 'AI mock interview coach'];
+const TICKER_ITEMS = ['ATS resume scanner Singapore', 'AI mock interview coach', 'Job search across the major job boards — always free', 'Salary negotiation practice'];
 
 export function TickerBar() {
   const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
@@ -900,97 +875,40 @@ export function TickerBar() {
 // ── ATS INTERCEPT per job card ────────────────────────────────────────────────
 
 function AtsIntercept({ jobId, role, company, link, state, onApply, onClose, onOpenImprove }) {
-  const circleRef = useRef(null);
-
-  useEffect(() => {
-    if (state?.loading === false && state?.score && circleRef.current) {
-      let cur = 0;
-      const target = state.score;
-      const interval = setInterval(() => {
-        cur = Math.min(cur + Math.ceil(target / 20), target);
-        if (circleRef.current) circleRef.current.textContent = cur + '%';
-        if (cur >= target) clearInterval(interval);
-      }, 50);
-      return () => clearInterval(interval);
-    }
-  }, [state?.loading, state?.score]);
-
   if (!state?.show) return null;
+  const kws = [...state.kws.found, ...state.kws.missing];
 
   return (
     <div className="ats-intercept show">
       <div className="ats-int-hd">
         <div>
-          <div className="ats-int-title">ATS Score Check — {role}</div>
-          <div className="ats-int-subtitle">Most ATS systems filter 7 in 10 resumes before a human reads them</div>
+          <div className="ats-int-title">Keywords to consider — {role}</div>
+          <div className="ats-int-subtitle">Common terms for roles like this. Only add the ones that are true for you.</div>
         </div>
         <button className="ats-int-close" onClick={() => onClose(jobId)}>✕</button>
       </div>
       <div className="ats-int-body">
-        {state.loading ? (
-          <div className="ats-int-loading">
-            <div className="res-spinner" />
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Scanning your resume against this role...</div>
-              <div className="ats-int-bar"><div className="ats-int-bar-fill" style={{ width: '85%' }} /></div>
-            </div>
+        <div className="ats-int-kw">
+          <div>{kws.slice(0, 8).map(k => <span key={k} className="mk-tag m">{k}</span>)}</div>
+        </div>
+        <div className="ats-int-cta">
+          <button className="ats-int-primary" onClick={() => onApply(jobId, role, company, link)}>Apply now →</button>
+          <button className="ats-int-secondary" onClick={() => onOpenImprove(jobId)}>How to add keywords</button>
+          <button className="ats-int-skip" onClick={() => onClose(jobId)}>Close</button>
+        </div>
+        {state.showImprove && (
+          <div className="ats-improve show">
+            <div className="ats-improve-title">How to add these keywords naturally</div>
+            {state.kws.missing.slice(0, 4).map((kw, i) => (
+              <div key={i} className="ats-improve-tip">
+                <span className="ats-improve-num">{i + 1}</span>
+                <span>If it's true, mention <strong style={{ color: 'var(--lp-text)' }}>"{kw}"</strong> with a specific example in your experience or skills section</span>
+              </div>
+            ))}
+            <button className="ats-rescan" onClick={() => { onClose(jobId); document.getElementById('feat-sec')?.scrollIntoView({ behavior: 'smooth' }); }}>
+              ✦ Build an ATS-friendly resume — see the tools →
+            </button>
           </div>
-        ) : (
-          <>
-            <div className="ats-int-score-row">
-              <div className={`ats-int-score-circle ${state.level}`} ref={circleRef}>0%</div>
-              <div className="ats-int-verdict">
-                <div className="ats-int-verdict-title">
-                  {state.level === 'good' ? "Strong match — you're ready to apply" : state.level === 'mid' ? 'A few gaps — worth a quick fix' : 'Resume needs work for this role'}
-                </div>
-                <div className="ats-int-verdict-sub">
-                  {state.level === 'good'
-                    ? 'Your resume passes this ATS filter. Apply with confidence, or fine-tune a few keywords to push your score even higher.'
-                    : state.level === 'mid'
-                    ? 'Your resume partially matches this role. Closing the keyword gaps below could significantly increase your chance of a phone screen.'
-                    : 'Your resume is likely to be filtered out before a recruiter reads it. Add the missing keywords below before applying.'}
-                </div>
-                <div className="ats-stat-highlight">
-                  {state.level === 'good' ? '✓ Resume passes ATS filter for this role' : '⬤ Fixing these gaps increases phone screen rate by up to 3×'}
-                </div>
-              </div>
-            </div>
-            <div className="ats-int-kw">
-              <div className="ats-int-kw-label">Keywords matched</div>
-              <div style={{ marginBottom: 10 }}>{state.kws.found.slice(0, 3).map(k => <span key={k} className="mk-tag m">{k}</span>)}</div>
-              <div className="ats-int-kw-label">Missing — add these to improve score</div>
-              <div>{state.kws.missing.slice(0, 4).map(k => <span key={k} className="mk-tag x">{k}</span>)}</div>
-            </div>
-            <div className="ats-int-cta">
-              {state.level === 'good' ? (
-                <>
-                  <button className="ats-int-primary" onClick={() => onApply(jobId, role, company, link)}>Apply now →</button>
-                  <button className="ats-int-secondary" onClick={() => onOpenImprove(jobId)}>Fine-tune keywords</button>
-                  <button className="ats-int-skip" onClick={() => onClose(jobId)}>Close</button>
-                </>
-              ) : (
-                <>
-                  <button className="ats-int-primary" onClick={() => onOpenImprove(jobId)}>✦ Fix it — improve score</button>
-                  <button className="ats-int-secondary" onClick={() => onApply(jobId, role, company, link)}>Apply anyway →</button>
-                  <button className="ats-int-skip" onClick={() => onClose(jobId)}>Skip</button>
-                </>
-              )}
-            </div>
-            {state.showImprove && (
-              <div className="ats-improve show">
-                <div className="ats-improve-title">How to add these keywords naturally</div>
-                {state.kws.missing.slice(0, 4).map((kw, i) => (
-                  <div key={i} className="ats-improve-tip">
-                    <span className="ats-improve-num">{i + 1}</span>
-                    <span>Add <strong style={{ color: 'var(--lp-text)' }}>"{kw}"</strong> — mention a specific example in your experience or skills section</span>
-                  </div>
-                ))}
-                <button className="ats-rescan" onClick={() => { onClose(jobId); document.getElementById('feat-sec')?.scrollIntoView({ behavior: 'smooth' }); }}>
-                  ✦ Re-scan after edits — open ATS Builder →
-                </button>
-              </div>
-            )}
-          </>
         )}
       </div>
     </div>
@@ -1012,19 +930,7 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
   const [resCount, setResCount] = useState('');
   const [resOpen, setResOpen] = useState(false);
   const [atsMap, setAtsMap] = useState({});
-  const [ms1, setMs1] = useState(306);
   const [appCount, setAppCount] = useState(0);
-  const [liveCount, setLiveCount] = useState(512);
-
-  useEffect(() => {
-    let v = 512, dir = 1;
-    const t = setInterval(() => {
-      const delta = Math.floor(Math.random() * 3) + 1;
-      v += dir * delta; if (v >= 750) dir = -1; if (v <= 480) dir = 1;
-      setLiveCount(v);
-    }, 3800);
-    return () => clearInterval(t);
-  }, []);
 
   useEffect(() => {
     const refresh = () => {
@@ -1033,16 +939,6 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
     refresh();
     window.addEventListener('storage', refresh);
     return () => window.removeEventListener('storage', refresh);
-  }, []);
-
-  useEffect(() => {
-    let v = 306, dir = 1;
-    const t = setInterval(() => {
-      v += dir * (Math.floor(Math.random() * 3) + 1);
-      if (v > 360) dir = -1; if (v < 300) dir = 1;
-      setMs1(v);
-    }, 3200);
-    return () => clearInterval(t);
   }, []);
 
   const showAc = (val) => {
@@ -1068,17 +964,13 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
     if (link && link !== '#') window.open(link, '_blank', 'noopener');
   };
 
-  const toggleAts = async (jobId, role, company, link) => {
+  // There is no resume on the landing page, so no score is possible. Show the keywords commonly
+  // expected for this kind of role, for the visitor to consider.
+  const toggleAts = (jobId, role, company, link) => {
     setAtsMap(prev => {
-      const cur = prev[jobId];
-      if (cur?.show && !cur?.loading) return { ...prev, [jobId]: { show: false } };
-      return { ...prev, [jobId]: { show: true, loading: true } };
+      if (prev[jobId]?.show) return { ...prev, [jobId]: { show: false } };
+      return { ...prev, [jobId]: { show: true, role, company, link, kws: getKwSet(role), showImprove: false } };
     });
-    await new Promise(r => setTimeout(r, 1600));
-    const kws = getKwSet(role);
-    const score = Math.min(91, Math.max(32, 42 + Math.floor(Math.random() * 35)));
-    const level = score >= 75 ? 'good' : score >= 50 ? 'mid' : 'low';
-    setAtsMap(prev => ({ ...prev, [jobId]: { show: true, loading: false, score, level, role, company, link, kws, showImprove: false } }));
   };
 
   const closeAts = (jobId) => setAtsMap(prev => ({ ...prev, [jobId]: { show: false } }));
@@ -1139,29 +1031,11 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
 
   return (
     <div className="hero-right">
-      <div className="search-card-label">Find your next role — AI-ranked from 20+ platforms, free</div>
+      <div className="search-card-label">Find your next role — search the major job boards in one place, free</div>
       <div className="search-card">
         <div className="search-card-hd">
           <div className="search-card-title"><span className="search-card-dot" />Job Search</div>
           <span className="search-card-badge">Always Free</span>
-        </div>
-        <div className="market-signals">
-          <div className="ms-pill">
-            <div className="ms-top"><span className="ms-val">{ms1}</span><span className="ms-live">live</span></div>
-            <span className="ms-lbl">open roles in Singapore</span>
-          </div>
-          <div className="ms-pill">
-            <div className="ms-top"><span className="ms-val">SGD 8.2K</span><span className="ms-live">live</span></div>
-            <span className="ms-lbl">median salary</span>
-          </div>
-          <div className="ms-pill">
-            <div className="ms-top"><span className="ms-val">+18%</span><span className="ms-live">↑ YoY</span></div>
-            <span className="ms-lbl">hiring velocity</span>
-          </div>
-        </div>
-        <div className="sc-live-bar">
-          <span className="sc-live-dot" />
-          <span className="sc-live-text"><strong>{liveCount.toLocaleString()}</strong> job seekers active · <strong>2,400+</strong> resumes analyzed</span>
         </div>
         <div className="search-body">
           <div className="fg2">
@@ -1218,15 +1092,15 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
               <span className="results-count">{resCount}</span>
             </div>
             {results[0]?.type === 'loading' ? (
-              <div className="res-loading"><div className="res-spinner" /><span>Searching live jobs across 20+ platforms...</span></div>
+              <div className="res-loading"><div className="res-spinner" /><span>Searching...</span></div>
             ) : (
               <>
                 {results[0]?.type === 'fallback' && (
                   <div className="res-redirect">
                     <div className="res-redirect-icon">🔍</div>
                     <div>
-                      <div className="res-redirect-title">Live jobs across 20+ platforms</div>
-                      <div className="res-redirect-sub">Apply from here to track your application automatically. Check ATS score before applying.</div>
+                      <div className="res-redirect-title">Search these job boards directly</div>
+                      <div className="res-redirect-sub">Apply from here to log the application in your tracker.</div>
                     </div>
                   </div>
                 )}
@@ -1247,7 +1121,7 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
                     {job.desc && <div className="result-desc-strip">{job.desc}</div>}
                     <div className="result-actions">
                       <button className="btn-apply-now" onClick={() => applyNow(job.id, job.role, job.company, job.link)}>Apply now →</button>
-                      <button className={`btn-ats-check${atsMap[job.id]?.show ? ' active' : ''}`} onClick={() => toggleAts(job.id, job.role, job.company, job.link)}>✦ Check ATS first</button>
+                      <button className={`btn-ats-check${atsMap[job.id]?.show ? ' active' : ''}`} onClick={() => toggleAts(job.id, job.role, job.company, job.link)}>✦ Keywords to consider</button>
                       <button className="btn-skip-apply" onClick={() => applyNow(job.id, job.role, job.company, job.link)}>Skip and apply anyway ↗</button>
                     </div>
                     <AtsIntercept
@@ -1259,7 +1133,7 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
                 ))}
                 {renderedResults.length > 0 && (
                   <div className="results-nudge">
-                    <div className="rn-text"><strong>Sign up free</strong> to unlock your full AI fit score and salary intel for every role</div>
+                    <div className="rn-text"><strong>Sign up free</strong> to scan your resume, analyse job descriptions and track every application</div>
                     <button className="rn-btn" onClick={onJoin}>✦ Join free →</button>
                   </div>
                 )}
@@ -1301,16 +1175,16 @@ function HeroSection({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgentic
           <div className="hero-fill">
             <div className="hf-stats">
               <div className="hf-stat">
-                <div className="hf-stat-n">10</div>
-                <div className="hf-stat-l">AI modules<br />in one platform</div>
+                <div className="hf-stat-n">{MODULES.length}</div>
+                <div className="hf-stat-l">tools<br />in one platform</div>
               </div>
               <div className="hf-stat">
-                <div className="hf-stat-n"><span className="hf-acc">38%</span> → <span className="hf-acc">91%</span></div>
-                <div className="hf-stat-l">ATS score lift<br />in 90 seconds</div>
+                <div className="hf-stat-n"><span className="hf-acc">{Object.keys(PERSONAS).length}</span></div>
+                <div className="hf-stat-l">interviewer styles<br />to practise with</div>
               </div>
               <div className="hf-stat">
-                <div className="hf-stat-n"><span className="hf-acc">5×</span></div>
-                <div className="hf-stat-l">faster job search<br />with AI memory</div>
+                <div className="hf-stat-n"><span className="hf-acc">PDF + Word</span></div>
+                <div className="hf-stat-l">resumes<br />supported</div>
               </div>
             </div>
           </div>
@@ -1380,7 +1254,7 @@ function DemoShell({ label, accent, borderC, onClose, onNext, children }) {
 
 function L1DemoPanel({ onClose, onNext }) {
   return (
-    <DemoShell label="LAYER 01 — RESUME CREATION · LIVE DEMO" accent={DS.teal} borderC={DS.tb} onClose={onClose} onNext={onNext}>
+    <DemoShell label="LAYER 01 — RESUME CREATION · EXAMPLE DEMO" accent={DS.teal} borderC={DS.tb} onClose={onClose} onNext={onNext}>
       <iframe srcdoc={l1Html} style={{ width:'100%', height:l1HtmlHeight, border:'none', display:'block', background:'#09090d' }} title="Layer 01 Resume Creation Demo" />
     </DemoShell>
   );
@@ -1388,7 +1262,7 @@ function L1DemoPanel({ onClose, onNext }) {
 
 function L2DemoPanel({ onClose, onNext }) {
   return (
-    <DemoShell label="LAYER 02 — INTERVIEW + SALARY PREP · LIVE DEMO" accent={DS.cyan} borderC={DS.cb} onClose={onClose} onNext={onNext}>
+    <DemoShell label="LAYER 02 — INTERVIEW + SALARY PREP · EXAMPLE DEMO" accent={DS.cyan} borderC={DS.cb} onClose={onClose} onNext={onNext}>
       <iframe srcdoc={l2Html} style={{ width:'100%', height:l2HtmlHeight, border:'none', display:'block', background:'#09090d' }} title="Layer 02 Interview Salary Demo" />
     </DemoShell>
   );
@@ -1396,7 +1270,7 @@ function L2DemoPanel({ onClose, onNext }) {
 
 function L3DemoPanel({ onClose, onNext }) {
   return (
-    <DemoShell label="LAYER 03 LIVE DASHBOARD" accent={DS.green} borderC={DS.gb} onClose={onClose} onNext={onNext}>
+    <DemoShell label="LAYER 03 EXAMPLE DASHBOARD" accent={DS.green} borderC={DS.gb} onClose={onClose} onNext={onNext}>
       <iframe srcdoc={l3Html} style={{ width:'100%', height:l3HtmlHeight, border:'none', display:'block', background:'#0a0b0d' }} title="Layer 03 Verified Credentials Dashboard" />
     </DemoShell>
   );
@@ -1404,7 +1278,7 @@ function L3DemoPanel({ onClose, onNext }) {
 
 function L4DemoPanel({ onClose, onNext }) {
   return (
-    <DemoShell label="LAYER 04 AI MARKETPLACE — LIVE DEMO" accent={DS.purple} borderC={DS.pb} onClose={onClose} onNext={onNext}>
+    <DemoShell label="LAYER 04 AI MARKETPLACE — EXAMPLE DEMO" accent={DS.purple} borderC={DS.pb} onClose={onClose} onNext={onNext}>
       <iframe srcdoc={l4Html} style={{ width:'100%', height:l4HtmlHeight, border:'none', display:'block', background:'#09090d' }} title="Layer 04 AI Marketplace Demo" />
     </DemoShell>
   );
@@ -1416,14 +1290,14 @@ const JOURNEY_STAGES = [
   {
     num: '01', label: 'Get Seen', color: '#1D9E75',
     problem: 'Your resume is filtered out before a human ever reads it.',
-    pain: '"75% of resumes are rejected by ATS software — not people."',
+    pain: '"I keep applying and hear nothing back."',
     bullets: [
       'Resume Scan — ATS score & issue flags in 20 seconds',
       'ATS Builder — rebuild your resume for keywords & format',
       'JD Analyzer — decode any job description instantly',
       'Cover Letter — AI-written, role-tailored in seconds',
     ],
-    outcome: '↑ ATS score 38→91 avg — in 20 seconds',
+    outcome: 'See your ATS match and what to fix',
   },
   {
     num: '02', label: 'Get Ready', color: '#7F77DD',
@@ -1435,19 +1309,19 @@ const JOURNEY_STAGES = [
       'Scored on clarity, STAR structure, and relevance',
       'Get Ready plan — personalized study roadmap',
     ],
-    outcome: '9 days avg. time to interview-ready',
+    outcome: 'Practise with a mock interviewer',
   },
   {
     num: '03', label: 'Get the Offer', color: '#BA7517',
     problem: 'Negotiate with data, not hope.',
     pain: '"I always take the first number."',
     bullets: [
-      'Salary Coach — market benchmarks & negotiation scripts',
-      'Market Intel — salary + hiring demand live data',
+      'Salary Coach — negotiation scripts and practice',
+      'Market Intel — general hiring guidance by region',
       'Counter-offer scripts with position anchors',
       'Pushback simulation with AI playing the recruiter',
     ],
-    outcome: '↑ SGD 4–12k more per month',
+    outcome: 'Negotiation scripts and practice',
   },
   {
     num: '04', label: 'Get Found', color: '#D4537E',
@@ -1459,7 +1333,7 @@ const JOURNEY_STAGES = [
       'TrustChat — recruiter ping with verified sidebar',
       'Trust Score built from your actual ATS + interview performance',
     ],
-    outcome: '↑ 95% match · 4 min avg time-to-recruiter',
+    outcome: 'Credential checks and TrustMatch profile',
   },
 ];
 
@@ -1765,8 +1639,8 @@ function S1Card4({ color: c, active }) {
     return()=>ids.forEach(id => { clearTimeout(id); clearInterval(id); });
   }, [active]);
   return (
-    <JnyCard step="Step 04" title="Salary coach — SGD market benchmarks" statusCls="done" statusTxt="✓ Benchmarked">
-      <div style={{fontFamily:'monospace',fontSize:10,color:'rgba(255,255,255,.3)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Market Intel · Senior AI Engineer · Singapore</div>
+    <JnyCard step="Step 04" title="Salary coach — negotiation prep (example)" statusCls="done" statusTxt="✓ Example">
+      <div style={{fontFamily:'monospace',fontSize:10,color:'rgba(255,255,255,.3)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Example data · Senior AI Engineer · Singapore</div>
       <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:8}}>
         {labels.map((l,i)=>(
           <div key={i} className="jny-mbar-row">
@@ -1805,8 +1679,8 @@ function S2Card1({ color: c, active }) {
     return()=>ids.forEach(id => { clearTimeout(id); clearInterval(id); });
   }, [active]);
   return (
-    <JnyCard step="Step 01" title="Offer received · market benchmark" statusCls="run" statusTxt="⚡ Analysing">
-      <div style={{fontFamily:'monospace',fontSize:10,color:'rgba(255,255,255,.3)',letterSpacing:1,textTransform:'uppercase',marginBottom:7}}>Market Intel · Senior PM · Singapore</div>
+    <JnyCard step="Step 01" title="Offer received · negotiation prep (example)" statusCls="run" statusTxt="⚡ Example">
+      <div style={{fontFamily:'monospace',fontSize:10,color:'rgba(255,255,255,.3)',letterSpacing:1,textTransform:'uppercase',marginBottom:7}}>Example data · Senior PM · Singapore</div>
       <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:8}}>
         {labels.map((l,i)=>(
           <div key={i} className="jny-mbar-row">
@@ -1835,7 +1709,7 @@ function S2Card2({ color: c, active }) {
   const [steps, setSteps] = useState(['','','','']);
   const stepsData=[
     {t:'Express gratitude, signal confidence',s:'"I\'m excited — let me share where I\'d need to land."'},
-    {t:'Anchor at P75 with market data',s:'"Based on SG market data, my range is SGD 14–16k."'},
+    {t:'Anchor at your target',s:'"Given the scope of the role, I was hoping for a figure closer to my target."'},
     {t:'Stay silent for 6 seconds',s:'Silence after anchoring wins more than any word.'},
     {t:'Close with a bridge',s:'"I can start immediately if we\'re aligned on that."'},
   ];
@@ -2536,7 +2410,7 @@ function PlatformArchSection() {
     { icon:'🧠', acc:'var(--lp-teal-dim)', bdr:'var(--lp-teal-b)', title:'Data layer · AI Memory', desc:'Upload your resume once. AI reads, indexes, and retains your full professional history — seeding context into every module instantly. Every session writes back, compounding your profile over time.', lbl:'Layer 01', statusBg:'var(--lp-teal-dim)', statusC:'var(--lp-teal)', statusBdr:'var(--lp-teal-b)', statusTxt:'Live', dot:true },
     { icon:'⚡', acc:'var(--lp-teal-dim)', bdr:'var(--lp-teal-b)', title:'Intelligence layer · 10 AI Modules', desc:'ATS Scanner · ATS Builder · JD Analyzer · STAR Builder · HM Simulator · Mock Interview · Salary Coach · Cover Letter · Get Ready · Job Search — all powered by the same AI memory, all compounding with each session.', lbl:'Layer 02', statusBg:'var(--lp-teal-dim)', statusC:'var(--lp-teal)', statusBdr:'var(--lp-teal-b)', statusTxt:'Live', dot:true },
     { icon:'🏅', acc:'var(--lp-amber-dim)', bdr:'var(--lp-amber-b)', title:'Verification layer · Readiness Certificate', desc:"Candidates who hit 80/100 across all interview dimensions earn a shareable Readiness Certificate — blockchain-anchored, verifiable by employers. The credential that proves you didn't just prepare, you proved it.", lbl:'Layer 03', statusBg:'var(--lp-amber-dim)', statusC:'var(--lp-amber)', statusBdr:'var(--lp-amber-b)', statusTxt:'Building', dot:false, dim:true },
-    { icon:'🌐', acc:'var(--lp-purple-dim)', bdr:'var(--lp-purple-b)', title:'Market layer · Live Singapore Data', desc:'Real-time salary benchmarks, hiring velocity signals, and role-level demand pulled from 20+ platforms. Powers every salary recommendation, job search rank, and market intelligence alert — live, not cached.', lbl:'Layer 04', statusBg:'var(--lp-purple-dim)', statusC:'var(--lp-purple)', statusBdr:'var(--lp-purple-b)', statusTxt:'Planned', dot:false, dim:true },
+    { icon:'🌐', acc:'var(--lp-purple-dim)', bdr:'var(--lp-purple-b)', title:'Market layer · Singapore data', desc:'Planned: salary and hiring-demand signals from a licensed data source. Not available yet. Today CareerAiHub shows general guidance only, never live market figures.', lbl:'Layer 04', statusBg:'var(--lp-purple-dim)', statusC:'var(--lp-purple)', statusBdr:'var(--lp-purple-b)', statusTxt:'Planned', dot:false, dim:true },
   ];
   return (
     <section className="section alt">
@@ -2620,7 +2494,7 @@ function FeatureSection({ onJoin, activePill, onModuleSelect }) {
             )}
           </div>
           <div className="fp-right">
-            <div className="fp-preview-hd"><span className="fp-pdot" />{f.previewHd}</div>
+            <div className="fp-preview-hd"><span className="fp-pdot" />{f.previewHd}<span style={{ marginLeft: "auto", fontSize: 9, opacity: 0.7, letterSpacing: ".06em" }}>EXAMPLE · SAMPLE DATA</span></div>
             <div className="fp-body fp-anim" key={active + '-right'} dangerouslySetInnerHTML={{ __html: f.preview }} />
           </div>
           {f.pw && (
@@ -2724,7 +2598,7 @@ const TRUST_QA = [
     points: [
       'One AI memory powers every module — your resume data flows across all 10 tools without re-entering anything.',
       'Compounding intelligence: each session makes the next one smarter, unlike stateless tools that forget you.',
-      'Singapore-specific: salary benchmarks, job boards, and market data tuned for SEA — not US-generic.',
+      'Singapore-focused: job boards and interview guidance for the region — not US-generic.',
       'All-in at $19/month vs $175+/month for LinkedIn Premium + Resume.io + Interviewing.io combined.',
     ],
   },
@@ -2741,8 +2615,8 @@ const TRUST_QA = [
     q: 'How is this different from just using ChatGPT?',
     points: [
       'ChatGPT has no memory of your resume, target role, or salary data — you re-explain yourself every session.',
-      'CareerAiHub has structured modules purpose-built for hiring: ATS scoring, STAR frameworks, live salary benchmarks.',
-      'We pull live Singapore job data and salary ranges — ChatGPT cannot access real-time market intelligence.',
+      'CareerAiHub has structured modules purpose-built for hiring: ATS scoring, STAR frameworks, mock interviews and negotiation practice.',
+      'Job search links straight to the major job boards and shows live listings when the job feed is available. We do not offer salary benchmarks.',
       'Readiness Certificate and blockchain-verifiable credentials are not possible through a generic chat interface.',
     ],
   },
@@ -2865,11 +2739,11 @@ function GrowthSection({ onJoin }) {
 
 const HIW_STEPS = [
   { num:'01', tag:'Free', tagCls:'free', title:'Drop your resume', desc:'CareerAiHub reads your work history once and builds a persistent AI memory — every module knows your story instantly.', bullets: FEAT_DATA[11].bullets, outcome:'AI memory activated — all modules know your background', dotColor:'var(--lp-teal)' },
-  { num:'02', tag:'Free · 1 scan', tagCls:'free', title:'Get your ATS score', desc:"Paste any job description. See your exact match %, missing keywords, and what to fix — before a recruiter sees your name.", bullets: FEAT_DATA[1].bullets, outcome:'Most users jump 20+ ATS points in a single session', dotColor:'var(--lp-teal)' },
-  { num:'03', tag:'Free', tagCls:'free', title:'Apply in 5 minutes', desc:'AI memory powers a tailored application. Search 20+ live job boards. One-click apply with ATS score already checked.', bullets: FEAT_DATA[0].bullets, outcome:'329 open roles in Singapore · AI-ranked for you', dotColor:'var(--lp-teal)' },
+  { num:'02', tag:'Free · 1 scan', tagCls:'free', title:'Get your ATS score', desc:"Paste any job description. See your exact match %, missing keywords, and what to fix — before a recruiter sees your name.", bullets: FEAT_DATA[1].bullets, outcome:'See your match % and what to fix', dotColor:'var(--lp-teal)' },
+  { num:'03', tag:'Free', tagCls:'free', title:'Apply in 5 minutes', desc:'AI memory powers a tailored application. Search 20+ live job boards. One-click apply with ATS score already checked.', bullets: FEAT_DATA[0].bullets, outcome:'Search the major job boards from one form', dotColor:'var(--lp-teal)' },
   { num:'04', tag:'Premium', tagCls:'premium', title:'AI mock interviews', desc:'Practice with an AI that knows your resume and target role. Scored on clarity, STAR structure, and relevance.', bullets: FEAT_DATA[5].bullets, outcome:'Battle-ready before the real call', dotColor:'var(--lp-violet)' },
   { num:'05', tag:'Pro', tagCls:'pro', title:'Get Ready readiness plan', desc:'Scored across 5 interview dimensions. AI builds your personalized study plan targeting weakest areas first.', bullets: FEAT_DATA[9].bullets, outcome:'Hit 80/100 to earn a shareable Readiness Certificate', dotColor:'var(--lp-violet)' },
-  { num:'06', tag:'Premium', tagCls:'premium', title:'Negotiate with market data', desc:'Live salary benchmarks for your exact role and level. Practice your counter-offer with AI — scripts, pushback simulations, data-backed anchoring.', bullets: FEAT_DATA[6].bullets, outcome:'Users average +$8K first-year comp', dotColor:'var(--lp-violet)' },
+  { num:'06', tag:'Premium', tagCls:'premium', title:'Negotiate with a plan', desc:'Practise your counter-offer with AI — scripts and pushback simulations, using the numbers you enter.', bullets: FEAT_DATA[6].bullets, outcome:'Scripts and pushback practice', dotColor:'var(--lp-violet)' },
 ];
 
 function HowItWorksSection({ onJoin, onSampleReport }) {
@@ -2979,8 +2853,7 @@ function PricingSection({ onJoin, onGetReady }) {
             <li className="pcf"><span className="ck">✓</span>AI match shortlisting</li>
             <li className="pcf"><span className="ck">✓</span>TrustChat + credential sidebar</li>
             <li className="pcf"><span className="ck">✓</span>Recruiter Dashboard + analytics</li>
-            <li className="pcf"><span className="ck">✓</span>10–20× ROI vs headhunter fees</li>
-          </ul>
+                      </ul>
           <button className="pbtn" onClick={onJoin}>Request pilot →</button>
         </article>
       </div>
@@ -3403,7 +3276,7 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                   {title:'Concrete examples',badge:'Weakest',bc:'weak',pct:38,bg:'#FF4D6A',desc:'Anchor every answer with a specific number, outcome, or named result.',sessions:'3 sessions · unlocked · start today',active:true},
                   {title:'STAR structure',badge:'Gap',bc:'weak',pct:44,bg:'#FFD233',desc:'Situation · Task · Action · Result — every behavioral answer follows this arc.',sessions:'2 sessions · unlocks after concrete examples clears 70'},
                   {title:'Clarity + delivery',badge:'Good',bc:'ok',pct:72,bg:'#00E5A0',desc:'Maintenance sessions only — 1 drill/week to hold your score above 70.',sessions:'1 maintenance session/week'},
-                  {title:'Salary negotiation roleplay',badge:'Locked',bc:'locked',pct:0,bg:'var(--lp-bdr)',desc:'Live AI roleplay · market data · pre-built scripts. Unlocks at readiness 75+.',sessions:'Unlocks when readiness reaches 75',locked:true},
+                  {title:'Salary negotiation roleplay',badge:'Locked',bc:'locked',pct:0,bg:'var(--lp-bdr)',desc:'AI roleplay · pre-built scripts. Unlocks at readiness 75+.',sessions:'Unlocks when readiness reaches 75',locked:true},
                 ].map((m,i)=>(
                   <div key={i} className={`lp-sp-mod${m.active?' sp-active':''}${m.locked?' sp-locked':''}`}>
                     <div className="lp-sp-mod-hd">
@@ -3431,7 +3304,7 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                   {n:'1',title:'Concrete examples drill',badge:'Active — session 1/3',bc:'weak',pct:38,bg:'#FF4D6A',desc:"You'll practice 6 behavioral questions. For each, AI coaches you to replace vague language with a specific number, outcome, or named result. Score must reach 70 before module 2 unlocks.",active:true},
                   {n:'2',title:'STAR structure mastery',badge:'Unlocks after module 1',bc:'',pct:44,bg:'#FFD233',desc:'2-session deep dive on Situation, Task, Action, Result framing. AI gives real-time feedback on each section of your answer.'},
                   {n:'3',title:'Clarity + filler word reduction',badge:'Maintenance',bc:'ok',pct:72,bg:'#00E5A0',desc:'You\'re already strong here. 1 drill per week keeps you above 70. AI tracks "um", "like", and hedging language across every session.'},
-                  {n:'4',title:'Salary negotiation roleplay',badge:'Premium · locked',bc:'locked',pct:0,bg:'var(--lp-bdr)',desc:'AI plays the hiring manager. Practice counter-offer language with live Singapore market data for your target role. Most users gain SGD 800–1,200/month after 3 sessions.',locked:true},
+                  {n:'4',title:'Salary negotiation roleplay',badge:'Premium · locked',bc:'locked',pct:0,bg:'var(--lp-bdr)',desc:'AI plays the hiring manager. Practice counter-offer language for your target role.',locked:true},
                   {n:'5',title:'Weakness framing',badge:'Premium · locked',bc:'locked',pct:0,bg:'var(--lp-bdr)',desc:'The most-failed question type. Pre-built frameworks, AI scores your framing, practice until it sounds natural — not rehearsed.',locked:true},
                 ].map((m,i)=>(
                   <div key={i} className={`lp-sp-mod${m.active?' sp-active':''}${m.locked?' sp-locked':''}`} style={{borderRadius:'var(--lp-r)'}}>
@@ -3459,7 +3332,7 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                 </div>
                 <div className="lp" style={{ background: 'transparent', minHeight: 'unset', overflow: 'visible' }}>
                   <div style={{ background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 'var(--lp-r)', padding: 16, marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--lp-text3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 10 }}>{f.previewHd}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--lp-text3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 10 }}>{f.previewHd} · example data</div>
                     <div dangerouslySetInnerHTML={{ __html: f.preview }} />
                   </div>
                 </div>
@@ -3517,7 +3390,7 @@ function SampleReportModal({ onClose }) {
             <div style={{fontSize:11,fontWeight:700,color:'var(--lp-text3)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:10}}>Findings — grouped by severity</div>
             <div style={{padding:'12px 14px',background:'var(--lp-red-dim)',border:'1px solid rgba(255,107,107,.2)',borderRadius:'var(--lp-rs)',marginBottom:8}}>
               <div style={{fontSize:11,fontWeight:700,color:'var(--lp-red)',marginBottom:5}}>High — Missing critical keywords</div>
-              <div style={{fontSize:12,color:'var(--lp-text2)',marginBottom:8}}>These appear in 78% of Senior PM job descriptions but are absent from this resume.</div>
+              <div style={{fontSize:12,color:'var(--lp-text2)',marginBottom:8}}>These are common in Senior PM job descriptions but absent from this example resume.</div>
               <div><span className="mk-tag x">OKR framework</span><span className="mk-tag x">go-to-market</span></div>
             </div>
             <div style={{padding:'12px 14px',background:'var(--lp-amber-dim)',border:'1px solid var(--lp-amber-b)',borderRadius:'var(--lp-rs)',marginBottom:8}}>
@@ -3780,7 +3653,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#29c492" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   TRUSTMATCH VERIFIED
                 </span>
-                <span className="ndc-live"><span className="ndc-live-dot"></span>Live</span>
+                <span className="ndc-live"><span className="ndc-live-dot"></span>Example</span>
               </div>
               <div className="ndc-body">
                 {/* LEFT column */}

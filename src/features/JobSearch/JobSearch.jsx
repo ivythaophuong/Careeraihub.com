@@ -27,13 +27,21 @@ const buildJobURL = (platform, title, loc, keywords="") => {
   }
 };
 
+// Salary figures are not shown in-app (there is no salary data source), so point to real ones.
+const SALARY_SOURCES = [
+  { name: "Glassdoor Salaries", url: "https://www.glassdoor.com/Salaries/index.htm", desc: "Employee-reported salaries by company and role." },
+  { name: "Levels.fyi", url: "https://www.levels.fyi/", desc: "Compensation by level at tech companies." },
+  { name: "Payscale", url: "https://www.payscale.com/", desc: "Salary survey and comparison tools." },
+  { name: "MyCareersFuture", url: "https://www.mycareersfuture.gov.sg/", desc: "Singapore job listings that show salary ranges." },
+];
+
 // ── Rejection Coach (Original Internal Component) ──────────────────────────
 function RejectionCoach({ rejection, form }) {
   return (
     <div style={{ marginTop: 12, padding: "12px 14px", background: C.red + "08", borderLeft: `3px solid ${C.red}`, borderRadius: "0 8px 8px 0" }}>
-      <div style={{ color: C.red, fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>AI Recovery Coach</div>
+      <div style={{ color: C.red, fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Recovery Tips</div>
       <div style={{ color: C.text, fontSize: 12, lineHeight: 1.6 }}>
-        Don't let {rejection.company} slow you down. Statistical analysis for {form.role} in {form.market} shows that 85% of successful candidates faced 4+ rejections before their top offer. 
+        Don't let {rejection.company} slow you down. Rejections are a normal part of a job search, and each one is a chance to learn something for the next application.
         <span style={{ color: C.gold, display: "block", marginTop: 4 }}>💡 Pro Tip: Send a "Thank you & Feedback" note to the recruiter to stay in their talent pool.</span>
       </div>
     </div>
@@ -41,7 +49,7 @@ function RejectionCoach({ rejection, form }) {
 }
 
 // ── Main Component ───────────────────────────────────────────────────────────
-export default function JobSearch({ form, memory, updateMemory, onProTrigger, user, setAuthModal, showToast }) {
+export default function JobSearch({ form, memory, updateMemory, onProTrigger, user, setAuthModal, setActiveModule }) {
   const [activeTab, setActiveTab] = useState("search");
   const [title, setTitle] = useState(form.role || "");
   const [location, setLocation] = useState(form.market || "");
@@ -49,21 +57,19 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
   const [expLevel, setExpLevel] = useState("Any");
   const [jobType, setJobType] = useState("all");
   const [searched, setSearched] = useState(false);
+  const [searchErr, setSearchErr] = useState("");
 
   // Tracker State
   const [showAddTrack, setShowAddTrack] = useState(false);
   const [trackForm, setTrackForm] = useState({ company: "", role: "", status: "Applied", link: "", date: new Date().toISOString().split("T")[0], notes: "" });
   const tracker = memory?.applications || [];
 
-  // Salary Intel State
-  const [loadingSalary, setLoadingSalary] = useState(false);
-  const [salaryData, setSalaryData] = useState(null);
-
   const handleSearch = () => {
     if (!title.trim() || !location.trim()) {
-      showToast("Please enter both a Job Title and Location", "error");
+      setSearchErr("Please enter both a job title and a location.");
       return;
     }
+    setSearchErr("");
     setSearched(true);
   };
 
@@ -110,14 +116,14 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ color: C.text, fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Job Search Engine</div>
-          <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Find live jobs across 20+ platforms. AI suggests smarter searches, salary data, and which companies are hiring now.</div>
+          <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Open searches on the major job boards from one form, and track every application in one place.</div>
         </div>
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", borderBottom: `1px solid ${C.border}33`, paddingBottom: 16 }}>
         {tabBtn("search", "🔎 Search", 0)}
         {tabBtn("tracker", "📊 Application Tracker", tracker.length)}
-        {tabBtn("salary", "💰 Salary Intel", 0)}
+        {tabBtn("salary", "💰 Salary Research", 0)}
       </div>
 
 
@@ -154,34 +160,20 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
               </div>
             </div>
             <Btn onClick={handleSearch} color={C.border} style={{ width: "100%", padding: 18, fontSize: 16, borderRadius: 12, border: `1px solid ${C.border}`, background: C.surface, color: C.text }}>🔎 Find Jobs Now</Btn>
+            {searchErr && <div role="alert" style={{ color: C.red, fontSize: 12, marginTop: 10 }}>⚠️ {searchErr}</div>}
           </Card>
 
           {!searched && (
             <>
-              {/* Stats Grid Restoration */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
-                {[
-                  { stat: "75%", label: "of resumes rejected by ATS before a human reads them", color: C.red },
-                  { stat: "$18K", label: "average salary left on the table without negotiation prep", color: C.gold },
-                  { stat: "5 mo", label: "average job search when going in blind with no system", color: C.muted },
-                  { stat: "3.2×", label: "higher return rate when AI memory tracks your progress", color: C.green },
-                ].map((p, i) => (
-                  <div key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 12px", textAlign: "center" }}>
-                    <div style={{ fontWeight: 900, fontSize: 24, color: p.color, marginBottom: 4, lineHeight: 1 }}>{p.stat}</div>
-                    <div style={{ fontSize: 9, color: C.muted, lineHeight: 1.4 }}>{p.label}</div>
-                  </div>
-                ))}
-              </div>
-
               {/* ── SECTION 4: What you get for free — no account needed ── */}
               <div key="free-features" style={{ marginTop: 12 }}>
-                <div style={{ color: "#6B7E9F", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>What you get for free — no account needed</div>
+                <div style={{ color: "#6B7E9F", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>What's free</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   {[
                     { title: "Job Search", desc: "Search 20+ boards — LinkedIn, Glassdoor, Indeed, Jobstreet and more in one place", color: C.green, tag: "Always Free" },
-                    { title: "Resume Scan", desc: "AI credibility score, ATS prediction, specific issues quoted from YOUR resume", color: C.accent, tag: "1 Free Scan" },
-                    { title: "Weakness Radar", desc: "7-dimension gap map showing exactly which skills are costing you interviews right now", color: C.red, tag: "1 Free View" },
-                    { title: "Market Intel", desc: "Hiring norms, salary context, and interview styles across 6 global regions", color: C.muted, tag: "Always Free" },
+                    { title: "Resume Scan", desc: "AI credibility score and specific issues quoted from YOUR resume", color: C.accent, tag: "Free account" },
+                    { title: "Weakness Radar", desc: "7-dimension gap map showing exactly which skills are costing you interviews right now", color: C.red, tag: "Free account" },
+                    { title: "Market Intel", desc: "General guidance on hiring norms and interview styles for 4 regions (not live data)", color: C.muted, tag: "Always Free" },
                   ].map((f, i) => (
                     <Card key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 16 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -204,8 +196,8 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                 {[
                   { title: "JD Analyzer", desc: "Match score + ATS keywords for any job posting", color: C.pink },
                   { title: "STAR Builder", desc: "Refine interview stories, build a persistent bank", color: C.gold },
-                  { title: "Pay Coach", desc: "Personalised negotiation scripts in 4 tones", color: C.orange },
-                  { title: "Readiness", desc: "Overall interview readiness % across 5 dimensions", color: C.accent },
+                  { title: "Pay Coach", desc: "Word-for-word negotiation scripts and a plan for your offer", color: C.orange },
+                  { title: "Readiness", desc: "A readiness score based on your resume scan", color: C.accent },
                   { title: "App Tracker", desc: "Track every application, status, and pipeline", color: C.green },
                   { title: "AI Insights", desc: "Cross-module tips personalised to your activity", color: C.purple },
                 ].map((m, i) => (
@@ -243,7 +235,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                   { n: 2, color: C.green, title: "Scan your resume", desc: "AI reads it like a hiring manager. Get a credibility score in 20 seconds." },
                   { n: 3, color: C.gold, title: "See your gaps", desc: "Weakness Radar shows which skills are costing you interviews right now." },
                   { n: 4, color: C.purple, title: "Prepare to win", desc: "Mock interviews, STAR stories, and cover letters built from your data." },
-                  { n: 5, color: C.pink, title: "Negotiate and close", desc: "Salary benchmarks, scripts, and live AI roleplay before the real call." },
+                  { n: 5, color: C.pink, title: "Negotiate and close", desc: "Negotiation scripts and AI roleplay before the real call, using the numbers you enter." },
                 ].map((s, i) => (
                   <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 0", borderBottom: i < 4 ? `1px solid ${C.border}44` : "none" }}>
                     <div style={{ width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, background: s.color + "22", color: s.color, border: `1px solid ${s.color}44` }}>{s.n}</div>
@@ -368,9 +360,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                 ))}
               </div>
 
-              <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
-                These open each job board with your search. We don't show market trends, salary ranges or "companies hiring" here because we don't have live data for them yet.
-              </div>
+
             </div>
           )}
         </div>
@@ -431,58 +421,24 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
       {activeTab === "salary" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <Card style={{ border: `1px solid ${C.purple}33` }}>
-            <div style={{ color: C.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", marginBottom: 12 }}>Check Benchmark for...</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-               <div>
-                  <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontWeight: 800 }}>Job Title</div>
-                  <input placeholder="e.g. Senior PM" value={title} onChange={e => setTitle(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, color: C.text, fontSize: 14 }} />
-               </div>
-               <div>
-                  <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontWeight: 800 }}>Location</div>
-                  <input placeholder="e.g. Remote, NYC" value={location} onChange={e => setLocation(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, color: C.text, fontSize: 14 }} />
-               </div>
+            <div style={{ color: C.text, fontWeight: 900, fontSize: 16, marginBottom: 8 }}>Find real salary data</div>
+            <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.7, marginBottom: 14 }}>
+              CareerAiHub doesn't have a salary database, so it doesn't show salary figures it can't back up. Check current ranges for <strong style={{ color: C.text }}>{title.trim() || "your role"}</strong>{location.trim() ? <> in <strong style={{ color: C.text }}>{location.trim()}</strong></> : null} on several of these sources and compare them:
             </div>
-            <Btn onClick={async () => {
-
-              setLoadingSalary(true); setSalaryData(null);
-              setTimeout(() => {
-                setSalaryData({
-                   total: "$155,000",
-                   base: "$130k - $145k",
-                   bonus: "10% - 15%",
-                   equity: "0.05% - 0.1%",
-                   climate: "High Demand",
-                   companies: ["Google", "Stripe", "Amazon", "Grab"]
-                });
-                setLoadingSalary(false);
-              }, 2000);
-            }} color={C.purple} dark style={{ width: "100%", padding: 14 }}>💰 Research Salary</Btn>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {SALARY_SOURCES.map(src => (
+                <a key={src.name} href={src.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", display: "block" }}>
+                  <div style={{ color: C.accent, fontWeight: 800, fontSize: 13 }}>{src.name} ↗</div>
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>{src.desc}</div>
+                </a>
+              ))}
+            </div>
           </Card>
-
-          {loadingSalary && <Card><Spinner label="Mining historical compensation data for this role..." /></Card>}
-
-          {salaryData && (
-             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-               <Card style={{ textAlign: "center", border: `1px solid ${C.green}33` }}>
-                  <div style={{ color: C.muted, fontSize: 12, marginBottom: 4 }}>Expected Total Compensation</div>
-                  <div style={{ color: C.green, fontSize: 36, fontWeight: 900 }}>{salaryData.total}</div>
-               </Card>
-               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <Card>
-                     <div style={{ color: C.muted, fontSize: 10, fontWeight: 800, marginBottom: 8 }}>BREAKDOWN</div>
-                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}> <span style={{ color: C.muted, fontSize: 12 }}>Base</span> <span style={{ color: C.text, fontWeight: 700, fontSize: 13 }}>{salaryData.base}</span> </div>
-                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}> <span style={{ color: C.muted, fontSize: 12 }}>Bonus</span> <span style={{ color: C.text, fontWeight: 700, fontSize: 13 }}>{salaryData.bonus}</span> </div>
-                     <div style={{ display: "flex", justifyContent: "space-between" }}> <span style={{ color: C.muted, fontSize: 12 }}>Equity</span> <span style={{ color: C.text, fontWeight: 700, fontSize: 13 }}>{salaryData.equity}</span> </div>
-                  </Card>
-                  <Card>
-                     <div style={{ color: C.muted, fontSize: 10, fontWeight: 800, marginBottom: 8 }}>TOP PAYERS</div>
-                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {salaryData.companies.map(c => <Badge key={c} label={c} color={C.accent} />)}
-                     </div>
-                  </Card>
-               </div>
-             </div>
-          )}
+          <Card style={{ border: `1px solid ${C.green}33` }}>
+            <div style={{ color: C.text, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Got an offer or heading into negotiation?</div>
+            <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>The Salary Coach gives you word-for-word scripts and a plan for your situation, using the numbers you enter.</div>
+            {setActiveModule && <Btn onClick={() => setActiveModule("salary")} color={C.green} dark style={{ width: "100%" }}>💰 Open Salary Coach</Btn>}
+          </Card>
         </div>
       )}
     </div>

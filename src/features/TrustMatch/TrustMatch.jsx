@@ -452,15 +452,15 @@ export default function TrustMatch({ user, memory, updateMemory, syncedAt }) {
           </div>
         </div>
 
-        {/* Salary benchmark */}
+        {/* Your own target range (not market data) */}
         <div style={{ background: 'rgba(255,210,51,.05)', border: '1px solid rgba(255,210,51,.18)', borderRadius: 12, padding: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.gold, marginBottom: 10 }}>Market Salary</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.gold, marginBottom: 10 }}>Your target range</div>
           {trustProfile?.salary_min ? (
             <div style={{ fontSize: 18, fontWeight: 800, fontFamily: FFM, color: T.gold, letterSpacing: '-.5px', marginBottom: 4 }}>
               {trustProfile.currency || 'USD'} {(trustProfile.salary_min / 1000).toFixed(0)}–{(trustProfile.salary_max / 1000).toFixed(0)}k
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: T.text3 }}>Set your target range in profile to see market positioning.</div>
+            <div style={{ fontSize: 11, color: T.text3 }}>Set your target range in your profile to see it here.</div>
           )}
         </div>
 

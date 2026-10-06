@@ -585,15 +585,6 @@ function AnalyticsPage() {
         <button style={btnOutline}>Export report</button>
       </div>
 
-      {/* Time metrics */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:16 }}>
-        {[['9d','Avg time to shortlist'],['22d','Avg time to offer'],['3.2×','Faster than industry avg']].map(([n,l]) => (
-          <div key={l} style={{ background:T.bg4, border:`1px solid ${T.bdr}`, borderRadius:T.rs, padding:12, textAlign:'center' }}>
-            <div style={{ fontSize:22, fontWeight:800, fontFamily:T.ffm, color:T.teal, letterSpacing:'-.5px' }}>{n}</div>
-            <div style={{ fontSize:9, color:T.text3, marginTop:3 }}>{l}</div>
-          </div>
-        ))}
-      </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:16 }}>
         {/* Funnel */}
@@ -643,18 +634,6 @@ function AnalyticsPage() {
                 <span style={{ fontSize:10, fontFamily:T.ffm, fontWeight:700, color:T.teal, width:24, flexShrink:0 }}>{r.n}</span>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Time saved */}
-        <div style={{ background:T.bg3, border:`1px solid ${T.bdr}`, borderRadius:T.r, padding:16 }}>
-          <div style={{ fontSize:11, fontWeight:700, marginBottom:14 }}>Time saved vs traditional hiring</div>
-          <div style={{ textAlign:'center', padding:'8px 0' }}>
-            <div style={{ fontSize:42, fontWeight:800, fontFamily:T.ffm, background:T.gradHR, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:-2 }}>3.2×</div>
-            <div style={{ fontSize:12, color:T.text2, margin:'8px 0 16px', lineHeight:1.6 }}>Faster shortlist to offer<br/>vs non-verified pipelines</div>
-            <div style={{ fontSize:11, color:T.text3, background:T.bg4, borderRadius:T.rs, padding:'10px 14px', textAlign:'left', lineHeight:1.7 }}>
-              Verified trust scores eliminate 2–3 days of background checking per candidate. At 12 shortlisted, that's <strong style={{ color:T.gold }}>~24–36 days saved</strong> this month.
-            </div>
           </div>
         </div>
       </div>

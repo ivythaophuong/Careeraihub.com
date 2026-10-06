@@ -505,9 +505,8 @@ let atsScore=78;
 function runATS(){
   const jd=document.getElementById('jdInput').value;
   if(!jd.trim()){document.getElementById('jdInput').placeholder='Please paste a job description…';return;}
-  atsScore=Math.min(95,atsScore+Math.floor(Math.random()*8)+4);
-  updateATS(atsScore);
-  addLog('ats',\`JD analysed. ATS score updated: \${atsScore}%. New keywords detected.\`);
+  // Example only: this demo does not read the pasted text, so it never computes a score from it.
+  addLog('ats','Example only: this demo does not analyse your text. The score shown is a sample. Sign up to run the real ATS Scanner on your resume.');
 }
 
 function updateATS(score){
@@ -1023,9 +1022,8 @@ function selectQ(el,i){
 function submitAnswer(){
   const a=document.getElementById('answerBox').value;
   if(!a.trim()){document.getElementById('answerBox').placeholder='Please type an answer first…';return;}
-  const s=Math.floor(Math.random()*15)+80;
-  document.getElementById('scoreNum').textContent=s;
-  addLog('score',\`Answer scored: \${s}/100. Clarity: high. Structure: strong. Stored in session log.\`);
+  // Example only: this demo does not read the answer, so it never produces a score or feedback for it.
+  addLog('score','Example only: this demo does not score your answer. The 88 shown is a sample. Sign up to practise with real AI feedback.');
 }
 
 // HM chat
@@ -1067,7 +1065,7 @@ function runCounter(){
 }
 
 function updateBench(){
-  addLog('sal','Salary benchmark updated. New role/level context written to core memory.');
+  addLog('sal','Example only: role and level context saved to core memory.');
 }
 
 // Log
@@ -1075,7 +1073,7 @@ const autoLogs=[
   ['int','Mock interview Q3 answered. Weak spot flagged: quantified impact. Improvement plan updated.'],
   ['score','Answer trend stored. Session 4 score avg: 85.3 (+3.1 vs Session 3).'],
   ['hm','HM Simulator session saved. Pressure peak: 82%. Recovery score: strong.'],
-  ['sal','Salary benchmark refreshed. SGD market data updated: P75 = 16k for 5-yr AI eng.'],
+  ['sal','Example only: salary context refreshed from the numbers you entered.'],
 ];
 let li=0;
 const tc={'int':'tc-int','sal':'tc-sal','hm':'tc-hm','score':'tc-score'};
@@ -2688,10 +2686,8 @@ function toggleSkill(el){
 }
 
 function runMatch(){
-  // animate match count
-  const vals=['2,847','2,901','2,714','3,102'];
-  document.getElementById('scanned').textContent=vals[Math.floor(Math.random()*vals.length)];
-  addLog('match','AI Match Engine re-scored pipeline. Updated rankings applied.');
+  // Example only: the figures in this demo are sample data and do not change.
+  addLog('match','Example only: this demo uses sample candidates and does not re-score anything.');
 }
 
 let shortlisted2=1;
@@ -2725,7 +2721,7 @@ const autoLogs=[
   ['match','Match Engine: weighting recalculated. Verified skills boosted +12%.'],
   ['update','Core memory: Recruiter viewed Ivy Nguyen profile (3x this session).'],
   ['success','Trust layer: 0 unverified candidates in top-4 pipeline.'],
-  ['update','B2B analytics: avg time-to-shortlist 4 min (industry avg 3.2 days).'],
+  ['update','Example only: analytics view opened.'],
 ];
 let li=0;
 setInterval(()=>{const l=autoLogs[li%autoLogs.length];addLog(l[0],l[1]);li++;},9000);
