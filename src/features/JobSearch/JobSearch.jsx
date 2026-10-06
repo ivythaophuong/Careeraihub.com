@@ -423,7 +423,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
           <Card style={{ border: `1px solid ${C.purple}33` }}>
             <div style={{ color: C.text, fontWeight: 900, fontSize: 16, marginBottom: 8 }}>Find real salary data</div>
             <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.7, marginBottom: 14 }}>
-              CareerAiHub doesn't have a salary database, so it doesn't show salary figures it can't back up. Check current ranges for <strong style={{ color: C.text }}>{title.trim() || "your role"}</strong>{location.trim() ? <> in <strong style={{ color: C.text }}>{location.trim()}</strong></> : null} on several of these sources and compare them:
+              CareerAiHub doesn't have a salary database. The ranges in Salary Prep are AI-generated estimates, not survey data, so confirm them. Check current ranges for <strong style={{ color: C.text }}>{title.trim() || "your role"}</strong>{location.trim() ? <> in <strong style={{ color: C.text }}>{location.trim()}</strong></> : null} on several of these sources and compare them:
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {SALARY_SOURCES.map(src => (

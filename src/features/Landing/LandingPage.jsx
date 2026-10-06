@@ -261,7 +261,7 @@ const FEAT_DATA = [
   {
     icon: '💰', label: 'Salary Coach', isFree: false, moduleId: 'salary',
     ey: 'Module 7 — Premium', title: 'Salary Coach + Negotiation Roleplay',
-    desc: 'Prepare for a negotiation using the numbers you enter. AI negotiation practice and scripts. CareerAiHub does not provide market salary data, so check current ranges on the salary sites linked in Job Search.',
+    desc: 'Prepare for a negotiation using the numbers you enter. AI negotiation practice and scripts. The Market data tab shows AI-generated estimates, not salary survey data, so check any range against real job listings.',
     bullets: ['Negotiation scripts built from the offer and target you enter', 'Live AI negotiation roleplay — practice the number before the real call', 'Multi-offer comparison: total comp, equity, benefits, and growth trajectory', 'AI memory means the coach already knows your current salary and target level'],
     previewHd: 'Salary Coach · negotiation prep',
     preview: `<div class="mk-lbl">Example · offer and target you enter</div>
@@ -2616,7 +2616,7 @@ const TRUST_QA = [
     points: [
       'ChatGPT has no memory of your resume, target role, or salary data — you re-explain yourself every session.',
       'CareerAiHub has structured modules purpose-built for hiring: ATS scoring, STAR frameworks, mock interviews and negotiation practice.',
-      'Job search links straight to the major job boards and shows live listings when the job feed is available. We do not offer salary benchmarks.',
+      'Job search links straight to the major job boards and shows live listings when the job feed is available. Salary ranges in Salary Prep are AI-generated estimates, not survey data.',
       'Readiness Certificate and blockchain-verifiable credentials are not possible through a generic chat interface.',
     ],
   },
