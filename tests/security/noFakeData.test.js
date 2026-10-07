@@ -27,6 +27,9 @@ const NOT_A_CLAIM = (l) => /^\s*(\/\/|\{?\/\*|\*)/.test(l) || /placeholder\s*=/.
 
 // Each rule flags a line. `skip` exempts lines that are clearly not a claim (ids, disclaimers).
 const RULES = [
+  // The model has no job-market data source: counts, salary ranges and forecast match rates it returns are guesses.
+  { id: 'ai-market-numbers', re: /\b(activeRoles|avgSalaryMin|avgSalaryMax|rolesQualifiedNow|rolesAfterFix|projectedMatchRate)\b/, skip: l => /Do not state any numbers/.test(l) },
+
   { id: 'random-value', re: /Math\.random\(/, skip: l => /Math\.random\(\)\.toString\(36\)/.test(l) /* id generation, never shown */ },
   { id: 'fake-live-counter', re: /ms-live|sc-live|setLiveCount|setMs1|job seekers active|users? online/i },
   { id: 'fake-wait-then-result', re: /await new Promise\(\s*\w+\s*=>\s*setTimeout\(\s*\w+\s*,\s*\d{3,}\s*\)\s*\)|setTimeout\(\s*\(\)\s*=>\s*\{\s*set(Result|Fb|Refined|Alternatives|SalaryData|Score)/ },

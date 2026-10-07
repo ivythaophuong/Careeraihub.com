@@ -35,7 +35,9 @@ function buildSystemPrompt(memory, form) {
     lines.push(`Cover letters generated: ${memory.coverLetters.length}`);
   }
   if (memory.skillsGap?.result) {
-    lines.push(`Skills gap analysis: match rate ${memory.skillsGap.result.matchRate}% → projected ${memory.skillsGap.result.projectedMatchRate}%`);
+    // Counted from the saved skill list; the AI-estimated match rates are no longer shown or stored.
+    const gaps = (memory.skillsGap.result.skills || []).filter(sk => sk.status === 'gap').map(sk => sk.name).filter(Boolean);
+    lines.push(`Skills gap analysis done${gaps.length ? `; flagged gaps: ${gaps.slice(0, 6).join(', ')}` : ''}`);
   }
   if ((memory.negotiationPractice ?? 0) > 0) {
     lines.push(`Salary negotiation practice sessions: ${memory.negotiationPractice}`);
