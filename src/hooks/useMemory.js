@@ -37,15 +37,18 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
       console.log("[useMemory] Refactor Boot Initializing:", { email: user.email, id: user.id });
 
       try {
-        // Auth failures and a failed load of the main backup row are fatal: carrying on
-        // with empty data would let the next save overwrite the user's real memory.
-        // Other tables are best-effort (they fall back to the JSON backup).
+        // A failed load of the main backup row (`user_memory`) is fatal: carrying on with empty data
+        // would let the next save overwrite the user's real memory. If that row loaded, saving is safe,
+        // so every other table is best-effort and may fail (including a 401/403 for that one table):
+        // its list just stays empty. (Treating a 401/403 on ANY table as fatal locked real accounts out
+        // with "We couldn't load your saved data"; an expired session also fails `user_memory`, so the
+        // safety case is already covered by the critical row.)
         const fetch = async (table, query = {}, { critical = false } = {}) => {
            try {
              const res = await sb.select(table, { user_id: `eq.${user.id}`, ...query }, user.token);
              return res || [];
            } catch (e) {
-             if (critical || e.status === 401 || e.status === 403) throw e;
+             if (critical) throw e;
              console.warn(`[useMemory] Partial Fetch Error for ${table}:`, e.message);
              return [];
            }

@@ -231,9 +231,24 @@ describe('fails closed when the stored memory cannot be read', () => {
     expect(result.current.memory).toEqual({});
   });
 
-  it('treats a 401 on a non-critical table as fatal too', async () => {
+  it.each([401, 403])('still starts when only a non-critical table answers %i, because the stored memory loaded', async (status) => {
+    // Regression: treating a 401/403 on any table as fatal locked real accounts out of the whole app.
     sb.select.mockImplementation(async (table) => {
-      if (table === 'resume_scans') throw Object.assign(new Error('JWT expired'), { status: 401 });
+      if (table === 'user_memory') return [{ data: { resumeText: 'saved cv' } }];
+      if (table === 'mock_sessions' || table === 'insights') throw Object.assign(new Error('permission denied'), { status });
+      return [];
+    });
+    const setIsRestoring = vi.fn();
+    const setRestoreError = vi.fn();
+    const { result } = renderHook(() => useMemory(user, true, setIsRestoring, setRestoreError));
+    await waitFor(() => expect(setIsRestoring).toHaveBeenCalledWith(false));
+    expect(setRestoreError).not.toHaveBeenCalled();
+    expect(result.current.memory.resumeText).toBe('saved cv');
+  });
+
+  it.each([401, 403, 500])('still fails closed when the stored memory itself answers %i', async (status) => {
+    sb.select.mockImplementation(async (table) => {
+      if (table === 'user_memory') throw Object.assign(new Error('nope'), { status });
       return [];
     });
     const setRestoreError = vi.fn();
