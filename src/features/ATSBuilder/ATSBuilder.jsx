@@ -12,6 +12,7 @@ import {
 import { TEMPLATES } from './resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
 import './atsBuilder.css';
+import { resumeContent } from '../../lib/resumeText';
 
 // ── ATS Scanner Demo ──────────────────────────────────────────────────────────
 
@@ -2018,7 +2019,8 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
 }
 
 // ── Main ATSBuilder ────────────────────────────────────────────────────────────
-const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveModule, resumeText: globalResume, setResumeText: setGlobalResumeText }) => {
+const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveModule, resumeText: globalResumeRaw, setResumeText: setGlobalResumeText }) => {
+  const globalResume = resumeContent(globalResumeRaw); // Resume Scan stores an object here, not a string
   const hasSavedResume = !!memory?.scanPdfBase64;
   const [mainTab, setMainTab] = useState('parse');
   const [entryMode, setEntryMode] = useState(null); // null=choose, 'scratch', 'existing'

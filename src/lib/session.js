@@ -26,6 +26,15 @@ export function normalizeSession(raw, now = Date.now()) {
   return { ...raw, expiresAt };
 }
 
+// Supabase's password and signup endpoints return the tokens at the top level of the response
+// ({ access_token, refresh_token, expires_in, user }), not under `session`. Keep all of them: without
+// the refresh token the login dies when the access token expires (about an hour). Returns null when
+// there is no access token (signup that still needs email confirmation).
+export function sessionFromAuthResponse(data) {
+  const s = data?.session || data;
+  return s?.access_token && s?.user ? s : null;
+}
+
 export function loadSession() {
   try {
     const data = JSON.parse(localStorage.getItem(KEY) || 'null');

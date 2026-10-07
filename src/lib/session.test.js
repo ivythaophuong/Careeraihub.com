@@ -6,7 +6,7 @@ vi.mock('./supabase', () => ({ sb: { refreshToken: vi.fn() } }));
 import { sb } from './supabase';
 import {
   normalizeSession, loadSession, saveSession, clearSession, isExpiring,
-  getValidSession, refreshSession, REFRESH_SKEW_MS,
+  getValidSession, refreshSession, REFRESH_SKEW_MS, sessionFromAuthResponse,
 } from './session';
 
 const KEY = 'supabase.auth.token';
@@ -109,5 +109,24 @@ describe('refreshSession', () => {
   });
   it('rejects with status 401 when there is no refresh token', async () => {
     await expect(refreshSession({ access_token: 'x' })).rejects.toMatchObject({ status: 401 });
+  });
+});
+
+describe('sessionFromAuthResponse', () => {
+  const user = { id: 'u1' };
+  it('keeps the refresh token from the flat password-grant response', () => {
+    const s = sessionFromAuthResponse({ access_token: 'a', refresh_token: 'r', expires_in: 3600, user });
+    expect(s.refresh_token).toBe('r');
+  });
+  it('prefers a nested session when present', () => {
+    expect(sessionFromAuthResponse({ session: { access_token: 'a', refresh_token: 'r', user } }).refresh_token).toBe('r');
+  });
+  it('returns null when there is no access token (email confirmation pending)', () => {
+    expect(sessionFromAuthResponse({ user })).toBeNull();
+  });
+  it('a saved login can be refreshed once its token expires', async () => {
+    saveSession(sessionFromAuthResponse({ access_token: jwt(1), refresh_token: 'r', user }));
+    sb.refreshToken.mockResolvedValue({ access_token: jwt(9_999_999_999), refresh_token: 'r2' });
+    expect((await getValidSession()).refresh_token).toBe('r2');
   });
 });

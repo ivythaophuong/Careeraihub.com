@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sb } from '../lib/supabase';
+import { sessionFromAuthResponse } from '../lib/session';
 import { C, MODULES } from '../styles/theme';
 import { Badge, Btn, Card, Spinner } from './CommonUI';
 
@@ -115,13 +116,16 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal }) {
         const { data, error } = await sb.signUp(email, pass, name, { role: accountType, company: accountType === 'recruiter' ? company : null, source: signupSource, is_beta: signupSource !== 'organic' });
         if (error) throw error;
         if (!data?.user) throw new Error("Registration started. Please check your email for confirmation.");
-        onSuccess(data.session || { user: data.user });
+        const session = sessionFromAuthResponse(data);
+        if (!session) throw new Error("Registration started. Please check your email for confirmation.");
+        onSuccess(session);
       } else {
         const { data, error } = await sb.signIn(email, pass);
         if (error) throw error;
         if (!data?.user) throw new Error("Could not retrieve user data.");
-        // Ensure onSuccess gets the session which contains the user
-        onSuccess(data.session || { user: data.user, access_token: data.access_token });
+        const session = sessionFromAuthResponse(data);
+        if (!session) throw new Error("Could not start your session. Please try again.");
+        onSuccess(session);
       }
     } catch (err) { setErr(err.message); } finally { setLoading(false); }
   };
