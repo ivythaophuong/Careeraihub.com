@@ -89,10 +89,10 @@ in the bundle.
 
 | Item | Status |
 |---|---|
-| `docker build` and the production image (headers on `/` and on an SPA path) | **NOT RUN**: no Docker on the development machine. Must produce bundle `index-DnjfOP5R.js` as the simulated context did. |
-| `nginx -t` | **NOT RUN** (runs inside the container). |
-| Nginx Proxy Manager target (scheme, host, port) | **UNKNOWN.** `31.97.110.154:8081` is not reachable from outside, so `8081:80` in the compose file is not evidence that the proxy forwards correctly. |
-| `.env.production`: variable names and whether each `VITE_*` value is public-safe | **UNKNOWN.** Proven: a build without the file is byte-identical to production, and the file is excluded from the Docker context. Not proven: that nothing sensitive is in it (it is tracked in git). |
+| `docker build` and the production image (headers on `/` and on an SPA path) | **DONE (2026-10-06, Docker Desktop on the development Mac).** The image builds; `/` and `/bat-ky-duong-dan` both return 200 with `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin` and `Cache-Control: no-cache`. The bundle in the image is byte-identical to the local build (`index-D7WthG6p.js` 2323395 bytes, `index-_pxx0FTC.css` 286071 bytes, same sha256 prefixes). nginx started with the config, so it is valid. |
+| `nginx -t` | Covered by the container starting with this config. |
+| Nginx Proxy Manager target (scheme, host, port) | **RESOLVED (read from the NPM container's proxy-host config on the server).** `careeraihub.com` is forwarded to `http://31.97.110.154:8081`, the server's own public IP. The container is published on `0.0.0.0:8081->80`. So `8081:80` is required; `main`'s `127.0.0.1:8081:80` would make the site unreachable for the proxy. The port is not reachable from the internet because of a firewall, while the proxy on the same host reaches it. |
+| `.env.production`: variable names and whether each `VITE_*` value is public-safe | **RESOLVED.** The file has exactly two variables: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON`. Both are public by design. The build without the file is byte-identical to production, so each value is either the in-code default or empty; the in-code default decodes to `role: anon` for project `ruibdsvrcctxgxctaxwe`, so no `service_role` key can be in the bundle. No non-`VITE_` variable exists. |
 | Staging | **UNKNOWN.** |
 | `verify-cert` deployed in Supabase | **UNKNOWN** (`scripts/smoke-test.sh` only covers `ai` and `jobs`). |
 | Signed-in app in a real browser; AI and database with real data | **NOT RUN.** The headless-Chrome result (70/70) covers the real components with sample props. |
@@ -109,6 +109,17 @@ in the bundle.
 | Landing claims that cannot be checked from code (testimonials, ratings, "500+ beta users", pricing, "Readiness Certificate", blockchain-verifiable credentials, Singpass) | **OP-6**, not removed; kept apart from verified claims. |
 | Landing `.lp` rules, "All tools" drawer keyboard handling, relational rows written during load, Employer Portal sample data | OP-7 to OP-10. |
 | Five icons in the phone "All tools" drawer are a default circle (no icon for Radar, Readiness, Market, Memory, JD Analyzer) | Cosmetic, seen in the browser check, not yet in `OPEN_POINTS`. |
+
+## Production server (read-only checks, 2026-10-07)
+
+- Host `srv1303817.hstgr.cloud` (Hostinger VPS, Ubuntu 22.04), the same IP as `careeraihub.com` (31.97.110.154).
+- Running containers: `career-ai-hub` (image tag `career-ai-hub:ats-honesty-v2`, `0.0.0.0:8081->80`), Nginx Proxy Manager
+  (`80`, `443`, admin on `32768`), and an unrelated project (PingAstro).
+- `~/careeraihub-new` is at commit `0e82c11` (PR #23) on `hotfix/server-side-ai`; its compose file publishes `8081:80`,
+  identical to this branch. The source differs from `d911ed1` only in documentation, which matches the live bundle.
+- Rollback path: the running image `career-ai-hub:ats-honesty-v2` is already on the server; do not delete it.
+- Not yet known: how the container is started (compose or `docker run`, network, restart policy), whether a staging
+  environment exists, and whether `verify-cert` is deployed in Supabase.
 
 ## Evidence summary
 
