@@ -25,13 +25,31 @@ describe('scoreResume: weights and shape', () => {
   });
 });
 
-describe('scoreResume: completeness, always present', () => {
-  it('0 of 4 signals on empty facts is a real, computed 0 — never null', () => {
+describe('scoreResume: an unreadable document (extraction.status "failed") scores null, never 0', () => {
+  it('empty input never reaches scoring at all: every part null, headline score null', () => {
     const r = run('');
+    expect(extractResumeFacts('').extraction.status).toBe('failed'); // sanity: this really is the failed path
+    expect(r.score).toBeNull();
+    expect(r.missing).toEqual(['completeness', 'measurable_impact', 'chronology_health']);
+    for (const p of r.parts) {
+      expect(p.score).toBeNull();
+      expect(p.evidence[0]).toMatch(/could not be read/);
+    }
+  });
+});
+
+describe('scoreResume: completeness, always present once a document WAS actually read', () => {
+  it('0 of 4 signals on content that was read but matches none of them is a real, computed 0 — never null', () => {
+    // Non-empty, so extraction.status is 'ok' (not 'failed'); no name-shaped line, no email, no
+    // "Experience"/"Education" heading, no skills list — a real, read document with nothing recognised.
+    const facts = extractResumeFacts('12345');
+    expect(facts.extraction.status).toBe('ok');
+    const r = scoreResume(facts, validateFacts(facts));
     const c = r.parts.find(p => p.id === 'completeness');
     expect(c.score).toBe(0);
     expect(c.required).toBe(true);
     expect(c.evidence.length).toBe(4);
+    expect(r.score).not.toBeNull(); // read successfully, just bare — unlike the failed-extraction case above
   });
   it('scores higher as more signals are present', () => {
     const r = run('Jane Example\njane@example.com\n\nSkills\nSQL');

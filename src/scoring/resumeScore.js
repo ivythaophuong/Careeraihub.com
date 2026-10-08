@@ -81,9 +81,30 @@ function scoreChronologyHealth(facts, validation) {
   };
 }
 
+// Static metadata (id, weight, required) for the three parts, independent of any facts — used both to
+// build the normal parts below and, unscored, for the unreadable-document case.
+const PART_META = [
+  { id: 'completeness', weight: WEIGHTS.completeness, required: true },
+  { id: 'measurable_impact', weight: WEIGHTS.measurable_impact, required: false },
+  { id: 'chronology_health', weight: WEIGHTS.chronology_health, required: false },
+];
+
+// When the document itself was never actually read (P1's extraction.status === 'failed': an unreadable,
+// corrupt, empty or password-protected file — see src/ingestion/ingestDocument.js), ResumeFacts still
+// comes back schema-valid but entirely empty, and every part below would mechanically compute a real-
+// looking "0". That would be exactly the bug this project has repeatedly removed elsewhere (OP-5, and the
+// ATS Builder `?? 0` fix in commit 009525a): a resume that was never read must not look identical to a
+// resume that was read and is simply bare. So scoring never runs at all in that case — none of the part
+// functions are even called — and the headline score is null, for the one reason that actually applies.
+function unreadableDocumentResult() {
+  const parts = PART_META.map(p => ({ ...p, score: null, evidence: ['The document could not be read, so this part was not assessed.'] }));
+  return { score: null, score_type: SCORE_TYPE, version: SCORE_VERSION, parts, missing: parts.map(p => p.id) };
+}
+
 // facts: ResumeFacts (src/extraction/resumeFacts.js). validation: validateFacts(facts) (src/validation/
 // validateFacts.js) — the caller computes it, this function never re-derives or re-validates anything.
 export function scoreResume(facts, validation) {
+  if (facts?.extraction?.status === 'failed') return unreadableDocumentResult();
   const parts = [scoreCompleteness(facts), scoreMeasurableImpact(facts), scoreChronologyHealth(facts, validation)];
   const missing = parts.filter(p => p.score === null).map(p => p.id);
   const computed = parts.filter(p => p.score !== null);
