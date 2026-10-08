@@ -61,7 +61,7 @@ describe('two columns stored row by row', () => {
     expect(r.text).toContain('Skills\tExperience');
     expect(r.text).toContain('SQL, Python\tProduct Manager at Acme Ltd');
     expect(r.stats.columnarPages).toBe(1);
-    expect(r.notes.join(' ')).toMatch(/reading order may be mixed/);
+    expect(r.notes.join(' ')).toMatch(/wide gaps.*reading order of those lines may be mixed/);
   });
 });
 

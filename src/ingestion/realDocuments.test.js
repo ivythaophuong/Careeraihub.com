@@ -68,7 +68,9 @@ describe.skipIf(files.length === 0)(`real documents (${files.length} file(s), lo
         }
       });
 
-      it('has no leftover personal data in its text or metadata', async () => {
+      // Files named public_* are open-licensed templates whose sample data the author published; they are
+      // exempt from this check only. Anything else must be anonymised.
+      it.skipIf(f.startsWith('public_'))('has no leftover personal data in its text or metadata', async () => {
         const r = await ingestDocument(asFile(f));
         const bytes = new Uint8Array(fs.readFileSync(path.join(DIR, f)));
         const findings = [...findLeftovers(r.text), ...(await metadataFindings(f, bytes))];

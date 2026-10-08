@@ -138,7 +138,9 @@ export async function ingestDocument(file, { readPdf = readPdfPages, readDocx = 
     const pdfNotes = [...notes];
     if (dedup.removed > 0) pdfNotes.push(`Repeated header/footer lines were kept once (${dedup.removed} removed).`);
     const columnarPages = raw.map((t, i) => (layoutHint(t).columnar ? i + 1 : null)).filter(Boolean);
-    if (columnarPages.length) pdfNotes.push(`Page${columnarPages.length > 1 ? 's' : ''} ${columnarPages.join(', ')} look${columnarPages.length > 1 ? '' : 's'} like columns or a table; the reading order may be mixed.`);
+    // Wide gaps mean columns, a table, or details aligned to the right margin (dates, places). Code cannot
+    // tell these apart yet, so the note says only what is known.
+    if (columnarPages.length) pdfNotes.push(`Page${columnarPages.length > 1 ? 's' : ''} ${columnarPages.join(', ')} ${columnarPages.length > 1 ? 'have' : 'has'} many lines with wide gaps (columns, a table, or details aligned to the right); the reading order of those lines may be mixed.`);
     const text = normalizeText(pageTexts.join('\n\n'));
     const r = finish('pdf', 'pdfjs', text, pageTexts.length, emptyIdx, pdfNotes, base);
     r.stats.columnarPages = columnarPages.length;

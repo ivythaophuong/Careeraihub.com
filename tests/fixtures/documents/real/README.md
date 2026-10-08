@@ -15,3 +15,6 @@ Before saving a file here:
 Then run `npm test`. `src/ingestion/realDocuments.test.js` runs every file here through the ingestion
 module and also checks for leftover emails, phone-like numbers and author metadata. Add `REAL_REPORT=1`
 to print one line per file (type, status, pages, characters, notes; never the text).
+
+Files named `public_*` are open-licensed templates (for example MIT or CC BY-SA) with sample data the author
+published. They skip the leftover-personal-data check and nothing else. Do not use the prefix for anything else.
