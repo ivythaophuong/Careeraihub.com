@@ -96,4 +96,25 @@ def pdf_softhyphen(path):
     buf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
     open(os.path.join(OUT, path), "wb").write(buf)
 pdf_softhyphen("softhyphen-dashes.pdf")
+
+# Contact line with icons from an icon font (FontAwesome): the glyph's code is an ordinary character such as
+# '#', so without the font name it looks like text. The font is not embedded; only its name matters here.
+def pdf_icon_font(path):
+    f1 = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+    f2 = b"<< /Type /Font /Subtype /Type1 /BaseFont /FontAwesome5Free-Solid >>"
+    stream = (b"BT /F1 12 Tf 72 720 Td (Jane Example) Tj ET\n"
+              b"BT /F2 12 Tf 72 700 Td (#) Tj ET\nBT /F1 12 Tf 90 700 Td (jane@example.com) Tj ET\n"
+              b"BT /F2 12 Tf 72 680 Td (D) Tj ET\nBT /F1 12 Tf 90 680 Td (+65 0000 0000) Tj ET\n"
+              b"BT /F1 12 Tf 72 660 Td (Skills: SQL, Python) Tj ET\n")
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [6 0 R] /Count 1 >>", f1, f2,
+            b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"endstream",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>"]
+    buf = b"%PDF-1.4\n"; offs = []
+    for i, o in enumerate(objs, 1):
+        offs.append(len(buf)); buf += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    x = len(buf)
+    buf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offs)
+    buf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
+    open(os.path.join(OUT, path), "wb").write(buf)
+pdf_icon_font("icon-font.pdf")
 print("fixtures written to", OUT)

@@ -18,3 +18,8 @@ to print one line per file (type, status, pages, characters, notes; never the te
 
 Files named `public_*` are open-licensed templates (for example MIT or CC BY-SA) with sample data the author
 published. They skip the leftover-personal-data check and nothing else. Do not use the prefix for anything else.
+
+## Sources of the public_* files here (local only, not redistributed)
+
+- `public_overleaf_libre_cv_2col.pdf`: "Libre CV" by Samuel Boïté, Overleaf gallery
+  (https://www.overleaf.com/latex/templates/libre-cv/bmdtjqdhwtsz), licence CC BY 4.0. Sample content is fictional.

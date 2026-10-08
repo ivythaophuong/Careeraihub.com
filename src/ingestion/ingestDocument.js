@@ -9,7 +9,7 @@
 //
 // This function never throws for a bad file and never puts file content into `notes`.
 import { normalizeText, countWords } from './normalizeText';
-import { joinPdfItems, layoutHint, removeRepeatedPageLines, restoreSoftHyphens, SOFT_HYPHEN } from './pdfText';
+import { joinPdfItems, layoutHint, removeRepeatedPageLines, restoreSoftHyphens, removeIconGlyphs, SOFT_HYPHEN } from './pdfText';
 import { readDocxHeaderFooter } from './zipText';
 
 export const MAX_BYTES = 10 * 1024 * 1024;
@@ -68,7 +68,7 @@ export async function readPdfPages(bytes) {
   const pdf = await getDocument({ data: bytes.slice(), isEvalSupported: false, useSystemFonts: true }).promise;
   const OPS = (pdfjs.default && !pdfjs.getDocument ? pdfjs.default : pdfjs).OPS;
   const pages = [];
-  let restored = 0, unreadable = 0;
+  let restored = 0, unreadable = 0, icons = 0;
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     // Keep every text run separate: by default pdf.js merges runs on a line and pads the gap with spaces,
@@ -89,9 +89,17 @@ export async function readPdfPages(bytes) {
       const fixed = restoreSoftHyphens(items, runs);
       items = fixed.items; restored += fixed.restored; unreadable += fixed.unreadable;
     }
+    // Drop pictures drawn with an icon font. The font objects are available once the operator list is read.
+    const fontNames = {};
+    const nameOf = (it) => {
+      if (!(it.fontName in fontNames)) { try { fontNames[it.fontName] = page.commonObjs.get(it.fontName)?.name || ''; } catch { fontNames[it.fontName] = ''; } }
+      return fontNames[it.fontName];
+    };
+    const cleaned = removeIconGlyphs(items, nameOf);
+    items = cleaned.items; icons += cleaned.removed;
     pages.push(joinPdfItems(items));
   }
-  return { pages, restoredDashes: restored, unreadableDashes: unreadable };
+  return { pages, restoredDashes: restored, unreadableDashes: unreadable, iconGlyphsRemoved: icons };
 }
 
 // mammoth's browser build reads `arrayBuffer`, its Node build reads `buffer`.
@@ -153,6 +161,7 @@ export async function ingestDocument(file, { readPdf = readPdfPages, readDocx = 
     const raw = Array.isArray(read) ? read : read.pages;
     const restoredDashes = Array.isArray(read) ? 0 : read.restoredDashes || 0;
     const unreadableDashes = Array.isArray(read) ? 0 : read.unreadableDashes || 0;
+    const iconGlyphsRemoved = Array.isArray(read) ? 0 : read.iconGlyphsRemoved || 0;
     const emptyIdx = raw.map((t, i) => (normalizeText(t).length < MIN_PAGE_CHARS ? i + 1 : null)).filter(Boolean);
     const dedup = removeRepeatedPageLines(raw.map(normalizeText));
     const pageTexts = dedup.pages;
@@ -164,8 +173,10 @@ export async function ingestDocument(file, { readPdf = readPdfPages, readDocx = 
     if (columnarPages.length) pdfNotes.push(`Page${columnarPages.length > 1 ? 's' : ''} ${columnarPages.join(', ')} ${columnarPages.length > 1 ? 'have' : 'has'} many lines with wide gaps (columns, a table, or details aligned to the right); the reading order of those lines may be mixed.`);
     if (restoredDashes) pdfNotes.push(`${restoredDashes} hyphen/dash character${restoredDashes > 1 ? 's' : ''} that this PDF stores as invisible characters ${restoredDashes > 1 ? 'were' : 'was'} restored as "-".`);
     if (unreadableDashes) pdfNotes.push(`${unreadableDashes} hyphen/dash character${unreadableDashes > 1 ? 's' : ''} could not be restored; some hyphenated words or date ranges may be missing their dash.`);
+    if (iconGlyphsRemoved) pdfNotes.push(`${iconGlyphsRemoved} icon${iconGlyphsRemoved > 1 ? 's' : ''} drawn with an icon font (for example FontAwesome) ${iconGlyphsRemoved > 1 ? 'were' : 'was'} left out of the text.`);
     const text = normalizeText(pageTexts.join('\n\n'));
     const r = finish('pdf', 'pdfjs', text, pageTexts.length, emptyIdx, pdfNotes, base);
+    r.stats.iconGlyphsRemoved = iconGlyphsRemoved;
     r.stats.dashesRestored = restoredDashes;
     r.stats.dashesUnreadable = unreadableDashes;
     r.stats.columnarPages = columnarPages.length;

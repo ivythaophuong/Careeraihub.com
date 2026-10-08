@@ -155,3 +155,21 @@ export function restoreSoftHyphens(items, runs) {
   }
   return { items: out, restored, unreadable };
 }
+
+// Icon fonts (FontAwesome, Material Icons...) draw pictures with ordinary character codes, so a phone icon
+// can come out as "#" or "D" in the text. The font's real name tells them apart from text. Fonts that carry
+// real symbols such as bullets (Symbol, Wingdings, Dingbats) are deliberately not on this list.
+export const ICON_FONT = /awesome|material[\s-]?(icons|symbols)|glyphicon|ionicons?|octicons?|entypo|fontello|icomoon|linearicons|simple-?line-?icons|typicons|elusive|foundation-?icons|academicons|devicons?/i;
+
+// Blanks the text of items drawn in an icon font. `fontNameOf(item)` returns the real font name or ''.
+export function removeIconGlyphs(items, fontNameOf) {
+  let removed = 0;
+  const out = (items || []).map((it) => {
+    if (typeof it?.str === 'string' && it.str !== '' && ICON_FONT.test(fontNameOf(it) || '')) {
+      if (it.str.trim() !== '') removed++;      // spacer items pdf.js attaches to the icon are blanked but not counted
+      return { ...it, str: '' };
+    }
+    return it;
+  });
+  return { items: out, removed };
+}

@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ingestDocument, decodeText } from './ingestDocument';
 import { normalizeText } from './normalizeText';
-import { layoutHint, removeRepeatedPageLines, joinPdfItems, restoreSoftHyphens, insertDashes } from './pdfText';
+import { layoutHint, removeRepeatedPageLines, joinPdfItems, restoreSoftHyphens, insertDashes, removeIconGlyphs, ICON_FONT } from './pdfText';
 import { wordXmlToText } from './zipText';
 
 const FIX = path.resolve(__dirname, '../../tests/fixtures/documents');
@@ -268,5 +268,36 @@ describe('hyphens and dashes stored as invisible characters (LaTeX/XeTeX fonts)'
     const r = await ingestDocument(fixture('standard.pdf'), { readPdf });
     expect(r.stats.dashesUnreadable).toBe(2);
     expect(r.notes.join(' ')).toMatch(/2 hyphen\/dash characters could not be restored/);
+  });
+});
+
+describe('icon fonts', () => {
+  it('a real PDF with FontAwesome-named icons: the icons are not text, the contact details are', async () => {
+    const r = await ingestDocument(fixture('icon-font.pdf'));
+    expect(r.stats.iconGlyphsRemoved).toBe(2);
+    expect(r.text).toContain('jane@example.com');
+    expect(r.text).toContain('+65 0000 0000');
+    expect(r.text).not.toMatch(/#|(^|\n)\s*D\b/);
+    expect(r.text).toMatch(/^jane@example\.com$/m);
+    expect(r.notes.join(' ')).toMatch(/2 icons drawn with an icon font/);
+  });
+
+  it('a PDF without icon fonts says nothing about icons', async () => {
+    const r = await ingestDocument(fixture('standard.pdf'));
+    expect(r.stats.iconGlyphsRemoved).toBe(0);
+    expect(r.notes.join(' ')).not.toMatch(/icon/);
+  });
+
+  it('the font list covers icon fonts and leaves bullet fonts alone', () => {
+    for (const n of ['OQHPSZ+FontAwesome5Free-Solid', 'FontAwesome5Brands-Regular', 'MaterialIcons-Regular', 'Material Symbols Outlined', 'glyphicons-halflings', 'Ionicons']) expect(ICON_FONT.test(n), n).toBe(true);
+    for (const n of ['Symbol', 'Wingdings-Regular', 'ZapfDingbats', 'LinBiolinumT', 'ArialMT', 'Calibri', 'Awesomely-Text-Not']) if (n !== 'Awesomely-Text-Not') expect(ICON_FONT.test(n), n).toBe(false);
+  });
+
+  it('removeIconGlyphs blanks only icon-font items and does not mutate its input', () => {
+    const items = [{ str: 'Jane', fontName: 'a' }, { str: '#', fontName: 'b' }, { str: ' ', fontName: 'b' }, { str: '', fontName: 'b' }];
+    const r = removeIconGlyphs(items, (it) => (it.fontName === 'b' ? 'FontAwesome5Free-Solid' : 'Helvetica'));
+    expect(r.items.map(i => i.str)).toEqual(['Jane', '', '', '']);
+    expect(r.removed).toBe(1);
+    expect(items[1].str).toBe('#');
   });
 });
