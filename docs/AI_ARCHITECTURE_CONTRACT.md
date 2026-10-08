@@ -31,43 +31,84 @@ A number that fits none of these is not shown. Missing data stays missing (`null
 Enforcement: `tests/security/noFakeData.test.js` has the rule `ai-market-numbers` (fields the model used to
 invent for Skills Gap). New categories get a rule there when they are found.
 
-## 2. Target pipeline (TARGET)
+## 2. Target architecture (TARGET)
 
 ```
-user file
-  -> deterministic extraction (text)
-  -> ResumeDocument  (text + sections, one canonical copy per content hash)
-  -> ResumeFacts     (sections, contact, experiences, education, skills, dates, metrics, keywords, evidence)
-  -> ScoreResult     (ATS, JD match, credibility, readiness inputs)  -- code only
-  -> AI interpretation (explain / rewrite / suggest / question), receives facts + scores, cannot change them
+USER FILE
+  -> DOCUMENT INGESTION   deterministic: text, structure, metadata, extraction status
+  -> RESUMEFACTS          canonical representation of what the resume says
+        |-- DETERMINISTIC ENGINES   facts, derived facts, scores
+        '-- AI / SEMANTIC ENGINE    interpretation only
+  -> PROVENANCE           every claim traces back to evidence
+  -> PRODUCT UI
 ```
+
+"Deterministic document extraction" does not mean "deterministic resume understanding". Reading text out of
+a PDF or DOCX is one problem; deciding what a bullet means is another. The semantic step may use AI, but its
+output is stored with `extraction_method: "ai"`, validated, and never overrides a fact code extracted.
 
 One parse per content hash, shared by every module, so Onboarding, Resume Scan and ATS Builder can never
-disagree about the same CV. Today each of them asks the model separately (VERIFIED, see section 4).
+disagree about the same CV. Today each of them asks the model separately (VERIFIED, section 4).
 
-### ResumeFacts: every extracted field carries its source and confidence
+AI failure must not be product failure: facts and scores come from code, so they are still there when the
+provider is down.
 
-```js
-// A field is { value, source, confidence }. Code sets all three.
-//   value:      what was extracted, or null
-//   source:     where it came from, e.g. "experience[0].title", "regex:email"
-//   confidence: 0..1. A field below the threshold is NOT trusted and is not used for scoring.
-//   requiresInterpretation: true when code could not decide (e.g. several concurrent roles, no dates,
-//               career break, non-chronological CV). Only then may AI be asked, and its answer is stored
-//               with source "ai" and the confidence the validation gives it.
-```
+### Three kinds of intelligence
 
-Heuristics (for example "current role = first entry of Experience") are allowed only as a source with an
-explicit confidence. They must return `value: null, requiresInterpretation: true` rather than guess when
-the layout does not fit (consultant, freelancer, founder, career break, concurrent roles).
+| Kind | Examples | Who produces it | May AI change it? |
+|---|---|---|---|
+| **A. Facts** | name, email, phone, URLs, dates, companies, job titles, education, explicit skills, explicit metrics, explicit certifications, raw evidence | deterministic extraction | No |
+| **B. Derived facts** | years of experience, employment duration, career gaps, keyword overlap, formatting, metric density, skill coverage, JD match, completeness, chronology consistency | deterministic algorithms over A | No |
+| **C. Interpretation** | why a bullet is weak, what the experience suggests, rewrite, coaching, strategic advice | AI, given A and B | n/a: it is the AI's output, and it cannot restate a number differently |
 
-### ScoreResult
+### Field shape
 
 ```js
-// scoreATS(facts, jd?) -> { score: number|null, parts: [{ id, score|null, evidence[] }], missing[] }
-// score is null when a required part cannot be computed. No part is defaulted to 0.
-// The AI receives { score, parts, missing, evidence } and writes the explanation. It never returns a score.
+// Every extracted fact:
+{
+  value,              // as extracted, or null
+  normalized_value,   // e.g. 0.20 for "20%"; null when not normalisable
+  source,             // path in the document model, e.g. "experience[2].bullets[1]"
+  evidence,           // the exact text span the value came from
+  confidence,         // 0..1; below the threshold the fact is not used for scoring
+  extraction_method,  // "regex" | "rule" | "structure" | "ai"
+  requiresInterpretation // true when code could not decide; only then may AI be asked
+}
 ```
+
+Heuristics (for example "current role = first entry of Experience") are allowed only with an explicit
+confidence, and must return `value: null, requiresInterpretation: true` rather than guess when the layout
+does not fit (consultant, freelancer, founder, career break, concurrent roles, non-chronological CV).
+
+Semantic normalisation of a metric ("from 6 hours to 2 hours" -> `{type: time_reduction, before: 6h,
+after: 2h, improvement: 66.7%}`) can be partly done by code (extract the two quantities, compute the
+change). Deciding the metric type from context may use AI; the numbers in it still come from the text.
+
+### Scores
+
+```js
+// scoreX(facts, jd?) -> {
+//   score: number | null,        // null when a required part cannot be computed. No part defaults to 0.
+//   score_type: "careeraihub_ats_readiness",   // never "your actual ATS score": employer ATS differ
+//   version: "1.0.0",            // bump on any rule change so a changed score can be explained
+//   parts: [{ id, score|null, evidence[] }],
+//   missing: []
+// }
+```
+The AI receives `{ score, parts, missing, evidence }` and writes the explanation. It never returns a score.
+Parts for the resume score: completeness, formatting, keyword match (needs a target role or JD),
+measurable impact, chronology, readability.
+
+### Provenance
+
+Each important claim shown to a user can say where it comes from:
+`{ claim, support: [paths], derived_by: "career_duration_engine", confidence }`. This is the base for a
+future Trust Layer / verified profile. It is built after ResumeFacts exists, not before.
+
+### Inputs that are not the CV
+
+ResumeFacts is the source of truth about the resume, not the whole context for every feature. Career Path
+and similar features also need the target role, market, preferences and job descriptions.
 
 ## 3. Already deterministic (VERIFIED)
 
@@ -124,12 +165,42 @@ Structural findings (VERIFIED by reading the code):
 
 ## 6. Order of work
 
-1. Skills Gap market numbers hidden. Done (not deployed).
-2. Design `ResumeFacts` / `ScoreResult` (this document, section 2).
-3. `resumeRules.js` (extraction with confidence) and `resumeScore.js`, with fixture CVs.
-4. ATS Builder and Resume Scan on the deterministic score.
-5. JD Analyzer and JD Match requirements/keywords in code. MemoryDashboard progress in code.
-6. Content-hash cache, better retry, second provider (needs a decision about keys).
+| Phase | What |
+|---|---|
+| Done | Skills Gap market numbers hidden (not deployed) |
+| P0 | **Data contract**: ResumeFacts, evidence, provenance, extraction status and versioning as schemas with validators and tests. No parser yet |
+| P1 | Document ingestion for the formats the app accepts (PDF, DOCX, TXT: VERIFIED from the upload code). Extraction status per file (ok / partial / no text layer). Scanned PDFs keep the current AI fallback, flagged `extraction_method: "ai"` |
+| P2 | Deterministic extraction: contact, dates, experience, education, skills, metrics, links |
+| P3 | Validation: schema, contradictions (overlapping dates, end before start), confidence, evidence |
+| P4 | Deterministic engines: resume score, skills, metrics, format, chronology, JD match, MemoryDashboard progress |
+| P5 | AI layer on top: rewrite, explanation, coaching |
+| P6 | Resilience: error classes, retry policy, provider router, circuit breaker, content-hash cache, observability |
 
-Real market data for Skills Gap and Salary is a separate item (OP-2). The `jobs` Edge Function (Adzuna)
-is a candidate source. What it returns for counts and salary is UNKNOWN until it is read and tested.
+Test corpus (built from P1): fixtures by failure mode, not by count: standard, two columns, no contact
+section, several jobs at one company, overlapping dates, employment gap, international date formats,
+non-English, PDF with a bad text layer, scanned PDF, DOCX, tables, icons, headers/footers, metrics with and
+without symbols, skill synonyms, duplicate skills, unknown formatting, malformed file. The key test is
+**same input -> same ResumeFacts -> same ScoreResult**, run twice.
+
+Out of scope until the product accepts them: PPTX and XLSX (the upload code accepts PDF, DOCX and TXT only).
+
+## 7. Resilience policy (P6)
+
+Whether a call needs AI is decided first: if code can answer, AI is not called. Errors are classified:
+
+| Error | Retry | Fallback provider |
+|---|---|---|
+| 429, 503, timeout, network | yes, with backoff and jitter | yes |
+| 400 invalid request, malformed prompt | no | no |
+| content blocked, reply truncated | no | no |
+| provider returns 401/403 (our key is wrong) | no | yes |
+| insufficient context | no | no |
+
+Current behaviour (VERIFIED in `src/lib/ai.jsx` and `supabase/functions/ai/handler.js`): the client retries
+once, on 429, any 5xx, timeout and network error. The function answers 422 for truncated/blocked replies and
+400 for other 4xx, so those are not retried, which already matches the table. Two gaps: a provider 401/403
+is reported to the client as 500, so the client retries it pointlessly, and an empty reply is a 502 that is
+retried. There is no second provider. Real use of `AI_FALLBACK` is UNKNOWN until the deployed source is read.
+
+Real market data for Skills Gap and Salary is a separate item (OP-2). The `jobs` Edge Function (Adzuna) is a
+candidate source; what it returns for counts and salary is UNKNOWN until it is read and tested.
