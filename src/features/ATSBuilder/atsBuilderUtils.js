@@ -101,3 +101,23 @@ export function buildAnalysisPrompt(originalText, newText) {
 ORIGINAL: ${digestResume(originalText).text}
 IMPROVED: ${digestResume(newText).text}`;
 }
+
+// A score is a finite number from 0 to 100. Anything else (missing, a string, NaN) is "unknown" (null),
+// never 0: a made-up 0 would be saved to the database and counted by the trust score.
+export const validScore = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100 ? Math.round(v) : null);
+
+// What one finished ATS scan writes to memory and to the `resume_scans` row.
+// `metrics_found` is not set: this scan does not count metrics (it used to save the number of score
+// parameters, which is always 5 and means nothing). null = not counted.
+export function buildScanRecord(parsed, now = new Date().toISOString()) {
+  const score = validScore(parsed?.atsScore);
+  const gaps = Array.isArray(parsed?.gaps) ? parsed.gaps : [];
+  const summary = parsed?.summary || '';
+  const questions = parsed?.interrogationQuestions || [];
+  return {
+    score,
+    radarResult: { credibilityScore: score, issues: gaps, summary, metricsFound: null },
+    historyEntry: (result) => ({ score, date: now, result }),
+    row: { credibility_score: score, metrics_found: null, summary, issues: gaps, questions },
+  };
+}

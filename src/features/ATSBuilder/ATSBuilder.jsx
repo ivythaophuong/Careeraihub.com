@@ -7,7 +7,7 @@ import { OrbitSpinner } from '../../components/OrbitMark';
 import { NextStepBanner } from '../../components/CommonUI';
 import {
   SEVERITY_ORDER, CATEGORIES,
-  genId, arrayBufferToBase64, computeLineDiff, sortGapsBySeverity, buildRebuildPrompt, stripHtmlToText, buildAnalysisPrompt,
+  genId, arrayBufferToBase64, computeLineDiff, sortGapsBySeverity, buildRebuildPrompt, stripHtmlToText, buildAnalysisPrompt, buildScanRecord,
 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
@@ -2186,7 +2186,8 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
       }
       return;
     }
-    const newScore = parsed.atsScore ?? 0;
+    const rec = buildScanRecord(parsed);
+    const newScore = rec.score;
     // Capture previous score before writing new entry
     const lastScore = memory?.scanHistory?.find(s => s.status !== 'failed' && s.score > 0)?.score ?? null;
     setPrevScore(lastScore);
@@ -2201,13 +2202,13 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
     setPhase('kanban');
     setShowNextStep(true);
     if (updateMemory) {
-      const radarResult = { credibilityScore: parsed.atsScore ?? 0, issues: parsed.gaps || [], summary: parsed.summary || '', metricsFound: parsed.parameters ? Object.keys(parsed.parameters).length : 0 };
+      const radarResult = rec.radarResult;
       updateMemory(
         m => ({
-          scanHistory: [{ score: parsed.atsScore, date: new Date().toISOString(), result: radarResult }, ...(m.scanHistory || [])].slice(0, 20),
+          scanHistory: [rec.historyEntry(radarResult), ...(m.scanHistory || [])].slice(0, 20),
           scanResult: radarResult,
         }),
-        { table: 'resume_scans', data: { credibility_score: parsed.atsScore ?? 0, metrics_found: parsed.parameters ? Object.keys(parsed.parameters).length : 0, summary: parsed.summary || '', issues: parsed.gaps || [], questions: parsed.interrogationQuestions || [] } }
+        { table: 'resume_scans', data: rec.row }
       );
     }
   };

@@ -9,7 +9,7 @@ const QUICK_PROMPTS = [
   { label: '🎯 Should I apply broadly or target fewer roles?',  text: 'Should I apply to many roles broadly or target fewer, highly-tailored applications?' },
 ];
 
-function buildSystemPrompt(memory, form) {
+export function buildSystemPrompt(memory, form) {
   const lines = [
     `You are an expert AI career coach. You have full context on the user's profile.`,
     `Target role: ${form?.role || 'not specified'}`,
@@ -19,7 +19,7 @@ function buildSystemPrompt(memory, form) {
   ];
   if (memory.scanHistory?.length) {
     const latest = memory.scanHistory[0];
-    lines.push(`Latest resume ATS score: ${latest.score}/100`);
+    lines.push(Number.isFinite(latest?.score) ? `Latest resume ATS score: ${latest.score}/100` : 'Latest resume scan has no score recorded');
   }
   if (memory.starBank?.length) {
     lines.push(`STAR bank: ${memory.starBank?.length} stories saved`);
