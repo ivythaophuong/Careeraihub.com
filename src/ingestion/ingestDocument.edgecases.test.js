@@ -301,3 +301,25 @@ describe('icon fonts', () => {
     expect(items[1].str).toBe('#');
   });
 });
+
+describe('real-world export patterns (Canva-style and Word-style), generic placeholder content only', () => {
+  it('Canva-style export (Roboto/CrimsonPro, single column): reads cleanly, no icon-font false positive', async () => {
+    const r = await ingestDocument(fixture('canva-style-single-col.pdf'));
+    expect(r.status).toBe('ok');
+    expect(r.stats.iconGlyphsRemoved).toBe(0);
+    expect(r.text).toContain('jane@example.com');
+    expect(r.text).toMatch(/Product Manager, Acme Ltd\t2021 - 2024/);
+    for (const s of ['SQL', 'Python', 'Figma', 'Roadmapping', 'SEO']) expect(r.text).toContain(s);
+  });
+
+  it('Word-style export with Symbol/Wingdings bullet glyphs: the bullets are kept as text, not stripped as icons', async () => {
+    const r = await ingestDocument(fixture('word-wingdings-bullets.pdf'));
+    expect(r.status).toBe('ok');
+    expect(r.stats.iconGlyphsRemoved).toBe(0);
+    expect(r.text).toContain('Increased lead qualification by 20 percent');
+    expect(r.text).toContain('Led a cross-functional team of 6');
+    // a bullet-font glyph is present right before each bullet's text (not removed, whatever pdf.js maps it to)
+    expect(r.text).toMatch(/\S[ \t]*Increased lead qualification/);
+    expect(r.text).toMatch(/\S[ \t]*Led a cross-functional/);
+  });
+});

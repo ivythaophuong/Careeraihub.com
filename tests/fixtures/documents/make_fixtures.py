@@ -117,4 +117,59 @@ def pdf_icon_font(path):
     buf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
     open(os.path.join(OUT, path), "wb").write(buf)
 pdf_icon_font("icon-font.pdf")
+
+# Mimics a Canva-style export: Roboto + CrimsonPro font names (not embedded, only referenced), single
+# column, a right-aligned date on an experience line, and a row of short tag-like items (a skills row).
+def pdf_canva_style(path):
+    f1 = b"<< /Type /Font /Subtype /Type1 /BaseFont /Roboto-Regular >>"
+    f2 = b"<< /Type /Font /Subtype /Type1 /BaseFont /Roboto-Bold >>"
+    f3 = b"<< /Type /Font /Subtype /Type1 /BaseFont /CrimsonPro-Regular >>"
+    stream = (b"BT /F2 16 Tf 60 740 Td (Jane Example) Tj ET\n"
+              b"BT /F1 11 Tf 60 720 Td (jane@example.com  +65 0000 0000  Singapore) Tj ET\n"
+              b"BT /F2 12 Tf 60 690 Td (Experience) Tj ET\n"
+              b"BT /F2 11 Tf 60 670 Td (Product Manager, Acme Ltd) Tj ET\nBT /F1 10 Tf 460 670 Td (2021 - 2024) Tj ET\n"
+              b"BT /F3 10 Tf 75 652 Td (Increased lead qualification by 20 percent) Tj ET\n"
+              b"BT /F3 10 Tf 75 636 Td (Led a cross-functional team of 6) Tj ET\n"
+              b"BT /F2 12 Tf 60 605 Td (Skills) Tj ET\n"
+              b"BT /F1 10 Tf 60 585 Td (SQL) Tj ET\nBT /F1 10 Tf 100 585 Td (Python) Tj ET\n"
+              b"BT /F1 10 Tf 150 585 Td (Figma) Tj ET\nBT /F1 10 Tf 195 585 Td (Roadmapping) Tj ET\nBT /F1 10 Tf 270 585 Td (SEO) Tj ET\n")
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [7 0 R] /Count 1 >>", f1, f2, f3,
+            b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"endstream",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> >>"]
+    buf = b"%PDF-1.4\n"; offs = []
+    for i, o in enumerate(objs, 1):
+        offs.append(len(buf)); buf += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    x = len(buf)
+    buf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offs)
+    buf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
+    open(os.path.join(OUT, path), "wb").write(buf)
+pdf_canva_style("canva-style-single-col.pdf")
+
+# Mimics a Word export that draws bullets with Symbol/Wingdings fonts (the classic Word bullet-list
+# pattern) rather than a real bullet character in the body font. These must NOT be treated as icon fonts
+# (unlike FontAwesome etc.) since the glyph itself is the bullet, not a picture replacing real text.
+def pdf_word_bullets(path):
+    f1 = b"<< /Type /Font /Subtype /Type1 /BaseFont /Cambria >>"
+    f2 = b"<< /Type /Font /Subtype /Type1 /BaseFont /Cambria-Bold >>"
+    f3 = b"<< /Type /Font /Subtype /Type1 /BaseFont /SymbolMT >>"
+    f4 = b"<< /Type /Font /Subtype /Type1 /BaseFont /Wingdings-Regular >>"
+    stream = (b"BT /F2 14 Tf 45 740 Td (Jane Example) Tj ET\n"
+              b"BT /F1 11 Tf 45 720 Td (jane@example.com) Tj ET\n"
+              b"BT /F2 12 Tf 45 695 Td (Experience) Tj ET\n"
+              b"BT /F1 11 Tf 45 675 Td (Product Manager, Acme Ltd \(2021 - 2024\)) Tj ET\n"
+              b"BT /F3 10 Tf 60 655 Td (\267) Tj ET\nBT /F1 10 Tf 75 655 Td (Increased lead qualification by 20 percent) Tj ET\n"
+              b"BT /F4 10 Tf 60 638 Td (\247) Tj ET\nBT /F1 10 Tf 75 638 Td (Led a cross-functional team of 6) Tj ET\n"
+              b"BT /F2 12 Tf 45 610 Td (Skills) Tj ET\n"
+              b"BT /F1 10 Tf 45 590 Td (SQL, Python, Roadmapping) Tj ET\n")
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [8 0 R] /Count 1 >>", f1, f2, f3, f4,
+            b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"endstream",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> >>"]
+    buf = b"%PDF-1.4\n"; offs = []
+    for i, o in enumerate(objs, 1):
+        offs.append(len(buf)); buf += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    x = len(buf)
+    buf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offs)
+    buf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
+    open(os.path.join(OUT, path), "wb").write(buf)
+pdf_word_bullets("word-wingdings-bullets.pdf")
 print("fixtures written to", OUT)
