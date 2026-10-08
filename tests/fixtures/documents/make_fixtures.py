@@ -45,4 +45,30 @@ pdf([LINE1 + LINE2 + SKILLS, []], "partial.pdf")                           # pag
 open(os.path.join(OUT, "corrupt.pdf"), "wb").write(b"%PDF-1.4\nthis is not a real pdf body\n")
 docx(["Jane Example", "Product Manager at Acme Ltd (2021 - 2024)", "Increased lead qualification by 20 percent", "Skills: SQL, Python, Roadmapping"], "standard.docx")
 docx([], "empty.docx")
+
+# ---- extra edge cases (the Chrome-printed PDFs in this folder come from html/*.html, see make_pdfs.sh) ----
+def docx_full(path, body_xml, header=None, footer=None):
+    ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+    refs = (f'<w:headerReference w:type="default" r:id="rIdH"/>' if header else '') + (f'<w:footerReference w:type="default" r:id="rIdF"/>' if footer else '')
+    doc = f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document {ns}><w:body>{body_xml}<w:sectPr>{refs}</w:sectPr></w:body></w:document>'
+    P = lambda t: f'<w:p><w:r><w:t xml:space="preserve">{t}</w:t></w:r></w:p>'
+    ct = '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' + ('<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>' if header else '') + ('<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' if footer else '') + '</Types>'
+    rels = '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'
+    drels = '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + ('<Relationship Id="rIdH" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>' if header else '') + ('<Relationship Id="rIdF" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' if footer else '') + '</Relationships>'
+    with zipfile.ZipFile(os.path.join(OUT, path), "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", ct); z.writestr("_rels/.rels", rels); z.writestr("word/document.xml", doc); z.writestr("word/_rels/document.xml.rels", drels)
+        if header: z.writestr("word/header1.xml", f'<?xml version="1.0" encoding="UTF-8"?><w:hdr {ns}>{P(header)}</w:hdr>')
+        if footer: z.writestr("word/footer1.xml", f'<?xml version="1.0" encoding="UTF-8"?><w:ftr {ns}>{P(footer)}</w:ftr>')
+
+P = lambda t: f'<w:p><w:r><w:t xml:space="preserve">{t}</w:t></w:r></w:p>'
+cell = lambda t: f'<w:tc><w:p><w:r><w:t xml:space="preserve">{t}</w:t></w:r></w:p></w:tc>'
+row = lambda *c: '<w:tr>' + ''.join(cell(x) for x in c) + '</w:tr>'
+docx_full("tables.docx", P("Jane Example") + P("Experience") + '<w:tbl>' + row("Company", "Role", "Years") + row("Acme Ltd", "Product Manager", "2021 - 2024") + row("Beta Corp", "Associate Product Manager", "2019 - 2021") + '</w:tbl>')
+docx_full("header-footer.docx", P("Experience") + P("Product Manager at Acme Ltd (2021 - 2024)") + P("Increased lead qualification by 20 percent") + P("Skills: SQL, Python, Roadmapping"), header="Jane Example - jane@example.com - +65 0000 0000", footer="Confidential resume")
+docx_full("vietnamese.docx", P("Nguyễn Thị Hương") + P("Quản lý sản phẩm - Công ty Cổ phần Ánh Dương (2021 - 2024)") + P("Tăng tỷ lệ chuyển đổi khách hàng tiềm năng thêm 20%") + P("Kỹ năng: Phân tích dữ liệu, SQL, Python"))
+
+# a PDF that was laid out in two columns but whose text is stored row by row (left run, then right run, per line)
+L = [(72, 700, "Skills"), (72, 680, "SQL, Python"), (72, 660, "Education"), (72, 640, "BSc Economics, 2019")]
+R = [(330, 700, "Experience"), (330, 680, "Product Manager at Acme Ltd"), (330, 660, "Increased lead qualification by 20 percent"), (330, 640, "Led a team of 6 people")]
+pdf([[v for pair in zip(L, R) for v in pair]], "two-column-rowwise.pdf")
 print("fixtures written to", OUT)

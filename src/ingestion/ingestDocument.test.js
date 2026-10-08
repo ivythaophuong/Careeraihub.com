@@ -17,10 +17,10 @@ const LONG = 'Jane Example\nProduct Manager at Acme Ltd, 2021 to 2024\nIncreased
 
 describe('normalizeText', () => {
   it('fixes encoding noise and whitespace, and nothing else', () => {
-    expect(normalizeText('﻿Hello​  \r\nWorld !\r\n\r\n\r\n\r\nEnd  ')).toBe('Hello\nWorld !\n\nEnd');
+    expect(normalizeText('\uFEFFHello\u200B  \r\nWorld\u00A0!\r\n\r\n\r\n\r\nEnd  ')).toBe('Hello\nWorld !\n\nEnd');
   });
   it('is stable: normalising twice changes nothing', () => {
-    const once = normalizeText('a\r\n\r\n\r\nb​  ');
+    const once = normalizeText('a\r\n\r\n\r\nb\u200B  ');
     expect(normalizeText(once)).toBe(once);
   });
   it('gives an empty string for non-strings', () => { expect(normalizeText(null)).toBe(''); expect(normalizeText(42)).toBe(''); });

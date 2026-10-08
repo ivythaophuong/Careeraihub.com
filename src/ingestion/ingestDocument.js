@@ -9,7 +9,8 @@
 //
 // This function never throws for a bad file and never puts file content into `notes`.
 import { normalizeText, countWords } from './normalizeText';
-import { joinPdfItems } from './pdfText';
+import { joinPdfItems, layoutHint, removeRepeatedPageLines } from './pdfText';
+import { readDocxHeaderFooter } from './zipText';
 
 export const MAX_BYTES = 10 * 1024 * 1024;
 export const MIN_TEXT_CHARS = 50;      // below this a resume has nothing to analyse (same as Resume Scan)
@@ -40,6 +41,16 @@ const looksBinary = (bytes) => {
   return sample.length > 0 && bad / sample.length > 0.02;
 };
 
+// UTF-8 first (with or without BOM). UTF-16 is recognised by its BOM. Anything else that is not valid
+// UTF-8 is read as Windows-1252 and says so, since legacy Vietnamese encodings (TCVN3, VNI) would be wrong.
+export function decodeText(bytes) {
+  if (bytes[0] === 0xFF && bytes[1] === 0xFE) return { text: new TextDecoder('utf-16le').decode(bytes.subarray(2)), notes: [] };
+  if (bytes[0] === 0xFE && bytes[1] === 0xFF) return { text: new TextDecoder('utf-16be').decode(bytes.subarray(2)), notes: [] };
+  if (looksBinary(bytes)) return { error: true };
+  try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes), notes: [] }; }
+  catch { return { text: new TextDecoder('windows-1252').decode(bytes), notes: ['The text is not valid UTF-8; it was read as Windows-1252, so accented letters may be wrong.'] }; }
+}
+
 const fail = (kind, error, note, stats = {}) => ({
   status: 'failed', kind, text: '', method: null, error,
   stats: { bytes: 0, chars: 0, words: 0, pages: null, emptyPages: null, ...stats }, notes: [note],
@@ -57,7 +68,9 @@ export async function readPdfPages(bytes) {
   const pdf = await getDocument({ data: bytes.slice(), isEvalSupported: false, useSystemFonts: true }).promise;
   const pages = [];
   for (let i = 1; i <= pdf.numPages; i++) {
-    const content = await (await pdf.getPage(i)).getTextContent();
+    // Keep every text run separate: by default pdf.js merges runs on a line and pads the gap with spaces,
+    // which hides the column gaps joinPdfItems needs.
+    const content = await (await pdf.getPage(i)).getTextContent({ disableCombineTextItems: true });
     pages.push(joinPdfItems(content.items));
   }
   return pages;
@@ -91,7 +104,7 @@ export async function ingestDocument(file, { readPdf = readPdfPages, readDocx = 
 
   if (kind === 'unknown') {
     const msg = {
-      legacy_doc: 'Old .doc files are not supported. Save the document as .docx or PDF.',
+      legacy_doc: 'Old .doc files and password-protected Office files are not supported. Save the document as .docx or PDF.',
       zip_not_docx: 'This archive is not a .docx resume.',
       unsupported_extension: 'Only PDF, DOCX and TXT files are supported.',
       no_extension: 'The file has no extension; only PDF, DOCX and TXT files are supported.',
@@ -101,21 +114,38 @@ export async function ingestDocument(file, { readPdf = readPdfPages, readDocx = 
 
   try {
     if (kind === 'txt') {
-      if (looksBinary(bytes)) return fail('txt', 'not_text', 'The file does not look like text.', base);
-      const text = normalizeText(new TextDecoder('utf-8').decode(bytes));
-      return finish('txt', 'plain', text, null, null, notes, base);
+      const dec = decodeText(bytes);
+      if (dec.error) return fail('txt', 'not_text', 'The file does not look like text.', base);
+      return finish('txt', 'plain', normalizeText(dec.text), null, null, [...notes, ...dec.notes], base);
     }
     if (kind === 'docx') {
-      const text = normalizeText(await readDocx(bytes));
-      return finish('docx', 'mammoth', text, null, null, notes, base);
+      const body = await readDocx(bytes);
+      const hf = await readDocxHeaderFooter(bytes);
+      const docNotes = [...notes];
+      let text = body;
+      if (hf.found && hf.failed) docNotes.push('This document has a header or footer that could not be read.');
+      if (hf.header || hf.footer) {
+        text = [hf.header, body, hf.footer].filter(Boolean).join('\n');
+        docNotes.push('Text from the document header/footer was included.');
+      }
+      return finish('docx', 'mammoth', normalizeText(text), null, null, docNotes, base);
     }
     // pdf
-    const pageTexts = (await readPdf(bytes)).map(normalizeText);
-    const pages = pageTexts.length;
-    const emptyIdx = pageTexts.map((t, i) => (t.length < MIN_PAGE_CHARS ? i + 1 : null)).filter(Boolean);
+    const raw = await readPdf(bytes);
+    const emptyIdx = raw.map((t, i) => (normalizeText(t).length < MIN_PAGE_CHARS ? i + 1 : null)).filter(Boolean);
+    const dedup = removeRepeatedPageLines(raw.map(normalizeText));
+    const pageTexts = dedup.pages;
+    const pdfNotes = [...notes];
+    if (dedup.removed > 0) pdfNotes.push(`Repeated header/footer lines were kept once (${dedup.removed} removed).`);
+    const columnarPages = raw.map((t, i) => (layoutHint(t).columnar ? i + 1 : null)).filter(Boolean);
+    if (columnarPages.length) pdfNotes.push(`Page${columnarPages.length > 1 ? 's' : ''} ${columnarPages.join(', ')} look${columnarPages.length > 1 ? '' : 's'} like columns or a table; the reading order may be mixed.`);
     const text = normalizeText(pageTexts.join('\n\n'));
-    return finish('pdf', 'pdfjs', text, pages, emptyIdx, notes, base);
-  } catch {
+    const r = finish('pdf', 'pdfjs', text, pageTexts.length, emptyIdx, pdfNotes, base);
+    r.stats.columnarPages = columnarPages.length;
+    r.stats.repeatedLinesRemoved = dedup.removed;
+    return r;
+  } catch (e) {
+    if (e?.name === 'PasswordException') return fail(kind, 'password_protected', 'The file is password-protected. Remove the password and upload it again.', base);
     return fail(kind, 'corrupt', `The ${kind.toUpperCase()} could not be opened. It may be damaged or password-protected.`, base);
   }
 }
