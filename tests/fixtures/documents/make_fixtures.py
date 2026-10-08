@@ -172,4 +172,19 @@ def pdf_word_bullets(path):
     buf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
     open(os.path.join(OUT, path), "wb").write(buf)
 pdf_word_bullets("word-wingdings-bullets.pdf")
+
+# A PDF whose Pages node claims zero pages (a malformed export some tools produce).
+def pdf_zero_pages(path):
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [] /Count 0 >>"]
+    buf = b"%PDF-1.4\n"; offs = []
+    for i, o in enumerate(objs, 1):
+        offs.append(len(buf)); buf += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    x = len(buf)
+    buf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offs)
+    buf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
+    open(os.path.join(OUT, path), "wb").write(buf)
+pdf_zero_pages("zero-pages.pdf")
+
+# Vietnamese text whose accented letters are stored in DECOMPOSED form (NFD: base letter + combining
+# marks) via a ToUnicode CMap, as some PDF generators do. normalizeText must compose it to NFC.
 print("fixtures written to", OUT)

@@ -323,3 +323,23 @@ describe('real-world export patterns (Canva-style and Word-style), generic place
     expect(r.text).toMatch(/\S[ \t]*Led a cross-functional/);
   });
 });
+
+describe('real-world corruption and protection modes', () => {
+  it('a genuinely password-protected PDF (built with pikepdf, real pdf.js encryption) is named as such', async () => {
+    const r = await ingestDocument(fixture('password-protected.pdf'));
+    expect(r).toMatchObject({ status: 'failed', kind: 'pdf', error: 'password_protected' });
+    expect(r.notes.join(' ')).toMatch(/password-protected/);
+  });
+
+  it('a PDF whose Pages node claims zero pages is reported as corrupt, not as an empty ok document', async () => {
+    const r = await ingestDocument(fixture('zero-pages.pdf'));
+    expect(r).toMatchObject({ status: 'failed', kind: 'pdf', error: 'corrupt' });
+    expect(r.notes.join(' ')).toMatch(/no pages/);
+  });
+
+  it('a DOCX that is a valid zip but has no word/document.xml is corrupt, not a silent empty read', async () => {
+    const r = await ingestDocument(fixture('docx-missing-document-xml.docx'));
+    expect(r).toMatchObject({ status: 'failed', kind: 'docx', error: 'corrupt' });
+    expect(r.notes.join(' ')).toMatch(/damaged or password-protected/);
+  });
+});
