@@ -1258,7 +1258,11 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
                   <span style={{ color: 'var(--lp-text3)', fontSize: 11.5 }}>{p.id.replace(/_/g, ' ')}</span>
                   <span style={{ color: p.score === null ? 'var(--lp-text3)' : 'var(--lp-text)', fontSize: 11.5, fontWeight: 600 }}>{p.score === null ? 'unknown' : `${p.score}/100`}</span>
                 </div>
-                <div style={{ color: 'var(--lp-text3)', fontSize: 10.5, marginTop: 2 }}>{p.evidence[0]}</div>
+                {/* All evidence lines, not just the first: completeness alone has 4 (one per signal), and
+                    showing only evidence[0] would hide, for example, that email was the one missing. */}
+                {p.evidence.map((line, i) => (
+                  <div key={i} style={{ color: 'var(--lp-text3)', fontSize: 10.5, marginTop: 2 }}>{line}</div>
+                ))}
               </div>
             ))}
           </div>
