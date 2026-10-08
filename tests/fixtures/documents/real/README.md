@@ -23,3 +23,14 @@ published. They skip the leftover-personal-data check and nothing else. Do not u
 
 - `public_overleaf_libre_cv_2col.pdf`: "Libre CV" by Samuel Boïté, Overleaf gallery
   (https://www.overleaf.com/latex/templates/libre-cv/bmdtjqdhwtsz), licence CC BY 4.0. Sample content is fictional.
+- `public_overleaf_sfiucr_1col_table.pdf`: "SFIUCR Template CV/Resume" by ComplexityExplorer
+  (https://www.overleaf.com/latex/templates/sfiucr-template-cv-slash-resume/xqvshnpvtsbv), licence CC BY 4.0.
+- `public_overleaf_swe_1col_icons_table.pdf`: "SWE Resume Template" by Audric Serador
+  (https://www.overleaf.com/latex/templates/swe-resume-template/bznbzdprjfyy), licence CC BY 4.0.
+- `public_overleaf_modern_2col_icons_table_tikz.pdf`: "Modern LaTeX CV" by Philip Empl
+  (https://www.overleaf.com/latex/templates/modern-latex-cv/qmdwjvcrcrph), licence CC BY 4.0.
+
+Not used, with reasons: "Sample single-page resume with keywords" (license is "Other, as stated in the
+work" — not confirmed reusable); the Viktoriia Savoiskas CV article (its sample content is a real
+person's real name, university and work history, not template placeholder data — not appropriate here
+regardless of its licence).
