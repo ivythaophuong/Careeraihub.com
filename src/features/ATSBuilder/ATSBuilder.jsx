@@ -13,6 +13,7 @@ import { TEMPLATES } from './resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
+import { computeDeterministicScore } from '../../scoring/computeDeterministicScore';
 
 // ── ATS Scanner Demo ──────────────────────────────────────────────────────────
 
@@ -955,10 +956,19 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
   const [localSkills, setLocalSkills] = useState(initialProfile?.skills?.filter(s => s.trim()) || []);
   const [skillInputVal, setSkillInputVal] = useState('');
   const [verifyOpen, setVerifyOpen] = useState(false);
+  // New, additive only: a rule-based score computed alongside the existing AI one (profile.atsScore),
+  // never replacing it. Covers all three ways rawText changes here (loaded from memory, a file upload,
+  // or the paste textarea) in one place, instead of a separate call at each site. Pure/synchronous (no
+  // AI, no network — src/scoring/'s own tests enforce that), so no loading state is needed for it.
+  const [detResult, setDetResult] = useState(null);
 
   useEffect(() => {
     if (profile?.skills) setLocalSkills(profile.skills.filter(s => s.trim()));
   }, [profile]);
+
+  useEffect(() => {
+    setDetResult(rawText && rawText.trim() ? computeDeterministicScore(rawText) : null);
+  }, [rawText]);
 
   const parseResume = async (text) => {
     setLoading(true); setProfile(null); setError('');
@@ -1224,6 +1234,33 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
                 }
               </div>
             )}
+          </div>
+        )}
+
+        {/* Deterministic score — new (Gate 2 integration), additive only: shown alongside the AI profile
+            above, never replacing it. Computed from the same rawText, independent of whether the AI parse
+            above succeeded (so it still shows something if that call fails or is slow), and 0/100 vs
+            "not assessed" are visibly different, never collapsed into the same "—". */}
+        {detResult && (
+          <div style={{ background: 'var(--lp-bg2)', borderRadius: 10, border: '1px solid var(--lp-bdr)', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--lp-bdr)', color: 'var(--lp-text3)', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Deterministic score (new, rule-based — separate from the AI score above)
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--lp-bdr2, rgba(255,255,255,.03))' }}>
+              <span style={{ color: 'var(--lp-text3)', fontSize: 12 }}>Overall</span>
+              <span style={{ color: detResult.score.score === null ? 'var(--lp-text3)' : 'var(--lp-text)', fontSize: 12, fontWeight: 600 }}>
+                {detResult.score.score === null ? 'Not assessed — document could not be read' : `${detResult.score.score}/100`}
+              </span>
+            </div>
+            {detResult.score.parts.map(p => (
+              <div key={p.id} style={{ padding: '8px 14px', borderBottom: '1px solid var(--lp-bdr2, rgba(255,255,255,.03))' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--lp-text3)', fontSize: 11.5 }}>{p.id.replace(/_/g, ' ')}</span>
+                  <span style={{ color: p.score === null ? 'var(--lp-text3)' : 'var(--lp-text)', fontSize: 11.5, fontWeight: 600 }}>{p.score === null ? 'unknown' : `${p.score}/100`}</span>
+                </div>
+                <div style={{ color: 'var(--lp-text3)', fontSize: 10.5, marginTop: 2 }}>{p.evidence[0]}</div>
+              </div>
+            ))}
           </div>
         )}
 
