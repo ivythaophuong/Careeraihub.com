@@ -1,0 +1,30 @@
+{
+  "description": "An answer that says extraction_method regex cannot come through the AI path.",
+  "input": {
+    "merge": {
+      "existing": {
+        "value": null,
+        "normalized_value": null,
+        "source": "current_role",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "ai": {
+        "value": "Founder",
+        "normalized_value": null,
+        "source": "current_role",
+        "evidence": "Founder",
+        "confidence": 0.7,
+        "extraction_method": "regex",
+        "requiresInterpretation": false
+      }
+    }
+  },
+  "expect": {
+    "accepted": false,
+    "reason": "not_marked_as_ai",
+    "keeps": "existing"
+  }
+}

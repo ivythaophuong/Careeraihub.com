@@ -1,0 +1,35 @@
+{
+  "description": "\"78\" is not coerced.",
+  "input": {
+    "score": "78",
+    "score_type": "careeraihub_ats_readiness",
+    "version": "1.0.0",
+    "parts": [
+      {
+        "id": "completeness",
+        "score": 80,
+        "weight": 1,
+        "required": true,
+        "evidence": [
+          "counted 3 of 5 sections"
+        ]
+      },
+      {
+        "id": "formatting",
+        "score": 60,
+        "weight": 1,
+        "required": true,
+        "evidence": [
+          "counted 3 of 5 sections"
+        ]
+      }
+    ],
+    "missing": []
+  },
+  "expect": {
+    "ok": false,
+    "codes": [
+      "invalid_score"
+    ]
+  }
+}

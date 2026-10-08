@@ -1,0 +1,33 @@
+{
+  "description": "An optional part is unknown; the headline score may still exist and the part is listed as missing.",
+  "input": {
+    "score": 70,
+    "score_type": "careeraihub_ats_readiness",
+    "version": "1.0.0",
+    "parts": [
+      {
+        "id": "completeness",
+        "score": 80,
+        "weight": 1,
+        "required": true,
+        "evidence": [
+          "counted 3 of 5 sections"
+        ]
+      },
+      {
+        "id": "keyword_match",
+        "score": null,
+        "weight": 1,
+        "required": false,
+        "evidence": []
+      }
+    ],
+    "missing": [
+      "keyword_match"
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "codes": []
+  }
+}

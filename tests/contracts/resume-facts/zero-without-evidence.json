@@ -1,0 +1,71 @@
+{
+  "description": "A 0 with no evidence is a default, not a finding, and is rejected.",
+  "input": {
+    "schema_version": "1.0.0",
+    "content_hash": "sha256:test",
+    "extraction": {
+      "status": "ok",
+      "notes": []
+    },
+    "contact": {
+      "name": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.name",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "email": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.email",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "phone": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.phone",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "location": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.location",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "links": []
+    },
+    "experiences": [],
+    "education": [],
+    "skills": [],
+    "metrics": [
+      {
+        "value": 0,
+        "normalized_value": 0,
+        "source": "experience[0].bullets[0]",
+        "evidence": null,
+        "confidence": 0.9,
+        "extraction_method": "regex",
+        "requiresInterpretation": false
+      }
+    ],
+    "certifications": []
+  },
+  "expect": {
+    "ok": false,
+    "codes": [
+      "missing_evidence"
+    ]
+  }
+}

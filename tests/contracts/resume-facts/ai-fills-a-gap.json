@@ -1,0 +1,30 @@
+{
+  "description": "Code could not decide the current role; a valid AI answer is accepted and stays marked as AI.",
+  "input": {
+    "merge": {
+      "existing": {
+        "value": null,
+        "normalized_value": null,
+        "source": "current_role",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "ai": {
+        "value": "Founder",
+        "normalized_value": null,
+        "source": "current_role",
+        "evidence": "Founder, Acme (2022-present)",
+        "confidence": 0.7,
+        "extraction_method": "ai",
+        "requiresInterpretation": false
+      }
+    }
+  },
+  "expect": {
+    "accepted": true,
+    "reason": "filled_a_gap",
+    "keeps": "ai"
+  }
+}

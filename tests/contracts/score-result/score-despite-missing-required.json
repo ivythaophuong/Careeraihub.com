@@ -1,0 +1,35 @@
+{
+  "description": "Headline score present while a required part is null.",
+  "input": {
+    "score": 70,
+    "score_type": "careeraihub_ats_readiness",
+    "version": "1.0.0",
+    "parts": [
+      {
+        "id": "completeness",
+        "score": 80,
+        "weight": 1,
+        "required": true,
+        "evidence": [
+          "counted 3 of 5 sections"
+        ]
+      },
+      {
+        "id": "keyword_match",
+        "score": null,
+        "weight": 1,
+        "required": true,
+        "evidence": []
+      }
+    ],
+    "missing": [
+      "keyword_match"
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "codes": [
+      "score_without_required_part"
+    ]
+  }
+}
