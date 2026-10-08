@@ -7,7 +7,7 @@ export const JD_BUDGET = 4000;
 
 const normalize = (text) => String(text || '').replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 
-const HEADING = /^\s*(summary|profile|objective|about me|experience|work experience|professional experience|employment(?: history)?|projects?|skills?|technical skills|core competencies|education|certifications?|licenses?|awards?|publications?|languages?|volunteer(?:ing)?(?: experience)?|interests)\s*:?\s*$/i;
+const HEADING = /^\s*(summary|profile|objective|about me|experience|work experience|professional experience|employment(?: history)?|projects?|skills?|technical skills|core competencies|education|certifications?|licenses?|awards?|publications?|languages?|volunteer(?:ing)?(?: experience)?|interests|contact(?: info(?:rmation)?| details)?|personal (?:info(?:rmation)?|details))\s*:?\s*$/i;
 const COMPACT = /^(skills?|technical skills|core competencies|education|certifications?|licenses?|languages?)$/;
 
 // Split into [{ name, body }]. Text before the first heading is the "header" (name, contact, tagline).
