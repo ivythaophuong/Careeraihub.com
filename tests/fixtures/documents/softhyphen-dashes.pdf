@@ -1,0 +1,43 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [173 /hyphen] >> /ToUnicode 6 0 R >>
+endobj
+4 0 obj
+<< /Length 289 >>
+stream
+BT /F1 12 Tf 72 720 Td (Jane Example) Tj ET
+BT /F1 12 Tf 72 700 Td (Led a high\255impact, hands\255on team of 6) Tj ET
+BT /F1 12 Tf 72 680 Td (Product Manager, Acme Ltd) Tj ET
+BT /F1 12 Tf 400 680 Td (Sep. 2023 \255 Mar. 2024) Tj ET
+BT /F1 12 Tf 72 660 Td (Co\255founder, Beta Corp) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+6 0 obj
+<< /Length 258 >>
+stream
+/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /Adobe-Identity-UCS def /CMapType 2 def 1 begincodespacerange <00> <FF> endcodespacerange 1 beginbfchar <AD> <00AD> endbfchar endcmap CMapName currentdict /CMap defineresource pop end end
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000292 00000 n 
+0000000631 00000 n 
+0000000757 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1066
+%%EOF

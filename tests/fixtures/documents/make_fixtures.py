@@ -71,4 +71,29 @@ docx_full("vietnamese.docx", P("Nguyễn Thị Hương") + P("Quản lý sản p
 L = [(72, 700, "Skills"), (72, 680, "SQL, Python"), (72, 660, "Education"), (72, 640, "BSc Economics, 2019")]
 R = [(330, 700, "Experience"), (330, 680, "Product Manager at Acme Ltd"), (330, 660, "Increased lead qualification by 20 percent"), (330, 640, "Led a team of 6 people")]
 pdf([[v for pair in zip(L, R) for v in pair]], "two-column-rowwise.pdf")
+
+# Hyphen / date-dash stored as byte 0xAD ("soft hyphen"), as some LaTeX (XeTeX) fonts do. pdf.js drops it.
+def pdf_softhyphen(path):
+    # The font maps byte 0xAD to U+00AD through a ToUnicode CMap, exactly what pdf.js drops as an
+    # invisible format character. (A plain WinAnsi 0xAD is read as '-' and does not show the problem.)
+    cmap = (b"/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /Adobe-Identity-UCS def "
+            b"/CMapType 2 def 1 begincodespacerange <00> <FF> endcodespacerange 1 beginbfchar <AD> <00AD> endbfchar "
+            b"endcmap CMapName currentdict /CMap defineresource pop end end")
+    font = (b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding "
+            b"/Differences [173 /hyphen] >> /ToUnicode 6 0 R >>")
+    runs = [(72, 720, "Jane Example"), (72, 700, "Led a high\\255impact, hands\\255on team of 6"),
+            (72, 680, "Product Manager, Acme Ltd"), (400, 680, "Sep. 2023 \\255 Mar. 2024"), (72, 660, "Co\\255founder, Beta Corp")]
+    stream = b"".join(f"BT /F1 12 Tf {x} {y} Td ({t}) Tj ET\n".encode() for x, y, t in runs)
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [5 0 R] /Count 1 >>", font,
+            b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"endstream",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 3 0 R >> >> >>",
+            b"<< /Length %d >>\nstream\n" % len(cmap) + cmap + b"\nendstream"]
+    buf = b"%PDF-1.4\n"; offs = []
+    for i, o in enumerate(objs, 1):
+        offs.append(len(buf)); buf += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    x = len(buf)
+    buf += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offs)
+    buf += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
+    open(os.path.join(OUT, path), "wb").write(buf)
+pdf_softhyphen("softhyphen-dashes.pdf")
 print("fixtures written to", OUT)

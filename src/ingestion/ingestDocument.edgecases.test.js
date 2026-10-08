@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ingestDocument, decodeText } from './ingestDocument';
 import { normalizeText } from './normalizeText';
-import { layoutHint, removeRepeatedPageLines, joinPdfItems } from './pdfText';
+import { layoutHint, removeRepeatedPageLines, joinPdfItems, restoreSoftHyphens, insertDashes } from './pdfText';
 import { wordXmlToText } from './zipText';
 
 const FIX = path.resolve(__dirname, '../../tests/fixtures/documents');
@@ -154,6 +154,22 @@ describe('removeRepeatedPageLines', () => {
     expect(r.removed).toBe(0);
     expect(r.pages[1]).toContain('Project 2: Example initiative 2');
   });
+  it('treats a bare number at the end as a page counter only when it equals the page position', () => {
+    const page = (n) => [`Opening line of part ${n}`, `Middle text unique to part ${n}`, `Closing text of part ${n}`, `February 10, 2026\tJane Doe - Resume\t${n}`].join('\n');
+    const r = removeRepeatedPageLines([page(1), page(2), page(3)]);
+    expect(r.removed).toBe(2);
+    expect(r.pages[0]).toContain('Jane Doe - Resume\t1');
+    expect(r.pages[1]).not.toContain('Jane Doe - Resume');
+    expect(r.pages[2]).not.toContain('Jane Doe - Resume');
+  });
+  it('does not treat a heading that ends in the page number as a counter (no wide gap)', () => {
+    const page = (n) => [`Chapter ${n}`, `Middle text unique to part ${n}`, `Closing text of part ${n}`, `Contents of section ${n}`].join('\n');
+    expect(removeRepeatedPageLines([page(1), page(2), page(3)]).removed).toBe(0);
+  });
+  it('does not treat a trailing number that is not the page position as a counter', () => {
+    const page = (n) => [`Opening line of part ${n}`, `Middle text unique to part ${n}`, `Closing text of part ${n}`, `Quarterly report 2026\t${n + 10}`].join('\n');
+    expect(removeRepeatedPageLines([page(1), page(2)]).removed).toBe(0);
+  });
   it('leaves a single page alone', () => { expect(removeRepeatedPageLines([A])).toEqual({ pages: [A], removed: 0 }); });
   it('does not touch short lines or lines that are not on every page', () => {
     const r = removeRepeatedPageLines(['Python\nrest of page one', 'Python\nrest of page two']);
@@ -184,5 +200,73 @@ describe('wordXmlToText', () => {
   it('reads text, paragraphs, tabs and entities', () => {
     const xml = '<w:p><w:r><w:t>Jane &amp; Co</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t xml:space="preserve">2021</w:t></w:r></w:p><w:p><w:r><w:t>Next &#233;</w:t></w:r></w:p>';
     expect(wordXmlToText(xml)).toBe('Jane & Co\t2021\nNext é\n');
+  });
+});
+
+describe('hyphens and dashes stored as invisible characters (LaTeX/XeTeX fonts)', () => {
+  it('a real PDF with such a font: hyphens and the date-range dash are restored', async () => {
+    const r = await ingestDocument(fixture('softhyphen-dashes.pdf'));
+    expect(r.status).toBe('ok');
+    expect(r.text).toContain('high-impact');
+    expect(r.text).toContain('hands-on');
+    expect(r.text).toContain('Co-founder');
+    expect(r.text).toMatch(/Sep\. 2023 - Mar\. 2024/);
+    expect(r.text).not.toContain('highimpact');
+    expect(r.stats.dashesRestored).toBe(4);
+    expect(r.stats.dashesUnreadable).toBe(0);
+    expect(r.notes.join(' ')).toMatch(/4 hyphen\/dash characters .* restored/);
+  });
+
+  it('an ordinary PDF reports nothing about dashes', async () => {
+    const r = await ingestDocument(fixture('standard.pdf'));
+    expect(r.stats.dashesRestored).toBe(0);
+    expect(r.notes.join(' ')).not.toMatch(/hyphen/);
+  });
+
+  it('restoreSoftHyphens matches runs to items in order and puts "-" back', () => {
+    const items = [{ str: 'A' }, { str: 'highimpact' }, { str: ' ' }, { str: 'Sep. 2023 Mar. 2024' }];
+    const runs = [['h', 'i', 'g', 'h', '­', 'i', 'm', 'p', 'a', 'c', 't'], ['S', 'e', 'p', '.', ' ', '2023', ' ', '­', ' ', 'Mar.', ' ', '2024']];
+    const r = restoreSoftHyphens(items, runs);
+    expect(r.items.map(i => i.str)).toEqual(['A', 'high-impact', ' ', 'Sep. 2023 - Mar. 2024']);
+    expect(r.restored).toBe(2);
+    expect(r.unreadable).toBe(0);
+    expect(items[1].str).toBe('highimpact'); // input untouched
+  });
+
+  it('keeps the spaces pdf.js added (the glyphs of a run carry none of them)', () => {
+    const items = [{ str: 'very highimpact work with fastgrowing teams' }];
+    const run = [...'veryhigh'].concat(['\u00AD'], [...'impactworkwithfast'], ['\u00AD'], [...'growingteams']);
+    const r = restoreSoftHyphens(items, [run]);
+    expect(r.items[0].str).toBe('very high-impact work with fast-growing teams');
+    expect(r.restored).toBe(2);
+  });
+
+  it('insertDashes: inside a word directly, at a space as " - ", at the ends without a space', () => {
+    expect(insertDashes('highimpact', [4])).toEqual({ text: 'high-impact', left: 0 });
+    expect(insertDashes('Sep. 2023 Mar. 2024', [8])).toEqual({ text: 'Sep. 2023 - Mar. 2024', left: 0 });
+    expect(insertDashes('Con', [3])).toEqual({ text: 'Con-', left: 0 });
+    expect(insertDashes('abc', [9])).toEqual({ text: 'abc', left: 1 });
+  });
+
+  it('a run that matches no item is counted, not guessed', () => {
+    const r = restoreSoftHyphens([{ str: 'something else' }], [['a', '­', 'b']]);
+    expect(r.items[0].str).toBe('something else');
+    expect(r.restored).toBe(0);
+    expect(r.unreadable).toBe(1);
+  });
+
+  it('two identical runs are each matched to their own item', () => {
+    const items = [{ str: 'Cofounder' }, { str: 'Cofounder' }];
+    const run = ['C', 'o', '­', 'f', 'o', 'u', 'n', 'd', 'e', 'r'];
+    const r = restoreSoftHyphens(items, [run, run]);
+    expect(r.items.map(i => i.str)).toEqual(['Co-founder', 'Co-founder']);
+    expect(r.restored).toBe(2);
+  });
+
+  it('a note says when a dash could not be restored', async () => {
+    const readPdf = async () => ({ pages: ['Jane Example\nProduct Manager at Acme Ltd, 2021 to 2024, SQL and Python'], restoredDashes: 0, unreadableDashes: 2 });
+    const r = await ingestDocument(fixture('standard.pdf'), { readPdf });
+    expect(r.stats.dashesUnreadable).toBe(2);
+    expect(r.notes.join(' ')).toMatch(/2 hyphen\/dash characters could not be restored/);
   });
 });

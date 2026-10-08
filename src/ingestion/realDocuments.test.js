@@ -9,7 +9,10 @@ import { ingestDocument } from './ingestDocument';
 import { listZipEntries, readZipEntry } from './zipText';
 
 const DIR = path.resolve(__dirname, '../../tests/fixtures/documents/real');
-const files = fs.existsSync(DIR) ? fs.readdirSync(DIR).filter(f => !f.startsWith('.') && f !== 'README.md').sort() : [];
+// Documents only: not README.md, hidden files, folders such as _extracted/, or the text dumps.
+const files = fs.existsSync(DIR)
+  ? fs.readdirSync(DIR).filter(f => /\.(pdf|docx|txt)$/i.test(f) && !f.startsWith('.') && !f.startsWith('_') && fs.statSync(path.join(DIR, f)).isFile()).sort()
+  : [];
 const asFile = (f) => { const b = fs.readFileSync(path.join(DIR, f)); return { name: f, size: b.length, arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) }; };
 
 const SAFE_EMAIL = /@(example\.(com|org|net)|test\.com|email\.com)$/i;
