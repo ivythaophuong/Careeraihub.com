@@ -76,6 +76,31 @@ It upserts `candidate_trust_profiles`. Triggers call it AFTER INSERT and AFTER U
 | F-11 | The Phase 1 evidence/verification schema exists and is locked down, but no application code reads or writes it, and no verifier service that would call `start_verification` / `apply_verification_attempt` was found in the repo | 1.1, repo grep, `docs/database/phase1/README.md` on branch `feature/phase1-foundation` ("nothing in the app writes to them") | Functional gap |
 | F-12 | Because no live code inserts `resume_scans`, a new account has ATS = 0 and a maximum trust score of 60 (35 + 25 from interview and STAR). The Roadmap and Dashboard use 65 as a milestone | formula (1.6), audit §4.1 | Medium (functional) |
 
+### Evidence class of each finding
+
+Four classes are used. **CONFIRMED IN PRODUCTION**: read from the live catalog on 2026-10-09 (a rule, a grant, a trigger or a function body exists).
+**CONFIRMED IN REPOSITORY**: read in code on `main`. **INFERRED RISK**: follows from the two above but was not exercised; the behaviour is not proven.
+**UNKNOWN**: not established. A finding that says "may" or "is permitted" is a statement about rules, not about something that happened.
+
+| Id | CONFIRMED IN PRODUCTION | CONFIRMED IN REPOSITORY | INFERRED RISK (not tested) | UNKNOWN |
+|---|---|---|---|---|
+| F-1 | owner-scoped ALL policies and grants on the three input tables; recompute function and AFTER INSERT/UPDATE triggers; range checks `NOT VALID` | the browser inserts `avg_score` (`mock_sessions`) and `score` (`star_stories`) from AI output it parsed; `resume_scans` has no live writer | a user can raise their own `trust_score` by writing a row with a high score | whether anyone has done so; how many rows exist |
+| F-2 | candidate UPDATE policy without `with_check`; UPDATE granted on all `trust_matches` columns; `lock_row_parties` body | no app code touches `trust_matches` | a candidate can change `match_score`/`recruiter_action` on their own match | whether any match rows exist |
+| F-3 | owner-write policy on `user_memory`; the `evidence` model and its server-only functions | the app stores `credentials[].status` in `user_memory`; the app never uses `evidence` | a user can mark a credential `verified` | whether anything downstream reads that status as trust (TrustMatch does not, per the repo) |
+| F-4 | policy "recruiters can read visible profiles"; `is_verified_employer_member()` body (any verified employer) | Employer Portal reads `candidate_trust_profiles` | a verified recruiter can read all columns of every visible profile | number of verified employers and visible profiles |
+| F-5 | no DELETE triggers on the input tables | "Clear memory" deletes 8 tables and not `candidate_trust_profiles`; STAR delete at `STARBuilder.jsx:88` | the stored score and the profile stay after the inputs are deleted | whether the profile row is expected to be removed (product) |
+| F-6 | `jd_analyses` has no `key_requirements` or `critical_gaps` column | `JDAnalyzer.jsx:56` writes both | the insert fails (PostgREST rejects unknown columns) and only a save warning shows | the real failure behaviour in the app; not observed |
+| F-7 | `profiles` owner-write policy, no trigger | no app code reads `is_pro`/`account_type` | none today | later use of these columns |
+| F-8 | anonymous INSERT policies on three tables | no code on `main` references these tables (grep); callers, if any, are on other branches or outside the repo | spam or unbounded growth | actual volume |
+| F-9 | TRUNCATE/TRIGGER/REFERENCES granted to `anon`/`authenticated` | – | not reachable through REST | direct database access paths |
+| F-10 | insert policy does not check the job's employer | – | cross-employer match rows | whether it matters without a matching engine |
+| F-11 | evidence schema, server functions, no policy on issuers | no app or verifier code on `main` | the verification model is unused | whether any verifier service exists elsewhere (deployed functions not compared) |
+| F-12 | recompute formula, zero for missing, triggers | no live writer of `resume_scans` | new accounts cap at 60 | whether other deployed clients write `resume_scans` |
+
+**RLS enabled is not protection by itself.** Section 2 lists what was checked beyond the switch: each policy's expression, column privileges, function
+EXECUTE grants and trigger bodies. Rules read from the catalog show what the database will do; they were not exercised with real requests, and none of
+this replaces the actor × table tests planned in [the plan](plans/PLAN-score-and-consent-integrity.md).
+
 ## 5. Earlier statements this evidence changes
 
 | Earlier statement | Now |
