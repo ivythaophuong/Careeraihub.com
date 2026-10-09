@@ -63,4 +63,4 @@ A fallback model may answer differently from the primary one: JSON shape is stil
 | Groq | No retention by default; logs for troubleshooting or abuse up to 30 days; Zero Data Retention setting; no training on inputs/outputs | whether a free account can enable ZDR: UNKNOWN |
 | DeepInfra | Inputs not stored to disk, content not logged, no training, except Google/Anthropic models where those companies' policies apply | where data is processed: not stated |
 | Mistral | Free Experiment plan: data may be used for training unless opted out in the Admin Console; paid plans: not used for training (secondary sources, official page not readable) | confirm on Mistral's own page |
-| OpenRouter (`:free` models) | depends on the underlying model host; not checked | UNKNOWN |
+| OpenRouter | Does not store prompts unless the account opts in. Requests carry `provider: { zdr: true }`, so only Zero Data Retention endpoints are used (docs: openrouter.ai/docs/guides/features/zdr) | whether `:free` models have a ZDR endpoint: UNKNOWN. If not, the request fails and the next provider is tried |
