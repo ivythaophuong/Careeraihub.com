@@ -11,6 +11,7 @@ import { callProvider, pickProvider, resolveModel, setting, KEY_ENV, ProviderErr
 import { corsHeaders, json, fail, authenticate, createRateLimiter } from '../ai/handler.js';
 import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, overallScore } from '../_shared/starScoring.js';
 import { extractJSON } from '../_shared/extractJson.js';
+import { signingKey, hmacHex, sameText, rest, countLastDay } from '../_shared/receipt.js';
 
 export const LIMITS = {
   maxBodyBytes: 64 * 1024,
@@ -21,23 +22,6 @@ export const LIMITS = {
 };
 
 const defaultLimiter = createRateLimiter({ max: LIMITS.rateMax });
-const enc = new TextEncoder();
-
-const signingKey = (env) => setting(env, 'SCORING_SIGNING_KEY') || setting(env, 'SUPABASE_SERVICE_ROLE_KEY');
-
-async function hmacHex(key, text) {
-  const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', k, enc.encode(text));
-  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-const sameText = (a, b) => {
-  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
-  let d = 0;
-  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return d === 0;
-};
-
 // What the receipt covers. Fixed field order so the same content always signs the same way.
 const canonical = (uid, ts, story, scores, refined, oneLiner) =>
   JSON.stringify([uid, ts, SECTIONS.map(k => story[k]), SECTIONS.map(k => scores[k]), SECTIONS.map(k => refined[k]), oneLiner]);
@@ -84,11 +68,6 @@ async function review(body, user, env, fetchImpl, cors, now) {
   return json(200, { result, receipt: { ts, sig } }, cors);
 }
 
-const rest = (env, fetchImpl, path, init = {}) => fetchImpl(`${env.SUPABASE_URL}/rest/v1/${path}`, {
-  ...init,
-  headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json', ...init.headers },
-});
-
 async function save(body, user, env, fetchImpl, cors, now) {
   const { story, error } = readStory(body.story);
   if (error) return fail(400, error, cors);
@@ -117,12 +96,7 @@ async function save(body, user, env, fetchImpl, cors, now) {
     const existing = await dupRes.json();
     if (existing[0]) return json(200, { saved: true, id: existing[0].id, score: existing[0].score, duplicate: true }, cors);
 
-    const since = new Date(now() - 24 * 60 * 60 * 1000).toISOString();
-    const cnt = new URLSearchParams({ select: 'id', user_id: `eq.${user.id}`, created_at: `gte.${since}` });
-    const cntRes = await rest(env, fetchImpl, `star_stories?${cnt}`, { headers: { Prefer: 'count=exact', Range: '0-0' } });
-    if (!cntRes.ok) throw new Error(`count ${cntRes.status}`);
-    const total = Number((cntRes.headers.get('content-range') || '').split('/')[1]);
-    if (!Number.isFinite(total)) throw new Error('count unreadable');
+    const total = await countLastDay(env, fetchImpl, 'star_stories', user.id, now());
     if (total >= LIMITS.dailySaves) return fail(429, 'Daily limit of saved stories reached. Please try again tomorrow.', cors);
 
     const ins = await rest(env, fetchImpl, 'star_stories', {
