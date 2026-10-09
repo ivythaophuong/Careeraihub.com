@@ -10,6 +10,8 @@
 // Default mode always exits 0 so it can run before any fix exists. With --desired it exits 1 if any scenario is still OPEN,
 // which is how a fix PR proves itself. Controls (behaviour that must hold before and after a fix) always fail the run if broken.
 //
+// Example after a fix exists: REPO=... node s0-integrity-findings.mjs --desired --apply=docs/database/proposed/2026-10-09-recompute-score-on-delete.sql
+//
 // Run (the package is not a project dependency; install it in any scratch folder):
 //   npm i @electric-sql/pglite
 //   cp docs/database/replica-test/s0-integrity-findings.mjs <scratch>/ && cd <scratch>
@@ -27,6 +29,8 @@ import path from 'node:path';
 
 const REPO = process.env.REPO || path.resolve(process.cwd(), '../../..');
 const DESIRED = process.argv.includes('--desired');
+// --apply=<path relative to the repo> (repeatable): apply a proposed fix script after the baseline, so the scenarios show what it fixes.
+const APPLY = process.argv.filter((a) => a.startsWith('--apply=')).map((a) => a.slice('--apply='.length));
 const read = (p) => fs.readFileSync(path.join(REPO, p), 'utf8');
 
 async function freshDb() {
@@ -45,6 +49,7 @@ async function freshDb() {
     grant select, insert, update, delete on all tables in schema public to authenticated;
     grant select, insert, update, delete on public.trust_matches, public.candidate_trust_profiles,
       public.resume_scans, public.mock_sessions, public.star_stories to anon;`);
+  for (const f of APPLY) await db.exec(read(f));
   return db;
 }
 
