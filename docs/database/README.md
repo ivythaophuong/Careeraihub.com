@@ -93,3 +93,12 @@ What was checked after applying (read-only, `supabase db query --linked`):
 
 Not checked: "Clear memory" (it deletes eight tables at once) was skipped by the owner and should be repeated with a new throw-away account; a delete of a mock interview session.
 Waiting period: 24 hours with the Postgres logs watched for errors mentioning `trigger_recompute_trust_score_after_delete` before Step 2.
+
+## Applied to production: S3b `list_open_jobs` (2026-10-09, plan Step 2)
+
+Applied by the owner in the SQL Editor of project `ruibdsvrcctxgxctaxwe`, one run, result "Success". File: `proposed/2026-10-09-list-open-jobs.sql` (the statements from `begin;` to `commit;`).
+Undo: `proposed/2026-10-09-list-open-jobs.down.sql`.
+
+Verified afterwards (read-only, SQL Editor): the function exists (1 row); `anon` cannot execute it (false); `authenticated` can (true).
+
+Not checked: the 24-hour Postgres log review after Step 1 (the owner's confirmation was not recorded); a call through REST/GraphQL as a signed-in test account; a call without a token. Both are UNKNOWN on production.
