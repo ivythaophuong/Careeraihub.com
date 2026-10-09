@@ -70,7 +70,9 @@ a recruiter may read a candidate only with that candidate's consent.
 **Consequences:** recruiters cannot browse candidates; the app has no consent screen and the Employer Portal does not call the new function, so its candidate views
 return nothing until both exist. Matches and pipeline entries created earlier stay visible to their employer (ids, status, the recruiter's own notes).
 
-Tested only on the in-memory replica: `replica-test/s3-consent-only-access.mjs` (47 checks: no consent, each part, wrong purpose, other employer, unverified employer,
-revocation, expiry, probing, matches and pipeline, the service role, idempotence, four removed-safeguard controls, the down script) and
+Tested only on the in-memory replica: `replica-test/s3-consent-only-access.mjs` (80 checks: no consent, each part, wrong purpose, other employer, unverified employer,
+revocation, expiry, probing, matches and pipeline, the service role, idempotence, four removed-safeguard controls, the down script, plus a security matrix:
+no cross-candidate read or revoke, no recruiter access to consents, no edit of scope/employer/purpose/expiry/owner, invalid consents rejected, one-request revocation per
+employer, every protected path closed after revocation, and an exact column list for the recruiter function) and
 `replica-test/s0-integrity-findings.mjs --apply=<this script>` (F-1b, F-4a, F-4c, F-4d flip to FIXED). With S1, S2 and S3 applied together only F-1 stays OPEN.
 Not run against the real database.
