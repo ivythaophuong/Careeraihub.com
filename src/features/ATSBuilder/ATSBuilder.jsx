@@ -270,8 +270,8 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
           )}
         </div>
 
-        {/* Paste textarea — only shown when no file loaded */}
-        {!fileInfo ? (
+        {/* Paste textarea — shown when no file is loaded, and also after a failed parse so the error's advice (paste the text) is possible */}
+        {(!fileInfo || error) ? (
           <>
             <div style={{ textAlign: 'center', color: 'var(--lp-text3)', fontSize: 12 }}>or paste resume text</div>
             <textarea
@@ -738,9 +738,15 @@ function mapProfileToData(profile) {
   };
 }
 
-const BUILDER_DRAFT_KEY = 'careerai_builder_draft';
+// The builder draft lives in this browser, so it is stored per signed-in user. The old unscoped key leaked one person's resume into the next
+// account used on the same browser; it is removed the first time a scoped draft is looked up.
+const DRAFT_PREFIX = 'careerai_builder_draft';
+const LEGACY_DRAFT_KEY = 'careerai_builder_draft';
+export const builderDraftKey = (userId) => `${DRAFT_PREFIX}:${userId || 'guest'}`;
+export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(builderDraftKey(userId)); } catch {} };
 
-function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule }) {
+function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user }) {
+  const draftKey = builderDraftKey(user?.id);
   const [step, setStep] = useState(0);
   const [activeTemplate, setActiveTemplate] = useState('modern');
   const [skillInput, setSkillInput] = useState('');
@@ -749,12 +755,13 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const [data, setData] = useState(() => {
     if (restoredData) return restoredData;
     try {
-      const saved = localStorage.getItem(BUILDER_DRAFT_KEY);
+      localStorage.removeItem(LEGACY_DRAFT_KEY);
+      const saved = localStorage.getItem(draftKey);
       if (saved) return JSON.parse(saved);
     } catch {}
     return mapProfileToData(initialProfile);
   });
-  const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(BUILDER_DRAFT_KEY));
+  const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(draftKey));
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [versionLabel, setVersionLabel] = useState('');
@@ -763,8 +770,8 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // Autosave draft to localStorage on every change (skip sample placeholder data)
   useEffect(() => {
     if (isSample) return;
-    try { localStorage.setItem(BUILDER_DRAFT_KEY, JSON.stringify(data)); } catch {}
-  }, [data, isSample]);
+    try { localStorage.setItem(draftKey, JSON.stringify(data)); } catch {}
+  }, [data, isSample, draftKey]);
 
   // Sync restored data when user clicks Restore in history — only fires when non-null
   useEffect(() => {
@@ -1172,6 +1179,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
 
   // Called by UploadAndParseTab when parse succeeds — persist profile so re-login shows cards without re-parsing
   const handleProfileParsed = (parsedProfile) => {
+    clearBuilderDraft(user?.id); // a newly parsed resume must win over an older saved draft
     if (updateMemory) updateMemory(m => ({ ...m, parseProfile: parsedProfile }));
   };
 
@@ -1261,6 +1269,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
       )}
       {mainTab === 'builder' && entryMode === 'existing' && (
         <BuilderTab
+          user={user}
           initialProfile={memory?.parseProfile || null}
           memory={memory}
           onSaveVersion={handleSaveVersion}
@@ -1270,6 +1279,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
       )}
       {mainTab === 'builder' && entryMode === 'scratch' && (
         <BuilderTab
+          user={user}
           initialProfile={null}
           memory={memory}
           onSaveVersion={handleSaveVersion}

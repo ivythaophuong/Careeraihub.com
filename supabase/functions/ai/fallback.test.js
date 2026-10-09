@@ -84,7 +84,8 @@ describe('callWithFallback', () => {
     const groq = calls[1];
     expect(groq.url).toBe('https://api.groq.com/openai/v1/chat/completions');
     expect(groq.headers.Authorization).toBe('Bearer q-key');
-    expect(groq.body).toMatchObject({ model: 'openai/gpt-oss-120b', max_tokens: 321 });
+    expect(groq.body).toMatchObject({ model: 'openai/gpt-oss-120b', reasoning_effort: 'low', include_reasoning: false, max_completion_tokens: 2048 });
+    expect(groq.body.max_tokens).toBeUndefined();
     expect(modelFor({ ...env, GROQ_MODEL: 'custom-model' }, 'groq')).toBe('custom-model');
   });
   it.each([
@@ -117,6 +118,12 @@ describe('callWithFallback', () => {
     await callWithFallback({ env: ENV, messages: MSGS, maxTokens: 50 }, router({ 'generativelanguage': () => err(429), 'anthropic.com': () => anthropicOk('secret answer text') }));
     expect(info).toHaveBeenLastCalledWith('[ai] answered by anthropic (claude-sonnet-5-5) as a fallback');
     expect(JSON.stringify(info.mock.calls)).not.toMatch(/secret answer text|g-key|a-key/);
+  });
+  it('gives a Groq thinking model room for its reasoning, and leaves other Groq models alone', async () => {
+    const { groqBody } = await import('./providers.js');
+    expect(groqBody('openai/gpt-oss-120b', 2500, MSGS)).toMatchObject({ max_completion_tokens: 5000, reasoning_effort: 'low' });
+    expect(groqBody('openai/gpt-oss-120b', 8000, MSGS).max_completion_tokens).toBe(8192);
+    expect(groqBody('llama-3.1-8b-instant', 500, MSGS)).toEqual({ model: 'llama-3.1-8b-instant', max_completion_tokens: 500, messages: MSGS });
   });
   it('never puts a key in the log', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
