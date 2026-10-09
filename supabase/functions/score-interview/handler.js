@@ -8,7 +8,7 @@
 // average itself from the signed scores, so a changed score, answer or user, or a made-up item, is refused.
 // Known limits: the questions come from the `ai` function and are not signed (a user can practise on questions of their own choosing);
 // a valid session can be saved again (capped at 10 sessions per user per 24 hours) because mock_sessions has no column to remember it.
-import { callProvider, pickProvider, resolveModel, setting, KEY_ENV, ProviderError } from '../ai/providers.js';
+import { callWithFallback, providerChain, ProviderError } from '../ai/providers.js';
 import { corsHeaders, json, fail, authenticate, createRateLimiter } from '../ai/handler.js';
 import { PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildEvaluationPrompt, normalizeEvaluation } from '../_shared/interviewScoring.js';
 import { extractJSON } from '../_shared/extractJson.js';
@@ -37,18 +37,13 @@ async function evaluate(body, user, env, fetchImpl, cors, now) {
   if (!question || question.length > LIMITS.maxQuestionChars) return fail(400, 'The question is missing or too long.', cors);
   if (answer.length < MIN_ANSWER_CHARS) return fail(400, `Answer a bit more fully (at least ${MIN_ANSWER_CHARS} characters).`, cors);
   if (answer.length > MAX_ANSWER_CHARS) return fail(400, `The answer is too long (at most ${MAX_ANSWER_CHARS} characters).`, cors);
-  const provider = pickProvider(env);
-  if (!provider) { console.error('[score-interview] No provider key configured.'); return fail(500, 'AI service is not configured.', cors); }
+  if (providerChain(env).length === 0) { console.error('[score-interview] No provider key configured.'); return fail(500, 'AI service is not configured.', cors); }
   const resumeText = text(body.resumeText).slice(0, LIMITS.maxResumeChars);
   const resume = resumeText ? { kind: 'text', text: resumeText } : { kind: 'none' };
 
   let feedback;
   try {
-    const reply = await callProvider({
-      provider, model: resolveModel(provider, setting(env, 'AI_MODEL')), key: setting(env, KEY_ENV[provider]),
-      messages: [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }],
-      maxTokens: LIMITS.maxTokens, pdfBase64: null,
-    }, fetchImpl);
+    const reply = await callWithFallback({ env, messages: [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }], maxTokens: LIMITS.maxTokens, pdfBase64: null }, fetchImpl);
     feedback = normalizeEvaluation(extractJSON(reply));
   } catch (e) {
     if (e instanceof ProviderError) {

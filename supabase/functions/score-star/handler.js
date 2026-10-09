@@ -7,7 +7,7 @@
 //
 // The receipt is an HMAC over (user id, time, story, section scores, rewrite, one-liner). 'save' recomputes the overall
 // score from the signed section scores, so changing any number or the rewrite in transit invalidates the receipt.
-import { callProvider, pickProvider, resolveModel, setting, KEY_ENV, ProviderError } from '../ai/providers.js';
+import { callWithFallback, providerChain, ProviderError } from '../ai/providers.js';
 import { corsHeaders, json, fail, authenticate, createRateLimiter } from '../ai/handler.js';
 import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, overallScore } from '../_shared/starScoring.js';
 import { extractJSON } from '../_shared/extractJson.js';
@@ -43,16 +43,12 @@ const clipText = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 async function review(body, user, env, fetchImpl, cors, now) {
   const { story, error } = readStory(body.story);
   if (error) return fail(400, error, cors);
-  const provider = pickProvider(env);
-  if (!provider) { console.error('[score-star] No provider key configured.'); return fail(500, 'AI service is not configured.', cors); }
+  if (providerChain(env).length === 0) { console.error('[score-star] No provider key configured.'); return fail(500, 'AI service is not configured.', cors); }
   const ctx = body.context && typeof body.context === 'object' ? body.context : {};
   const prompt = buildStarPrompt(story, { role: clipText(ctx.role, 80), level: clipText(ctx.level, 40), industry: clipText(ctx.industry, 80) });
   let result;
   try {
-    const text = await callProvider({
-      provider, model: resolveModel(provider, setting(env, 'AI_MODEL')), key: setting(env, KEY_ENV[provider]),
-      messages: [{ role: 'user', content: prompt }], maxTokens: LIMITS.maxTokens, pdfBase64: null,
-    }, fetchImpl);
+    const text = await callWithFallback({ env, messages: [{ role: 'user', content: prompt }], maxTokens: LIMITS.maxTokens, pdfBase64: null }, fetchImpl);
     result = normalizeStarResult(extractJSON(text));
   } catch (e) {
     if (e instanceof ProviderError) {

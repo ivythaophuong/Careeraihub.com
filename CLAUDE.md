@@ -28,7 +28,7 @@ There is no React Router. `App.jsx` keeps an `activeModule` state (mirrored in `
 
 ### AI integration
 
-All LLM calls go through `callLLM` in `src/lib/ai.jsx`, which POSTs to the `ai` Edge Function (`supabase/functions/ai`) with the user's Supabase token. The function checks the caller with the auth server, rate-limits (20 req/min/user/instance), chooses the provider and model from its own secrets (`AI_PROVIDER`, `AI_MODEL`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`) and returns `{ text }`. Defaults are in `supabase/functions/ai/providers.js`. There is no automatic failover to a second provider. The client retries once on 429, 5xx, timeout or network error.
+All LLM calls go through `callLLM` in `src/lib/ai.jsx`, which POSTs to the `ai` Edge Function (`supabase/functions/ai`) with the user's Supabase token. The function checks the caller with the auth server, rate-limits (20 req/min/user/instance), chooses the provider and model from its own secrets (`AI_PROVIDER`, `AI_MODEL`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`) and returns `{ text }`. Defaults are in `supabase/functions/ai/providers.js`. If the chosen provider is busy, down or rejects our key, the function tries the other providers that have a key (`callWithFallback` in `providers.js`; order set by `AI_FALLBACKS`, default all keyed providers). Groq and OpenRouter (`GROQ_API_KEY`, `OPENROUTER_API_KEY`) are OpenAI-compatible fallbacks; they cannot read PDFs. The client retries once on 429, 5xx, timeout or network error.
 
 AI output is parsed with `extractJSON`. Figures an AI rewrite adds that are not in the user's text are neutralised by `src/lib/factGuard.js` / `numberGuard.js`, but these only cover figures, not ownership or scope inflation, and are not used by every module (see `docs/VERIFICATION_STATUS.md`).
 
@@ -56,7 +56,7 @@ Docker multi-stage build: Node 20 runs `npm ci` and `npm run build`; `nginx:alpi
 
 ## Environment variables
 
-See `.env.example`. Browser (Vite, public): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON`, `VITE_LLM_RETRY_DELAY_MS`. Edge Function secrets (server only): `AI_PROVIDER`, `AI_MODEL`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ALLOWED_ORIGINS`. Never put a provider key in a `VITE_` variable; `tests/security/noSecretsInClient.test.js` fails if one appears.
+See `.env.example`. Browser (Vite, public): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON`, `VITE_LLM_RETRY_DELAY_MS`. Edge Function secrets (server only): `AI_PROVIDER`, `AI_MODEL`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `AI_FALLBACKS`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ALLOWED_ORIGINS`. Never put a provider key in a `VITE_` variable; `tests/security/noSecretsInClient.test.js` fails if one appears.
 
 ## Testing
 

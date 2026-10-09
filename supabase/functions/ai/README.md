@@ -16,10 +16,20 @@ user's login token; the function checks who they are, applies limits, calls the 
      ANTHROPIC_API_KEY=sk-ant-... \
      ALLOWED_ORIGINS=https://careeraihub.com,https://www.careeraihub.com
    # optional extras: GEMINI_API_KEY=... OPENAI_API_KEY=...
+   # fallbacks (used when the chosen provider is busy or down): GROQ_API_KEY=... OPENROUTER_API_KEY=...
+   # optional: AI_FALLBACKS=groq,openrouter  (order of fallbacks; default = every provider that has a key)
    ```
 
    `SUPABASE_URL` and `SUPABASE_ANON_KEY` are provided automatically.
 3. Deploy: `supabase functions deploy ai`
+
+## Fallback
+
+If the chosen provider answers 429, 5xx, 401/403/404 (our key or model), times out, is unreachable or returns nothing, the function tries the
+next provider that has a key. It does not fall back for a reply cut off by the length limit, a safety block, or 400/413/422 (the request itself
+is wrong). Requests with a PDF go only to Anthropic, Gemini or OpenAI. Groq and OpenRouter use their own default model (`GROQ_MODEL`,
+`OPENROUTER_MODEL` override it), never `AI_MODEL`. Only the provider name and error kind are logged, never keys or bodies. Tests: `fallback.test.js`.
+A fallback model may answer differently from the primary one: JSON shape is still checked by the callers (`extractJSON`, `normalize*`).
 
 ## Behaviour
 
