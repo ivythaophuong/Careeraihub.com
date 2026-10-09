@@ -5,7 +5,11 @@ vi.mock('../../lib/ai.jsx', () => ({
   callLLM: vi.fn(),
   extractJSON: (s) => { try { return JSON.parse(s); } catch { return { error: true }; } },
 }));
+vi.mock('../../lib/serverScoring', () => ({
+  serverScoringOn: () => globalThis.__serverScoring === true, evaluateAnswerOnServer: vi.fn(), saveInterviewOnServer: vi.fn(),
+}));
 import { callLLM } from '../../lib/ai.jsx';
+import { evaluateAnswerOnServer, saveInterviewOnServer } from '../../lib/serverScoring';
 import HiringManagerSim from './HiringManagerSim';
 
 const QUESTIONS = { questions: [1, 2, 3, 4, 5].map(n => ({ question: `Interview question number ${n}, tell me more?`, focus: `Focus ${n}`, why: `Why ${n}` })) };
@@ -243,5 +247,47 @@ describe('recent sessions', () => {
     expect(screen.getByText('Series B · PM')).toBeTruthy();
     expect(screen.getByText('Mock interview')).toBeTruthy();
     expect(screen.getByText('–')).toBeTruthy();
+  });
+});
+
+describe('server scoring (F-1): the browser never sends a score to be stored', () => {
+  beforeEach(() => { globalThis.__serverScoring = true; });
+  afterEach(() => { globalThis.__serverScoring = false; });
+
+  const serverEval = (score, n) => ({ feedback: EVAL(score, { verdict: 'x' }), receipt: { ts: n, sig: `sig${n}` } });
+
+  it('grades through the server, saves through the server and writes no mock_sessions row from the browser', async () => {
+    callLLM.mockImplementation(async () => JSON.stringify(QUESTIONS));
+    let n = 0;
+    evaluateAnswerOnServer.mockImplementation(async () => serverEval([80, 60][n], ++n));
+    saveInterviewOnServer.mockResolvedValue({ saved: true, avgScore: 70, questionsCount: 2 });
+    const p = setup(); await start();
+    answer(); submit(); await screen.findByLabelText('Answer score'); fireEvent.click(screen.getByText(/Next Question/));
+    await screen.findByText(/Question 2\/5/);
+    answer(); submit(); await screen.findByLabelText('Answer score');
+    fireEvent.click(screen.getByText(/Finish & see results/));
+    await screen.findByText(/Interview Results/);
+
+    // only the question-writing call goes to the model directly; grading went to the server
+    expect(callLLM).toHaveBeenCalledTimes(1);
+    expect(saveInterviewOnServer).toHaveBeenCalledWith('seriesb', '', [
+      expect.objectContaining({ score: 80, ts: 1, sig: 'sig1' }),
+      expect.objectContaining({ score: 60, ts: 2, sig: 'sig2' }),
+    ]);
+    expect(p.updateMemory).toHaveBeenCalledTimes(1);
+    expect(p.updateMemory.mock.calls[0][1]).toBeUndefined();
+    expect(p.updateMemory.mock.calls[0][0]({}).mockSessions[0]).toMatchObject({ questionsCount: 2, avgScore: 70 });
+    expect(screen.getByText(/Saved to your history/)).toBeTruthy();
+  });
+
+  it('says the session was not saved when the server refuses', async () => {
+    callLLM.mockImplementation(async () => JSON.stringify(QUESTIONS));
+    evaluateAnswerOnServer.mockResolvedValue(serverEval(75, 1));
+    saveInterviewOnServer.mockRejectedValue(new Error('Daily limit of saved interview sessions reached.'));
+    const p = setup(); await start();
+    answer(); submit(); await screen.findByLabelText('Answer score');
+    fireEvent.click(screen.getByText(/Finish & see results/));
+    expect((await screen.findByText(/Not saved to your history/)).textContent).toMatch(/Daily limit/);
+    expect(p.updateMemory).not.toHaveBeenCalled();
   });
 });

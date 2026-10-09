@@ -3,9 +3,10 @@ import { C } from '../../styles/theme';
 import { Card, Btn, Badge, Spinner } from '../../components/CommonUI';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { pickResumeSource } from '../../lib/resumeSource';
+import { serverScoringOn, evaluateAnswerOnServer, saveInterviewOnServer } from '../../lib/serverScoring';
 import {
   PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildQuestionsPrompt, normalizeQuestions, buildEvaluationPrompt,
-  normalizeEvaluation, findInventedInFeedback, summarize, buildSessionRecord, toSessionRow,
+  normalizeEvaluation, findInventedInFeedback, summarize, buildSessionRecord, toSessionRow, verdictFor,
 } from './interview';
 
 const scoreColor = (s) => (s >= 75 ? C.green : s >= 60 ? C.gold : C.red);
@@ -64,11 +65,18 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     if (answer.trim().length < MIN_ANSWER_CHARS) { setErr(`Answer a bit more fully (at least ${MIN_ANSWER_CHARS} characters) so there is something to evaluate.`); return; }
     setBusy('feedback'); setErr('');
     try {
-      const raw = await callLLM([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume }) }], 1800);
-      const fb = normalizeEvaluation(extractJSON(raw));
+      let fb, receipt;
+      if (serverScoringOn()) {
+        // The server grades the answer; the receipt proves the score came from it and is needed to save the session.
+        const reply = await evaluateAnswerOnServer({ personaId, role: role.trim(), question: q.question, answer, resumeText: resume.kind === 'none' || resume.kind === 'pdf' ? '' : resume.text });
+        fb = reply.feedback; receipt = reply.receipt;
+      } else {
+        const raw = await callLLM([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume }) }], 1800);
+        fb = normalizeEvaluation(extractJSON(raw));
+      }
       setCurrent(fb);
       setWarnings(findInventedInFeedback({ question: q.question, answer }, fb));
-      setResults(r => [...r, { question: q.question, focus: q.focus, answer, ...fb }]);
+      setResults(r => [...r, { question: q.question, focus: q.focus, answer, ...fb, receipt }]);
     } catch (e) {
       // The typed answer stays in the box so the user can simply retry.
       fail(e, 'Create a free account or sign in to get feedback.', 'Could not evaluate your answer. Please try again.');
@@ -77,17 +85,38 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     }
   };
 
-  const finish = (finalResults) => {
+  const finish = async (finalResults) => {
+    if (busy) return;
     const summary = summarize(finalResults);
     if (summary.answered > 0) {
-      const rec = buildSessionRecord({ personaId, role: role.trim(), results: finalResults, summary });
-      // Second argument writes the mock_sessions row; the server-side trust-score trigger averages
-      // avg_score from that table to compute interview_score, so it must be persisted, not only kept in memory.
-      updateMemory?.(
-        m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, 20) }),
-        { table: 'mock_sessions', data: toSessionRow(rec) }
-      );
-      setSaved(true);
+      let saveErr = '';
+      if (serverScoringOn()) {
+        // The server computes the average from the graded answers and writes the mock_sessions row itself.
+        setBusy('saving');
+        try {
+          const items = finalResults.filter(r => !r.skipped).map(r => ({ question: r.question, answer: r.answer, score: r.score, ts: r.receipt?.ts, sig: r.receipt?.sig }));
+          const reply = await saveInterviewOnServer(personaId, role.trim(), items);
+          summary.avgScore = reply.avgScore;
+          summary.verdict = verdictFor(reply.avgScore);
+          const rec = buildSessionRecord({ personaId, role: role.trim(), results: finalResults, summary });
+          updateMemory?.(m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, 20) }));
+          setSaved(true);
+        } catch (e) {
+          saveErr = e.message || 'Your session could not be saved.';
+        } finally {
+          setBusy(null);
+        }
+      } else {
+        const rec = buildSessionRecord({ personaId, role: role.trim(), results: finalResults, summary });
+        // Second argument writes the mock_sessions row; the server-side trust-score trigger averages
+        // avg_score from that table to compute interview_score, so it must be persisted, not only kept in memory.
+        updateMemory?.(
+          m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, 20) }),
+          { table: 'mock_sessions', data: toSessionRow(rec) }
+        );
+        setSaved(true);
+      }
+      if (saveErr) setErr(saveErr);
     }
     setPhase('summary');
   };
@@ -187,6 +216,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
               </div>
             </div>
             {saved && <div style={{ color: C.green, fontSize: 11, marginTop: 8 }}>✓ Saved to your history</div>}
+            {!saved && err && <div role="alert" style={{ color: C.red, fontSize: 11, marginTop: 8 }}>⚠️ Not saved to your history: {err}</div>}
           </Card>
         )}
 
