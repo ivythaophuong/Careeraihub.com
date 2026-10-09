@@ -15,5 +15,5 @@ a receipt older than 2 hours. The overall score is recomputed from the signed se
 twice; at most 30 stories per user per 24 hours; 10 requests per minute per user per function instance.
 
 Deploy (no new secrets needed): `supabase functions deploy score-star --project-ref ruibdsvrcctxgxctaxwe`.
-The site uses it only when built with `VITE_SERVER_SCORING=true`. Until slice 3 revokes the browser's write access to the
+The site uses it unless built with `VITE_SERVER_SCORING=false`. Until slice 3 revokes the browser's write access to the
 score columns, the old browser path still works and a forged score is still possible. Tests: `handler.test.js`.

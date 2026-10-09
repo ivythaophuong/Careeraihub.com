@@ -14,4 +14,4 @@ session and receipts older than 2 hours, and computes the average itself. At mos
 Known limits (accepted): the questions come from the `ai` function and are not signed, so a user can practise on questions of
 their own choosing; a valid session can be saved again (within the daily cap) because `mock_sessions` has no column to remember it.
 
-Deploy: `supabase functions deploy score-interview --project-ref ruibdsvrcctxgxctaxwe`. The site uses it only when built with `VITE_SERVER_SCORING=true`.
+Deploy: `supabase functions deploy score-interview --project-ref ruibdsvrcctxgxctaxwe`. The site uses it unless built with `VITE_SERVER_SCORING=false`.
