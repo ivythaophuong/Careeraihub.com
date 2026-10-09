@@ -153,3 +153,12 @@ no `COPY`/`INSERT`, no keys). Nothing is truncated any more. Class: **CONFIRMED 
 - **Options for the owner, none applied:** (1) if nobody needs it: `alter role gtm_readonly nologin` is reversible and does not affect the application, which connects through the API roles;
   (2) if a tool needs it: rotate its password, remove `BYPASSRLS`, and give it a narrower source (aggregate views without personal data) instead of `SELECT` on every table;
   (3) in every case review who holds the credential. Because the role can read personal data, treat "who has had access" as a privacy question as well as a security one.
+
+### F-13 status: resolved on 2026-10-09 (owner action)
+- **Origin established (CONFIRMED on the owner's machine):** the role was created by the owner around 2026-09-30 for the go-to-market workspace of another product (ZenDMS, folder `gtm/`), whose
+  configuration connects as `gtm_readonly.obtmsvhejvcfrkfyucev` (a different Supabase project from this one, `ruibdsvrcctxgxctaxwe`). Nothing found on the machine pointed the role at this project; the
+  copy here is most likely a creation run against the wrong project (not proven).
+- **Action (owner, SQL Editor of this project):** `alter role ... nologin`, `grant gtm_readonly to postgres` (needed for `drop owned by`), `drop owned by gtm_readonly`, `drop role gtm_readonly`.
+- **Verified (owner, CLI, read-only):** `select count(*) from pg_roles where rolname = 'gtm_readonly'` returned 0 on this project. The ZenDMS project was not touched.
+- **Still worth doing:** re-run `export-catalog.sh` and keep the new export as the baseline; confirm that no default privilege still names the role
+  (`select count(*) from pg_default_acl where defaclacl::text like '%gtm_readonly%'` should be 0).
