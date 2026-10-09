@@ -5,10 +5,13 @@
 // and skips UploadAndParseTab's own handleFile — the function that actually runs when a user drops a file
 // on the real page (mammoth.extractRawText for .docx, extractTextFromPdfFile/pdfjs-dist for .pdf, a plain
 // TextDecoder for .txt). No existing test fires a file input change event, so nobody had verified that the
-// live handler really sets rawText, which really trips the Gate 2 useEffect, which really renders the
-// Deterministic score panel — the literal "upload" step of "upload -> extraction -> validation -> scoring
-// -> UI" that Gate 4 exists to check end to end, through the component tree, not through computeDeterministicScore
+// live handler really sets rawText, which really trips the Gate 2 useEffect, which really computes the
+// deterministic score — the literal "upload" step of "upload -> extraction -> validation -> scoring -> UI"
+// that Gate 4 exists to check end to end, through the component tree, not through computeDeterministicScore
 // called directly.
+//
+// Revised 2026-10-09 (product decision, same as Gate 3): the score is computed silently and never rendered
+// — read via console.log('[ATS Builder] deterministic score (not shown in UI):', score), not the DOM.
 //
 // Scope, deliberately: only .docx and .txt go through this test with the REAL library (mammoth has no
 // browser-only dependency; a bare TextDecoder needs nothing special). The .pdf path
@@ -19,16 +22,20 @@
 // was available this session to drive the dev server, so it is not covered by an automated test here.
 //
 // It WAS checked by hand: 2026-10-09, `npm run dev`, real Chrome, dropping tests/fixtures/documents/
-// canva-style-single-col.pdf on the live page. Result matched this file's and Gate 3's own expectation for
-// that exact fixture exactly — fileInfo showed "canva-style-single-col.pdf, 33 words", and the panel showed
-// completeness 100/100, measurable_impact 100/100 ("2 of 2 experience bullets..."), chronology_health
+// canva-style-single-col.pdf on the live page (the panel was still visible at that point, before the
+// same-day decision below to stop rendering it). Result matched this file's and Gate 3's own expectation
+// for that exact fixture exactly — fileInfo showed "canva-style-single-col.pdf, 33 words", and the panel
+// showed completeness 100/100, measurable_impact 100/100 ("2 of 2 experience bullets..."), chronology_health
 // 100/100. The AI parse call failed in the same screenshot (CORS: the deployed `ai` function's
 // ALLOWED_ORIGINS is the production domain only, not localhost — unrelated to this integration, a
-// pre-existing local-dev limitation) and the Deterministic panel was unaffected by that failure, which is
-// the real-browser confirmation of the same "AI outage" case this file's own last test simulates with a
+// pre-existing local-dev limitation) and the score was computed unaffected by that failure, which is the
+// real-browser confirmation of the same "AI outage" case this file's own last test simulates with a
 // rejected mock. That manual check is a one-time confirmation, not a regression test: nothing here will
 // catch a future change that breaks the real .pdf upload path, since no automated test drives it.
-import { describe, it, expect, vi, afterEach } from 'vitest';
+//
+// Separately, 2026-10-09: the panel itself was removed from the UI on request — the screen must look
+// exactly as it did before Gate 2 — so every assertion below now reads the console.log, not the DOM.
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -64,17 +71,24 @@ const base = { user: { id: 'u1', token: 't' }, memory: {}, updateMemory: vi.fn()
 const getFileInput = () => document.querySelector('input[type="file"]');
 const dropFile = (file) => fireEvent.change(getFileInput(), { target: { files: [file] } });
 
-const overallRow = () => screen.getByText('Overall').nextSibling.textContent;
-const partScore = (label) => screen.getByText(label).nextSibling.textContent;
+const LOG_PREFIX = '[ATS Builder] deterministic score (not shown in UI):';
+let logSpy;
+beforeEach(() => { logSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
+afterEach(() => { logSpy.mockRestore(); });
+const lastLoggedScore = () => {
+  const matches = logSpy.mock.calls.filter(c => c[0] === LOG_PREFIX);
+  return matches[matches.length - 1]?.[1];
+};
+const partOf = (id) => lastLoggedScore()?.parts.find(p => p.id === id);
 
 describe('Gate 4 — real .docx upload through the live drop zone (not the resumeText prop)', () => {
-  it('standard.docx: fileInfo renders, and a real (not fabricated) score reaches the panel via a real file drop', async () => {
+  it('standard.docx: fileInfo renders, and a real (not fabricated) score is computed via a real file drop', async () => {
     callLLM.mockResolvedValue('{}');
     render(<ATSBuilder {...base} />);
     dropFile(docxFile('standard.docx'));
 
     await waitFor(() => expect(screen.getByText(/standard\.docx/)).toBeTruthy());
-    await waitFor(() => expect(screen.queryByText(/Deterministic score/i)).toBeTruthy());
+    await waitFor(() => expect(lastLoggedScore()).toBeTruthy());
 
     // mammoth's flat paragraph-to-text join loses the structure pdf.js's column-gap heuristic gives
     // standard.pdf (Gate 3): standard.docx's text has a name and an unlabelled job/skills line, but no
@@ -83,18 +97,19 @@ describe('Gate 4 — real .docx upload through the live drop zone (not the resum
     // boundary Gate 3 already names for standard.pdf, now reached through the real upload path instead of
     // a hand-built prop. This is a known limitation, not a new regression: verified with the real number,
     // not assumed.
-    expect(overallRow()).toBe('25/100');
-    expect(partScore('completeness')).toBe('25/100');
-    expect(screen.getByText(/experience or education: missing/)).toBeTruthy();
-    expect(partScore('measurable impact')).toBe('unknown'); // no bullet reached the extractor at all
+    expect(lastLoggedScore().score).toBe(25);
+    expect(partOf('completeness').score).toBe(25);
+    expect(partOf('completeness').evidence).toContain('experience or education: missing');
+    expect(partOf('measurable_impact').score).toBeNull(); // no bullet reached the extractor at all
+    expect(screen.queryByText(/Deterministic score/i)).toBeNull(); // never rendered
   });
 
-  it('a .docx with no document.xml: handleFile’s catch path shows a read error, never a silent 0/100', async () => {
+  it('a .docx with no document.xml: handleFile’s catch path shows a read error, and no score is ever computed', async () => {
     render(<ATSBuilder {...base} />);
     dropFile(docxFile('docx-missing-document-xml.docx'));
 
     await waitFor(() => expect(screen.getByText(/could not read file/i)).toBeTruthy());
-    expect(screen.queryByText(/Deterministic score/i)).toBeNull();
+    expect(lastLoggedScore()).toBeUndefined();
   });
 });
 
@@ -104,16 +119,16 @@ describe('Gate 4 — real .txt upload through the live drop zone', () => {
     render(<ATSBuilder {...base} />);
     dropFile(txtFile('Jane Example\njane@example.com\n\nExperience\nManager\tJan 2021 - Mar 2024\nAcme\n• Grew signups 20 percent'));
 
-    await waitFor(() => expect(screen.queryByText(/Deterministic score/i)).toBeTruthy());
-    expect(partScore('measurable impact')).toBe('100/100');
-    expect(partScore('chronology health')).toBe('100/100');
+    await waitFor(() => expect(lastLoggedScore()).toBeTruthy());
+    expect(partOf('measurable_impact').score).toBe(100);
+    expect(partOf('chronology_health').score).toBe(100);
   });
 
-  it('an empty .txt file shows a read error and no score panel, matching the empty-document contract (null, never 0)', async () => {
+  it('an empty .txt file shows a read error, matching the empty-document contract (nothing computed, never a 0)', async () => {
     render(<ATSBuilder {...base} />);
     dropFile(txtFile('   '));
 
     await waitFor(() => expect(screen.getByText(/could not extract text/i)).toBeTruthy());
-    expect(screen.queryByText(/Deterministic score/i)).toBeNull();
+    expect(lastLoggedScore()).toBeUndefined();
   });
 });

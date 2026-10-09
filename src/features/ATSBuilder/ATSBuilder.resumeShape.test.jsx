@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 
 afterEach(cleanup);
@@ -24,26 +24,37 @@ describe('ATSBuilder resumeText shapes', () => {
   });
 });
 
-// Gate 2 integration: a rule-based score shown alongside the existing AI profile, never replacing it.
-describe('ATSBuilder deterministic score panel (additive, alongside the existing AI profile)', () => {
+// Gate 2 integration, revised 2026-10-09 per product decision: the deterministic score is computed
+// silently alongside the existing AI profile, but never rendered — the UI must look exactly as it did
+// before Gate 2 (see ATSBuilder.gate3.test.jsx's and ATSBuilder.gate4.upload.test.jsx's own notes for the
+// full history). The only observable trace is console.log('[ATS Builder] deterministic score (not shown in
+// UI):', score), there for the person running the app in devtools, not for an end user.
+describe('ATSBuilder deterministic score (computed silently, never rendered)', () => {
   const base = { user: { id: 'u1', token: 't' }, memory: {}, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn() };
+  let logSpy;
+  beforeEach(() => { logSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
+  afterEach(() => { logSpy.mockRestore(); });
+  const loggedScore = () => {
+    const call = logSpy.mock.calls.find(c => c[0] === '[ATS Builder] deterministic score (not shown in UI):');
+    return call?.[1];
+  };
 
-  it('shows the new panel, with a real computed score, once resume text is present', () => {
+  it('computes a real score once resume text is present, and never puts it in the DOM', () => {
     render(<ATSBuilder {...base} resumeText={'Jane Example\njane@example.com\n\nExperience\nManager\tJan 2021 - Mar 2024\nAcme\n• Grew revenue by 20%'} />);
-    expect(screen.getByText(/Deterministic score/i)).toBeTruthy();
-    expect(screen.getByText('Overall').nextSibling.textContent).toMatch(/^\d+\/100$/);
+    expect(loggedScore().score).toEqual(expect.any(Number));
+    expect(screen.queryByText(/Deterministic score/i)).toBeNull();
   });
 
-  it('says "Not assessed" rather than a misleading 0 when the document could not be read', () => {
-    render(<ATSBuilder {...base} resumeText={'   '} />); // whitespace-only: nothing to score
-    expect(screen.queryByText(/Deterministic score/i)).toBeNull(); // no text at all: the panel does not appear
+  it('logs score: null (not a misleading 0) when the document could not be read', () => {
+    render(<ATSBuilder {...base} resumeText={'   '} />); // whitespace-only: nothing to score, so nothing is even attempted
+    expect(loggedScore()).toBeUndefined(); // resumeContent() empties this before it ever reaches computeDeterministicScore
+    expect(screen.queryByText(/Deterministic score/i)).toBeNull();
   });
 
-  it('does not alter the existing AI "ATS score" row: both can be present at once, clearly separate', () => {
+  it('does not alter the existing AI "ATS score" row, and never shows its own label anywhere', () => {
     render(<ATSBuilder {...base} resumeText={'Jane Example\njane@example.com'} />);
-    // The old AI row only appears once a profile has been parsed (it starts null until the AI call
-    // resolves); this just confirms the new panel's own label is distinct from the old row's label.
-    expect(screen.getByText(/Deterministic score \(new, rule-based/i)).toBeTruthy();
+    expect(loggedScore().score).toEqual(expect.any(Number));
+    expect(screen.queryByText(/Deterministic score/i)).toBeNull();
     expect(screen.queryByText('ATS score')).toBeNull(); // old row not shown yet (no AI profile parsed in this test)
   });
 });
