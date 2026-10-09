@@ -196,12 +196,12 @@ describe('provider call', () => {
   it('treats a blank or whitespace-only key as not configured and says which settings it saw (no values)', async () => {
     const r = await call(VALID, { env: { SUPABASE_URL: ENV.SUPABASE_URL, SUPABASE_ANON_KEY: 'a', AI_PROVIDER: 'gemini', GEMINI_API_KEY: '   ' } });
     expect(r.status).toBe(500);
-    expect(r.body.error.diag).toEqual({ aiProvider: 'gemini', keysPresent: { anthropic: false, gemini: false, openai: false }, keyLengths: { anthropic: 0, gemini: 0, openai: 0 } });
+    expect(r.body.error.diag).toEqual({ aiProvider: 'gemini', keysPresent: { anthropic: false, gemini: false, openai: false, groq: false, openrouter: false }, keyLengths: { anthropic: 0, gemini: 0, openai: 0, groq: 0, openrouter: 0 } });
   });
 
   it('the diagnostic never contains a secret value', async () => {
     const r = await call(VALID, { env: { SUPABASE_URL: ENV.SUPABASE_URL, SUPABASE_ANON_KEY: 'anon-key', AI_PROVIDER: 'openai', ANTHROPIC_API_KEY: 'sk-ant-SECRET' } });
-    expect(r.body.error.diag.keysPresent).toEqual({ anthropic: true, gemini: false, openai: false });
+    expect(r.body.error.diag.keysPresent).toEqual({ anthropic: true, gemini: false, openai: false, groq: false, openrouter: false });
     expect(JSON.stringify(r.body)).not.toContain('sk-ant-SECRET');
   });
 
