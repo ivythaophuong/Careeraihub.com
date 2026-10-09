@@ -121,3 +121,17 @@ SELECT and DELETE stay. The Edge Functions `score-star` and `score-interview` wr
 Evidence: the in-memory replica run `s0-integrity-findings.mjs --apply=<this script>` flips F-1 and F-1b to FIXED (a scan row with score 100 is refused; trust_score stays 0). The other findings in that run stay OPEN
 because only this script was applied there. Not run against production. Before it is applied the site live must be built with server scoring on (the default since this change), otherwise saving a story or an interview fails.
 Production state: `score-star` and `score-interview` are deployed (2026-10-09) and one STAR story went through; the interview check on production was not yet confirmed when this was written.
+
+## Applied to production: only the server writes the score tables (2026-10-09, plan Step 5, finding F-1)
+
+Applied by the owner in the SQL Editor of project `ruibdsvrcctxgxctaxwe`, one run, result "Success. No rows returned". File: `proposed/2026-10-09-server-only-score-writes.sql` (from `begin;` to `commit;`).
+Undo: `proposed/2026-10-09-server-only-score-writes.down.sql`.
+
+Order followed: Edge Functions `score-star`, `score-interview` and `ai` deployed; website rebuilt and swapped on the VPS from branch `deploy/s4-on-fix-session` (the previously live commit `d263eb0` plus the S4 and AI-fallback commits; the previous container was kept stopped as `career-ai-hub-before-s4`, image tag `career-ai-hub:before-s4`);
+the owner saved a STAR story and an interview on careeraihub.com with a test account; the live JavaScript bundle was checked to contain `score-star` and `score-interview`; then this script.
+
+Verified afterwards (read-only, `has_table_privilege` for `authenticated`): `resume_scans`, `mock_sessions`, `star_stories` have INSERT = false, UPDATE = false, SELECT = true, DELETE = true.
+Before applying, a replica run showed F-1 and F-1b moving from OPEN to FIXED.
+
+Not checked: a real forged write attempt against production (it would need a test account token); the delete path after the revoke (S1 triggers still fire on delete) on production; the website running `main` (94 more commits) has NOT been deployed, only this branch.
+Anon still has no useful access (RLS), but its INSERT/UPDATE were revoked too.
