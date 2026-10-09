@@ -35,7 +35,7 @@ describe('ATSBuilder deterministic score (computed silently, never rendered)', (
   beforeEach(() => { logSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
   afterEach(() => { logSpy.mockRestore(); });
   const loggedScore = () => {
-    const call = logSpy.mock.calls.find(c => c[0] === '[ATS Builder] deterministic score (not shown in UI):');
+    const call = logSpy.mock.calls.find(c => c[0] === '[ATS Builder] computed ATS readiness score:');
     return call?.[1];
   };
 

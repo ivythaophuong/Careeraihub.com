@@ -10,8 +10,8 @@
 // that Gate 4 exists to check end to end, through the component tree, not through computeDeterministicScore
 // called directly.
 //
-// Revised 2026-10-09 (product decision, same as Gate 3): the score is computed silently and never rendered
-// — read via console.log('[ATS Builder] deterministic score (not shown in UI):', score), not the DOM.
+// Revised 2026-10-09 (product decision, same as Gate 3): (superseded: the computed score is now the one shown, see ATSBuilder.shownScore.test.jsx) the score was computed silently and never rendered
+// — read via console.log('[ATS Builder] computed ATS readiness score:', score), not the DOM.
 //
 // Scope, deliberately: only .docx and .txt go through this test with the REAL library (mammoth has no
 // browser-only dependency; a bare TextDecoder needs nothing special). The .pdf path
@@ -71,7 +71,7 @@ const base = { user: { id: 'u1', token: 't' }, memory: {}, updateMemory: vi.fn()
 const getFileInput = () => document.querySelector('input[type="file"]');
 const dropFile = (file) => fireEvent.change(getFileInput(), { target: { files: [file] } });
 
-const LOG_PREFIX = '[ATS Builder] deterministic score (not shown in UI):';
+const LOG_PREFIX = '[ATS Builder] computed ATS readiness score:';
 let logSpy;
 beforeEach(() => { logSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
 afterEach(() => { logSpy.mockRestore(); });
