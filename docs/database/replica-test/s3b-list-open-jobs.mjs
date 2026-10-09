@@ -46,8 +46,10 @@ let db = await freshDb(read(FIX));
 let r = await as(db, 'authenticated', U.c, `select * from list_open_jobs()`);
 const titles = (r.rows || []).map((x) => x.title);
 check('J1 a signed-in candidate sees only open, current jobs of verified employers, newest first', JSON.stringify(titles) === '["Newer open job","Open job"]', JSON.stringify(titles));
-check('J2 each row carries the employer id, name and website', r.rows?.[0]?.employer_name === 'Verified Co' && r.rows[0].employer_website === 'https://verified.example' && r.rows[0].employer_id === EV, JSON.stringify(r.rows?.[0]));
-check('J3 posted_by is not returned', r.rows?.[0] && !('posted_by' in r.rows[0]), Object.keys(r.rows?.[0] || {}).join(','));
+check('J2 each row carries the employer id and name', r.rows?.[0]?.employer_name === 'Verified Co' && r.rows[0].employer_id === EV, JSON.stringify(r.rows?.[0]));
+const gotKeys = Object.keys(r.rows?.[0] || {}).sort().join(',');
+const wantKeys = ['created_at', 'currency', 'description', 'employer_id', 'employer_name', 'id', 'location', 'salary_max', 'salary_min', 'skills_required', 'title', 'work_preference'].sort().join(',');
+check('J3 exactly the documented columns are returned (no posted_by, no employer website or other employer columns)', gotKeys === wantKeys, gotKeys);
 check('J4 jobs of an unverified employer are hidden', !titles.some((t) => /unverified/i.test(t)), JSON.stringify(titles));
 
 r = await as(db, 'authenticated', U.c, `select * from list_open_jobs(1)`);
@@ -78,9 +80,21 @@ check('I1 the script can be applied twice', ((await db.query(`select count(*)::i
 const m = await freshDb(read(FIX).replace("and e.verified_at is not null", ''));
 r = await as(m, 'authenticated', U.c, `select * from list_open_jobs()`);
 check('T control: without the verified-employer filter a test fails (so J4 is meaningful)', (r.rows || []).some((x) => /unverified/i.test(x.title)));
-const m2 = await freshDb(read(FIX).replace('where auth.uid() is not null\n    and ', 'where '));
-r = await as(m2, 'anon', null, `select * from list_open_jobs()`);
-check('T control: with the sign-in check removed the function returns no rows to anon only because EXECUTE is revoked (grant is the real guard)', !!r.error, JSON.stringify(r));
+// the two guards against anonymous callers are independent: test each alone
+const gA = await freshDb(read(FIX).replace("revoke execute on function public.list_open_jobs(integer) from public, anon;", ''));
+await gA.exec(`grant execute on function public.list_open_jobs(integer) to anon`);   // EXECUTE guard removed: only the auth.uid() condition is left
+r = await as(gA, 'anon', null, `select * from list_open_jobs()`);
+check('G1 guard 2 alone: with EXECUTE granted to anon the function still returns nothing (auth.uid() condition)', !r.error && (r.rows || []).length === 0, JSON.stringify(r));
+const gB = await freshDb(read(FIX).replace('where auth.uid() is not null\n    and ', 'where '));
+r = await as(gB, 'anon', null, `select * from list_open_jobs()`);
+check('G2 guard 1 alone: with the auth.uid() condition removed, anon is still refused by the missing EXECUTE grant', !!r.error, JSON.stringify(r));
+r = await as(gB, 'authenticated', U.c, `select * from list_open_jobs()`);
+check('G3 removing the auth.uid() condition does not change what a signed-in user sees (so it only matters if EXECUTE is mis-granted)', (r.rows || []).length === 2, JSON.stringify(r.rows?.length));
+await db.exec(`set role authenticated`);
+await db.query(`select set_config('request.jwt.claims', '{"role":"authenticated"}', false)`);
+let ns; try { ns = { rows: (await db.query(`select * from list_open_jobs()`)).rows }; } catch (e) { ns = { error: e.message }; }
+await db.exec('reset role');
+check('G4 a token with role authenticated but no user id returns nothing', !ns.error && (ns.rows || []).length === 0, JSON.stringify(ns));
 db = await freshDb(read(FIX));
 await db.exec(read(DOWN));
 check('D1 the down script removes the function', ((await db.query(`select count(*)::int n from pg_proc where proname='list_open_jobs'`)).rows[0].n) === 0);
