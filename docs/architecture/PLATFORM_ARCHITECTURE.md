@@ -1,6 +1,6 @@
 # CareerAiHub Platform Architecture (DRAFT for approval)
 
-Status: **draft, direction accepted by the product owner on 2026-10-09 (conditional); not an approved baseline v1.0**. Not approved: platform-wide refactor, database migration, any production change. Nothing in this document was implemented by writing it. Audit-only: no code, schema, data or
+Status: **draft, direction accepted by the product owner on 2026-10-09 (conditional); not an approved baseline v1.0**. Updated 2026-10-09 with live-database evidence (§11). Not approved: platform-wide refactor, database migration, any production change. Nothing in this document was implemented by writing it. Audit-only: no code, schema, data or
 production configuration was changed.
 
 Baseline (Phase 0): application code as of `main` @ `30e5840`, read 2026-10-09. Tests on that tree: 66 files, 907 passed, 4 skipped. `main` has
@@ -14,6 +14,7 @@ Three sources are kept apart. A statement always carries one of these tags.
 | Tag | Meaning |
 |---|---|
 | **[CODE]** | Read in source, tests, SQL or git history on the baseline. Not observed running. |
+| **[DB]** | Read from the live Supabase catalog by the owner on 2026-10-09 ([EVIDENCE_RESULTS_2026-10-09.md](EVIDENCE_RESULTS_2026-10-09.md)). True for that moment; it does not show application behaviour. |
 | **[RUNTIME]** | Observed on a running system. **None in this document**; no runtime check was made. The only recorded one is the manual `.pdf` upload check in commit `b526802`. |
 | **[APPROVED]** | A decision the product owner stated on 2026-10-09 (D1–D6 below). Direction only: each still needs its own PR and verification. |
 | **[TARGET]** | Proposed architecture. Not built, not yet approved. |
@@ -166,6 +167,8 @@ Boundary rules [TARGET]:
 
 ## 5. Data architecture
 
+> Corrected by live evidence: see §11. In particular the "no migration history" and "evidence model missing" statements below describe `main`, not the database.
+
 **Stores today [CODE]** (`DATA_LINEAGE.md` §1): browser `localStorage` (session, resume text, parsed profile); `user_memory` (one JSON blob
 per user, upserted whole); relational tables `resume_scans, applications, star_stories, cover_letters, jd_analyses, mock_sessions,
 negotiation_practice, insights, profiles, candidate_trust_profiles, employers, employer_members, job_listings`.
@@ -255,6 +258,8 @@ automatically (**D1**): each criterion must be compared and verified first.
 
 ## 8. Trust and security
 
+> Partly superseded by live evidence: see §11. RLS policies, trigger bodies and function grants have been read.
+
 Verified [CODE]:
 - `ai` rejects the anon key; `verify-cert` needs sign-in, allowlists hosts, re-checks redirects, caps size/time (22 tests).
 - Browser cannot write the four score columns of `candidate_trust_profiles` (SQL trigger) and employers need `verified_at` to read
@@ -337,6 +342,53 @@ to the database. Each of those is a separate item with its own gate.
 Traceability required for every change: requirement → architecture decision (ADR) → code change → test evidence. Each PR updates this
 document if it changes a data contract, module boundary, API or AI orchestration.
 
+## 11. Live-database evidence (added 2026-10-09)
+
+Source: [EVIDENCE_RESULTS_2026-10-09.md](EVIDENCE_RESULTS_2026-10-09.md). All statements here are **[DB]** unless marked otherwise.
+
+**The database is ahead of `main`.** A "Phase 1 foundation" (career profile, targets, versioned evidence, verification requests and
+attempts, trusted issuers, consents, plus platform contracts v1.1) was applied to production on 2026-10-05. Its design, tests and contracts
+sit on the unmerged branch `feature/phase1-foundation` (commit `5c377ae`) [CODE on that branch]. No code on `main` reads or writes those tables,
+and the branch itself says nothing in the app writes to them. The target architecture must be built on that model, not in parallel to it.
+
+What the database already enforces:
+- RLS on all 27 public tables; owner-scoped policies on every user table.
+- Evidence is immutable by version; the browser can only add claims and withdraw; verification fields are changed only by server functions that
+  the browser roles cannot execute; `ELIGIBLE` needs a verified issuer and a verified recipient binding; attempts are append-only.
+- Employer data access depends on `employers.verified_at`, which the browser cannot set.
+
+What is still open (finding ids from the results document): user-writable score inputs (F-1), candidate-writable match fields (F-2),
+credential status stored in the user-writable blob (F-3), recruiters reading every visible profile (F-4), stale scores after deletion (F-5),
+a `jd_analyses` insert using nonexistent columns (F-6), the evidence model unused by the app (F-11), and new accounts capped at a trust score of
+60 (F-12).
+
+### Mapping the approved credential states (D3) to the existing model
+
+D3 asked for four states. The database already has a state machine and a separate trust layer. To avoid two parallel models, the proposal is to
+treat the D3 states as a **display and policy vocabulary over the existing fields**, not as new columns:
+
+| D3 state | Existing representation | Notes |
+|---|---|---|
+| `self_reported` | no evidence row, or `UNVERIFIED` with `source_type = user_claim` | user says so |
+| `evidence_provided` | `UNVERIFIED` with an artifact: `source_url`, `user_upload` or `raw_credential` | proof supplied, not checked |
+| `source_checked` | `VERIFIED` and `trust_status = NOT_ELIGIBLE` (for example `platform_page`, confidence never `HIGH`) | the source or content was checked; the recipient is not tied to the account |
+| `issuer_verified` | `VERIFIED` and `trust_status = ELIGIBLE` | issuer trusted, signature valid, `subject_binding` in `email_verified`/`did_proof`, `recipient_binding_verified` true |
+
+This mapping is **a proposal for the owner to confirm**; it is not decided. If confirmed, the app's current `credentials[]` status in
+`user_memory` becomes display-only legacy and is never used as a source of verification.
+
+### Consequences for earlier decisions
+- **N3 (recruiter role):** server-side authorization exists (`verified_at` + `is_verified_employer_member`). The client-side role selects a screen
+  and allows creating an unverified employer; it does not grant data access. The open question is narrower: F-4, whether verified recruiters
+  should read all visible profiles without per-employer consent.
+- **N4 (issuers):** the model for issuer trust and recipient binding exists (`trusted_issuers`, `subject_binding`). What is missing is a verifier
+  service and the list of issuers that can actually confirm ownership.
+- **D5 (ResumeFacts persistence):** the new store should follow the same pattern (owner-scoped RLS, immutable versions, server-written derived
+  fields), and the retention question for `evidence.raw_credential` (personal data) is already open in the Phase 1 README.
+- **Score vocabulary:** contracts v1.1 define `AI_ESTIMATE`, `PRACTICE_SCORE`, `VERIFIED_TRUST`, `MATCH_SCORE`, `READINESS_SCORE` and the rule that
+  unknown is `null`. The P4 `score_type` (`careeraihub_ats_readiness`) is not in that list; reconciling the two is a decision for the owner (it
+  must not be improvised in code).
+
 ## Appendix A: decisions on record and decisions still needed
 
 | Id | Decision | State |
@@ -349,6 +401,6 @@ document if it changes a data contract, module boundary, API or AI orchestration
 | D6 | Do not delete `resumeParser.extractResume*` in phase A; remove later in its own PR after verification | approved |
 | N1 | Canonical formula, weights and explanation text of ATS Readiness v2. Product owner recommendation: do not fix a new formula in this document; keep P4 with its own version; open the UI only after criteria, weights, explanation and tests are agreed | **open** |
 | N2 | Retention, deletion, copies and related systems for resume text and ResumeFacts. Recommendation: no retention period is set yet; prepare a proposal for owner approval | **open** |
-| N3 | Recruiter role. Recommendation: a role chosen at sign-up is not evidence of a recruiter grant; sensitive functions only after server-side authorization is verified; whether self-registration as recruiter is allowed is a separate product decision | **open** |
-| N4 | Credential issuers. Recommendation: `issuer_verified` only with an issuer-source verification procedure and recipient-to-account matching; list supported issuers by what can actually be verified | **open** |
+| N3 | Recruiter role. Recommendation: a role chosen at sign-up is not evidence of a recruiter grant; sensitive functions only after server-side authorization is verified; whether self-registration as recruiter is allowed is a separate product decision | **narrowed** by evidence: server-side gate exists; remaining question is F-4 (recruiter read scope) |
+| N4 | Credential issuers. Recommendation: `issuer_verified` only with an issuer-source verification procedure and recipient-to-account matching; list supported issuers by what can actually be verified | **open**; issuer-trust and binding model already in the database, verifier service and issuer list missing |
 | N5 | ADR folder for significant architecture decisions (context, options, consequences, status); not for every small PR | accepted as a proposal; folder started in [adr/](adr/README.md) |
