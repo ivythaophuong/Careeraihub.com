@@ -40,6 +40,28 @@ Manual steps, if you want to see each one:
 - An earlier run showed 4 failures on `evidence`. The cause was a blanket `grant ... on all tables` in the test setup that overrode Phase 1's column privileges, not the fixes.
   The setup now grants only the pre-Phase-1 tables; the in-memory suites were corrected the same way and re-run (all pass).
 
+## Option A+: the REAL production schema instead of the reduced bootstrap
+
+The bootstrap schema is a reduction. A stronger proof restores production's own structure from a dump and checks that it equals the catalog export, point by point:
+```
+cd ~/supabase-baseline && supabase db dump --linked --schema public -f schema-public-<date>.sql      # structure only, no data (needs Docker)
+bash /path/to/repo/docs/database/evidence/export-catalog.sh                                           # SELECT-only, no Docker
+SCHEMA_DUMP=~/supabase-baseline/schema-public-<date>.sql CATALOG_DIR=~/supabase-baseline/catalog-<date> \
+  bash docs/database/staging/run-local-proof.sh ~/supabase-local
+```
+The runner refuses a dump that contains data, creates empty local stand-ins for roles that exist only in production (for example `gtm_readonly`), **removes the local stack's default
+privileges first** (otherwise tables and functions would be more open than in production), restores the dump, and runs `compare-with-catalog.mjs`, which compares tables, columns, policies,
+table/column/function privileges, triggers, constraints and function bodies with the export.
+
+### Result on the real schema (2026-10-09)
+- Local equals production on all 9 compared points: 27 tables, 317 columns, 44 policies, 291 table grants, 21 trigger rows, 22 function grants, 124 constraints, 732 column privileges, 18 function definitions.
+- `--expect=before`: 9 checks, 0 mismatches (F-1, F-5, F-4a, F-4d, F-2 reproduced). `--expect=after` with the four fixes: 29 checks, 0 mismatches. Rollback: problems return; re-apply: 29/29.
+  Phase 1 security suite: 40/40.
+- What the real schema taught that the reduction hid: `trust_matches.job_id` is NOT NULL and `UNIQUE (job_id, candidate_id)`; a recruiter-side "cannot create a match" check must use a valid request
+  or it proves nothing (the test now has a positive control); and a restore onto a fresh stack is wrong unless the stack's default privileges are removed first (it made `anon` able to call
+  `apply_verification_attempt`).
+- The in-memory suites still use the reduced schema (their `trust_matches.job_id` is nullable); the REST proof on the real schema is the authoritative one.
+
 ## What is not covered
 - The production project's own settings (Auth configuration, rate limits, the proxy in front of the site). Those need the read-only catalog export and a look at the dashboard.
 - The local stack runs Supabase's open-source services, not the hosted platform: hosting limits, the Auth settings of the production project and the proxy in front of the site are not exercised.

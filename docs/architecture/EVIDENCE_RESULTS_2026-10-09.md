@@ -120,3 +120,45 @@ this replaces the actor × table tests planned in [the plan](plans/PLAN-score-an
 - Auth settings (whether users can edit `user_metadata`), the Nginx Proxy Manager headers, Supabase backups and retention settings.
 - Row counts: whether legacy `resume_scans` rows exist, whether any `evidence` rows exist.
 - Whether any F-1…F-10 behaviour is reproducible; none was tested.
+
+
+## 7. Update: complete catalog export and schema dump (2026-10-09, later the same day)
+
+The owner ran `docs/database/evidence/export-catalog.sh` (12 JSON files, `supabase db query --linked`, SELECT only) and `supabase db dump --linked --schema public` (structure only; checked:
+no `COPY`/`INSERT`, no keys). Nothing is truncated any more. Class: **CONFIRMED IN PRODUCTION** for the catalog; the dump is a file of structure, not a runtime observation.
+
+| Item | Result |
+|---|---|
+| Size of the schema | 27 tables (RLS on all, none forced), 317 columns, 44 policies on 26 tables, 124 constraints, 21 trigger rows, 18 functions, 52 indexes, 2 views |
+| Functions | the 16 read earlier plus `purge_raw_credential` (SECURITY DEFINER, not executable by `anon`/`authenticated`/`public`) and `touch_updated_at` (trigger, harmless). Every function matches what was assumed; `recompute_trust_score` still uses `MAX` and `COALESCE(..., 0)` |
+| Local replica | a local Supabase stack restored from the dump equals the export on all 9 compared points (see `docs/database/staging/LOCAL.md`) |
+| Earlier statements | nothing in sections 2-4 changed. The earlier partial reads were accurate |
+
+### New finding F-13: a database role `gtm_readonly` with SELECT on every table
+- **CONFIRMED IN PRODUCTION (dump):** the role `gtm_readonly` has `USAGE` on schema `public`, `SELECT` on all 27 tables and views (including `user_memory`, `profiles`, `resume_scans`, `evidence`, `consents`,
+  `candidate_trust_profiles`, `trusted_issuers`), and `ALTER DEFAULT PRIVILEGES ... GRANT SELECT ON TABLES TO gtm_readonly`, so every future table is readable too.
+- **CONFIRMED IN REPOSITORY:** nothing in the repository or its git history creates or mentions this role (the only "gtm" strings are in two HTML documents, presumably "go-to-market").
+- **CONFIRMED IN PRODUCTION (role attributes, read with `supabase db query --linked` from `pg_roles`, 2026-10-09):** `rolcanlogin = true`, **`rolbypassrls = true`**, `rolsuper = false`,
+  `rolinherit = true`, `rolconnlimit = 5`, `rolvaliduntil = null` (the login never expires). The other login roles are `postgres`, `authenticator`, `pgbouncer` and `cli_login_postgres`
+  (the last one is created by the Supabase CLI for its own sessions); `anon`, `authenticated`, `dashboard_user` and `service_role` cannot log in.
+- **Consequence (CONFIRMED by combining the two facts above):** anyone who holds the credentials of `gtm_readonly` can connect to the database directly and read every row of every table, including
+  resume text in `user_memory`, `profiles`, `consents` and `evidence`, **without passing any RLS policy**. None of the fixes S1-S3 limits this role, because they change policies and row-level
+  rules and this role ignores them.
+- **UNKNOWN:** who created it and for what (the connection limit of 5 and the default privileges look like a reporting or analytics tool being onboarded), who or what holds its password, whether
+  it is used today, from which addresses, and whether the password was ever shared. Not established from the repository or the catalog.
+- **INFERRED RISK:** a standing read-everything credential held by a tool or person outside the application.
+- **To establish next (read-only):** the owner asks who created `gtm_readonly` and which tool uses it; the Postgres logs in the Supabase dashboard (Logs, filter `gtm_readonly`) show recent
+  connections and their addresses (retention depends on the plan); `select usename, application_name, client_addr, state, backend_start from pg_stat_activity where usename = 'gtm_readonly'`
+  shows live sessions. Whatever is decided (keep, restrict, rotate, disable) is the owner's decision and is not part of S1-S3.
+- **Options for the owner, none applied:** (1) if nobody needs it: `alter role gtm_readonly nologin` is reversible and does not affect the application, which connects through the API roles;
+  (2) if a tool needs it: rotate its password, remove `BYPASSRLS`, and give it a narrower source (aggregate views without personal data) instead of `SELECT` on every table;
+  (3) in every case review who holds the credential. Because the role can read personal data, treat "who has had access" as a privacy question as well as a security one.
+
+### F-13 status: resolved on 2026-10-09 (owner action)
+- **Origin established (CONFIRMED on the owner's machine):** the role was created by the owner around 2026-09-30 for the go-to-market workspace of another product (ZenDMS, folder `gtm/`), whose
+  configuration connects as `gtm_readonly.obtmsvhejvcfrkfyucev` (a different Supabase project from this one, `ruibdsvrcctxgxctaxwe`). Nothing found on the machine pointed the role at this project; the
+  copy here is most likely a creation run against the wrong project (not proven).
+- **Action (owner, SQL Editor of this project):** `alter role ... nologin`, `grant gtm_readonly to postgres` (needed for `drop owned by`), `drop owned by gtm_readonly`, `drop role gtm_readonly`.
+- **Verified (owner, CLI, read-only):** `select count(*) from pg_roles where rolname = 'gtm_readonly'` returned 0 on this project. The ZenDMS project was not touched.
+- **Still worth doing:** re-run `export-catalog.sh` and keep the new export as the baseline; confirm that no default privilege still names the role
+  (`select count(*) from pg_default_acl where defaclacl::text like '%gtm_readonly%'` should be 0).
