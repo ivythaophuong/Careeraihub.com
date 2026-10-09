@@ -135,6 +135,39 @@ export const sb = {
     return r.json();
   },
 
+  // PATCH rows matching `filters` (PostgREST filter syntax, for example { id: 'eq.123' }) with `data`.
+  // Refuses to run without a filter: an unfiltered PATCH would try to change every row the caller can see.
+  async update(table, filters, data, token) {
+    if (!filters || Object.keys(filters).length === 0) throw httpError("update needs at least one filter.", 400);
+    token = await freshToken(token);
+    const params = new URLSearchParams(filters);
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+      method: "PATCH",
+      headers: { ...sb._h(), "Authorization": `Bearer ${token}`, "Prefer": "return=representation" },
+      body: JSON.stringify(data)
+    });
+    const text = await r.text();
+    let d = null;
+    try { d = text ? JSON.parse(text) : null; } catch { /* non-JSON body */ }
+    if (r.status >= 400) throw httpError(d?.message || "Database update failed.", r.status);
+    return d;
+  },
+
+  // Call a database function (POST /rest/v1/rpc/<name>) with a JSON object of named arguments.
+  async rpc(name, args, token) {
+    token = await freshToken(token);
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: { ...sb._h(), "Authorization": `Bearer ${token}` },
+      body: JSON.stringify(args || {})
+    });
+    const text = await r.text();
+    let d = null;
+    try { d = text ? JSON.parse(text) : null; } catch { /* non-JSON body */ }
+    if (r.status >= 400) throw httpError(d?.message || "Database function call failed.", r.status);
+    return d;
+  },
+
   async delete(table, filters, token) {
     token = await freshToken(token);
     const params = new URLSearchParams(filters || {});

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { sb } from '../../lib/supabase';
+import { consentFlowEnabled } from '../TrustMatch/consent';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -144,8 +145,9 @@ function DashboardPage({ onNavigate, candidates = [] }) {
                 {recentCandidates.map((c,i) => {
                   const stages = ['TrustChat','Interview','Offer','Shortlisted'];
                   const stageColors = { TrustChat:[T.violetTxt,'rgba(245,158,11,.1)',T.violetB], Interview:[T.gold,'rgba(255,210,51,.1)',T.goldB], Offer:[T.emerald,'rgba(0,229,160,.1)',T.emeraldB], Shortlisted:[T.teal,'rgba(236,72,153,.1)',T.tealB] };
-                  const stage = stages[i];
-                  const [sc,sb2,sbdr] = stageColors[stage];
+                  const hasScore = c.trust != null;
+                  const stage = hasScore ? stages[i % stages.length] : null;   // the stage column is sample data; a shared candidate has no stage
+                  const [sc,sb2,sbdr] = stage ? stageColors[stage] : [T.text3, 'transparent', T.bdr];
                   return (
                     <tr key={c.id} style={{ borderBottom:'1px solid rgba(255,255,255,.04)' }}>
                       <td style={{ padding:'10px 14px' }}>
@@ -157,9 +159,9 @@ function DashboardPage({ onNavigate, candidates = [] }) {
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding:'10px 14px' }}><Pill color={T.emerald} bg={T.emeraldDim} border={T.emeraldB}>{c.trust}</Pill></td>
+                      <td style={{ padding:'10px 14px' }}>{hasScore ? <Pill color={T.emerald} bg={T.emeraldDim} border={T.emeraldB}>{c.trust}</Pill> : <span style={{ fontSize:11, color:T.text3 }}>—</span>}</td>
                       <td style={{ padding:'10px 14px', fontSize:11, color:T.text2 }}>{c.match != null ? `${c.match}%` : '—'}</td>
-                      <td style={{ padding:'10px 14px' }}><Pill color={sc} bg={sb2} border={sbdr}>{stage}</Pill></td>
+                      <td style={{ padding:'10px 14px' }}>{stage ? <Pill color={sc} bg={sb2} border={sbdr}>{stage}</Pill> : <span style={{ fontSize:11, color:T.text3 }}>—</span>}</td>
                       <td style={{ padding:'10px 14px' }}><button onClick={() => onNavigate('inbox')} style={{ fontSize:10, color:T.violetTxt, background:'none', border:'none', cursor:'pointer', fontFamily:T.ff }}>Open chat</button></td>
                     </tr>
                   );
@@ -286,7 +288,7 @@ function MatchPage({ candidates = [] }) {
   const [dragX, setDragX] = useState(0);
   const startXRef = useRef(0);
 
-  const current = deck.find(c => c.trust >= filterTrust && !passed.includes(c.id) && !shortlisted.find(s => s.id === c.id));
+  const current = deck.find(c => (c.trust == null || c.trust >= filterTrust) && !passed.includes(c.id) && !shortlisted.find(s => s.id === c.id));
   const tc = current ? trustColor(current.trust) : T.text;
   const circ = 2 * Math.PI * 21;
   const dash = current ? (current.trust / 100) * circ : 0;
@@ -319,11 +321,11 @@ function MatchPage({ candidates = [] }) {
       <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:16 }}>
         <div>
           {/* Filter bar */}
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:T.bg3, border:`1px solid ${T.bdr}`, borderRadius:T.rs, marginBottom:14, flexWrap:'wrap' }}>
+          {candidates.some(c => c.trust != null) && (<div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:T.bg3, border:`1px solid ${T.bdr}`, borderRadius:T.rs, marginBottom:14, flexWrap:'wrap' }}>
             <span style={{ fontSize:10, color:T.text3 }}>Trust ≥</span>
             <input type="range" min={0} max={80} step={10} value={filterTrust} onChange={e => setFilterTrust(+e.target.value)} style={{ width:80, accentColor:T.violet }} />
             <span style={{ fontSize:11, fontWeight:700, fontFamily:T.ffm, color:T.violetTxt, minWidth:20 }}>{filterTrust}</span>
-          </div>
+          </div>)}
 
           {/* Swipe card */}
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
@@ -345,8 +347,8 @@ function MatchPage({ candidates = [] }) {
                         {current.verified.map(v => <span key={v} style={{ fontSize:9, padding:'2px 7px', borderRadius:4, background:T.emeraldDim, color:T.emerald, border:`1px solid ${T.emeraldB}` }}>✓ {v}</span>)}
                       </div>
                     </div>
-                    {/* Trust ring */}
-                    <div style={{ position:'relative', flexShrink:0 }}>
+                    {/* Trust ring (only for candidates that have a practice score; shared profiles do not) */}
+                    {current.trust != null && (<div style={{ position:'relative', flexShrink:0 }}>
                       <svg width="52" height="52" viewBox="0 0 52 52">
                         <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="5"/>
                         <circle cx="26" cy="26" r="21" fill="none" stroke={tc} strokeWidth="5" strokeDasharray={`${dash} ${circ-dash}`} strokeLinecap="round" transform="rotate(-90 26 26)"/>
@@ -355,19 +357,19 @@ function MatchPage({ candidates = [] }) {
                         <span style={{ fontSize:12, fontWeight:800, fontFamily:T.ffm, color:'#fff', lineHeight:1 }}>{current.trust}</span>
                       </div>
                       <div style={{ fontSize:9, fontWeight:700, color:tc, textAlign:'center', marginTop:1 }}>{trustLabel(current.trust)}</div>
-                    </div>
+                    </div>)}
                   </div>
 
                   <div style={{ fontSize:11, color:T.text2, lineHeight:1.6, padding:'9px 11px', background:'rgba(236,72,153,.04)', borderRadius:T.rs, borderLeft:`2px solid rgba(236,72,153,.2)`, marginBottom:12 }}>{current.bio}</div>
 
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, marginBottom:12 }}>
+                  {current.trust != null && (<div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, marginBottom:12 }}>
                     {[['ATS',current.ats],['Interview',current.interview],['STAR',current.star]].map(([l,v]) => (
                       <div key={l} style={{ background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.06)', borderRadius:T.rs, padding:7, textAlign:'center' }}>
                         <div style={{ fontSize:12, fontWeight:800, fontFamily:T.ffm, color:T.text }}>{v ?? '—'}</div>
                         <div style={{ fontSize:9, color:T.text3, marginTop:1, textTransform:'uppercase', letterSpacing:'.04em' }}>{l}</div>
                       </div>
                     ))}
-                  </div>
+                  </div>)}
 
                   <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:10 }}>
                     {current.skills.map(s => <span key={s} style={{ fontSize:10, padding:'2px 8px', borderRadius:4, background:'rgba(255,255,255,.05)', color:T.text2, border:'1px solid rgba(255,255,255,.08)', fontFamily:T.ffm }}>{s}</span>)}
@@ -735,10 +737,19 @@ function mapCandidate(row, idx) {
   };
 }
 
+// A row from employer_view_candidates: only what the candidate consented to. There is no practice score, no ATS/interview/STAR figure and no stage
+// (those exist only in the sample screens), so they are null and the screens hide them.
+function mapSharedCandidate(row, idx) {
+  const base = mapCandidate(row, idx);
+  return { ...base, trust: null, ats: null, interview: null, star: null, verified: [] };
+}
+
 export default function EmployerPortal({ user, onLogout }) {
   const [page,       setPage]       = useState('dashboard');
   const [employer,   setEmployer]   = useState(null);
   const [candidates, setCandidates] = useState(null); // null = loading, [] = loaded empty
+  const [candidatesError, setCandidatesError] = useState(false); // consent mode only: the candidate list could not be read
+  const consentMode = consentFlowEnabled();
 
   // Bootstrap: ensure employer record exists, then fetch visible candidates
   useEffect(() => {
@@ -761,6 +772,21 @@ export default function EmployerPortal({ user, onLogout }) {
 
         // 2. Only a verified employer may see candidates (the database enforces this too)
         if (!emp?.verified_at) { setCandidates([]); return; }
+        if (consentMode) {
+          // Consent-only reads. FAIL CLOSED: if the function is missing or errors, show an error and NO candidates. There is deliberately no
+          // fallback to a direct query on candidate_trust_profiles (design: docs/architecture/plans/CONSENT-FLOW-DESIGN.md, section 3).
+          try {
+            const shared = await sb.rpc('employer_view_candidates', { p_employer_id: emp.id }, user.token);
+            if (!Array.isArray(shared)) throw new Error('unexpected reply');
+            setCandidates(shared.map(mapSharedCandidate));
+            setCandidatesError(false);
+          } catch (e) {
+            console.warn('[EmployerPortal] shared candidates unavailable:', e.message);
+            setCandidates([]);
+            setCandidatesError(true);
+          }
+          return;
+        }
         const rows = await sb.select('candidate_trust_profiles', { is_visible: 'eq.true', order: 'trust_score.desc', limit: 50 }, user.token);
         setCandidates((rows || []).map(mapCandidate));
       } catch (e) {
@@ -871,6 +897,16 @@ export default function EmployerPortal({ user, onLogout }) {
           <div role="note" style={{ padding:'8px 20px', fontSize:11, color:T.text2, background:'rgba(245,158,11,.08)', borderBottom:`1px solid ${T.bdr}` }}>
             Preview: Pipeline, Inbox, Analytics, Team and the job and dashboard figures show sample data until those features launch. Candidate scores are practice scores from candidates' own activity and are not verified.
           </div>
+          {consentMode && candidatesError && (
+            <div role="alert" style={{ padding:'8px 20px', fontSize:12, color:T.red, background:'rgba(255,77,106,.08)', borderBottom:`1px solid ${T.bdr}` }}>
+              We could not load the candidates who shared their profile with you, so none are shown. Please try again later.
+            </div>
+          )}
+          {consentMode && !candidatesError && candidates !== null && candidates.length === 0 && (
+            <div role="note" style={{ padding:'8px 20px', fontSize:12, color:T.text2, borderBottom:`1px solid ${T.bdr}` }}>
+              Candidates appear here after they choose to share their profile with you.
+            </div>
+          )}
           {renderPage()}
         </div>
       </div>
