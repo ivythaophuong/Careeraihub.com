@@ -1,10 +1,11 @@
 // Client for the `score-star` and `score-interview` Edge Functions (finding F-1). The browser sends the words the user wrote and gets the
-// score back from the server; it never sends a score to be stored. Behind VITE_SERVER_SCORING until the function is deployed.
+// score back from the server; it never sends a score to be stored. On by default; build with VITE_SERVER_SCORING=false to use the old
+// browser path (which stops working once docs/database/proposed/2026-10-09-server-only-score-writes.sql is applied).
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
 import { getValidSession } from './session';
 import { LLMError } from './ai.jsx';
 
-export const serverScoringOn = () => import.meta.env.VITE_SERVER_SCORING === 'true';
+export const serverScoringOn = () => import.meta.env.VITE_SERVER_SCORING !== 'false';
 
 const endpoint = (fn) => `${SUPABASE_URL}/functions/v1/${fn}`;
 const TIMEOUT_MS = 100_000;

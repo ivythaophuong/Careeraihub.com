@@ -112,3 +112,12 @@ Before applying: the Edge/API log search for `trust_matches` over the last 5 day
 Verified afterwards (read-only): `trg_lock_match_fields` exists and is enabled (`tgenabled = 'O'`).
 
 Not checked: behaviour with a real match row (no verified employer or match exists, so no test data was invented on production).
+
+## Proposed, NOT applied: only the server writes the score tables (2026-10-09, finding F-1, S4 slice 3)
+
+File: `proposed/2026-10-09-server-only-score-writes.sql` (undo: `...server-only-score-writes.down.sql`). Revokes INSERT and UPDATE on `resume_scans`, `mock_sessions` and `star_stories` from `authenticated` and `anon`;
+SELECT and DELETE stay. The Edge Functions `score-star` and `score-interview` write with the service role.
+
+Evidence: the in-memory replica run `s0-integrity-findings.mjs --apply=<this script>` flips F-1 and F-1b to FIXED (a scan row with score 100 is refused; trust_score stays 0). The other findings in that run stay OPEN
+because only this script was applied there. Not run against production. Before it is applied the site live must be built with server scoring on (the default since this change), otherwise saving a story or an interview fails.
+Production state: `score-star` and `score-interview` are deployed (2026-10-09) and one STAR story went through; the interview check on production was not yet confirmed when this was written.
