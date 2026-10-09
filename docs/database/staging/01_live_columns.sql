@@ -11,7 +11,8 @@ alter table public.trust_matches
   add column if not exists job_id uuid, add column if not exists match_score integer default 0, add column if not exists recruiter_action text,
   add column if not exists candidate_action text, add column if not exists created_at timestamptz default now(), add column if not exists updated_at timestamptz default now();
 
--- Production grants SELECT/INSERT/UPDATE/DELETE (and more) on these to the API roles; the policies decide the rows.
-grant select, insert, update, delete on all tables in schema public to authenticated;
+-- Production grants SELECT/INSERT/UPDATE/DELETE (and more) on these legacy tables to the API roles; the policies decide the rows.
+-- Only the tables that existed BEFORE Phase 1. Do NOT grant on all tables: that would override the column-level privileges Phase 1 sets on evidence, consents and the other new tables.
+grant select, insert, update, delete on public.candidate_trust_profiles, public.resume_scans, public.mock_sessions, public.star_stories, public.employers, public.employer_members, public.job_listings, public.trust_matches, public.pipeline_entries to authenticated;
 grant select, insert, update, delete on public.candidate_trust_profiles, public.resume_scans, public.mock_sessions, public.star_stories,
   public.trust_matches, public.pipeline_entries, public.employers, public.employer_members, public.job_listings to anon;

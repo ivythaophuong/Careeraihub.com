@@ -11,43 +11,38 @@ real RLS), best first. None of them touches production data. The in-memory repli
 
 ## Option A: local stack
 
-1. Install Docker Desktop and start it. Check: `docker info` prints a server section.
-2. In a folder outside the repository:
-   ```
-   mkdir ~/supabase-local && cd ~/supabase-local
-   supabase init
-   supabase start          # first run downloads images; takes several minutes
-   supabase status -o env  # shows API_URL, ANON_KEY, SERVICE_ROLE_KEY for the LOCAL stack
-   ```
-3. Save the three local values (they are only valid on your machine, but still keep them out of chat) in `~/.careeraihub-staging.env`:
-   ```
-   STAGING_URL=<API_URL>
-   STAGING_ANON_KEY=<ANON_KEY>
-   STAGING_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY>
-   ```
-4. Build the schema production had, in this order (from the repository folder):
-   ```
-   supabase db query --local -f docs/database/staging/00_bootstrap_public_schema.sql
-   supabase db query --local -f docs/database/2026-10-05-lock-scores-and-verify-employers.sql
-   supabase db query --local -f docs/database/phase1/001_phase1_foundation.sql
-   supabase db query --local -f docs/database/staging/01_live_columns.sql
-   ```
-   (Run from `~/supabase-local` if the CLI asks for a project folder: `--workdir ~/supabase-local`.)
-5. Reproduce the problems on the real stack: `node docs/database/staging/rest-consent-test.mjs --expect=before`. Expect every issue OPEN and no MISMATCH.
-6. Apply the proposed fixes, in this order:
-   ```
-   supabase db query --local -f docs/database/proposed/2026-10-09-recompute-score-on-delete.sql
-   supabase db query --local -f docs/database/proposed/2026-10-09-lock-match-fields.sql
-   supabase db query --local -f docs/database/proposed/2026-10-09-list-open-jobs.sql
-   supabase db query --local -f docs/database/proposed/2026-10-09-consent-only-recruiter-access.sql
-   ```
-7. `node docs/database/staging/rest-consent-test.mjs --expect=after`. Expect F-5, F-2, F-4a, F-4d FIXED, F-1 still OPEN (that is S4), every control and fix check PASS.
-8. Rollback test: run the four `.down.sql` files in reverse order, re-run step 5 (the issues must be back), then re-apply.
-9. Clean up: `supabase stop --no-backup`.
+**One command** (after Docker is running and `supabase init` has been done once in a folder outside the repository):
+```
+bash docs/database/staging/run-local-proof.sh ~/supabase-local
+```
+It starts only the containers it needs (database, auth, gateway, REST), RESETS the local database (local data only), builds the schema production had, proves the
+problems through the real API, applies the four fixes, proves them, rolls them back (the problems must return), re-applies, and runs the Phase 1 security suite.
+It refuses to run unless the stack's URL is 127.0.0.1. First run downloads container images.
+
+Manual steps, if you want to see each one:
+1. `mkdir ~/supabase-local && cd ~/supabase-local && supabase init && supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,mailpit,postgres-meta,supavisor`
+2. `supabase status -o env` shows API_URL, ANON_KEY, SERVICE_ROLE_KEY of the LOCAL stack. Save them without quotes in `~/.careeraihub-staging.env` as
+   `STAGING_URL=`, `STAGING_ANON_KEY=`, `STAGING_SERVICE_ROLE_KEY=` (local-only values, still keep them out of chat).
+3. Apply SQL files with `psql` inside the database container. **`supabase db query --local -f` cannot run files with several statements**:
+   `docker exec -i supabase_db_<project_id> psql -U postgres -d postgres -v ON_ERROR_STOP=1 < <file>`. Order: `staging/00_bootstrap_public_schema.sql`,
+   `2026-10-05-lock-scores-and-verify-employers.sql`, `phase1/001_phase1_foundation.sql`, `staging/01_live_columns.sql`. Then
+   `docker exec -i supabase_db_<project_id> psql -U postgres -d postgres -c "notify pgrst, 'reload schema'"`.
+4. `node docs/database/staging/rest-consent-test.mjs --expect=before` (every issue OPEN), apply the four `proposed/2026-10-09-*.sql` files in the order
+   recompute-score-on-delete, lock-match-fields, list-open-jobs, consent-only-recruiter-access, reload the schema cache, then `--expect=after`.
+5. Rollback: the four `.down.sql` files in reverse order, reload, `--expect=before` again.
+6. `supabase stop --no-backup` when done.
+
+### Result of the first full run (2026-10-09, local stack, Supabase CLI 2.119.0, Docker Desktop)
+- `--expect=before`: 9 checks, 0 mismatches. F-1, F-5, F-4a, F-4d, F-2 reproduced through PostgREST with real JWTs.
+- Fixes applied: `--expect=after` 27 checks, 0 mismatches. F-5, F-2, F-4a, F-4d FIXED; F-1 still OPEN (needs S4); 18 consent/open-jobs checks pass.
+- Rollback: the issues returned (9 checks, 0 mismatches); re-applied: 27 checks, 0 mismatches.
+- Phase 1 security suite (`staging-test.mjs`) with all fixes in place: 40/40.
+- An earlier run showed 4 failures on `evidence`. The cause was a blanket `grant ... on all tables` in the test setup that overrode Phase 1's column privileges, not the fixes.
+  The setup now grants only the pre-Phase-1 tables; the in-memory suites were corrected the same way and re-run (all pass).
 
 ## What is not covered
 - The production project's own settings (Auth configuration, rate limits, the proxy in front of the site). Those need the read-only catalog export and a look at the dashboard.
-- `rest-consent-test.mjs` was written without a stack to run it on. If a check fails on the first run, send the output: it may be a test mistake, and it will be fixed before anything else is concluded.
+- The local stack runs Supabase's open-source services, not the hosted platform: hosting limits, the Auth settings of the production project and the proxy in front of the site are not exercised.
 - The local database is built from the reduced bootstrap, not from a dump of production. Run `docs/database/evidence/export-catalog.sh` against the linked project and compare
   the policies, functions and privileges with what the local stack has; any difference is a finding.
 

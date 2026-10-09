@@ -46,7 +46,7 @@ async function freshDb() {
   await db.exec(`alter table public.trust_matches
       add column if not exists job_id uuid, add column if not exists match_score int default 0,
       add column if not exists recruiter_action text, add column if not exists candidate_action text;
-    grant select, insert, update, delete on all tables in schema public to authenticated;
+    grant select, insert, update, delete on public.candidate_trust_profiles, public.resume_scans, public.mock_sessions, public.star_stories, public.employers, public.employer_members, public.job_listings, public.trust_matches, public.pipeline_entries to authenticated;
     grant select, insert, update, delete on public.trust_matches, public.candidate_trust_profiles,
       public.resume_scans, public.mock_sessions, public.star_stories to anon;`);
   for (const f of APPLY) await db.exec(read(f));

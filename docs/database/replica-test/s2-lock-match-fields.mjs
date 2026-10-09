@@ -32,7 +32,7 @@ async function freshDb(fix) {
   await db.exec(read('docs/database/phase1/001_phase1_foundation.sql'));
   await db.exec(`alter table public.trust_matches add column if not exists job_id uuid, add column if not exists match_score int default 0,
       add column if not exists recruiter_action text, add column if not exists candidate_action text, add column if not exists updated_at timestamptz default now();
-    grant select, insert, update, delete on all tables in schema public to authenticated;`);
+    grant select, insert, update, delete on public.candidate_trust_profiles, public.resume_scans, public.mock_sessions, public.star_stories, public.employers, public.employer_members, public.job_listings, public.trust_matches, public.pipeline_entries to authenticated;`);
   for (const [k, id] of Object.entries(U)) await db.query('insert into auth.users values ($1,$2)', [id, `${k}@x.test`]);
   await db.query(`insert into employers (id, owner_id, name) values ($1,$2,'E1'),($3,$4,'E2'),($5,$6,'EU')`, [E1, U.o, E2, U.q, EU, U.p]);
   await db.query(`update employers set verified_at = now() where id in ($1,$2)`, [E1, E2]);
