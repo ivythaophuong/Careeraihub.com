@@ -1,5 +1,8 @@
 # Read-only security and data evidence pass (procedure for the owner)
 
+**Status (2026-10-09): executed by the owner; results summarised in [EVIDENCE_RESULTS_2026-10-09.md](EVIDENCE_RESULTS_2026-10-09.md).** Not yet executed: the function-download
+comparison and the Auth-settings check (section 2).
+
 Purpose: replace the **[UNKNOWN]** items in [PLATFORM_ARCHITECTURE.md](PLATFORM_ARCHITECTURE.md) and [ARCHITECTURE_GAP_MATRIX.md](ARCHITECTURE_GAP_MATRIX.md)
 (rows 14, 15, 17, 18, 21, 27, 28) with evidence from the real Supabase project.
 

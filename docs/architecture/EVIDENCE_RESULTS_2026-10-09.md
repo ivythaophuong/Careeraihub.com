@@ -1,0 +1,97 @@
+# Live database evidence: results (2026-10-09)
+
+Produced by the owner running the read-only queries of [EVIDENCE_PASS.md](EVIDENCE_PASS.md) in the Supabase SQL Editor and pasting the
+output into the review chat. Nothing was changed on the project. Nothing here was run by the author of this document.
+
+Tag used below: **[DB]** = read from the live database catalog on 2026-10-09. A [DB] fact is true for that moment; it says nothing about
+how the application behaves, and no application flow was exercised.
+
+## 1. What was received
+
+| Query | Content | Completeness |
+|---|---|---|
+| 1.1 | tables in `public`, RLS enabled/forced | complete (27 tables, `rls_enabled = true` on all, `rls_forced = false` on all) |
+| 1.2 | columns | **partial**: cut inside `verification_attempts`; the last tables (`verification_requests`, `waitlist`) not seen |
+| 1.3 | all RLS policies | complete |
+| 1.4 | table privileges for `anon`, `authenticated` | part 1 covers `applications` to `employers` but stops inside `employers` (authenticated UPDATE, TRIGGER, TRUNCATE for `employers` not seen); part 2 covers tables from `evidence` on, SELECT/INSERT/UPDATE/DELETE only (TRUNCATE, TRIGGER, REFERENCES for those tables not read) |
+| 1.5 | triggers | complete |
+| 1.6 | function bodies | complete for 16 functions: `recompute_trust_score`, `trigger_recompute_trust_score`, `lock_trust_columns`, `lock_employer_verification`, `start_verification`, `apply_verification_attempt`, `has_consent`, `is_verified_employer_member`, `employer_is_verified`, `candidate_is_visible`, `lock_row_parties`, `consents_guard`, `evidence_before_insert`, `evidence_before_update`, `verification_attempts_guard`, `verification_requests_before_insert`. Not read: `touch_updated_at` |
+| 1.7 | EXECUTE grants to `anon`, `authenticated`, `public` | complete |
+| 1.8 | constraints | complete when the two parts are combined (the first stopped inside `trust_messages`, the second started at `trust_messages`) |
+| views | `evidence_current`, `evidence_active` | `security_invoker=true` on both |
+| column privileges | INSERT/UPDATE on `evidence`, `trust_matches`, `consents`, `verification_requests` | complete |
+
+The raw outputs are not committed here: several were truncated in transit and some contain every column name of the schema. The owner
+keeps the originals; they can be added under `docs/database/evidence/2026-10-09/` after review.
+
+## 2. Confirmed as designed [DB]
+
+1. RLS is enabled on every table in `public`. Every user-owned table has an owner policy of the form `auth.uid() = user_id` (or `candidate_id`).
+2. `trusted_issuers` has RLS on and **no policy**, so the browser roles cannot read it.
+3. `apply_verification_attempt`, `start_verification`, `has_consent`, `recompute_trust_score`, `trigger_recompute_trust_score` are **not**
+   executable by `anon`, `authenticated` or `public`.
+4. Browser writes to `evidence` are limited by column privileges to `claim, raw_credential, source_provider, source_type, source_url,
+   supersedes_id, type` (INSERT) and `withdrawn_at` (UPDATE). Triggers reset verification fields on insert and reject any other update.
+   Verification status transitions are enforced by `evidence_before_update`; `trust_status = ELIGIBLE` additionally requires a CHECK
+   constraint (`VERIFIED`, `subject_binding` in `email_verified`/`did_proof`, `issuer_trusted` and `recipient_binding_verified` true).
+5. `verification_attempts` is append-only (trigger) and readable only through the owner's evidence; `verification_requests` insert is limited
+   to `evidence_id`, with a limit of 5 requests per hour and state checks.
+6. `consents` can only be inserted (employer, scope, purpose, expiry ≤ 365 days) and revoked once.
+7. `employers.verified_at` cannot be set from the browser (`lock_employer_verification`, trigger attached on INSERT and UPDATE).
+   `candidate_trust_profiles` score columns cannot be written from the browser (`lock_trust_columns`, trigger attached).
+8. The two trigger functions above are, word for word, the scripts recorded in `docs/database/2026-10-05-lock-scores-and-verify-employers.sql`.
+9. Every user table found has a foreign key to `auth.users` with `ON DELETE CASCADE`.
+10. Score columns on `resume_scans`, `mock_sessions`, `star_stories` have range checks marked `NOT VALID` (apply to new and changed rows).
+
+## 3. Trust-score formula [DB]
+
+`recompute_trust_score(user)`:
+
+| Term | Source | Missing data |
+|---|---|---|
+| ATS | `MAX(resume_scans.credibility_score)` over all of the user's scans (the comment in the function says "latest") | `0` |
+| Interview | average `mock_sessions.avg_score` of the last 5 | `0` |
+| STAR | average `star_stories.score` of the last 5 | `0` |
+| Trust | `ROUND(ATS×0.40 + Interview×0.35 + STAR×0.25)` | uses the zeros above |
+
+It upserts `candidate_trust_profiles`. Triggers call it AFTER INSERT and AFTER UPDATE on `resume_scans`, `mock_sessions`, `star_stories`;
+**there is no DELETE trigger**.
+
+## 4. Findings (provisional severity; none acted on)
+
+"Permitted" means policy, grant and trigger allow it as read. Nothing was exploited or tested.
+
+| Id | Finding | Evidence | Severity |
+|---|---|---|---|
+| F-1 | A signed-in user may insert or edit their own `resume_scans`, `mock_sessions`, `star_stories` rows with any score 0–100; the triggers turn that into `trust_score`, which verified recruiters can read | policies "Users manage own scans/stories/mock sessions" (1.3), table privileges (1.4), recompute function and triggers (1.5, 1.6), `NOT VALID` range checks (1.8) | High (marketplace integrity) |
+| F-2 | A candidate may update `match_score`, `status`, `recruiter_action`, `candidate_action` on their own `trust_matches` rows. `lock_row_parties` protects only `employer_id` and `candidate_id` | policy "candidate updates own match" (no `with_check`), column privileges on `trust_matches` (UPDATE on all columns), trigger body | Medium |
+| F-3 | `user_memory` is a JSON document the owner can write freely, so the app's `credentials[].status = 'verified'` can be set by the user. The `evidence` model that prevents this is not used by the app | policy "Users manage own memory", privileges, repo grep of the code | High while any UI treats it as verified; Medium today (TrustMatch does not read it) |
+| F-4 | Any member of **any** verified employer can read **every** profile with `is_visible = true`, with all columns (name, headline, bio, skills, salary range, location). `has_consent` exists but this policy does not use it. `is_verified_employer_member()` is called with `NULL`, meaning "any verified employer" | policy "recruiters can read visible profiles", function body | Medium; privacy mismatch with the white paper (salary hidden until match) |
+| F-5 | The score is stale after deletion. "Clear memory" and deleting a STAR story do not recompute it (no DELETE trigger), and "Clear memory" does not remove `candidate_trust_profiles`; the profile with its score remains visible if `is_visible` is on | triggers (1.5), `MemoryDashboard.jsx` delete list, `STARBuilder.jsx:88` | Medium |
+| F-6 | `JDAnalyzer.jsx:56` inserts `key_requirements` and `critical_gaps` into `jd_analyses`, which has neither column (columns: id, user_id, company, role_title, match_score, keywords, gaps, advice, created_at). PostgREST normally rejects unknown columns, so this insert should fail; the failure would only show as a save warning. Not observed | 1.2 columns, code | Medium (functional) |
+| F-7 | `profiles` (including `role`, `is_pro`, `account_type`) is writable by its owner with no trigger. The app does not read `is_pro` or `account_type` today (grep) | policy, privileges, no trigger | Low now; High if either is later used for access |
+| F-8 | `anon` may insert into `waitlist`, `culture_leads` (requires `marketing_consent`) and `culture_quiz_events` (no condition) with no rate limit | policies | Low (spam, storage) |
+| F-9 | `anon` and `authenticated` hold TRUNCATE, TRIGGER, REFERENCES on many tables (Supabase defaults). Row policies do not govern TRUNCATE. The REST API does not issue TRUNCATE, so this is believed not reachable from the browser; not tested | 1.4 | Low (hardening) |
+| F-10 | A verified recruiter can create a `trust_matches` row for any visible candidate with any `job_id`; the policy does not check that the job belongs to the employer | policy "verified recruiter creates matches" | Low |
+| F-11 | The Phase 1 evidence/verification schema exists and is locked down, but no application code reads or writes it, and no verifier service that would call `start_verification` / `apply_verification_attempt` was found in the repo | 1.1, repo grep, `docs/database/phase1/README.md` on branch `feature/phase1-foundation` ("nothing in the app writes to them") | Functional gap |
+| F-12 | Because no live code inserts `resume_scans`, a new account has ATS = 0 and a maximum trust score of 60 (35 + 25 from interview and STAR). The Roadmap and Dashboard use 65 as a milestone | formula (1.6), audit §4.1 | Medium (functional) |
+
+## 5. Earlier statements this evidence changes
+
+| Earlier statement | Now |
+|---|---|
+| "The `recompute_trust_score` body is not in the repo; formula UNKNOWN" (audit §4.2, §9) | Read, see §3 |
+| "RLS policies not in the repo; RLS content UNKNOWN" | Policies read, see §2 and §4 |
+| "Recruiter role from `user_metadata` may allow access; RLS content UNKNOWN" (gap row 21) | Reading candidate data requires `verified_at`, which the browser cannot set; choosing recruiter at sign-up gives the screen and the right to create an unverified employer, not data access. F-4 remains |
+| "No complete migration history in the repo" | The Phase 1 migration, contracts v1.1 and tests exist on the **unmerged** branch `feature/phase1-foundation` (commit `5c377ae`, documented as applied 2026-10-05). `main` has no ordered history |
+| "Credential verification: Missing" (gap rows 15, 16) | The database side is **built** (evidence, issuers, attempts, requests); the application side is **missing** |
+| "Whether the two `jd_analyses` writers both succeed is UNKNOWN" (audit §2) | The JDAnalyzer writer uses columns the table does not have (F-6) |
+
+## 6. Still unknown after this pass
+
+- Raw outputs for the truncated parts: the tail of `1.2` (from `verification_attempts`), and the `1.4` privileges named in §1.
+- `touch_updated_at` body; whether any verifier service or Edge Function calls the verification functions (the deployed `ai`, `jobs`,
+  `verify-cert` functions were not downloaded or compared).
+- Auth settings (whether users can edit `user_metadata`), the Nginx Proxy Manager headers, Supabase backups and retention settings.
+- Row counts: whether legacy `resume_scans` rows exist, whether any `evidence` rows exist.
+- Whether any F-1…F-10 behaviour is reproducible; none was tested.
