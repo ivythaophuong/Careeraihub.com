@@ -120,3 +120,28 @@ this replaces the actor × table tests planned in [the plan](plans/PLAN-score-an
 - Auth settings (whether users can edit `user_metadata`), the Nginx Proxy Manager headers, Supabase backups and retention settings.
 - Row counts: whether legacy `resume_scans` rows exist, whether any `evidence` rows exist.
 - Whether any F-1…F-10 behaviour is reproducible; none was tested.
+
+
+## 7. Update: complete catalog export and schema dump (2026-10-09, later the same day)
+
+The owner ran `docs/database/evidence/export-catalog.sh` (12 JSON files, `supabase db query --linked`, SELECT only) and `supabase db dump --linked --schema public` (structure only; checked:
+no `COPY`/`INSERT`, no keys). Nothing is truncated any more. Class: **CONFIRMED IN PRODUCTION** for the catalog; the dump is a file of structure, not a runtime observation.
+
+| Item | Result |
+|---|---|
+| Size of the schema | 27 tables (RLS on all, none forced), 317 columns, 44 policies on 26 tables, 124 constraints, 21 trigger rows, 18 functions, 52 indexes, 2 views |
+| Functions | the 16 read earlier plus `purge_raw_credential` (SECURITY DEFINER, not executable by `anon`/`authenticated`/`public`) and `touch_updated_at` (trigger, harmless). Every function matches what was assumed; `recompute_trust_score` still uses `MAX` and `COALESCE(..., 0)` |
+| Local replica | a local Supabase stack restored from the dump equals the export on all 9 compared points (see `docs/database/staging/LOCAL.md`) |
+| Earlier statements | nothing in sections 2-4 changed. The earlier partial reads were accurate |
+
+### New finding F-13: a database role `gtm_readonly` with SELECT on every table
+- **CONFIRMED IN PRODUCTION (dump):** the role `gtm_readonly` has `USAGE` on schema `public`, `SELECT` on all 27 tables and views (including `user_memory`, `profiles`, `resume_scans`, `evidence`, `consents`,
+  `candidate_trust_profiles`, `trusted_issuers`), and `ALTER DEFAULT PRIVILEGES ... GRANT SELECT ON TABLES TO gtm_readonly`, so every future table is readable too.
+- **CONFIRMED IN REPOSITORY:** nothing in the repository or its git history creates or mentions this role (the only "gtm" strings are in two HTML documents, presumably "go-to-market").
+- **UNKNOWN:** who created it and for what (a reporting or analytics tool?), whether it can log in, whether it has `BYPASSRLS` (role attributes are not in the schema dump), whether anyone or anything connects with it.
+- **Why it matters:** the table policies are `TO public` and compare `auth.uid()` with the owner; for a database role with no JWT, `auth.uid()` is null, so **if the role does not bypass RLS it sees no user rows**.
+  If it has `BYPASSRLS` (or is a superuser), it can read every user's resume text, profile and consents directly, outside every control studied so far, and none of the fixes S1-S3 would limit it.
+- **INFERRED RISK:** a standing read-everything credential held by a tool or person outside the application.
+- **To establish (read-only, from `~/supabase-baseline`):**
+  `supabase db query --linked --output-format json "select rolname, rolcanlogin, rolsuper, rolbypassrls, rolinherit, rolconnlimit, rolvaliduntil from pg_roles where rolname = 'gtm_readonly'"`
+  and `... "select rolname, rolcanlogin, rolbypassrls from pg_roles where rolname !~ '^(pg_|supabase_)' order by 1"`. Then the owner decides what the role is for; no change is proposed here.

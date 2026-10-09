@@ -8,7 +8,8 @@
 // `supabase status -o env` (API_URL, ANON_KEY, SERVICE_ROLE_KEY). It never prints a key. It creates throw-away users and rows and removes them at the end.
 // It REFUSES to run against the production project.
 //
-// STATUS: first run 2026-10-09 on a local Supabase stack: --expect=before 9 checks and --expect=after 27 checks, no mismatches (see LOCAL.md).
+// STATUS: run 2026-10-09 on a local Supabase stack, first with the reduced bootstrap schema and then with the real production schema restored from a dump
+// (see LOCAL.md). It sets job_id on matches because production's trust_matches.job_id is NOT NULL.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -97,7 +98,9 @@ try {
   rec('F-4d', 'issue', `a second verified employer, no consent: ${other} row(s)`, other === 0);
 
   // F-2: candidate edits their own match
-  const m = rows(await rest('POST', 'trust_matches', { ...SVC, body: { employer_id: E1, candidate_id: users.a.id, status: 'new' } }))[0];
+  // production's trust_matches.job_id is NOT NULL, so a real job listing is needed
+  const job = rows(await rest('POST', 'job_listings', { ...SVC, body: { employer_id: E1, posted_by: users.o.id, title: 'REST match job', status: 'open' } }))[0];
+  const m = rows(await rest('POST', 'trust_matches', { ...SVC, body: { employer_id: E1, candidate_id: users.a.id, job_id: job.id, status: 'new' } }))[0];
   r = await rest('PATCH', `trust_matches?id=eq.${m.id}`, { ...T('a'), body: { match_score: 100, recruiter_action: 'shortlisted', status: 'matched' } });
   const mm = rows(await rest('GET', `trust_matches?id=eq.${m.id}`, { ...SVC }))[0];
   rec('F-2', 'issue', `candidate PATCHes match_score/recruiter_action/status → HTTP ${r.status}, match_score ${mm?.match_score}`, mm?.match_score !== 100 && mm?.recruiter_action !== 'shortlisted', JSON.stringify(mm));
@@ -133,8 +136,17 @@ try {
     rec('G14', 'fix', 'after revocation the recruiter reads nothing', rows(await rpc('employer_view_candidates', { p_employer_id: E1 }, { ...T('o') })).length === 0);
     r = await rest('PATCH', `consents?employer_id=eq.${E1}&revoked_at=is.null`, { ...T('a'), body: { revoked_at: new Date().toISOString() } });
     rec('G15', 'fix', 'repeating the revoke is harmless', r.status < 300 && rows(r).length === 0, `HTTP ${r.status}`);
-    r = await rest('POST', 'trust_matches', { ...T('o'), body: { employer_id: E1, candidate_id: users.a.id, status: 'new' } });
-    rec('G16', 'fix', 'without an active consent a recruiter cannot create a match', refused(r), `HTTP ${r.status}`);
+    // a different job: production has UNIQUE (job_id, candidate_id) and the F-2 setup above already used the first one
+    const job2 = rows(await rest('POST', 'job_listings', { ...SVC, body: { employer_id: E1, posted_by: users.o.id, title: 'REST match job 2', status: 'open' } }))[0];
+    const newMatch = () => rest('POST', 'trust_matches', { ...T('o'), body: { employer_id: E1, candidate_id: users.a.id, job_id: job2.id, status: 'new' } });
+    r = await newMatch();
+    rec('G16', 'fix', 'without an active consent a recruiter cannot create a match (the request is otherwise valid: it has a job)', refused(r), `HTTP ${r.status}`);
+    r = await grant(['profile']);
+    const g16 = await newMatch();
+    rec('G16b', 'fix', 'with an active consent the same request succeeds (so G16 refused it because of the consent)', g16.status === 201 && rows(g16)[0]?.match_score === 0 && rows(g16)[0]?.candidate_action === null, `HTTP ${g16.status}`);
+    await rest('DELETE', `trust_matches?id=eq.${rows(g16)[0]?.id}`, { ...SVC });
+    await rest('PATCH', `consents?employer_id=eq.${E1}&revoked_at=is.null`, { ...T('a'), body: { revoked_at: new Date().toISOString() } });
+    rec('G16c', 'fix', 'after revoking, the same request is refused again', refused(await newMatch()));
     // open jobs
     await rest('POST', 'job_listings', { ...SVC, body: { employer_id: E1, title: 'REST open job', status: 'open', posted_by: users.o.id } });
     r = await rpc('list_open_jobs', { p_limit: 5 }, { ...T('a') });
