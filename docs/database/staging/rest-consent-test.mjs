@@ -8,8 +8,7 @@
 // `supabase status -o env` (API_URL, ANON_KEY, SERVICE_ROLE_KEY). It never prints a key. It creates throw-away users and rows and removes them at the end.
 // It REFUSES to run against the production project.
 //
-// STATUS: written on 2026-10-09 and NOT yet run against a real PostgREST stack (none was available). The first run may need small corrections; treat a
-// mismatch as "look at it", and send the output.
+// STATUS: first run 2026-10-09 on a local Supabase stack: --expect=before 9 checks and --expect=after 27 checks, no mismatches (see LOCAL.md).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

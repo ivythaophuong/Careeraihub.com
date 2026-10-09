@@ -22,7 +22,7 @@ async function freshDb() {
     grant all on all tables in schema public to service_role;
     grant execute on all functions in schema public to service_role;`);
   await db.exec(read('docs/database/phase1/001_phase1_foundation.sql'));
-  await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated;
+  await db.exec(`grant select, insert, update, delete on public.candidate_trust_profiles, public.resume_scans, public.mock_sessions, public.star_stories, public.employers, public.employer_members, public.job_listings, public.trust_matches, public.pipeline_entries to authenticated;
     alter table public.candidate_trust_profiles add constraint ctp_user_fk foreign key (user_id) references auth.users(id) on delete cascade;
     alter table public.resume_scans add constraint rs_user_fk foreign key (user_id) references auth.users(id) on delete cascade;
     alter table public.mock_sessions add constraint ms_user_fk foreign key (user_id) references auth.users(id) on delete cascade;
