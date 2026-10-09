@@ -88,7 +88,7 @@ const record = (id, kind, name, ok, detail = '') => rows.push({ id, kind, name, 
 const trust = async (uid) => (await SVC(`select trust_score, ats_score, interview_score, star_score, is_visible from candidate_trust_profiles where user_id=$1`, [uid])).rows?.[0];
 
 // ── Controls: what must hold before and after any fix ──────────────────────────
-let r = await A(`insert into candidate_trust_profiles (user_id, full_name, is_visible, trust_score) values ($1,'Candidate A',true,99) returning trust_score`, [U.a]);
+let n, r = await A(`insert into candidate_trust_profiles (user_id, full_name, is_visible, trust_score) values ($1,'Candidate A',true,99) returning trust_score`, [U.a]);
 record('C1', 'control', 'candidate cannot write trust_score directly (the 2026-10-05 lock)', !r.error && r.rows?.[0]?.trust_score === 0, JSON.stringify(r));
 r = await B(`select user_id from candidate_trust_profiles where user_id = $1`, [U.a]);
 record('C2', 'control', 'another candidate cannot read this profile', !r.error && (r.rows || []).length === 0, JSON.stringify(r));
@@ -121,27 +121,38 @@ t = await trust(U.a);
 record('F-5', 'issue', `all score inputs deleted → trust_score ${before} → ${t?.trust_score}`, t?.trust_score !== before, JSON.stringify({ before, after: t }));
 
 // ── F-4: recruiter reads without consent; revocation changes nothing ─────────
+// A recruiter's read is counted on every path that exists: the base table, and employer_view_candidates() once a fix has added it.
+const hasRpc = async () => (await db.query(`select to_regprocedure('public.employer_view_candidates(uuid,uuid)') is not null as x`)).rows[0].x;
+const readCount = async (who, emp) => {
+  const base = await who(`select user_id from candidate_trust_profiles where user_id = $1`, [U.a]);
+  let n = base.rows?.length || 0;
+  if (await hasRpc()) n += (await who(`select user_id from employer_view_candidates($1,$2)`, [emp, U.a])).rows?.length || 0;
+  return n;
+};
 await SVC(`update candidate_trust_profiles set salary_min = 90000, salary_max = 120000, bio = 'private bio' where user_id = $1`, [U.a]);
 r = await O(`select full_name, salary_min, salary_max, bio from candidate_trust_profiles where user_id = $1`, [U.a]);
-record('F-4a', 'issue', `verified recruiter, NO consent: reads ${r.rows?.length || 0} row(s)${r.rows?.[0] ? ` incl. salary ${r.rows[0].salary_min}-${r.rows[0].salary_max}` : ''}`, !r.error && (r.rows || []).length === 0, JSON.stringify(r));
+n = await readCount(O, EMP);
+record('F-4a', 'issue', `verified recruiter, NO consent: reads ${n} row(s)${r.rows?.[0] ? ` incl. salary ${r.rows[0].salary_min}-${r.rows[0].salary_max}` : ''}`, n === 0, JSON.stringify({ n, base: r }));
 
 r = await A(`insert into consents (employer_id, scope, purpose, expires_at) values ($1, '{"parts":["profile"]}', 'recruiter_review', now() + interval '30 days') returning id`, [EMP]);
 const consentId = r.rows?.[0]?.id;
 record('F-4s', 'control', 'candidate can grant a consent to the employer (setup)', !!consentId, JSON.stringify(r));
-r = await O(`select user_id from candidate_trust_profiles where user_id = $1`, [U.a]);
-record('F-4b', 'control', 'verified recruiter WITH an active consent can read the profile', (r.rows || []).length === 1, JSON.stringify(r));
+n = await readCount(O, EMP);
+record('F-4b', 'control', 'verified recruiter WITH an active consent can read the profile (on the permitted path)', n === 1, JSON.stringify({ n }));
 
 r = await A(`update consents set revoked_at = now() where id = $1`, [consentId]);
-r = await O(`select user_id from candidate_trust_profiles where user_id = $1`, [U.a]);
-record('F-4c', 'issue', `after the consent is revoked the recruiter still reads ${r.rows?.length || 0} row(s)`, !r.error && (r.rows || []).length === 0, JSON.stringify(r));
+n = await readCount(O, EMP);
+record('F-4c', 'issue', `after the consent is revoked the recruiter still reads ${n} row(s)`, n === 0, JSON.stringify({ n }));
 
 // a different verified employer without any consent
 await SVC(`update employers set verified_at = now() where id = $1`, [EMPU]);
-r = await P(`select user_id from candidate_trust_profiles where user_id = $1`, [U.a]);
-record('F-4d', 'issue', `a second verified employer, no consent: reads ${r.rows?.length || 0} row(s)`, !r.error && (r.rows || []).length === 0, JSON.stringify(r));
+n = await readCount(P, EMPU);
+record('F-4d', 'issue', `a second verified employer, no consent: reads ${n} row(s)`, n === 0, JSON.stringify({ n }));
 await SVC(`update employers set verified_at = null where id = $1`, [EMPU]);
 
 // ── F-2: candidate edits match fields on their own match ───────────────────────
+// a fresh consent so that the setup works on a schema where matches need one
+await A(`insert into consents (employer_id, scope, purpose, expires_at) values ($1, '{"parts":["profile"]}', 'recruiter_review', now() + interval '30 days')`, [EMP]);
 r = await O(`insert into trust_matches (employer_id, candidate_id, status) values ($1,$2,'new') returning id`, [EMP, U.a]);
 const matchId = r.rows?.[0]?.id;
 record('F-2s', 'control', 'verified recruiter can create a match for a visible candidate (setup)', !!matchId, JSON.stringify(r));
