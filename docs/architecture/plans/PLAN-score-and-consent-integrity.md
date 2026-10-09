@@ -36,6 +36,8 @@ Owner decisions on record (2026-10-09): F-1 plan the fix. F-4 recruiters read a 
 | S4 | F-1 | Server-side scoring writer; browser loses write access to score columns | Edge Function(s), app, SQL | S0, S1, owner answers in §4 |
 | S5 | F-1, F-5 | Score semantics (`null` not 0, latest not MAX, `practice_score` rename) | contract-driven migration | S4 |
 
+| S0b | all | Baseline the real schema: a read-only dump/pull of production into the repo, before any move to `supabase migrations` | owner runs a read-only export | none |
+| CI | all | GitHub Actions running `npm test` and `npm run build` on every PR, required before merge | `.github/workflows/` | none; separate from S0 |
 | S6 | F-3 | Credential status moves to the `evidence` model; the browser can claim, not verify | app + (later) a verifier service | S0, owner confirms the D3 mapping |
 | S7 | F-6 | `jd_analyses` writer and table agree | app (or one SQL column add) | S0 |
 
@@ -44,6 +46,12 @@ Each finding is its own PR with its own acceptance criteria; none is bundled wit
 S1, S2 and S3 are independent of each other. S4 is the largest and is not a prerequisite for S1–S3. S0 is safe to start first because it only adds tests.
 
 ## 2. S0: reproduce before fixing (tests only)
+
+**Status 2026-10-09: written and run, branch `test/s0-reproduce-integrity-findings`.** On the in-memory database, 7 issue scenarios (F-1, F-1b, F-5, F-4a, F-4c, F-4d, F-2)
+are all OPEN and 9 controls pass; `--desired` exits 1 until fixed. The F-12 observation reproduces the 60-point ceiling. F-6 is covered by a static test of the
+relational writers against the production column list (`tests/contracts/relationalWriters.test.js`; JDAnalyzer is the one mismatch, marked as an expected failure).
+Limits: the replica is built from the earlier audited schema plus the recorded scripts, not from the live catalog; only the objects named in the script header were compared
+with the live output. Reproducing on the replica shows the rules allow it; it does not show it happened in production.
 
 Build the replica from the audited schema plus the 2026-10-05 and Phase 1 scripts (the Phase 1 `test.mjs` already does this), then add scenarios that
 **currently pass as attacks** and must flip after each fix:
@@ -172,6 +180,20 @@ credential and cannot raise it above `evidence_provided` by any request; legacy 
 **S7.** Reproduce the failure with the live column list first. Then decide: add the two columns to `jd_analyses` (a migration) or change the writer to the existing
 columns (`keywords`, `gaps`, `advice`). Acceptance: the save succeeds against a schema equal to production; on failure the user sees an error and not a false
 success. Do not conclude that the whole save is broken before the failure is observed.
+
+## 6c. Corrections after the technical review (2026-10-09)
+
+| Topic | Rule |
+|---|---|
+| New accounts and missing inputs | The score is `null` ("not enough data") until a minimum amount of evidence exists (the minimum is an owner decision). **No default or onboarding scan, no invented score.** If the owner later allows a composite from fewer than three sources, it shows how many sources it used |
+| Re-weighting | Not adopted. Re-weighting lets one perfect input produce a perfect score. Any change of formula is a new version (contracts v1.1), never an edit of the old one |
+| Authorization data | Never `user_metadata` and never `profiles` (both are user-writable; F-7). Use `employer_members`, `employers.verified_at`, or `app_metadata` set by the server |
+| Rate limiting | The limit for scored actions cannot live in a function instance's memory (the `ai` limiter is per instance). Use a counter in the database or an external store |
+| Delete trigger (S1) | Guard against the cascade from `auth.users`: recompute writes to a table with a foreign key to the user. Use `pg_trigger_depth()` or an existence check, and **prove it on the replica**, including account deletion |
+| `SECURITY DEFINER` (S3, S4) | `search_path = public, pg_temp`; explicit `auth.uid()` checks inside; wrap helper calls in policies as `(select f(...))` so they are not evaluated per row; return only consented parts |
+| Revoking default privileges (F-9) | Low risk for the SDK (it uses SELECT/INSERT/UPDATE/DELETE) but not declared risk-free: test on staging first |
+| Migration tooling | Move to `supabase migrations` only after S0b has captured the real schema; applying to production stays an owner-approved step |
+| Pricing, limits, error codes quoted in the review | Not verified here (function pricing tiers, the exact PostgREST code for an unknown column). Check current documentation and the API logs before relying on them |
 
 ## 7. Order of PRs (all small, each reviewable alone)
 
