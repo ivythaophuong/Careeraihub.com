@@ -32,7 +32,7 @@ export function createRateLimiter({ windowMs = LIMITS.rateWindowMs, max = LIMITS
 }
 const defaultLimiter = createRateLimiter();
 
-function corsHeaders(req, env) {
+export function corsHeaders(req, env) {
   const allowed = (env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
   const origin = req.headers.get('origin') || '';
   const allow = allowed.length === 0 ? '*' : (allowed.includes(origin) ? origin : allowed[0]);
@@ -44,13 +44,13 @@ function corsHeaders(req, env) {
   };
 }
 
-const json = (status, body, headers) =>
+export const json = (status, body, headers) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
-const fail = (status, message, headers, extra = {}) => json(status, { error: { message, status, ...extra } }, headers);
+export const fail = (status, message, headers, extra = {}) => json(status, { error: { message, status, ...extra } }, headers);
 
 // Supabase's gateway accepts the public anon key as a valid JWT, so ask the auth server who
 // the caller really is. The anon key (or any non-user token) has no user and is rejected.
-async function authenticate(req, env, fetchImpl) {
+export async function authenticate(req, env, fetchImpl) {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
   try {
