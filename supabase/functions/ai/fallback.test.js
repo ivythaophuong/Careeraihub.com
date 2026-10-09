@@ -51,10 +51,10 @@ describe('callWithFallback', () => {
     const empty = router({ 'generativelanguage': () => new Response(JSON.stringify({ candidates: [] }), { status: 200 }), 'groq.com': () => compatOk() });
     expect(await callWithFallback({ env: { ...ENV, ANTHROPIC_API_KEY: '' }, messages: MSGS, maxTokens: 100 }, empty)).toBe('from groq');
   });
-  it('tries every provider in turn and throws the last error when all fail', async () => {
+  it('tries every provider in turn and throws the chosen provider\'s error when all fail', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const f = router({ 'generativelanguage': () => err(503), 'anthropic.com': () => err(529), 'groq.com': () => err(429), 'openrouter.ai': () => err(502, 'last') });
-    await expect(callWithFallback({ env: ENV, messages: MSGS, maxTokens: 100 }, f)).rejects.toMatchObject({ status: 502, message: 'last' });
+    await expect(callWithFallback({ env: ENV, messages: MSGS, maxTokens: 100 }, f)).rejects.toMatchObject({ status: 503 });
     expect(f).toHaveBeenCalledTimes(4);
   });
   it('does NOT fall back for a bad request, a cut-off reply or a safety block', async () => {
@@ -84,7 +84,7 @@ describe('callWithFallback', () => {
     const groq = calls[1];
     expect(groq.url).toBe('https://api.groq.com/openai/v1/chat/completions');
     expect(groq.headers.Authorization).toBe('Bearer q-key');
-    expect(groq.body).toMatchObject({ model: 'llama-3.3-70b-versatile', max_tokens: 321 });
+    expect(groq.body).toMatchObject({ model: 'openai/gpt-oss-120b', max_tokens: 321 });
     expect(modelFor({ ...env, GROQ_MODEL: 'custom-model' }, 'groq')).toBe('custom-model');
   });
   it.each([

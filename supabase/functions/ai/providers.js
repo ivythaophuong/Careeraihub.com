@@ -3,7 +3,7 @@
 
 export const DEFAULT_MODELS = {
   anthropic: 'claude-sonnet-5-5', gemini: 'gemini-3.8-flash', openai: 'gpt-4o-mini',
-  groq: 'llama-3.3-70b-versatile', openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+  groq: 'openai/gpt-oss-120b', openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
   deepinfra: 'meta-llama/Llama-3.3-70B-Instruct', mistral: 'mistral-small-latest',
 };
 const MODEL_FAMILY = { anthropic: /^claude/i, gemini: /^gemini/i, openai: /^(gpt|o\d|chatgpt)/i };
@@ -174,20 +174,20 @@ export const shouldFallBack = (e) =>
   e instanceof ProviderError && e.kind !== 'truncated' && e.kind !== 'blocked'
   && (e.kind === 'empty' || [0, 401, 403, 404, 408, 429].includes(e.status) || e.status >= 500);
 
-// Calls the providers in order until one answers. Throws the last error if all fail (or the first error that must not fall back).
+// Calls the providers in order until one answers. Throws the FIRST provider's error if all fail (or the first error that must not fall back).
 // A PDF can only go to providers that read PDFs. Never logs keys or bodies.
 export async function callWithFallback({ env, messages, maxTokens, pdfBase64 }, fetchImpl = fetch, timeoutMs) {
   const chain = providerChain(env).filter(p => !pdfBase64 || SUPPORTS_PDF[p]);
   if (!chain.length) throw new ProviderError('No AI provider is configured.', { kind: 'upstream', status: 500 });
-  let lastErr;
+  let firstErr;
   for (const provider of chain) {
     try {
       return await callProvider({ provider, model: modelFor(env, provider), key: setting(env, KEY_ENV[provider]), messages, maxTokens, pdfBase64 }, fetchImpl, timeoutMs);
     } catch (e) {
-      lastErr = e;
+      firstErr = firstErr || e;
       if (!shouldFallBack(e)) throw e;
       console.error(`[ai] ${provider} failed (${e.kind} ${e.status}); ${provider === chain[chain.length - 1] ? 'no more providers' : 'trying the next one'}.`);
     }
   }
-  throw lastErr;
+  throw firstErr; // the chosen provider's error is the one the user should hear about; the others are in the logs
 }
