@@ -16,10 +16,20 @@ user's login token; the function checks who they are, applies limits, calls the 
      ANTHROPIC_API_KEY=sk-ant-... \
      ALLOWED_ORIGINS=https://careeraihub.com,https://www.careeraihub.com
    # optional extras: GEMINI_API_KEY=... OPENAI_API_KEY=...
+   # fallbacks (used when the chosen provider is busy or down): GROQ_API_KEY=... OPENROUTER_API_KEY=... DEEPINFRA_API_KEY=... MISTRAL_API_KEY=...
+   # optional: AI_FALLBACKS=groq,openrouter  (order of fallbacks; default = every provider that has a key)
    ```
 
    `SUPABASE_URL` and `SUPABASE_ANON_KEY` are provided automatically.
 3. Deploy: `supabase functions deploy ai`
+
+## Fallback
+
+If the chosen provider answers 429, 5xx, 401/403/404 (our key or model), times out, is unreachable or returns nothing, the function tries the
+next provider that has a key. It does not fall back for a reply cut off by the length limit, a safety block, or 400/413/422 (the request itself
+is wrong). Requests with a PDF go only to Anthropic, Gemini or OpenAI. Groq, OpenRouter, DeepInfra and Mistral use their own default model (`GROQ_MODEL`,
+`OPENROUTER_MODEL`, `DEEPINFRA_MODEL`, `MISTRAL_MODEL` override it), never `AI_MODEL`. The default DeepInfra and OpenRouter model ids were not verified against a live account: check them once. Groq's `llama-3.3-70b-versatile` returned "does not exist or you do not have access" for a free account (2026-10-09), so the default is `openai/gpt-oss-120b`, a production model on Groq's model list; if all providers fail, the chosen provider's error is returned. Only the provider name and error kind are logged, never keys or bodies. Tests: `fallback.test.js`.
+A fallback model may answer differently from the primary one: JSON shape is still checked by the callers (`extractJSON`, `normalize*`).
 
 ## Behaviour
 
@@ -44,3 +54,13 @@ user's login token; the function checks who they are, applies limits, calls the 
 ## Tests
 
 `npm test` runs `handler.test.js` against mocked fetch (no Supabase or Deno needed).
+
+## Data terms of the fallback providers (read 2026-10-09 from the providers' own pages; re-check before relying on them)
+
+| Provider | What the page says | Open question |
+|---|---|---|
+| Gemini, free tier | Content is used to improve Google products and humans may review it (ai.google.dev/gemini-api/terms). Paid tier: not used to improve products | which tier our key is on: UNKNOWN |
+| Groq | No retention by default; logs for troubleshooting or abuse up to 30 days; Zero Data Retention setting; no training on inputs/outputs | whether a free account can enable ZDR: UNKNOWN |
+| DeepInfra | Inputs not stored to disk, content not logged, no training, except Google/Anthropic models where those companies' policies apply | where data is processed: not stated |
+| Mistral | Free Experiment plan: data may be used for training unless opted out in the Admin Console; paid plans: not used for training (secondary sources, official page not readable) | confirm on Mistral's own page |
+| OpenRouter | Does not store prompts unless the account opts in. Requests carry `provider: { zdr: true }`, so only Zero Data Retention endpoints are used (docs: openrouter.ai/docs/guides/features/zdr) | whether `:free` models have a ZDR endpoint: UNKNOWN. If not, the request fails and the next provider is tried |

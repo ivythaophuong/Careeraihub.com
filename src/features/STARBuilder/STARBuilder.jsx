@@ -3,6 +3,7 @@ import { C } from '../../styles/theme';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { sb } from '../../lib/supabase';
+import { serverScoringOn, reviewStarOnServer, saveStarOnServer } from '../../lib/serverScoring';
 import { GetReadyTabStrip } from '../Landing/LandingPage';
 import '../../styles/featurePage.css';
 import { copyToClipboard } from '../CoverLetterGen/coverLetter';
@@ -22,10 +23,12 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
   const [story, setStory] = useState({ situation: '', task: '', action: '', result: '' });
   const [result, setResult] = useState(null);
   const [analysed, setAnalysed] = useState(null); // the exact input the result was generated from
+  const [receipt, setReceipt] = useState(null); // server proof that this result was graded by the server (server scoring only)
   const [invented, setInvented] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [openId, setOpenId] = useState(null);
@@ -37,11 +40,19 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
 
   const refine = async () => {
     if (short.length) { setErr(`Add a little more detail to: ${short.map(f => f.l).join(', ')} (at least ${MIN_FIELD_CHARS} characters each).`); return; }
-    setLoading(true); setResult(null); setErr(''); setSaved(false); setCopied('');
+    setLoading(true); setResult(null); setReceipt(null); setErr(''); setSaved(false); setCopied('');
     const input = { ...story };
     try {
-      const raw = await callLLM([{ role: 'user', content: buildStarPrompt(input, { role: form?.role, level: form?.level, industry: form?.industry }) }], 2500);
-      const parsed = normalizeStarResult(extractJSON(raw));
+      let parsed;
+      if (serverScoringOn()) {
+        // The server grades and scores the story; the browser only shows the result and keeps the receipt for saving.
+        const reply = await reviewStarOnServer(input, { role: form?.role, level: form?.level, industry: form?.industry });
+        parsed = reply.result;
+        setReceipt(reply.receipt);
+      } else {
+        const raw = await callLLM([{ role: 'user', content: buildStarPrompt(input, { role: form?.role, level: form?.level, industry: form?.industry }) }], 2500);
+        parsed = normalizeStarResult(extractJSON(raw));
+      }
       setResult(parsed);
       setAnalysed(input);
       setInvented(findInventedNumbers(input, parsed));
@@ -57,24 +68,37 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
     }
   };
 
-  const saveToBank = () => {
-    if (!result || saved) return;
+  const saveToBank = async () => {
+    if (!result || saved || saving) return;
+    let score = result.score;
+    if (serverScoringOn()) {
+      setSaving(true);
+      // The server writes the star_stories row and its score; nothing score-related is sent from here.
+      try {
+        const reply = await saveStarOnServer(analysed, result, receipt);
+        score = reply.score;
+      } catch (e) {
+        setErr(e.message || 'The story could not be saved. Please try again.');
+        return;
+      } finally {
+        setSaving(false);
+      }
+    }
     const entry = {
       id: Date.now(),
       date: new Date().toISOString(),
-      score: result.score,
+      score,
       oneLiner: result.oneLiner,
       situation: analysed.situation, // kept for compatibility with older bank entries
       original: analysed,
       refined: result.refined,
       competencies: result.competencies,
     };
-    // The database row feeds the server-side star score, so it is written when the user banks the
-    // story (not for every draft). The score is the computed one, never a raw model number.
-    updateMemory?.(
-      m => ({ starBank: [entry, ...(m.starBank || [])].slice(0, 30) }),
-      { table: 'star_stories', data: { one_liner: result.oneLiner, score: result.score, situation: analysed.situation, task: analysed.task, action: analysed.action, result: analysed.result, refined: result.refined } },
-    );
+    // Without server scoring the database row feeds the server-side star score, so it is written when the user banks
+    // the story (not for every draft). The score is the computed one, never a raw model number.
+    const row = serverScoringOn() ? undefined
+      : { table: 'star_stories', data: { one_liner: result.oneLiner, score: result.score, situation: analysed.situation, task: analysed.task, action: analysed.action, result: analysed.result, refined: result.refined } };
+    updateMemory?.(m => ({ starBank: [entry, ...(m.starBank || [])].slice(0, 30) }), row);
     setSaved(true);
   };
 

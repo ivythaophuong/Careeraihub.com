@@ -1,6 +1,6 @@
 // Request handling for the `ai` Edge Function: authenticate the caller, validate and cap the
 // request, call the configured provider with a server-held key, return { text }.
-import { callProvider, pickProvider, resolveModel, setting, KEY_ENV, ProviderError } from './providers.js';
+import { callWithFallback, providerChain, setting, KEY_ENV, ProviderError } from './providers.js';
 
 export const LIMITS = {
   maxBodyBytes: 12 * 1024 * 1024, // resume PDFs travel as base64
@@ -32,7 +32,7 @@ export function createRateLimiter({ windowMs = LIMITS.rateWindowMs, max = LIMITS
 }
 const defaultLimiter = createRateLimiter();
 
-function corsHeaders(req, env) {
+export function corsHeaders(req, env) {
   const allowed = (env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
   const origin = req.headers.get('origin') || '';
   const allow = allowed.length === 0 ? '*' : (allowed.includes(origin) ? origin : allowed[0]);
@@ -44,13 +44,13 @@ function corsHeaders(req, env) {
   };
 }
 
-const json = (status, body, headers) =>
+export const json = (status, body, headers) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
-const fail = (status, message, headers, extra = {}) => json(status, { error: { message, status, ...extra } }, headers);
+export const fail = (status, message, headers, extra = {}) => json(status, { error: { message, status, ...extra } }, headers);
 
 // Supabase's gateway accepts the public anon key as a valid JWT, so ask the auth server who
 // the caller really is. The anon key (or any non-user token) has no user and is rejected.
-async function authenticate(req, env, fetchImpl) {
+export async function authenticate(req, env, fetchImpl) {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
   try {
@@ -118,8 +118,8 @@ export async function handleRequest(req, deps = {}) {
   if (problem) return fail(400, problem, cors);
 
   // The server, not the caller, decides provider and model, so a client can't pick an expensive one.
-  const provider = pickProvider(env);
-  if (!provider) {
+  // If the first provider is busy or down, the next keyed provider is tried (see callWithFallback).
+  if (providerChain(env).length === 0) {
     // Only presence flags and a length are reported (never a value), and only to a signed-in caller,
     // so a misconfiguration can be diagnosed without reading the server's logs.
     const diag = {
@@ -132,10 +132,8 @@ export async function handleRequest(req, deps = {}) {
   }
 
   try {
-    const text = await callProvider({
-      provider,
-      model: resolveModel(provider, setting(env, 'AI_MODEL')),
-      key: setting(env, KEY_ENV[provider]),
+    const text = await callWithFallback({
+      env,
       messages: body.messages,
       maxTokens: Math.min(Math.floor(body.maxTokens ?? LIMITS.maxTokensCap), LIMITS.maxTokensCap),
       pdfBase64: body.pdfBase64 || null,

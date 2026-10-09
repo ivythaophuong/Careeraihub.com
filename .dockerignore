@@ -13,7 +13,11 @@ coverage
 .claude
 
 # Not build inputs
-supabase
+# Edge Function sources stay out, except the pure rules the browser bundle imports (src/features/STARBuilder/star.js).
+supabase/*
+!supabase/functions/
+supabase/functions/*
+!supabase/functions/_shared/
 tests
 docs
 scripts

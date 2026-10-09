@@ -1,10 +1,27 @@
 // Provider adapters used by the `ai` Edge Function. Pure JS (no Deno APIs) so the same
 // code runs under Deno in production and under Vitest in tests.
 
-export const DEFAULT_MODELS = { anthropic: 'claude-sonnet-5-5', gemini: 'gemini-3.8-flash', openai: 'gpt-4o-mini' };
+export const DEFAULT_MODELS = {
+  anthropic: 'claude-sonnet-5-5', gemini: 'gemini-3.8-flash', openai: 'gpt-4o-mini',
+  groq: 'openai/gpt-oss-120b', openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+  deepinfra: 'meta-llama/Llama-3.3-70B-Instruct', mistral: 'mistral-small-latest',
+};
 const MODEL_FAMILY = { anthropic: /^claude/i, gemini: /^gemini/i, openai: /^(gpt|o\d|chatgpt)/i };
 export const PROVIDERS = Object.keys(DEFAULT_MODELS);
-export const KEY_ENV = { anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY' };
+export const KEY_ENV = {
+  anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY',
+  groq: 'GROQ_API_KEY', openrouter: 'OPENROUTER_API_KEY', deepinfra: 'DEEPINFRA_API_KEY', mistral: 'MISTRAL_API_KEY',
+};
+// OpenAI-compatible providers: same request/response shape as OpenAI, different address. They have free tiers, so they make
+// good fallbacks. Their model is DEFAULT_MODELS or <KEY prefix>_MODEL (GROQ_MODEL, OPENROUTER_MODEL, DEEPINFRA_MODEL, MISTRAL_MODEL), never AI_MODEL.
+const COMPAT_URL = {
+  groq: 'https://api.groq.com/openai/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  deepinfra: 'https://api.deepinfra.com/v1/openai/chat/completions',
+  mistral: 'https://api.mistral.ai/v1/chat/completions',
+};
+const isCompat = (p) => p in COMPAT_URL;
+const SUPPORTS_PDF = { anthropic: true, gemini: true, openai: true };
 
 export class ProviderError extends Error {
   // kind: 'truncated' | 'blocked' | 'empty' | 'upstream'
@@ -17,7 +34,7 @@ export class ProviderError extends Error {
 }
 
 export const resolveModel = (provider, model) =>
-  (model && MODEL_FAMILY[provider].test(model) ? model : DEFAULT_MODELS[provider]);
+  (model && MODEL_FAMILY[provider]?.test(model) ? model : DEFAULT_MODELS[provider]);
 
 // Which provider to use: AI_PROVIDER if set and keyed, otherwise the first provider that has a key.
 // Settings pasted into a terminal often carry stray spaces or a newline, so trim before using them.
@@ -28,6 +45,23 @@ export function pickProvider(env) {
   const hasKey = (p) => setting(env, KEY_ENV[p]) !== '';
   if (PROVIDERS.includes(wanted)) return hasKey(wanted) ? wanted : null;
   return PROVIDERS.find(hasKey) || null;
+}
+
+// Models to use for a provider: AI_MODEL for the big three when it names one of their models, otherwise the default.
+export const modelFor = (env, provider) =>
+  isCompat(provider)
+    ? (setting(env, `${provider.toUpperCase()}_MODEL`) || DEFAULT_MODELS[provider])
+    : resolveModel(provider, setting(env, 'AI_MODEL'));
+
+// Providers to try, in order: the one AI_PROVIDER names (or the first keyed one), then the other keyed providers.
+// AI_FALLBACKS (comma list, e.g. "groq,openrouter") sets the fallback order; without it all keyed providers follow in PROVIDERS order.
+export function providerChain(env) {
+  const first = pickProvider(env);
+  if (!first) return [];
+  const hasKey = (p) => setting(env, KEY_ENV[p]) !== '';
+  const listed = setting(env, 'AI_FALLBACKS').toLowerCase().split(',').map(x => x.trim()).filter(x => PROVIDERS.includes(x));
+  const rest = listed.length ? listed : PROVIDERS;
+  return [first, ...rest.filter(p => p !== first && hasKey(p))].filter((p, i, a) => a.indexOf(p) === i);
 }
 
 const lastUserIndex = (messages) => messages.map(m => m.role).lastIndexOf('user');
@@ -60,7 +94,7 @@ function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) 
       },
     };
   }
-  if (provider === 'openai') {
+  if (provider === 'openai' || isCompat(provider)) {
     const msgs = pdfBase64
       ? withAttachment(messages, t => [
           { type: 'file', file: { filename: 'resume.pdf', file_data: `data:application/pdf;base64,${pdfBase64}` } },
@@ -68,9 +102,11 @@ function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) 
         ])
       : messages;
     return {
-      url: 'https://api.openai.com/v1/chat/completions',
+      url: COMPAT_URL[provider] || 'https://api.openai.com/v1/chat/completions',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: { model, max_completion_tokens: maxTokens, messages: msgs },
+      body: isCompat(provider)
+        ? { model, max_tokens: maxTokens, messages: msgs, ...(provider === 'openrouter' ? { provider: { zdr: true } } : {}) } // OpenRouter: route only to endpoints with Zero Data Retention
+        : { model, max_completion_tokens: maxTokens, messages: msgs },
     };
   }
   const msgs = pdfBase64
@@ -98,7 +134,7 @@ function parseResponse(provider, data) {
     if (!text) throw new ProviderError('The AI provider returned no text.', { kind: 'empty' });
     return text;
   }
-  if (provider === 'openai') {
+  if (provider === 'openai' || isCompat(provider)) {
     const choice = data.choices?.[0];
     if (choice?.finish_reason === 'length') throw new ProviderError('The response hit the length limit.', { kind: 'truncated' });
     if (!choice?.message?.content) throw new ProviderError('The AI provider returned no text.', { kind: 'empty' });
@@ -129,4 +165,32 @@ export async function callProvider({ provider, model, key, messages, maxTokens, 
     throw new ProviderError(raw || `The AI provider request failed (${res.status}).`, { kind: 'upstream', status: res.status });
   }
   return parseResponse(provider, data);
+}
+
+// Errors worth trying the next provider for: the provider is busy, down, unreachable, returned nothing, or rejected OUR key or model.
+// Not worth it: a reply cut off by the length limit or blocked for safety (the same request would do the same elsewhere),
+// and 400/413/422 (the request itself is wrong).
+export const shouldFallBack = (e) =>
+  e instanceof ProviderError && e.kind !== 'truncated' && e.kind !== 'blocked'
+  && (e.kind === 'empty' || [0, 401, 403, 404, 408, 429].includes(e.status) || e.status >= 500);
+
+// Calls the providers in order until one answers. Throws the FIRST provider's error if all fail (or the first error that must not fall back).
+// A PDF can only go to providers that read PDFs. Never logs keys or bodies.
+export async function callWithFallback({ env, messages, maxTokens, pdfBase64 }, fetchImpl = fetch, timeoutMs) {
+  const chain = providerChain(env).filter(p => !pdfBase64 || SUPPORTS_PDF[p]);
+  if (!chain.length) throw new ProviderError('No AI provider is configured.', { kind: 'upstream', status: 500 });
+  let firstErr;
+  for (const provider of chain) {
+    try {
+      const model = modelFor(env, provider);
+      const text = await callProvider({ provider, model, key: setting(env, KEY_ENV[provider]), messages, maxTokens, pdfBase64 }, fetchImpl, timeoutMs);
+      console.log(`[ai] answered by ${provider} (${model})${provider === chain[0] ? '' : ' as a fallback'}`); // names only: no keys, no content
+      return text;
+    } catch (e) {
+      firstErr = firstErr || e;
+      if (!shouldFallBack(e)) throw e;
+      console.error(`[ai] ${provider} failed (${e.kind} ${e.status}); ${provider === chain[chain.length - 1] ? 'no more providers' : 'trying the next one'}.`);
+    }
+  }
+  throw firstErr; // the chosen provider's error is the one the user should hear about; the others are in the logs
 }
