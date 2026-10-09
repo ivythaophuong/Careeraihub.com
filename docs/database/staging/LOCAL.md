@@ -62,6 +62,12 @@ table/column/function privileges, triggers, constraints and function bodies with
   `apply_verification_attempt`).
 - The in-memory suites still use the reduced schema (their `trust_matches.job_id` is nullable); the REST proof on the real schema is the authoritative one.
 
+### GraphQL (added 2026-10-09)
+The production project has the `pg_graphql` extension, so the same tables are reachable through `/graphql/v1`. The runner enables the extension locally and runs `graphql-check.mjs` next to the REST test
+(12 checks before the fixes, 17 after; rollback and re-apply included). Introspection is not available on this version, so exposure of the sensitive functions is probed by name, with a positive control that proves
+the probe works. Result: the findings reproduce through GraphQL, the fixes close them, the verification/scoring functions are not reachable, and `employer_view_candidates` / `list_open_jobs` (table-returning functions)
+are not exposed by GraphQL at all.
+
 ## What is not covered
 - The production project's own settings (Auth configuration, rate limits, the proxy in front of the site). Those need the read-only catalog export and a look at the dashboard.
 - The local stack runs Supabase's open-source services, not the hosted platform: hosting limits, the Auth settings of the production project and the proxy in front of the site are not exercised.

@@ -52,6 +52,8 @@ do $$ declare r record; begin
   end loop;
 end $$;
 SQL
+  # production has the pg_graphql extension, so GraphQL is a second way into the same tables; enable it here too
+  docker exec -i "$DB" psql -U supabase_admin -d postgres -q -c "create extension if not exists pg_graphql with schema graphql" >/dev/null 2>&1
   step_sql "$SCHEMA_DUMP"
   if [ -n "${CATALOG_DIR:-}" ]; then
     say "1b. does the local schema equal the production catalog export? ($CATALOG_DIR)"
@@ -65,19 +67,23 @@ fi
 reload
 say "2. the problems, through the real API (all issues must be OPEN)"
 rest docs/database/staging/rest-consent-test.mjs --expect=before | tail -n 3; [ "${PIPESTATUS[0]}" -ne 0 ] && FAIL=1
+out="$(rest docs/database/staging/graphql-check.mjs --expect=before)"; echo "GraphQL: $(echo "$out" | tail -n 1)"; echo "$out" | grep -E 'MISMATCH|FAIL' | head -5 && FAIL=1
 
 FIXES="recompute-score-on-delete lock-match-fields list-open-jobs consent-only-recruiter-access"
 say "3. apply the proposed fixes"; for f in $FIXES; do step_sql "$R/docs/database/proposed/2026-10-09-$f.sql"; done; reload
 say "4. the fixes, through the real API (F-5, F-2, F-4 FIXED; F-1 stays OPEN until S4)"
 out="$(rest docs/database/staging/rest-consent-test.mjs --expect=after)"; echo "$out" | tail -n 1; echo "$out" | grep -E 'MISMATCH|FAIL' | head -5 && FAIL=1
+out="$(rest docs/database/staging/graphql-check.mjs --expect=after)"; echo "GraphQL: $(echo "$out" | tail -n 1)"; echo "$out" | grep -E 'MISMATCH|FAIL' | head -5 && FAIL=1
 
 say "5. rollback in reverse order, the problems must be back"
 for f in consent-only-recruiter-access list-open-jobs lock-match-fields recompute-score-on-delete; do step_sql "$R/docs/database/proposed/2026-10-09-$f.down.sql"; done; reload
 out="$(rest docs/database/staging/rest-consent-test.mjs --expect=before)"; echo "$out" | tail -n 1; echo "$out" | grep -E 'MISMATCH|FAIL' | head -5 && FAIL=1
+out="$(rest docs/database/staging/graphql-check.mjs --expect=before)"; echo "GraphQL: $(echo "$out" | tail -n 1)"; echo "$out" | grep -E 'MISMATCH|FAIL' | head -5 && FAIL=1
 
 say "6. re-apply, then the Phase 1 security suite with all fixes in place"
 for f in $FIXES; do step_sql "$R/docs/database/proposed/2026-10-09-$f.sql"; done; reload
 out="$(rest docs/database/staging/rest-consent-test.mjs --expect=after)"; echo "$out" | tail -n 1; echo "$out" | grep -E 'MISMATCH|FAIL' | head -5 && FAIL=1
+out="$(rest docs/database/staging/graphql-check.mjs --expect=after)"; echo "GraphQL: $(echo "$out" | tail -n 1)"; echo "$out" | grep -E 'MISMATCH|FAIL' | head -5 && FAIL=1
 out="$(rest docs/database/staging/staging-test.mjs)"; echo "$out" | tail -n 1; echo "$out" | grep -E '^FAIL' | head -8 && FAIL=1
 
 say "result"; if [ "$FAIL" -eq 0 ]; then echo "ALL GOOD"; else echo "SOMETHING FAILED, read the lines above"; fi

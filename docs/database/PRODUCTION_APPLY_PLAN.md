@@ -16,7 +16,7 @@ The evidence for safety is: the catalog of the real schema, the local proof on t
 | # | Decision | Needed for |
 |---|---|---|
 | 1 | Candidate edits `candidate_action` (what the script allows) or `status` on their match | S2 |
-| 2 | The counts in section 2: how many verified employers, visible profiles and consents exist | S3 (who is affected) |
+| 2 | ~~The counts in section 2~~ **Measured 2026-10-09, see section 2** | S3 (who is affected) |
 | 3 | A quiet time window and who watches the logs afterwards | all |
 
 S3 is **not** applied in the first round (see section 4). S5 (null instead of 0, latest instead of MAX) and S4 (server-side scoring) are separate work.
@@ -40,13 +40,25 @@ supabase db query --linked --output-format json "select count(*) as consents_tot
 supabase db query --linked --output-format json "select count(*) as scans, max(created_at) as last_scan from public.resume_scans"
 ```
 
+### Measured on 2026-10-09 (read-only, production)
+
+| Question | Answer | What it means |
+|---|---|---|
+| Verified employers (`employers.verified_at` set) | **0** | No recruiter can read any candidate today. Nobody is affected by S3 right now |
+| Profiles with `is_visible = true` | **1** | One profile would have been readable by any verified employer without consent (finding F-4). With 0 verified employers, none could read it so far, as far as the present state shows; the past is not known |
+| Consents (total / active) | **0 / 0** | The consent table is unused |
+| `resume_scans` | **5** rows, latest 2026-05-22 | A few old scans exist; no scan has been written for months (no live writer). New accounts have no ATS input |
+| Extensions | `pg_graphql`, `pg_stat_statements`, `pgcrypto`, `plpgsql`, `supabase_vault`, `uuid-ossp` | **GraphQL is installed**: tables are reachable through `/graphql/v1` as well as REST |
+| Role `gtm_readonly` and its default privileges | 0 and 0 | removed (finding F-13) |
+| Catalog export after the role was removed | every count equals the first export | no other change in the database |
+
 ## 2b. Access paths considered
 
 | Path | Covered by | Status |
 |---|---|---|
 | REST API (PostgREST) with a user token, with the anon key, with the service key | local proof on the real schema (`rest-consent-test.mjs`, `staging-test.mjs`) | tested locally |
 | In-database rules (RLS, privileges, triggers, function bodies) | catalog export compared with the local schema on 9 points | measured |
-| GraphQL (`/graphql/v1`, the `pg_graphql` extension) | not exercised. Before Step 2 and Step 4 run `select extname from pg_extension order by 1` (read-only). If `pg_graphql` is installed, the new functions are also reachable that way and the same checks must be repeated through it | **untested** |
+| GraphQL (`/graphql/v1`, `pg_graphql` 1.6) | `graphql-check.mjs` on the real schema, before and after the fixes (17 checks): the findings reproduce through GraphQL and are fixed by the same scripts; no verification/scoring function is reachable by `anon` or a signed-in user; the two table-returning functions (`employer_view_candidates`, `list_open_jobs`) are **not** reachable through GraphQL, only through REST; `employer_has_consent` is reachable by signed-in users and returns false to a non-member. The probe works by name because introspection is not available | tested locally, not on the hosted project |
 | Direct database logins | `anon`, `authenticated`, `dashboard_user`, `service_role` cannot log in; `postgres`, `authenticator`, `pgbouncer`, `cli_login_postgres` can; `gtm_readonly` was dropped | measured on 2026-10-09; re-check in section 1 |
 | Edge Functions (`ai`, `jobs`, `verify-cert`) | they do not read these tables per the repository; the deployed source was not compared | **unverified** |
 | Realtime, Storage | not used by the application per the repository | not checked on the project |
@@ -96,9 +108,20 @@ Evidence for decision 1 (from the production catalog and the repository, 2026-10
   weeks before applying (the dashboard API logs can be filtered by path).
 - Functional check: only possible if a verified employer and a match exist; otherwise rely on the local proof and do not invent test data on production.
 
-## 4. Step 4: S3 consent-only recruiter access (finding F-4). **Not in the first round**
+## 4. Step 4: S3 consent-only recruiter access (finding F-4)
 
-Applying S3 removes the recruiters' direct read of candidate profiles. Today the Employer Portal reads them directly (flag off). So S3 must be applied **together with** switching the consent flow on, never before:
+**New fact (section 2): there are 0 verified employers and 0 consents.** The hazard that held S3 back, recruiters losing a screen they use, does not exist today: no recruiter can read candidates now. The remaining hazard
+is the future: the day the first employer is verified, a Portal running with the flag off would show an empty list (the database refuses its direct read), and without S3 that same employer would read the visible profile
+without any consent. Two ways to hold the line, the owner chooses:
+
+| Option | What | Effect |
+|---|---|---|
+| A | Apply S3 in the second round, right after Steps 1 to 3 are stable, **and** adopt the rule: no employer gets `verified_at` until the consent flow is on | The database refuses unconsented reads from day one; nothing changes for anyone today; a verified employer before the flag shows an empty Portal, not a data leak |
+| B | Hold S3 until the consent UI and the flag go live together, as originally planned, and adopt the same rule | No database change now; until then the protection is only the rule (an admin not setting `verified_at`) |
+
+Recommendation: A. It costs nothing today and turns a human rule into a database rule before it can matter. The Portal still needs the flag to show anything once S3 is applied, so the flag stays a launch item.
+
+If option B is chosen, or when the first employer is about to be verified, S3 and the flag go together:
 
 | Order | Action | Gate |
 |---|---|---|
