@@ -93,3 +93,22 @@ What was checked after applying (read-only, `supabase db query --linked`):
 
 Not checked: "Clear memory" (it deletes eight tables at once) was skipped by the owner and should be repeated with a new throw-away account; a delete of a mock interview session.
 Waiting period: 24 hours with the Postgres logs watched for errors mentioning `trigger_recompute_trust_score_after_delete` before Step 2.
+
+## Applied to production: S3b `list_open_jobs` (2026-10-09, plan Step 2)
+
+Applied by the owner in the SQL Editor of project `ruibdsvrcctxgxctaxwe`, one run, result "Success". File: `proposed/2026-10-09-list-open-jobs.sql` (the statements from `begin;` to `commit;`).
+Undo: `proposed/2026-10-09-list-open-jobs.down.sql`.
+
+Verified afterwards (read-only, SQL Editor): the function exists (1 row); `anon` cannot execute it (false); `authenticated` can (true).
+
+Not checked: the 24-hour Postgres log review after Step 1 (the owner's confirmation was not recorded); a call through REST/GraphQL as a signed-in test account; a call without a token. Both are UNKNOWN on production.
+
+## Applied to production: S2 lock the editable fields of `trust_matches` (2026-10-09, plan Step 3, finding F-2)
+
+Applied by the owner in the SQL Editor of project `ruibdsvrcctxgxctaxwe`, one run, result "Success". File: `proposed/2026-10-09-lock-match-fields.sql` (from `begin;` to `commit;`).
+Undo: `proposed/2026-10-09-lock-match-fields.down.sql`. Rule chosen: the candidate may change only `candidate_action`; a verified recruiter only `recruiter_action` and `status`; `match_score` is never writable from the browser.
+
+Before applying: the Edge/API log search for `trust_matches` over the last 5 days (the dashboard showed "Last 5 days", not the 7 the plan asked for) returned no data.
+Verified afterwards (read-only): `trg_lock_match_fields` exists and is enabled (`tgenabled = 'O'`).
+
+Not checked: behaviour with a real match row (no verified employer or match exists, so no test data was invented on production).
