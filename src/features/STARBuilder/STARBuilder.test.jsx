@@ -5,10 +5,12 @@ vi.mock('../../lib/ai.jsx', () => ({
   callLLM: vi.fn(),
   extractJSON: (s) => { try { return JSON.parse(s); } catch { return { error: true }; } },
 }));
+vi.mock('../../lib/serverScoring', () => ({ serverScoringOn: () => globalThis.__serverScoring === true, reviewStarOnServer: vi.fn(), saveStarOnServer: vi.fn() }));
 vi.mock('../CoverLetterGen/coverLetter', () => ({ copyToClipboard: vi.fn().mockResolvedValue(true) }));
 vi.mock('../../lib/supabase', async (orig) => ({ ...(await orig()), sb: { delete: vi.fn().mockResolvedValue(undefined) } }));
 import { sb } from '../../lib/supabase';
 import { callLLM } from '../../lib/ai.jsx';
+import { reviewStarOnServer, saveStarOnServer } from '../../lib/serverScoring';
 import { copyToClipboard } from '../CoverLetterGen/coverLetter';
 import STARBuilder from './STARBuilder';
 
@@ -217,6 +219,42 @@ describe('Story bank list', () => {
     fireEvent.click(screen.getByText('Delete'));
     fireEvent.click(screen.getByText('Cancel'));
     expect(screen.getByText('Delete')).toBeTruthy();
+    expect(p.updateMemory).not.toHaveBeenCalled();
+  });
+});
+
+describe('server scoring (F-1): the browser never sends a score to be stored', () => {
+  const SERVER_RESULT = { ...REPLY, score: 66, competencies: ['ownership'] };
+  beforeEach(() => { globalThis.__serverScoring = true; });
+  afterEach(() => { globalThis.__serverScoring = false; });
+
+  it('grades through the server, not the model directly', async () => {
+    reviewStarOnServer.mockResolvedValue({ result: SERVER_RESULT, receipt: { ts: 1, sig: 'x' } });
+    setup(); fill(); refine();
+    await screen.findByText(/Refined STAR Output/);
+    expect(callLLM).not.toHaveBeenCalled();
+    expect(reviewStarOnServer.mock.calls[0][0]).toMatchObject({ situation: IN.Situation });
+  });
+
+  it('saves through the server and writes no star_stories row from the browser', async () => {
+    reviewStarOnServer.mockResolvedValue({ result: SERVER_RESULT, receipt: { ts: 1, sig: 'x' } });
+    saveStarOnServer.mockResolvedValue({ saved: true, score: 61 });
+    const p = setup(); fill(); refine();
+    await screen.findByText(/Refined STAR Output/);
+    fireEvent.click(screen.getByText(/Save to Story Bank/));
+    await waitFor(() => expect(p.updateMemory).toHaveBeenCalled());
+    expect(saveStarOnServer).toHaveBeenCalledWith(expect.objectContaining({ situation: IN.Situation }), SERVER_RESULT, { ts: 1, sig: 'x' });
+    expect(p.updateMemory.mock.calls[0][1]).toBeUndefined(); // no relational write
+    expect(p.updateMemory.mock.calls[0][0]({}).starBank[0].score).toBe(61); // the score the server returned
+  });
+
+  it('keeps the story unsaved and shows the error when the server refuses', async () => {
+    reviewStarOnServer.mockResolvedValue({ result: SERVER_RESULT, receipt: { ts: 1, sig: 'x' } });
+    saveStarOnServer.mockRejectedValue(new Error('Daily limit of saved stories reached.'));
+    const p = setup(); fill(); refine();
+    await screen.findByText(/Refined STAR Output/);
+    fireEvent.click(screen.getByText(/Save to Story Bank/));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Daily limit/);
     expect(p.updateMemory).not.toHaveBeenCalled();
   });
 });
