@@ -128,3 +128,20 @@ describe('update and rpc', () => {
     await expect(sb.rpc('x', {}, 't')).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe('the revoke-by-employer request used by the consent flow', () => {
+  beforeEach(() => getValidSession.mockResolvedValue({ access_token: 'fresh-token' }));
+
+  it('sends one PATCH that filters on the employer and on not-yet-revoked, and changes only revoked_at', async () => {
+    fetchMock.mockResolvedValueOnce(okJson([{ id: 'c1' }, { id: 'c2' }]));
+    const rows = await sb.update('consents', { employer_id: 'eq.e1', revoked_at: 'is.null' }, { revoked_at: '2026-10-09T00:00:00Z' }, 't');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls.at(-1);
+    expect(init.method).toBe('PATCH');
+    const q = new URL(url).searchParams;
+    expect(q.get('employer_id')).toBe('eq.e1');
+    expect(q.get('revoked_at')).toBe('is.null');
+    expect(Object.keys(JSON.parse(init.body))).toEqual(['revoked_at']);
+    expect(rows).toHaveLength(2);
+  });
+});
