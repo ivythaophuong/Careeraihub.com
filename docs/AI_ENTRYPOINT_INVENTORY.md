@@ -5,7 +5,7 @@ Branch `integration/ats-builder-p4-score`, HEAD `c0463ec`, read 2026-10-09. Meth
 Statuses: CONFIRMED / PARTIALLY CONFIRMED / UNKNOWN / NOT IMPLEMENTED. No model was called.
 
 The count differs from `AI_ARCHITECTURE_CONTRACT.md` §4 ("27 call sites"): this grep finds **26** `callLLM(` expressions.
-Of these, 2 are unreachable (dead block in `ResumeScan.jsx`) and 2 have no caller (`resumeParser.js`), leaving **22 reachable**.
+Of these, 2 are unreachable (dead block in `ResumeScan.jsx`), 2 have no caller (`resumeParser.js`) and 1 is behind a disabled flag (#21), leaving **21 reachable**.
 The contract's count method is not stated, so the 1-site difference is unexplained (UNKNOWN).
 
 ## 1. Call path (CONFIRMED)
@@ -45,7 +45,7 @@ appropriate); **Reach** = reachable from the UI (CONFIRMED by reading the caller
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | `App.jsx:363` | `RESUME_EXTRACT_PROMPT` (`:36`): resume → JSON, only when `pdf.js` text extraction throws | PDF base64 | 3000 | yes | text for onboarding | `memory.resumeText` | – | A (extraction) | yes, rare |
 | 2 | `App.jsx:599` | `currentRole, yearsExp, topSkills, headline` | first 4000 chars | 800 | no | profile card, target role prefill, Dashboard `yearsExp` | `resumeProfile` (localStorage) | – | B | yes |
-| 3 | `ResumeScan.jsx:400` | `parseForTemplate`: resume → structured JSON for PDF templates | first 4000 chars | 3000 | no | template data | none | – | B (duplicate of #11) | yes |
+| 3 | `ResumeScan.jsx:400` | `parseForTemplate`: resume → structured JSON for PDF templates | first 4000 chars | 3000 | no | template data | none | – | B (duplicate of #9) | yes |
 | 4 | `ResumeScan.jsx:456` | JD match: `matchScore`, bars, `jdKeywords`, issues with `fix` rewrites | digested resume (≤6000) + JD (≤4000) | 1500 | no | score, bars, rewrites; keywords overridden by `checkKeywords` | `jd_analyses` row + `memory.jdAnalyses` | `neutralizeInventedFigures` on `fix` | B | yes |
 | 5 | `ResumeScan.jsx:1232` | legacy Deep Scan with PDF | PDF | 8192 | yes | – | – | – | – | **no** (inside `{false &&`, `:1291`) |
 | 6 | `ResumeScan.jsx:1234` | legacy Deep Scan with text | resume text | 8192 | no | – | – | – | – | **no** |
@@ -63,7 +63,7 @@ appropriate); **Reach** = reachable from the UI (CONFIRMED by reading the caller
 | 18 | `HiringManagerSim.jsx:51` | `buildQuestionsPrompt`: 5 persona questions | role + resume text or PDF | 2500 | yes | question list (`normalizeQuestions`) | in-session | – | C | yes |
 | 19 | `HiringManagerSim.jsx:67` | `buildEvaluationPrompt`: answer score + feedback | question, answer, resume | 1800 | no | score (clamped in code), verdict by `verdictFor`, feedback | `mock_sessions` (avg only) | `findUnsupportedNumbers` warnings | B | yes |
 | 20 | `MemoryDashboard.jsx:59` | personalized plan incl. `overallProgress` "0-100 score based on activity" and `status` | `buildMemoryContext(memory, form)` | 1500 | no | progress bar, plan | in-session | none | A for progress, C for plan | yes |
-| 21 | `SalaryCoach.jsx:82` | market salary ranges by level and employer type | role, market, level | 900 | no | range table, `pct` bars | `memory.salaryMarket` cache | none | A/sourced data needed | yes (contract §3 says the Market tab is switched off by `MARKET_DATA_ENABLED = false`; the flag was not located in this pass: UNKNOWN which screen reaches `:82`) |
+| 21 | `SalaryCoach.jsx:82` | market salary ranges by level and employer type | role, market, level | 900 | no | range table, `pct` bars | `memory.salaryMarket` cache | none | A/sourced data needed | **no while `MARKET_DATA_ENABLED = false`** (`salaryLevel.js:24`; the market tab is rendered only when it is true, `SalaryCoach.jsx:503,533`) |
 | 22 | `SalaryCoach.jsx:290` | `buildSalaryPrompt`: negotiation script; math done in code (`negotiationMath`) | situation, offer, target, resume or PDF | 3000 | yes | script, tactics | none | `findUnsupportedFigures` | C | yes |
 | 23 | `SkillsGap.jsx:72` | skills list with level/status and recommendations; market numbers removed | role, market, scan summary, JD titles | 1500 | no | skills table | `memory.skillsGap` | none; rule `ai-market-numbers` | B | yes |
 | 24 | `STARBuilder.jsx:43` | `buildStarPrompt`: section scores + polished story | user's S/T/A/R | 2500 | no | scores (clamped), `overallScore` in code, rewrite | `star_stories` | `findInventedNumbers` | B | yes |
