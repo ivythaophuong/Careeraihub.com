@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { sb } from '../../lib/supabase';
 import './trustMatch.css';
+import { ShareControl, MySharing, useConsents } from './ConsentUI';
+import { consentFlowEnabled } from './consent';
+import { COPY } from './consentCopy';
 
 const T = {
   bg: '#0B0F1A', bg2: '#0E1420', bg3: '#131B2E', bg4: '#1A2540',
@@ -149,11 +152,15 @@ export default function TrustMatch({ user, memory, updateMemory, syncedAt }) {
   const [chatInput,     setChatInput]    = useState('');
   const [chatMsgs,      setChatMsgs]     = useState({});
   const chatBodyRef = useRef(null);
+  // Consent flow (docs/architecture/plans/CONSENT-FLOW-DESIGN.md): everything below is inert unless the flag is on.
+  const consentOn = consentFlowEnabled();
+  const { consents, error: consentError, reload: reloadConsents } = useConsents({ token: user?.token, enabled: consentOn });
 
   const displayJobs = jobs; // real listings only; never sample jobs
   const matchedJobs = displayJobs.filter(j => interested.has(j.id));
   const chatJob     = displayJobs.find(j => j.id === chatMatchId) || null;
   const unreadCount = 0;
+  const employerNames = Object.fromEntries(displayJobs.filter(j => j.employer_id && j.employer_name).map(j => [j.employer_id, j.employer_name]));
 
   const userName  = user?.name || user?.email?.split('@')[0] || 'Candidate';
   const userInits = initials(userName);
@@ -172,7 +179,15 @@ export default function TrustMatch({ user, memory, updateMemory, syncedAt }) {
           sb.select('job_listings', { status: 'eq.open', order: 'created_at.desc', limit: 20 }, user.token),
         ]);
         if (profileRows?.length) setTrustProfile(profileRows[0]);
-        if (jobRows?.length) setJobs(jobRows);
+        let shownJobs = jobRows;
+        if (consentOn) {
+          // Same open jobs, plus the employer name, so the candidate can see who would receive their profile. Without it the share button is not offered.
+          try {
+            const named = await sb.rpc('list_open_jobs', { p_limit: 20 }, user.token);
+            if (Array.isArray(named) && named.length) shownJobs = named;
+          } catch (e) { console.warn('[TrustMatch] list_open_jobs unavailable:', e.message); }
+        }
+        if (shownJobs?.length) setJobs(shownJobs);
       } catch (e) {
         console.warn('[TrustMatch] fetch error:', e.message);
       }
@@ -327,7 +342,7 @@ export default function TrustMatch({ user, memory, updateMemory, syncedAt }) {
   const renderCenter = () => (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ display: 'flex', borderBottom: `1px solid ${T.bdr}`, flexShrink: 0, background: 'rgba(11,15,26,.6)', backdropFilter: 'blur(16px)' }}>
-        {[{ id: 'discover', label: 'Discover', badge: null }, { id: 'matches', label: 'Matches', badge: matchedJobs.length || null }].map(tab => (
+        {[{ id: 'discover', label: 'Discover', badge: null }, { id: 'matches', label: 'Matches', badge: matchedJobs.length || null }, ...(consentOn ? [{ id: 'sharing', label: COPY.tabLabel, badge: null }] : [])].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             style={{ flex: 1, padding: '11px 8px', background: 'none', border: 'none', fontSize: 11, fontWeight: 500, color: activeTab === tab.id ? T.teal : T.text3, position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontFamily: FF, transition: 'color .2s' }}>
             {tab.label}
@@ -395,10 +410,15 @@ export default function TrustMatch({ user, memory, updateMemory, syncedAt }) {
                     Open TrustChat
                   </button>
                 </div>
+                {consentOn && <ShareControl job={job} profile={trustProfile} token={user?.token} consents={consents} onChanged={reloadConsents} />}
               </div>
             );
           })}
         </div>
+      )}
+
+      {consentOn && activeTab === 'sharing' && (
+        <MySharing consents={consents} employerNames={employerNames} token={user?.token} loadError={consentError} onChanged={reloadConsents} />
       )}
 
       {/* Matches */}
