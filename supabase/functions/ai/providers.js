@@ -4,16 +4,22 @@
 export const DEFAULT_MODELS = {
   anthropic: 'claude-sonnet-5-5', gemini: 'gemini-3.8-flash', openai: 'gpt-4o-mini',
   groq: 'llama-3.3-70b-versatile', openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+  deepinfra: 'meta-llama/Llama-3.3-70B-Instruct', mistral: 'mistral-small-latest',
 };
 const MODEL_FAMILY = { anthropic: /^claude/i, gemini: /^gemini/i, openai: /^(gpt|o\d|chatgpt)/i };
 export const PROVIDERS = Object.keys(DEFAULT_MODELS);
 export const KEY_ENV = {
   anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY', openai: 'OPENAI_API_KEY',
-  groq: 'GROQ_API_KEY', openrouter: 'OPENROUTER_API_KEY',
+  groq: 'GROQ_API_KEY', openrouter: 'OPENROUTER_API_KEY', deepinfra: 'DEEPINFRA_API_KEY', mistral: 'MISTRAL_API_KEY',
 };
 // OpenAI-compatible providers: same request/response shape as OpenAI, different address. They have free tiers, so they make
-// good fallbacks. Their model is DEFAULT_MODELS or <KEY prefix>_MODEL (GROQ_MODEL, OPENROUTER_MODEL), never AI_MODEL.
-const COMPAT_URL = { groq: 'https://api.groq.com/openai/v1/chat/completions', openrouter: 'https://openrouter.ai/api/v1/chat/completions' };
+// good fallbacks. Their model is DEFAULT_MODELS or <KEY prefix>_MODEL (GROQ_MODEL, OPENROUTER_MODEL, DEEPINFRA_MODEL, MISTRAL_MODEL), never AI_MODEL.
+const COMPAT_URL = {
+  groq: 'https://api.groq.com/openai/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  deepinfra: 'https://api.deepinfra.com/v1/openai/chat/completions',
+  mistral: 'https://api.mistral.ai/v1/chat/completions',
+};
 const isCompat = (p) => p in COMPAT_URL;
 const SUPPORTS_PDF = { anthropic: true, gemini: true, openai: true };
 

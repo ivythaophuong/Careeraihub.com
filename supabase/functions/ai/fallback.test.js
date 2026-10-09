@@ -87,6 +87,20 @@ describe('callWithFallback', () => {
     expect(groq.body).toMatchObject({ model: 'llama-3.3-70b-versatile', max_tokens: 321 });
     expect(modelFor({ ...env, GROQ_MODEL: 'custom-model' }, 'groq')).toBe('custom-model');
   });
+  it.each([
+    ['deepinfra', 'DEEPINFRA_API_KEY', 'https://api.deepinfra.com/v1/openai/chat/completions', 'meta-llama/Llama-3.3-70B-Instruct'],
+    ['mistral', 'MISTRAL_API_KEY', 'https://api.mistral.ai/v1/chat/completions', 'mistral-small-latest'],
+  ])('can fall back to %s with its own address, key and model', async (name, keyVar, url, model) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const calls = [];
+    const f = vi.fn(async (u, init) => { calls.push({ url: String(u), headers: init.headers, body: JSON.parse(init.body) }); return String(u).includes('generativelanguage') ? err(503) : compatOk(`from ${name}`); });
+    const env = { AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'g', [keyVar]: 'k-123' };
+    expect(await callWithFallback({ env, messages: MSGS, maxTokens: 50 }, f)).toBe(`from ${name}`);
+    expect(calls[1].url).toBe(url);
+    expect(calls[1].headers.Authorization).toBe('Bearer k-123');
+    expect(calls[1].body.model).toBe(model);
+    expect(providerChain(env)).toEqual(['gemini', name]);
+  });
   it('never puts a key in the log', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const f = router({ 'generativelanguage': () => err(503), 'anthropic.com': () => anthropicOk() });
