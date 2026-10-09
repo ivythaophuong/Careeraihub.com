@@ -80,3 +80,51 @@ describe('errors carry the HTTP status so callers can tell an expired session fr
     await expect(call()).rejects.toMatchObject({ status });
   });
 });
+
+
+describe('update and rpc', () => {
+  beforeEach(() => getValidSession.mockResolvedValue({ access_token: 'fresh-token' }));
+
+  it('update sends a PATCH with the filter in the URL, the data as the body, and a fresh token', async () => {
+    fetchMock.mockResolvedValueOnce(okJson([{ id: 'c1', revoked_at: 'now' }]));
+    const out = await sb.update('consents', { id: 'eq.c1' }, { revoked_at: '2026-10-09T00:00:00Z' }, 'stale-token');
+    const [url, init] = fetchMock.mock.calls.at(-1);
+    expect(init.method).toBe('PATCH');
+    expect(url).toContain('/rest/v1/consents?id=eq.c1');
+    expect(JSON.parse(init.body)).toEqual({ revoked_at: '2026-10-09T00:00:00Z' });
+    expect(init.headers.Authorization).toBe('Bearer fresh-token');
+    expect(out).toEqual([{ id: 'c1', revoked_at: 'now' }]);
+  });
+  it('update refuses to run without a filter (it would touch every visible row)', async () => {
+    await expect(sb.update('consents', {}, { revoked_at: 'x' }, 't')).rejects.toMatchObject({ status: 400 });
+    await expect(sb.update('consents', undefined, { revoked_at: 'x' }, 't')).rejects.toMatchObject({ status: 400 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it('update turns a database error into an error carrying the status', async () => {
+    fetchMock.mockResolvedValueOnce(okJson({ message: 'a consent cannot be edited' }, 403));
+    await expect(sb.update('consents', { id: 'eq.c1' }, { scope: {} }, 't')).rejects.toMatchObject({ status: 403, message: 'a consent cannot be edited' });
+  });
+  it('update copes with an empty 204 reply', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await expect(sb.update('consents', { id: 'eq.c1' }, { revoked_at: 'x' }, 't')).resolves.toBeNull();
+  });
+
+  it('rpc posts named arguments to /rpc/<name> with a fresh token', async () => {
+    fetchMock.mockResolvedValueOnce(okJson([{ user_id: 'u1' }]));
+    const out = await sb.rpc('employer_view_candidates', { p_employer_id: 'e1' }, 'stale-token');
+    const [url, init] = fetchMock.mock.calls.at(-1);
+    expect(init.method).toBe('POST');
+    expect(url).toContain('/rest/v1/rpc/employer_view_candidates');
+    expect(JSON.parse(init.body)).toEqual({ p_employer_id: 'e1' });
+    expect(init.headers.Authorization).toBe('Bearer fresh-token');
+    expect(out).toEqual([{ user_id: 'u1' }]);
+  });
+  it('rpc sends {} when there are no arguments', async () => {
+    await sb.rpc('list_open_jobs', undefined, 't');
+    expect(JSON.parse(fetchMock.mock.calls.at(-1)[1].body)).toEqual({});
+  });
+  it('rpc reports a missing function with its status so a caller can fall back', async () => {
+    fetchMock.mockResolvedValueOnce(okJson({ code: 'PGRST202', message: 'Could not find the function public.x' }, 404));
+    await expect(sb.rpc('x', {}, 't')).rejects.toMatchObject({ status: 404 });
+  });
+});
