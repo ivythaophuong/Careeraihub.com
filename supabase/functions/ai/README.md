@@ -28,7 +28,7 @@ user's login token; the function checks who they are, applies limits, calls the 
 If the chosen provider answers 429, 5xx, 401/403/404 (our key or model), times out, is unreachable or returns nothing, the function tries the
 next provider that has a key. It does not fall back for a reply cut off by the length limit, a safety block, or 400/413/422 (the request itself
 is wrong). Requests with a PDF go only to Anthropic, Gemini or OpenAI. Groq, OpenRouter, DeepInfra and Mistral use their own default model (`GROQ_MODEL`,
-`OPENROUTER_MODEL`, `DEEPINFRA_MODEL`, `MISTRAL_MODEL` override it), never `AI_MODEL`. The default DeepInfra and OpenRouter model ids were not verified against a live account: check them once. Only the provider name and error kind are logged, never keys or bodies. Tests: `fallback.test.js`.
+`OPENROUTER_MODEL`, `DEEPINFRA_MODEL`, `MISTRAL_MODEL` override it), never `AI_MODEL`. The default DeepInfra and OpenRouter model ids were not verified against a live account: check them once. Groq's `llama-3.3-70b-versatile` returned "does not exist or you do not have access" for a free account (2026-10-09), so the default is `openai/gpt-oss-120b`, a production model on Groq's model list; if all providers fail, the chosen provider's error is returned. Only the provider name and error kind are logged, never keys or bodies. Tests: `fallback.test.js`.
 A fallback model may answer differently from the primary one: JSON shape is still checked by the callers (`extractJSON`, `normalize*`).
 
 ## Behaviour
