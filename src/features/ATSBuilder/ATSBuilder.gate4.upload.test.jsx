@@ -16,9 +16,18 @@
 // GlobalWorkerOptions.workerSrc at a bundler-resolved worker URL — unlike src/ingestion/ingestDocument.js,
 // which deliberately switches to pdfjs-dist's Node-safe legacy build outside a browser (see its own
 // comment). That browser-only worker path cannot run inside Vitest/jsdom, and no browser-automation tool
-// was available in this session to drive the real dev server. The .pdf upload path through the real UI is
-// therefore NOT verified here and stays UNKNOWN until checked in an actual browser (manual check, or a
-// future headless-browser test runner) — see the Gate 4 note in docs/BRANCH_DELTA_AUDIT.md.
+// was available this session to drive the dev server, so it is not covered by an automated test here.
+//
+// It WAS checked by hand: 2026-10-09, `npm run dev`, real Chrome, dropping tests/fixtures/documents/
+// canva-style-single-col.pdf on the live page. Result matched this file's and Gate 3's own expectation for
+// that exact fixture exactly — fileInfo showed "canva-style-single-col.pdf, 33 words", and the panel showed
+// completeness 100/100, measurable_impact 100/100 ("2 of 2 experience bullets..."), chronology_health
+// 100/100. The AI parse call failed in the same screenshot (CORS: the deployed `ai` function's
+// ALLOWED_ORIGINS is the production domain only, not localhost — unrelated to this integration, a
+// pre-existing local-dev limitation) and the Deterministic panel was unaffected by that failure, which is
+// the real-browser confirmation of the same "AI outage" case this file's own last test simulates with a
+// rejected mock. That manual check is a one-time confirmation, not a regression test: nothing here will
+// catch a future change that breaks the real .pdf upload path, since no automated test drives it.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import fs from 'node:fs';
