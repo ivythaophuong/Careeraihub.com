@@ -8,6 +8,8 @@ import { arrayBufferToBase64 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
 import './atsBuilder.css';
+import { resumeContent } from '../../lib/resumeText';
+import { computeDeterministicScore } from '../../scoring/computeDeterministicScore';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function base64ToBlobUrl(b64) {
@@ -67,10 +69,23 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
   const [localSkills, setLocalSkills] = useState(initialProfile?.skills?.filter(s => s.trim()) || []);
   const [skillInputVal, setSkillInputVal] = useState('');
   const [verifyOpen, setVerifyOpen] = useState(false);
+  // Computed alongside the existing AI score (profile.atsScore), never replacing it or shown in the UI —
+  // the product decision (2026-10-09) is that the UI stays exactly as it was; this runs so the pipeline
+  // is exercised and verifiable (see the console.log below and ATSBuilder.gate*.test.jsx), not to be seen
+  // by a user. Covers all three ways rawText changes here (loaded from memory, a file upload, or the paste
+  // textarea) in one place. Pure/synchronous (no AI, no network — src/scoring/'s own tests enforce that),
+  // so no loading state is needed for it.
+  const [detResult, setDetResult] = useState(null);
 
   useEffect(() => {
     if (profile?.skills) setLocalSkills(profile.skills.filter(s => s.trim()));
   }, [profile]);
+
+  useEffect(() => {
+    const result = rawText && rawText.trim() ? computeDeterministicScore(rawText) : null;
+    setDetResult(result);
+    if (result) console.log('[ATS Builder] deterministic score (not shown in UI):', result.score);
+  }, [rawText]);
 
   const parseResume = async (text) => {
     setLoading(true); setProfile(null); setError('');
@@ -1131,7 +1146,8 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
 }
 
 // ── Main ATSBuilder ────────────────────────────────────────────────────────────
-const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveModule, resumeText: globalResume, setResumeText: setGlobalResumeText }) => {
+const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveModule, resumeText: globalResumeRaw, setResumeText: setGlobalResumeText }) => {
+  const globalResume = resumeContent(globalResumeRaw); // Resume Scan stores an object here, not a string
   const [mainTab, setMainTab] = useState('parse');
   const [entryMode, setEntryMode] = useState(null); // null=choose, 'scratch', 'existing'
 

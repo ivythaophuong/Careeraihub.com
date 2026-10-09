@@ -1,0 +1,52 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [7 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Roboto-Regular >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Roboto-Bold >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /CrimsonPro-Regular >>
+endobj
+6 0 obj
+<< /Length 629 >>
+stream
+BT /F2 16 Tf 60 740 Td (Jane Example) Tj ET
+BT /F1 11 Tf 60 720 Td (jane@example.com  +65 0000 0000  Singapore) Tj ET
+BT /F2 12 Tf 60 690 Td (Experience) Tj ET
+BT /F2 11 Tf 60 670 Td (Product Manager, Acme Ltd) Tj ET
+BT /F1 10 Tf 460 670 Td (2021 - 2024) Tj ET
+BT /F3 10 Tf 75 652 Td (Increased lead qualification by 20 percent) Tj ET
+BT /F3 10 Tf 75 636 Td (Led a cross-functional team of 6) Tj ET
+BT /F2 12 Tf 60 605 Td (Skills) Tj ET
+BT /F1 10 Tf 60 585 Td (SQL) Tj ET
+BT /F1 10 Tf 100 585 Td (Python) Tj ET
+BT /F1 10 Tf 150 585 Td (Figma) Tj ET
+BT /F1 10 Tf 195 585 Td (Roadmapping) Tj ET
+BT /F1 10 Tf 270 585 Td (SEO) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000190 00000 n 
+0000000262 00000 n 
+0000000341 00000 n 
+0000001020 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1166
+%%EOF

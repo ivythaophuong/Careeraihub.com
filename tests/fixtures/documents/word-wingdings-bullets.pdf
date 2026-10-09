@@ -1,0 +1,53 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [8 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Cambria >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Cambria-Bold >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /SymbolMT >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Wingdings-Regular >>
+endobj
+7 0 obj
+<< /Length 505 >>
+stream
+BT /F2 14 Tf 45 740 Td (Jane Example) Tj ET
+BT /F1 11 Tf 45 720 Td (jane@example.com) Tj ET
+BT /F2 12 Tf 45 695 Td (Experience) Tj ET
+BT /F1 11 Tf 45 675 Td (Product Manager, Acme Ltd \(2021 - 2024\)) Tj ET
+BT /F3 10 Tf 60 655 Td (·) Tj ET
+BT /F1 10 Tf 75 655 Td (Increased lead qualification by 20 percent) Tj ET
+BT /F4 10 Tf 60 638 Td (§) Tj ET
+BT /F1 10 Tf 75 638 Td (Led a cross-functional team of 6) Tj ET
+BT /F2 12 Tf 45 610 Td (Skills) Tj ET
+BT /F1 10 Tf 45 590 Td (SQL, Python, Roadmapping) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000183 00000 n 
+0000000256 00000 n 
+0000000325 00000 n 
+0000000403 00000 n 
+0000000958 00000 n 
+trailer
+<< /Size 9 /Root 1 0 R >>
+startxref
+1114
+%%EOF

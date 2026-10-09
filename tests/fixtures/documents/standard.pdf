@@ -1,0 +1,48 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 287 >>
+stream
+BT /F1 12 Tf 72 720 Td (Jane Example) Tj ET
+BT /F1 12 Tf 72 700 Td (Product Manager at Acme Ltd (2021 - 2024)) Tj ET
+BT /F1 12 Tf 72 680 Td (Increased lead qualification by 20 percent) Tj ET
+BT /F1 12 Tf 72 660 Td (Skills:) Tj ET
+BT /F1 12 Tf 130 660 Td (SQL, Python, Roadmapping) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+6 0 obj
+<< /Length 112 >>
+stream
+BT /F1 12 Tf 72 720 Td (Education) Tj ET
+BT /F1 12 Tf 72 700 Td (BSc Economics, Example University, 2019) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000191 00000 n 
+0000000528 00000 n 
+0000000654 00000 n 
+0000000816 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+942
+%%EOF

@@ -1,0 +1,30 @@
+{
+  "description": "An AI answer with no evidence is rejected even when the slot is empty.",
+  "input": {
+    "merge": {
+      "existing": {
+        "value": null,
+        "normalized_value": null,
+        "source": "current_role",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "ai": {
+        "value": "Founder",
+        "normalized_value": null,
+        "source": "current_role",
+        "evidence": null,
+        "confidence": 0.7,
+        "extraction_method": "ai",
+        "requiresInterpretation": false
+      }
+    }
+  },
+  "expect": {
+    "accepted": false,
+    "reason": "invalid_ai_fact: missing_evidence",
+    "keeps": "existing"
+  }
+}

@@ -26,3 +26,21 @@ schema, before and after the change:
     npm i @electric-sql/pglite
     node run.mjs before
     node run.mjs after ../2026-10-05-lock-scores-and-verify-employers.sql
+
+## 2026-10-09: score metadata on `resume_scans`
+
+Applied: `2026-10-08-resume-scans-score-metadata.sql` (Supabase SQL Editor, "Success. No rows returned"). Adds
+three nullable columns (`deterministic_score`, `score_type`, `score_version`) so a rule-based score (P4,
+`src/scoring/resumeScore.js`) is stored apart from the AI-generated `credibility_score`, which
+`recompute_trust_score` takes `MAX()` of on every insert. Does not touch `credibility_score`, the trigger, RLS
+or grants, so the trust score does not change. Rollback is in the script's own header comment (safe: nothing
+in the app reads these columns yet, so nothing depends on them existing).
+
+Tested beforehand against the in-memory replica (`replica-test/score-metadata.mjs`, 20 checks: columns, old
+rows keep NULL, trust score unchanged, rule-based row ignored by `MAX`, range and label constraints, RLS,
+idempotent, rollback). Run it the same way as the 2026-10-05 test. The score is still computed in the browser,
+so the database can check range and labels, not honesty.
+
+Known gap: no code writes to these columns yet — ATS Builder's deterministic score (Gate 1-4,
+`integration/ats-builder-p4-score*`) only logs to the browser console today, it does not persist to
+`resume_scans`. Wiring that write is a separate, not-yet-done step.

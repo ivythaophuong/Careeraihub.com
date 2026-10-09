@@ -1,0 +1,69 @@
+{
+  "description": "0 is a real value (with evidence) and is valid; it is not the same as null.",
+  "input": {
+    "schema_version": "1.0.0",
+    "content_hash": "sha256:test",
+    "extraction": {
+      "status": "ok",
+      "notes": []
+    },
+    "contact": {
+      "name": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.name",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "email": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.email",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "phone": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.phone",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "location": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.location",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "links": []
+    },
+    "experiences": [],
+    "education": [],
+    "skills": [],
+    "metrics": [
+      {
+        "value": 0,
+        "normalized_value": 0,
+        "source": "experience[0].bullets[0]",
+        "evidence": "reduced errors to 0",
+        "confidence": 0.9,
+        "extraction_method": "regex",
+        "requiresInterpretation": false
+      }
+    ],
+    "certifications": []
+  },
+  "expect": {
+    "ok": true,
+    "codes": []
+  }
+}

@@ -50,3 +50,7 @@ yarn-error.log*
 *.jpg
 _screenshots/
 public/ref.html
+
+# Real resumes used for local ingestion tests: never commit (repository is public)
+tests/fixtures/documents/real/*
+!tests/fixtures/documents/real/README.md

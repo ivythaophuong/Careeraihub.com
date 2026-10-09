@@ -1,0 +1,169 @@
+{
+  "description": "A populated record, including a normalized metric and a fact that is still unknown (end date).",
+  "input": {
+    "schema_version": "1.0.0",
+    "content_hash": "sha256:test",
+    "extraction": {
+      "status": "ok",
+      "notes": []
+    },
+    "contact": {
+      "name": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.name",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "email": {
+        "value": "jane@example.com",
+        "normalized_value": null,
+        "source": "contact.email",
+        "evidence": "jane@example.com",
+        "confidence": 0.99,
+        "extraction_method": "regex",
+        "requiresInterpretation": false
+      },
+      "phone": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.phone",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "location": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.location",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "links": [
+        {
+          "value": "https://linkedin.com/in/jane",
+          "normalized_value": null,
+          "source": "contact.links[0]",
+          "evidence": "linkedin.com/in/jane",
+          "confidence": 0.97,
+          "extraction_method": "regex",
+          "requiresInterpretation": false
+        }
+      ]
+    },
+    "experiences": [
+      {
+        "title": {
+          "value": "Product Manager",
+          "normalized_value": null,
+          "source": "experience[0].title",
+          "evidence": "Product Manager",
+          "confidence": 0.9,
+          "extraction_method": "structure",
+          "requiresInterpretation": false
+        },
+        "company": {
+          "value": "Acme",
+          "normalized_value": null,
+          "source": "experience[0].company",
+          "evidence": "Acme",
+          "confidence": 0.9,
+          "extraction_method": "structure",
+          "requiresInterpretation": false
+        },
+        "start": {
+          "value": "2021-03",
+          "normalized_value": "2021-03",
+          "source": "experience[0].start",
+          "evidence": "Mar 2021",
+          "confidence": 0.95,
+          "extraction_method": "regex",
+          "requiresInterpretation": false
+        },
+        "end": {
+          "value": null,
+          "normalized_value": null,
+          "source": "experience[0].end",
+          "evidence": null,
+          "confidence": 0,
+          "extraction_method": "rule",
+          "requiresInterpretation": true
+        },
+        "bullets": [
+          {
+            "value": "increased lead qualification by 20%",
+            "normalized_value": null,
+            "source": "experience[0].bullets[0]",
+            "evidence": "increased lead qualification by 20%",
+            "confidence": 0.98,
+            "extraction_method": "regex",
+            "requiresInterpretation": false
+          }
+        ]
+      }
+    ],
+    "education": [
+      {
+        "degree": {
+          "value": "BSc Economics",
+          "normalized_value": null,
+          "source": "education[0].degree",
+          "evidence": "BSc Economics",
+          "confidence": 0.9,
+          "extraction_method": "structure",
+          "requiresInterpretation": false
+        },
+        "institution": {
+          "value": null,
+          "normalized_value": null,
+          "source": "education[0].institution",
+          "evidence": null,
+          "confidence": 0,
+          "extraction_method": "rule",
+          "requiresInterpretation": true
+        },
+        "year": {
+          "value": "2019",
+          "normalized_value": 2019,
+          "source": "education[0].year",
+          "evidence": "2019",
+          "confidence": 0.9,
+          "extraction_method": "regex",
+          "requiresInterpretation": false
+        }
+      }
+    ],
+    "skills": [
+      {
+        "value": "SQL",
+        "normalized_value": null,
+        "source": "skills[0]",
+        "evidence": "SQL",
+        "confidence": 0.95,
+        "extraction_method": "rule",
+        "requiresInterpretation": false
+      }
+    ],
+    "metrics": [
+      {
+        "value": "20%",
+        "normalized_value": 0.2,
+        "source": "experience[0].bullets[0]",
+        "evidence": "increased lead qualification by 20%",
+        "confidence": 0.98,
+        "extraction_method": "regex",
+        "requiresInterpretation": false
+      }
+    ],
+    "certifications": []
+  },
+  "expect": {
+    "ok": true,
+    "codes": []
+  }
+}

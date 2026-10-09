@@ -9,7 +9,7 @@ const QUICK_PROMPTS = [
   { label: '🎯 Should I apply broadly or target fewer roles?',  text: 'Should I apply to many roles broadly or target fewer, highly-tailored applications?' },
 ];
 
-function buildSystemPrompt(memory, form) {
+export function buildSystemPrompt(memory, form) {
   const lines = [
     `You are an expert AI career coach. You have full context on the user's profile.`,
     `Target role: ${form?.role || 'not specified'}`,
@@ -19,7 +19,7 @@ function buildSystemPrompt(memory, form) {
   ];
   if (memory.scanHistory?.length) {
     const latest = memory.scanHistory[0];
-    lines.push(`Latest resume ATS score: ${latest.score}/100`);
+    lines.push(Number.isFinite(latest?.score) ? `Latest resume ATS score: ${latest.score}/100` : 'Latest resume scan has no score recorded');
   }
   if (memory.starBank?.length) {
     lines.push(`STAR bank: ${memory.starBank?.length} stories saved`);
@@ -35,7 +35,9 @@ function buildSystemPrompt(memory, form) {
     lines.push(`Cover letters generated: ${memory.coverLetters.length}`);
   }
   if (memory.skillsGap?.result) {
-    lines.push(`Skills gap analysis: match rate ${memory.skillsGap.result.matchRate}% → projected ${memory.skillsGap.result.projectedMatchRate}%`);
+    // Counted from the saved skill list; the AI-estimated match rates are no longer shown or stored.
+    const gaps = (memory.skillsGap.result.skills || []).filter(sk => sk.status === 'gap').map(sk => sk.name).filter(Boolean);
+    lines.push(`Skills gap analysis done${gaps.length ? `; flagged gaps: ${gaps.slice(0, 6).join(', ')}` : ''}`);
   }
   if ((memory.negotiationPractice ?? 0) > 0) {
     lines.push(`Salary negotiation practice sessions: ${memory.negotiationPractice}`);

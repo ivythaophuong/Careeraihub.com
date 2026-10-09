@@ -1,0 +1,33 @@
+{
+  "description": "`missing` must list exactly the null parts.",
+  "input": {
+    "score": 70,
+    "score_type": "careeraihub_ats_readiness",
+    "version": "1.0.0",
+    "parts": [
+      {
+        "id": "completeness",
+        "score": 80,
+        "weight": 1,
+        "required": true,
+        "evidence": [
+          "counted 3 of 5 sections"
+        ]
+      },
+      {
+        "id": "keyword_match",
+        "score": null,
+        "weight": 1,
+        "required": false,
+        "evidence": []
+      }
+    ],
+    "missing": []
+  },
+  "expect": {
+    "ok": false,
+    "codes": [
+      "missing_mismatch"
+    ]
+  }
+}

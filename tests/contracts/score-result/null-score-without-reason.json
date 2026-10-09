@@ -1,0 +1,35 @@
+{
+  "description": "Headline score null although every required part has a score.",
+  "input": {
+    "score": null,
+    "score_type": "careeraihub_ats_readiness",
+    "version": "1.0.0",
+    "parts": [
+      {
+        "id": "completeness",
+        "score": 80,
+        "weight": 1,
+        "required": true,
+        "evidence": [
+          "counted 3 of 5 sections"
+        ]
+      },
+      {
+        "id": "formatting",
+        "score": 60,
+        "weight": 1,
+        "required": true,
+        "evidence": [
+          "counted 3 of 5 sections"
+        ]
+      }
+    ],
+    "missing": []
+  },
+  "expect": {
+    "ok": false,
+    "codes": [
+      "null_without_reason"
+    ]
+  }
+}

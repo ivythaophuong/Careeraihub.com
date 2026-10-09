@@ -1,0 +1,30 @@
+{
+  "description": "AI proposes a different email; the code-extracted one stays.",
+  "input": {
+    "merge": {
+      "existing": {
+        "value": "jane@example.com",
+        "normalized_value": null,
+        "source": "contact.email",
+        "evidence": "jane@example.com",
+        "confidence": 0.99,
+        "extraction_method": "regex",
+        "requiresInterpretation": false
+      },
+      "ai": {
+        "value": "other@example.com",
+        "normalized_value": null,
+        "source": "contact.email",
+        "evidence": "other@example.com",
+        "confidence": 0.9,
+        "extraction_method": "ai",
+        "requiresInterpretation": false
+      }
+    }
+  },
+  "expect": {
+    "accepted": false,
+    "reason": "deterministic_fact_is_protected",
+    "keeps": "existing"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "description": "An unknown key is an error, not ignored.",
+  "input": {
+    "schema_version": "1.0.0",
+    "content_hash": "sha256:test",
+    "extraction": {
+      "status": "ok",
+      "notes": []
+    },
+    "contact": {
+      "name": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.name",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "email": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.email",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "phone": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.phone",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "location": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.location",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "links": []
+    },
+    "experiences": [],
+    "education": [],
+    "skills": [
+      {
+        "value": "SQL",
+        "normalized_value": null,
+        "source": "skills[0]",
+        "evidence": "SQL",
+        "confidence": 0.9,
+        "extraction_method": "rule",
+        "requiresInterpretation": false,
+        "confidance": 0.9
+      }
+    ],
+    "metrics": [],
+    "certifications": []
+  },
+  "expect": {
+    "ok": false,
+    "codes": [
+      "unknown_field"
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "description": "If code says it could not decide, it must not also carry a value.",
+  "input": {
+    "schema_version": "1.0.0",
+    "content_hash": "sha256:test",
+    "extraction": {
+      "status": "ok",
+      "notes": []
+    },
+    "contact": {
+      "name": {
+        "value": "Jane Doe",
+        "normalized_value": null,
+        "source": "contact.name",
+        "evidence": "Jane Doe",
+        "confidence": 0.5,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "email": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.email",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "phone": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.phone",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "location": {
+        "value": null,
+        "normalized_value": null,
+        "source": "contact.location",
+        "evidence": null,
+        "confidence": 0,
+        "extraction_method": "rule",
+        "requiresInterpretation": true
+      },
+      "links": []
+    },
+    "experiences": [],
+    "education": [],
+    "skills": [],
+    "metrics": [],
+    "certifications": []
+  },
+  "expect": {
+    "ok": false,
+    "codes": [
+      "guess_not_allowed"
+    ]
+  }
+}

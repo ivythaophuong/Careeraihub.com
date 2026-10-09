@@ -66,6 +66,8 @@ import './styles/appTheme.css';
 import { Ticker, UserMenu, AuthGate } from './components/OriginalUIOverlays';
 import { AuthModal, CommandPalette } from './components/OriginalFeatures';
 import EmployerPortal from './features/EmployerPortal/EmployerPortal';
+import { saveSession } from './lib/session';
+import { resumeContent } from './lib/resumeText';
 
 // ── Main App Shell ───────────────────────────────────────────────────────────
 function App() {
@@ -231,7 +233,7 @@ function App() {
     };
     setUser(newUser);
     setIsRecruiter(meta.role === 'recruiter');
-    localStorage.setItem("supabase.auth.token", JSON.stringify({ currentSession: session }));
+    saveSession(session);
     loadProfile(newUser, { fromLogin: true, isRecruiter: meta.role === 'recruiter' });
     setIsRestoring(true); // Trigger composite fetch
     setAuthModal(null);
@@ -612,7 +614,7 @@ function App() {
                       setProfileLoading(false);
                     }
                   }}
-                  disabled={resumeParsing || (resumeText !== null && !resumeText?.trim())}
+                  disabled={resumeParsing || (resumeText !== null && !resumeContent(resumeText).trim())}
                   color={C.accent} dark
                   style={{ flex: 1, fontSize: 14 }}
                 >{resumeParsing ? 'Extracting resume…' : 'Get started →'}</Btn>

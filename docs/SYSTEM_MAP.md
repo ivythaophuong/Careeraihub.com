@@ -74,13 +74,13 @@ Upload / paste (ResumeScan → JDMatchTab)
 
 ### Important finding (updated 2026-10-09)
 
-The screen renders only `<JDMatchTab/>`. It used to render a legacy "Deep Scan" block wrapped in `{false && (...)}` whose `runScan` wrote `resume_scans`; that block was dead code (never rendered, `runScan` had no other caller) and was **removed** in branch `cleanup/remove-dead-scan-flows-main` (the same change, with its own checkpoint, also exists on top of the ATS Builder P4 work as `cleanup/remove-dead-scan-flows`, tags `checkpoint/before-dead-scan-cleanup-2026-10-09` / `checkpoint/after-dead-scan-cleanup-2026-10-09`).
+The screen renders only `<JDMatchTab/>`. It used to render a legacy "Deep Scan" block wrapped in `{false && (...)}` whose `runScan` wrote `resume_scans`; that block was dead code (never rendered, `runScan` had no other caller) and was **removed** in branch `cleanup/remove-dead-scan-flows` (checkpoint tag `checkpoint/before-dead-scan-cleanup-2026-10-09`).
 
 `ATSBuilder.jsx` held a second dead writer: a Kanban scan flow (`handleFile`, `runScanPdf`, `runScanText`, `processScanResult`, card and `phase` state, and the components `UploadPhase`, `LoadingPhase`, `GapCard`, `EditCard`, `DoneCard`, `KanbanColumn`, `AddGapModal`, `ResultsView`, `AtsScannerDemo`). The `phase` state it set was never read by any JSX, and none of those components was instantiated. Removed in the same branch. The live ATS Builder is `UploadAndParseTab` → `BuilderTab` → `VersionHistoryTab`, whose AI profile (`profile.atsScore`) is stored in `user_memory.parseProfile`, not in a relational table.
 
 **Consequence: no live code path writes `resume_scans` today.** The table is still read (`useMemory.js`) and wiped by the data-reset in `MemoryDashboard.jsx`. Whether older rows exist in the real database was NOT checked (UNKNOWN: needs a query on Supabase).
 
-Left in place on purpose, to be decided separately: the now-unused `moveCardPure` export of `atsBuilderUtils.js` (it keeps its own unit tests); the unused `rs-*` / Kanban rules in `resumeScan.css` and `atsBuilder.css`; the `resume_scans` table, its new `deterministic_score` columns and all rows.
+Left in place on purpose, to be decided separately: `buildScanRecord`, `moveCardPure` and other now-unused exports of `atsBuilderUtils.js` (they keep their own unit tests); the unused `rs-*` / Kanban rules in `resumeScan.css` and `atsBuilder.css`; the `resume_scans` table, its new `deterministic_score` columns and all rows.
 
 ### Verification status
 

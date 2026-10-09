@@ -224,3 +224,55 @@ describe('SEVERITY_ORDER', () => {
     expect(SEVERITY_ORDER.medium).toBeLessThan(SEVERITY_ORDER.low);
   });
 });
+
+// ── buildScanRecord / validScore ───────────────────────────────────────────────
+import { buildScanRecord, validScore } from './atsBuilderUtils.js';
+
+describe('validScore', () => {
+  it('keeps a real score, including a real 0', () => {
+    expect(validScore(72)).toBe(72);
+    expect(validScore(0)).toBe(0);
+    expect(validScore(72.4)).toBe(72);
+  });
+  it.each([[undefined], [null], ['78'], [NaN], [Infinity], [-1], [101], [{}]])('treats %s as unknown (null), not 0', (v) => {
+    expect(validScore(v)).toBeNull();
+  });
+});
+
+describe('buildScanRecord', () => {
+  const parsed = { atsScore: 64, parameters: { keywords: 50, impactMetrics: 40, formatting: 80, missingSections: 70, summaryHeadline: 60 }, gaps: [{ id: 'g1' }], summary: 's' };
+
+  it('saves the score as given', () => {
+    expect(buildScanRecord(parsed).row.credibility_score).toBe(64);
+  });
+
+  it('a missing score is saved as null, never as 0 (0 would count towards the trust score)', () => {
+    for (const bad of [{ ...parsed, atsScore: undefined }, { ...parsed, atsScore: null }, { ...parsed, atsScore: 'high' }]) {
+      const rec = buildScanRecord(bad);
+      expect(rec.row.credibility_score).toBeNull();
+      expect(rec.radarResult.credibilityScore).toBeNull();
+      expect(rec.score).toBeNull();
+    }
+  });
+
+  it('a real 0 stays 0', () => {
+    expect(buildScanRecord({ ...parsed, atsScore: 0 }).row.credibility_score).toBe(0);
+  });
+
+  it('does not save the number of score parameters as "metrics found"', () => {
+    const rec = buildScanRecord(parsed);
+    expect(Object.keys(parsed.parameters)).toHaveLength(5);
+    expect(rec.row.metrics_found).toBeNull();
+    expect(rec.radarResult.metricsFound).toBeNull();
+  });
+
+  it('tolerates a result with no gaps or parameters', () => {
+    const rec = buildScanRecord({ atsScore: 50 });
+    expect(rec.row).toMatchObject({ credibility_score: 50, issues: [], questions: [], summary: '' });
+  });
+
+  it('history entry carries the same score and the result', () => {
+    const rec = buildScanRecord(parsed, '2026-10-08T00:00:00.000Z');
+    expect(rec.historyEntry(rec.radarResult)).toEqual({ score: 64, date: '2026-10-08T00:00:00.000Z', result: rec.radarResult });
+  });
+});
