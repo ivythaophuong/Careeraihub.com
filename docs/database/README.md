@@ -55,3 +55,22 @@ exist in `auth.users`, so deleting an account (which cascades) is not blocked. I
 Tested only on the in-memory replica: `replica-test/s1-recompute-on-delete.mjs` (18 checks, including account deletion with and without the guard, privileges,
 idempotence and the down script) and `replica-test/s0-integrity-findings.mjs --desired --apply=<this script>` (F-5 flips to FIXED, the other findings stay OPEN).
 The replica adds the four foreign keys to `auth.users` that production has (evidence query 1.8). Not run against the real database.
+
+## Proposed, NOT applied: recruiters read a candidate only with consent (2026-10-09, finding F-4)
+
+`proposed/2026-10-09-consent-only-recruiter-access.sql` (undo: `.down.sql`, which restores the three policies exactly as read from production). Owner decision:
+a recruiter may read a candidate only with that candidate's consent.
+
+- Drops the policy "recruiters can read visible profiles": recruiters have no direct SELECT on `candidate_trust_profiles`.
+- Adds `employer_view_candidates(employer, candidate)`: the only recruiter read path. It needs a verified membership of that employer and an active consent
+  (purpose `recruiter_review`, part `profile`; part `salary` adds the salary range). It never returns the practice scores.
+- Adds `employer_has_consent(candidate, employer, part)` and uses it instead of `candidate_is_visible()` in the match and pipeline insert policies.
+- `is_visible` no longer grants any read. Revocation and expiry apply on the next request.
+
+**Consequences:** recruiters cannot browse candidates; the app has no consent screen and the Employer Portal does not call the new function, so its candidate views
+return nothing until both exist. Matches and pipeline entries created earlier stay visible to their employer (ids, status, the recruiter's own notes).
+
+Tested only on the in-memory replica: `replica-test/s3-consent-only-access.mjs` (47 checks: no consent, each part, wrong purpose, other employer, unverified employer,
+revocation, expiry, probing, matches and pipeline, the service role, idempotence, four removed-safeguard controls, the down script) and
+`replica-test/s0-integrity-findings.mjs --apply=<this script>` (F-1b, F-4a, F-4c, F-4d flip to FIXED). With S1, S2 and S3 applied together only F-1 stays OPEN.
+Not run against the real database.
