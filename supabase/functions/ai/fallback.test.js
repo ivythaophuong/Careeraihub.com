@@ -109,6 +109,15 @@ describe('callWithFallback', () => {
     expect(bodies['https://openrouter.ai/api/v1/chat/completions'].provider).toEqual({ zdr: true });
     expect(bodies['https://api.groq.com/openai/v1/chat/completions'].provider).toBeUndefined();
   });
+  it('logs which provider and model answered, marking a fallback, and nothing else', async () => {
+    const info = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await callWithFallback({ env: ENV, messages: MSGS, maxTokens: 50 }, router({ 'generativelanguage': () => geminiOk('secret answer text') }));
+    expect(info).toHaveBeenLastCalledWith('[ai] answered by gemini (gemini-3.8-flash)');
+    await callWithFallback({ env: ENV, messages: MSGS, maxTokens: 50 }, router({ 'generativelanguage': () => err(429), 'anthropic.com': () => anthropicOk('secret answer text') }));
+    expect(info).toHaveBeenLastCalledWith('[ai] answered by anthropic (claude-sonnet-5-5) as a fallback');
+    expect(JSON.stringify(info.mock.calls)).not.toMatch(/secret answer text|g-key|a-key/);
+  });
   it('never puts a key in the log', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const f = router({ 'generativelanguage': () => err(503), 'anthropic.com': () => anthropicOk() });

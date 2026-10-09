@@ -182,7 +182,10 @@ export async function callWithFallback({ env, messages, maxTokens, pdfBase64 }, 
   let firstErr;
   for (const provider of chain) {
     try {
-      return await callProvider({ provider, model: modelFor(env, provider), key: setting(env, KEY_ENV[provider]), messages, maxTokens, pdfBase64 }, fetchImpl, timeoutMs);
+      const model = modelFor(env, provider);
+      const text = await callProvider({ provider, model, key: setting(env, KEY_ENV[provider]), messages, maxTokens, pdfBase64 }, fetchImpl, timeoutMs);
+      console.log(`[ai] answered by ${provider} (${model})${provider === chain[0] ? '' : ' as a fallback'}`); // names only: no keys, no content
+      return text;
     } catch (e) {
       firstErr = firstErr || e;
       if (!shouldFallBack(e)) throw e;
