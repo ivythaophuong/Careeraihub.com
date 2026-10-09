@@ -1,5 +1,6 @@
--- PROPOSED, NOT APPLIED. Tested only against the in-memory replica (docs/database/replica-test/score-metadata.mjs).
--- Review it, then run it yourself in the Supabase SQL Editor. Nothing in the app reads these columns yet.
+-- APPLIED 2026-10-09 (Supabase SQL Editor; "Success. No rows returned", the expected result for these
+-- statements). Tested beforehand against the in-memory replica (docs/database/replica-test/score-metadata.mjs).
+-- Nothing in the app reads these columns yet.
 --
 -- Why: resume_scans.credibility_score holds AI-generated scores of two different meanings (Resume Scan
 -- "credibility", ATS Builder "ATS"), and recompute_trust_score takes MAX(credibility_score) on every insert.
