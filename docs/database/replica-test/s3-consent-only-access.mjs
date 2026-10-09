@@ -165,6 +165,100 @@ check('M6 after revocation a recruiter cannot create another match', !!r.error, 
 r = await as(db2, 'authenticated', U.o, `select id from trust_matches where employer_id=$1`, [E1]);
 check('M7 documented limit: the match created earlier stays visible to its employer (ids and status only)', (r.rows || []).length === 1, JSON.stringify(r));
 
+// ── security matrix: who can touch consents, and what a revocation stops ─────
+db2 = await freshDb(read(FIX));
+const cA = (await grant(db2, E1, ['profile'])).rows[0].id;
+r = await as(db2, 'authenticated', U.b, `select * from consents`);
+check('Q1 another candidate cannot read this candidate\'s consents', none(r), JSON.stringify(r));
+r = await as(db2, 'authenticated', U.b, `update consents set revoked_at = now() where id=$1 returning id`, [cA]);
+check('Q2 another candidate cannot revoke it (no row is changed)', none(r) && (await view(db2, 'authenticated', U.o, E1)).rows?.length === 1, JSON.stringify(r));
+r = await as(db2, 'authenticated', U.o, `select * from consents`);
+check('Q3 a recruiter cannot read any consent row', none(r), JSON.stringify(r));
+r = await as(db2, 'authenticated', U.o, `update consents set revoked_at = now() where id=$1 returning id`, [cA]);
+check('Q4 a recruiter cannot revoke or change a consent', none(r) && (await view(db2, 'authenticated', U.o, E1)).rows?.length === 1, JSON.stringify(r));
+r = await as(db2, 'authenticated', U.o, `insert into consents (candidate_id, employer_id, scope, purpose, expires_at) values ($1,$2,'{"parts":["profile"]}','recruiter_review', now() + interval '30 days')`, [U.b, E1]);
+const forged = await db2.query(`select count(*)::int n from consents where candidate_id = $1`, [U.b]);
+check('Q5 a recruiter cannot create a consent in a candidate\'s name', !!r.error || forged.rows[0].n === 0, JSON.stringify({ r, forged: forged.rows[0] }));
+
+for (const [label, setClause] of [
+  ['scope (escalation)', `scope = '{"parts":["profile","salary"]}'`],
+  ['employer_id', `employer_id = '${E2}'`],
+  ['purpose', `purpose = 'matching'`],
+  ['expires_at', `expires_at = now() + interval '300 days'`],
+  ['candidate_id', `candidate_id = '${U.b}'`],
+]) {
+  r = await as(db2, 'authenticated', U.a, `update consents set ${setClause} where id=$1`, [cA]);
+  check(`Q6 the candidate cannot edit ${label} of a consent`, !!r.error, JSON.stringify(r));
+}
+check('Q7 after those attempts the consent is unchanged and still gives profile only',
+  JSON.stringify((await view(db2, 'authenticated', U.o, E1)).rows?.[0]?.consented_parts) === '["profile"]');
+
+const badConsents = [
+  ['an unknown purpose', `'{"parts":["profile"]}'`, `'sell_my_data'`, `now() + interval '30 days'`],
+  ['a scope without parts', `'{"x":1}'`, `'recruiter_review'`, `now() + interval '30 days'`],
+  ['an expiry beyond 365 days', `'{"parts":["profile"]}'`, `'recruiter_review'`, `now() + interval '400 days'`],
+  ['an expiry in the past', `'{"parts":["profile"]}'`, `'recruiter_review'`, `now() - interval '1 day'`],
+];
+for (const [label, scope, purpose, exp] of badConsents) {
+  r = await as(db2, 'authenticated', U.a, `insert into consents (employer_id, scope, purpose, expires_at) values ($1, ${scope}::jsonb, ${purpose}, ${exp})`, [E1]);
+  check(`Q8 a consent with ${label} is rejected`, !!r.error, JSON.stringify(r));
+}
+
+// revoke everything for one employer in ONE request
+db2 = await freshDb(read(FIX));
+await grant(db2, E1, ['profile']);
+await grant(db2, E1, ['salary']);
+const old = (await grant(db2, E1, ['profile'])).rows[0].id;
+await as(db2, 'authenticated', U.a, `update consents set revoked_at = now() where id=$1`, [old]);           // one already revoked
+await grant(db2, E1, ['profile'], 'recruiter_review', '1 second');                                              // one that will have expired
+const other = (await grant(db2, E2, ['profile'])).rows[0].id;                                                  // another employer
+await db2.query(`select pg_sleep(1.5)`);
+check('H0 setup: the employer is readable with several consents', (await view(db2, 'authenticated', U.o, E1)).rows?.length === 1);
+r = await as(db2, 'authenticated', U.a, `update consents set revoked_at = now() where employer_id = $1 and revoked_at is null returning id`, [E1]);
+check('H1 one request revokes every consent of that employer that is not yet revoked (active and expired ones; 3 rows)', !r.error && r.rows.length === 3, JSON.stringify(r));
+check('H2 the employer reads nothing at once', none(await view(db2, 'authenticated', U.o, E1)));
+check('H3 a consent for another employer is untouched', (await view(db2, 'authenticated', U.q, E2)).rows?.length === 1);
+r = await as(db2, 'authenticated', U.a, `update consents set revoked_at = now() where employer_id = $1 and revoked_at is null returning id`, [E1]);
+check('H4 repeating it changes nothing and does not fail (idempotent)', none(r), JSON.stringify(r));
+r = await as(db2, 'authenticated', U.a, `update consents set revoked_at = now() where employer_id = $1`, [E1]);
+check('H5 documented: without "revoked_at is null" the request fails on a row that is already revoked, so the filter is part of the contract', !!r.error, JSON.stringify(r));
+r = await as(db2, 'authenticated', U.a, `update consents set revoked_at = null where employer_id = $1 returning id`, [E1]);
+check('H6 a revocation cannot be undone by the candidate', !!r.error || (r.rows || []).length === 0, JSON.stringify(r));
+
+// after revocation every protected path refuses
+db2 = await freshDb(read(FIX));
+const cRev = (await grant(db2, E1, ['profile', 'salary'])).rows[0].id;
+await as(db2, 'authenticated', U.a, `update consents set revoked_at = now() where id=$1`, [cRev]);
+const paths = {
+  'recruiter function': none(await view(db2, 'authenticated', U.o, E1)),
+  'recruiter list': none(await as(db2, 'authenticated', U.o, `select * from employer_view_candidates($1,null)`, [E1])),
+  'base table': none(await as(db2, 'authenticated', U.o, `select * from candidate_trust_profiles where user_id=$1`, [U.a])),
+  'helper': (await as(db2, 'authenticated', U.o, `select employer_has_consent($1,$2,'profile') ok`, [U.a, E1])).rows?.[0]?.ok === false,
+  'new match': !!(await as(db2, 'authenticated', U.o, `insert into trust_matches (employer_id, candidate_id, status) values ($1,$2,'new')`, [E1, U.a])).error,
+  'new pipeline entry': !!(await as(db2, 'authenticated', U.o, `insert into pipeline_entries (employer_id, candidate_id) values ($1,$2)`, [E1, U.a])).error,
+};
+for (const [k, ok] of Object.entries(paths)) check(`W revocation closes: ${k}`, ok);
+
+// function contract
+db2 = await freshDb(read(FIX));
+await grant(db2, E1, ['profile', 'salary', 'email', 'credentials', 'resume']);
+r = await view(db2, 'authenticated', U.o, E1);
+const keys = Object.keys(r.rows?.[0] || {}).sort().join(',');
+const expected = ['bio', 'consent_expires_at', 'consented_parts', 'currency', 'full_name', 'headline', 'location', 'salary_max', 'salary_min', 'skills', 'user_id', 'work_preference'].sort().join(',');
+check('Z1 the function returns exactly the documented columns, whatever parts are listed (email, credentials, resume, scores never appear)', keys === expected, keys);
+r = await as(db2, 'authenticated', U.o, `select * from employer_view_candidates(null, $1)`, [U.a]);
+check('Z2 a null employer id returns nothing', none(r), JSON.stringify(r));
+r = await as(db2, 'authenticated', U.o, `select * from employer_view_candidates('99999999-9999-9999-9999-999999999999', $1)`, [U.a]);
+check('Z3 an unknown employer id returns nothing', none(r), JSON.stringify(r));
+await db2.exec(`set role authenticated`);
+await db2.query(`select set_config('request.jwt.claims', '{"role":"authenticated"}', false)`);
+let noSub; try { noSub = { rows: (await db2.query(`select * from employer_view_candidates($1,$2)`, [E1, U.a])).rows }; } catch (e) { noSub = { error: e.message }; }
+await db2.exec('reset role');
+check('Z4 a token without a user id (role authenticated, no sub) returns nothing', none(noSub), JSON.stringify(noSub));
+// the employer id sent by the client is never trusted: a recruiter who lists himself under another employer's id gets nothing
+await db2.query(`insert into employer_members (employer_id, user_id, role) values ($1,$2,'recruiter')`, [EU, U.q]);   // Q is a member of the UNverified employer
+check('Z5 membership of an unverified employer gives nothing even with a consent addressed to it', none(await view(db2, 'authenticated', U.q, EU)));
+
 // service role and editor unaffected
 r = await as(db, 'service_role', null, `select user_id, trust_score from candidate_trust_profiles`);
 check('S1 the service role still reads profiles', r.rows?.length === 1 && r.rows[0].trust_score === 77, JSON.stringify(r));
