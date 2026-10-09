@@ -76,3 +76,20 @@ no cross-candidate read or revoke, no recruiter access to consents, no edit of s
 employer, every protected path closed after revocation, and an exact column list for the recruiter function) and
 `replica-test/s0-integrity-findings.mjs --apply=<this script>` (F-1b, F-4a, F-4c, F-4d flip to FIXED). With S1, S2 and S3 applied together only F-1 stays OPEN.
 Not run against the real database.
+
+## Applied to production: S1 recompute the practice score when inputs are deleted (2026-10-09, finding F-5)
+
+Applied by the owner in the SQL Editor of project `ruibdsvrcctxgxctaxwe`, one run, result "Success. No rows returned". File: `proposed/2026-10-09-recompute-score-on-delete.sql`
+(the statements from `begin;` to `commit;`, without the leading comments). Undo: `proposed/2026-10-09-recompute-score-on-delete.down.sql`. Plan: `PRODUCTION_APPLY_PLAN.md`, Step 1.
+
+An earlier attempt left no trace (no trigger, no function); the verification below was run after the successful run.
+
+What was checked after applying (read-only, `supabase db query --linked`):
+- Three triggers exist and are enabled: `trg_trust_on_mock_session_delete`, `trg_trust_on_resume_scan_delete`, `trg_trust_on_star_story_delete`; the three earlier triggers are unchanged.
+- `anon` and `authenticated` cannot execute `trigger_recompute_trust_score_after_delete()`.
+- The number of rows in `candidate_trust_profiles` was 5 before and after (the script changes no rows).
+- Functional check with a throw-away account created through the real site: saving a STAR story gave `star_score` 31 and `trust_score` 8; after deleting the story in STAR Builder both scores became 0
+  (`updated_at` showed the recompute after the delete; before S1 they stayed at 31 and 8). Deleting that account in the dashboard succeeded and removed its profile row (5 rows again).
+
+Not checked: "Clear memory" (it deletes eight tables at once) was skipped by the owner and should be repeated with a new throw-away account; a delete of a mock interview session.
+Waiting period: 24 hours with the Postgres logs watched for errors mentioning `trigger_recompute_trust_score_after_delete` before Step 2.
