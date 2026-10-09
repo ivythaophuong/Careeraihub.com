@@ -20,7 +20,7 @@ Row-level security is stated in `CLAUDE.md` and `docs/database/README.md`; the p
 
 | Step | Source / owner | Transformation | Validation | Can the user edit it? | Can AI edit it? |
 |---|---|---|---|---|---|
-| Upload or paste | user | none | type PDF/DOCX, ≤ 10 MB (`ResumeScan.handleFile`) | yes | no |
+| Upload or paste | user | none | type PDF/DOCX, ≤ 10 MB (`JDMatchTab.handleResumeUpload` in `ResumeScan.jsx`) | yes | no |
 | Text extraction | browser (pdfjs / mammoth) | file → plain text | none found beyond parser errors | n/a | no |
 | Stored `resumeText` | `App.jsx` | `localStorage` + memory blob | `useMemory` fails closed if `user_memory` cannot be read | yes (re-upload / editor) | no |
 | Digest | `resumeDigest.js` | cut to 6000 chars, keep header + compact sections + share of long ones | user shown a notice when cut | no | no |
@@ -32,7 +32,7 @@ Row-level security is stated in `CLAUDE.md` and `docs/database/README.md`; the p
 
 | Output | Where the AI text is guarded | Evidence |
 |---|---|---|
-| ATS rewrite fixes | `factGuard.neutralizeInventedFigures` (figures only) | `ResumeScan.jsx` L308 |
+| ATS rewrite fixes | `factGuard.neutralizeInventedFigures` (figures only) | `ResumeScan.jsx` (`guardIssues`) |
 | Interview feedback / scores | `numberGuard` in `HiringManagerSim/interview.js` | grep of imports; behaviour: `interview.test.js` (13) |
 | STAR, Salary, Cover Letter, ATS Builder | **no `numberGuard`/`factGuard` import found** in these files on this branch | grep of imports |
 
