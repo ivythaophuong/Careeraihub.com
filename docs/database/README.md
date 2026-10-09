@@ -44,3 +44,14 @@ so the database can check range and labels, not honesty.
 Known gap: no code writes to these columns yet — ATS Builder's deterministic score (Gate 1-4,
 `integration/ats-builder-p4-score*`) only logs to the browser console today, it does not persist to
 `resume_scans`. Wiring that write is a separate, not-yet-done step.
+
+## Proposed, NOT applied: recompute the practice score when inputs are deleted (2026-10-09, finding F-5)
+
+`proposed/2026-10-09-recompute-score-on-delete.sql` (undo: `proposed/2026-10-09-recompute-score-on-delete.down.sql`) adds statement-level AFTER DELETE
+triggers on `resume_scans`, `mock_sessions`, `star_stories` that recompute `candidate_trust_profiles` once per affected user. It skips users that no longer
+exist in `auth.users`, so deleting an account (which cascades) is not blocked. It does not change the formula, RLS, policies or grants, and the score becomes 0
+(not NULL) when the last input is deleted, as in the current rule.
+
+Tested only on the in-memory replica: `replica-test/s1-recompute-on-delete.mjs` (18 checks, including account deletion with and without the guard, privileges,
+idempotence and the down script) and `replica-test/s0-integrity-findings.mjs --desired --apply=<this script>` (F-5 flips to FIXED, the other findings stay OPEN).
+The replica adds the four foreign keys to `auth.users` that production has (evidence query 1.8). Not run against the real database.
