@@ -104,7 +104,9 @@ function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) 
     return {
       url: COMPAT_URL[provider] || 'https://api.openai.com/v1/chat/completions',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: isCompat(provider) ? { model, max_tokens: maxTokens, messages: msgs } : { model, max_completion_tokens: maxTokens, messages: msgs },
+      body: isCompat(provider)
+        ? { model, max_tokens: maxTokens, messages: msgs, ...(provider === 'openrouter' ? { provider: { zdr: true } } : {}) } // OpenRouter: route only to endpoints with Zero Data Retention
+        : { model, max_completion_tokens: maxTokens, messages: msgs },
     };
   }
   const msgs = pdfBase64

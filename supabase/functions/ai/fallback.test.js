@@ -101,6 +101,14 @@ describe('callWithFallback', () => {
     expect(calls[1].body.model).toBe(model);
     expect(providerChain(env)).toEqual(['gemini', name]);
   });
+  it('asks OpenRouter to use only Zero Data Retention endpoints, and sends that to no other provider', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const bodies = {};
+    const f = vi.fn(async (u, init) => { bodies[String(u)] = JSON.parse(init.body); return String(u).includes('generativelanguage') ? err(503) : String(u).includes('groq') ? err(503) : compatOk(); });
+    await callWithFallback({ env: { AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'g', GROQ_API_KEY: 'q', OPENROUTER_API_KEY: 'o' }, messages: MSGS, maxTokens: 50 }, f);
+    expect(bodies['https://openrouter.ai/api/v1/chat/completions'].provider).toEqual({ zdr: true });
+    expect(bodies['https://api.groq.com/openai/v1/chat/completions'].provider).toBeUndefined();
+  });
   it('never puts a key in the log', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const f = router({ 'generativelanguage': () => err(503), 'anthropic.com': () => anthropicOk() });
