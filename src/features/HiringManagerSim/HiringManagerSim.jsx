@@ -5,7 +5,7 @@ import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { pickResumeSource } from '../../lib/resumeSource';
 import {
   PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildQuestionsPrompt, normalizeQuestions, buildEvaluationPrompt,
-  normalizeEvaluation, findInventedInFeedback, summarize, buildSessionRecord,
+  normalizeEvaluation, findInventedInFeedback, summarize, buildSessionRecord, toSessionRow,
 } from './interview';
 
 const scoreColor = (s) => (s >= 75 ? C.green : s >= 60 ? C.gold : C.red);
@@ -81,7 +81,12 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     const summary = summarize(finalResults);
     if (summary.answered > 0) {
       const rec = buildSessionRecord({ personaId, role: role.trim(), results: finalResults, summary });
-      updateMemory?.(m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, 20) }));
+      // Second argument writes the mock_sessions row; the server-side trust-score trigger averages
+      // avg_score from that table to compute interview_score, so it must be persisted, not only kept in memory.
+      updateMemory?.(
+        m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, 20) }),
+        { table: 'mock_sessions', data: toSessionRow(rec) }
+      );
       setSaved(true);
     }
     setPhase('summary');

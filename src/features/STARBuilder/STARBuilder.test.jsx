@@ -6,6 +6,8 @@ vi.mock('../../lib/ai.jsx', () => ({
   extractJSON: (s) => { try { return JSON.parse(s); } catch { return { error: true }; } },
 }));
 vi.mock('../CoverLetterGen/coverLetter', () => ({ copyToClipboard: vi.fn().mockResolvedValue(true) }));
+vi.mock('../../lib/supabase', async (orig) => ({ ...(await orig()), sb: { delete: vi.fn().mockResolvedValue(undefined) } }));
+import { sb } from '../../lib/supabase';
 import { callLLM } from '../../lib/ai.jsx';
 import { copyToClipboard } from '../CoverLetterGen/coverLetter';
 import STARBuilder from './STARBuilder';
@@ -125,6 +127,60 @@ describe('STARBuilder', () => {
     const p = setup(); fill(); refine();
     await waitFor(() => expect(p.setAuthModal).toHaveBeenCalledWith('register'));
     expect((await screen.findByRole('alert')).textContent).toMatch(/Create a free account/);
+  });
+});
+
+describe('star_stories row (hotfix persistence, written when the story is banked)', () => {
+  it('writes the row with the computed score and the original wording, only on Save', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    const p = setup(); fill(); refine();
+    await screen.findByText(/Refined STAR Output/);
+    expect(p.updateMemory).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText(/Save to Story Bank/));
+    const rel = p.updateMemory.mock.calls[0][1];
+    expect(rel.table).toBe('star_stories');
+    expect(rel.data).toMatchObject({
+      one_liner: REPLY.oneLiner,
+      score: Math.round(60 * 0.15 + 70 * 0.15 + 80 * 0.4 + 50 * 0.3), // 66, computed here, not taken from the model
+      situation: IN.Situation, task: IN.Task, action: IN.Action, result: IN.Result,
+      refined: REPLY.refined,
+    });
+  });
+
+  it('tells the model what role the candidate is preparing for, but not to use it as a source of facts', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    setup({ form: { role: 'Product Manager', level: 'Senior', industry: 'Fintech' } }); fill(); refine();
+    await screen.findByText(/Refined STAR Output/);
+    const prompt = callLLM.mock.calls[0][0][0].content;
+    expect(prompt).toContain('Product Manager · Senior · Fintech');
+    expect(prompt).toContain('NOT a source of facts');
+  });
+
+  it('never asks the model to add plausible metrics', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    setup(); fill(); refine();
+    await screen.findByText(/Refined STAR Output/);
+    expect(callLLM.mock.calls[0][0][0].content).not.toMatch(/plausible metrics|estimate/i);
+  });
+
+  it('deleting a banked story also deletes its saved row, so it does not come back after a reload', async () => {
+    const bank = [{ id: 7, score: 82, oneLiner: 'Led a migration', date: '2026-01-02T00:00:00Z', refined: REPLY.refined }];
+    setup({ memory: { starBank: bank }, user: { id: 'u1', token: 't' } });
+    fireEvent.click(screen.getByText('Led a migration'));
+    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText('Confirm delete'));
+    expect(sb.delete).toHaveBeenCalledWith('star_stories', { user_id: 'eq.u1', one_liner: 'eq.Led a migration' }, 't');
+  });
+
+  it('says so when the saved copy cannot be removed', async () => {
+    sb.delete.mockRejectedValueOnce(new Error('denied'));
+    const showToast = vi.fn();
+    const bank = [{ id: 7, score: 82, oneLiner: 'Led a migration', date: '2026-01-02T00:00:00Z', refined: REPLY.refined }];
+    setup({ memory: { starBank: bank }, user: { id: 'u1', token: 't' }, showToast });
+    fireEvent.click(screen.getByText('Led a migration'));
+    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText('Confirm delete'));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith(expect.stringMatching(/could not be deleted/), 'error'));
   });
 });
 

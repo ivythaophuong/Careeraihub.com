@@ -3,7 +3,7 @@
  * against a mocked fetch, so they never touch the live Supabase project.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { sb } from './lib/supabase';
+import { sb } from './supabase';
 
 const res = (status, body) => ({ status, ok: status < 400, json: async () => body, text: async () => JSON.stringify(body) });
 
@@ -29,10 +29,11 @@ describe('sb.signUp', () => {
     expect(error.message).toBe('User already registered');
   });
 
-  it('returns the thrown error on a network failure', async () => {
+  it('returns a plain-language error on a network failure', async () => {
     fetchMock.mockRejectedValue(new Error('offline'));
     const { error } = await sb.signUp('a@b.c', 'pw', 'Ann');
-    expect(error.message).toBe('offline');
+    // The user sees this text, so it is a plain sentence rather than the raw "offline" / "Failed to fetch".
+    expect(error.message).toBe('Network error — check your connection.');
   });
 });
 

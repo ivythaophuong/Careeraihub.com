@@ -21,7 +21,7 @@ export const AuthGate = ({ children, user, setAuthModal }) => {
       </div>
       
       {/* Auth Overlay */}
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zMount: 100, padding: 24 }}>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 24 }}>
         <Card style={{ textAlign: "center", padding: "48px 32px", border: `1px solid ${C.accent}44`, background: `${C.card}EE`, backdropFilter: "blur(24px)", maxWidth: 420, boxShadow: `0 32px 80px rgba(0,0,0,0.6), 0 0 50px ${C.accent}15` }}>
           <div style={{ fontSize: 52, marginBottom: 24, filter: `drop-shadow(0 0 15px ${C.accent}44)` }}>🔒</div>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: 26, color: C.text, marginBottom: 12, letterSpacing: "-0.5px" }}>Upgrade your career OS</div>

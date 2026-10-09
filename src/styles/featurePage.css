@@ -1,0 +1,68 @@
+/* ── Shared feature-page wrapper ─────────────────────────────────────────────
+   Apply className="fp-wrap" to the outermost div of any medium feature page.
+   Matches the neutral-dark visual language of ResumeScan / ATSBuilder.
+── */
+
+.fp-wrap {
+  /* Neutral dark palette — no blue tint */
+  --fp-s1:   #111218;
+  --fp-bdr2: rgba(255,255,255,.13);
+  --fp-text:  #e8eaf0;
+
+  /* Override the app-root card CSS vars so Card component inherits neutral theme */
+  --card-bg:  #111218;
+  --card-bdr: rgba(255,255,255,.07);
+
+  color: var(--fp-text);
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+/* ── Form elements: override blue-tinted inline backgrounds ── */
+.fp-wrap textarea,
+.fp-wrap input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="range"]) {
+  background:  var(--fp-s1) !important;
+  color:       var(--fp-text) !important;
+  font-family: 'DM Sans', system-ui, sans-serif !important;
+}
+
+.fp-wrap textarea:focus,
+.fp-wrap input:focus {
+  outline:    none;
+  box-shadow: 0 0 0 2px rgba(236,72,153,.07);
+}
+
+/* Keyboard users still get a visible ring (the rule above only hides the mouse-focus outline) */
+.fp-wrap textarea:focus-visible,
+.fp-wrap input:focus-visible,
+.fp-wrap select:focus-visible,
+.fp-wrap button:focus-visible {
+  outline:        2px solid #EC4899 !important;
+  outline-offset: 2px;
+}
+
+/* ── Typography defaults ── */
+.fp-wrap .fp-title {
+  color:       var(--fp-text);
+  font-weight: 900;
+  font-size:   24px;
+  letter-spacing: -0.4px;
+}
+
+.fp-wrap .fp-subtitle {
+  color:      var(--fp-text2);
+  font-size:  13px;
+  margin-top: 4px;
+}
+
+/* ── Responsive grid caps ── */
+@media (max-width: 700px) {
+  .fp-wrap .fp-grid-4 { grid-template-columns: 1fr 1fr !important; }
+  .fp-wrap .fp-grid-5 { grid-template-columns: 1fr 1fr !important; }
+  .fp-wrap .fp-grid-3 { grid-template-columns: 1fr 1fr !important; }
+}
+
+@media (max-width: 480px) {
+  .fp-wrap .fp-grid-4,
+  .fp-wrap .fp-grid-5,
+  .fp-wrap .fp-grid-3 { grid-template-columns: 1fr !important; }
+}

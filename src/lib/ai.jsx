@@ -74,8 +74,12 @@ export async function callLLM(messages, maxTokens = 8192, pdfBase64 = null) {
 // ── extractJSON ──────────────────────────────────────────────────────────────
 export function extractJSON(str) {
   try {
-    // Strip markdown code fences (Gemini 2.5 wraps JSON in ```json ... ```)
-    const cleaned = str.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    // Strip markdown code fences — also handles Unicode invisible chars Gemini 2.5 sometimes prepends
+    const cleaned = str
+      .replace(/[​-‍⁠﻿]/g, '')  // strip zero-width / word-joiner chars
+      .replace(/`{1,3}json\s*/gi, '')                // ```json or `json variants
+      .replace(/`{1,3}\s*/g, '')                     // closing fences
+      .trim();
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
     if (start === -1 || end === -1) {

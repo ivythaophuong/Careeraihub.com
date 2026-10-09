@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { sb } from '../../lib/supabase';
+import { GetReadyTabStrip } from '../Landing/LandingPage';
+import '../../styles/featurePage.css';
 import { copyToClipboard } from '../CoverLetterGen/coverLetter';
 import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, findInventedNumbers, scoreColorKey } from './star';
 
@@ -15,7 +18,7 @@ const FIELDS = [
 const scoreColor = (s) => C[scoreColorKey(s)];
 const storyAsText = (r) => `${r.oneLiner}\n\n${SECTIONS.map(k => `${k[0].toUpperCase()}${k.slice(1)}: ${r.refined[k]}`).join('\n\n')}`;
 
-export default function STARBuilder({ memory, updateMemory, setAuthModal }) {
+export default function STARBuilder({ memory, updateMemory, setAuthModal, user, form, setActiveModule, onStudyPlan, showToast, embedded }) {
   const [story, setStory] = useState({ situation: '', task: '', action: '', result: '' });
   const [result, setResult] = useState(null);
   const [analysed, setAnalysed] = useState(null); // the exact input the result was generated from
@@ -37,7 +40,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal }) {
     setLoading(true); setResult(null); setErr(''); setSaved(false); setCopied('');
     const input = { ...story };
     try {
-      const raw = await callLLM([{ role: 'user', content: buildStarPrompt(input) }], 2500);
+      const raw = await callLLM([{ role: 'user', content: buildStarPrompt(input, { role: form?.role, level: form?.level, industry: form?.industry }) }], 2500);
       const parsed = normalizeStarResult(extractJSON(raw));
       setResult(parsed);
       setAnalysed(input);
@@ -66,13 +69,25 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal }) {
       refined: result.refined,
       competencies: result.competencies,
     };
-    updateMemory?.(m => ({ starBank: [entry, ...(m.starBank || [])].slice(0, 30) }));
+    // The database row feeds the server-side star score, so it is written when the user banks the
+    // story (not for every draft). The score is the computed one, never a raw model number.
+    updateMemory?.(
+      m => ({ starBank: [entry, ...(m.starBank || [])].slice(0, 30) }),
+      { table: 'star_stories', data: { one_liner: result.oneLiner, score: result.score, situation: analysed.situation, task: analysed.task, action: analysed.action, result: analysed.result, refined: result.refined } },
+    );
     setSaved(true);
   };
 
   const deleteStory = (id) => {
+    const entry = bank.find(s => s.id === id);
     updateMemory?.(m => ({ starBank: (m.starBank || []).filter(s => s.id !== id) }));
     setConfirmDelete(null);
+    // Stories are also stored as rows (they feed the star score and are reloaded from there), so
+    // remove the row too, otherwise the story would come back after a reload.
+    if (user?.id && entry?.oneLiner) {
+      sb.delete('star_stories', { user_id: `eq.${user.id}`, one_liner: `eq.${entry.oneLiner}` }, user.token)
+        .catch(() => showToast?.('The story was removed here, but its saved copy could not be deleted. It may reappear after a reload.', 'error'));
+    }
   };
 
   const copy = async (what, text) => {
@@ -83,7 +98,9 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal }) {
   const copyLabel = (what, idle) => copied === what ? 'Copied ✓' : copied === `${what}-failed` ? 'Copy failed' : idle;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="fp-wrap" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      {!embedded && <GetReadyTabStrip activeModuleId="star" onNavigate={setActiveModule} onStudyPlan={onStudyPlan || (() => {})} />}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24 }}>
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>STAR Story Builder</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Build, score, and bank your best interview stories.</div>
@@ -211,6 +228,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal }) {
           ))}
         </Card>
       )}
+      </div>
     </div>
   );
 }

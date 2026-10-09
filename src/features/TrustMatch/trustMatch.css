@@ -1,0 +1,37 @@
+@keyframes tmFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes tmMatchIn {
+  from { transform: scale(.82); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes tmSlideIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes tmPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+
+.tm-co-card   { animation: tmFadeUp .4s cubic-bezier(.4,0,.2,1) both; }
+.tm-match-item{ animation: tmFadeUp .35s cubic-bezier(.4,0,.2,1) both; }
+.tm-modal     { animation: tmMatchIn .38s cubic-bezier(.34,1.56,.64,1); }
+.tm-chat-panel{ animation: tmSlideIn .3s cubic-bezier(.4,0,.2,1); }
+
+.tm-co-card:hover {
+  border-color: rgba(236,72,153,.25) !important;
+  box-shadow: 0 0 30px rgba(236,72,153,.06) !important;
+}
+.tm-match-item:hover {
+  border-color: rgba(0,229,160,.3) !important;
+  background: rgba(0,229,160,.07) !important;
+  transform: translateX(2px);
+}
+.tm-btn-interested:hover { background: rgba(245,158,11,.18) !important; transform: translateY(-1px); }
+.tm-btn-learn:hover      { background: rgba(255,255,255,.06) !important; color: #8B9DC3 !important; }
+.tm-chat-back:hover      { color: #F0F4FF !important; }
+.tm-send:hover           { background: rgba(245,158,11,.25) !important; }
+.tm-mm-btn:hover         { background: rgba(245,158,11,.25) !important; transform: translateY(-2px); }
+.tm-ms-dot { animation: tmPulse 2s infinite; }

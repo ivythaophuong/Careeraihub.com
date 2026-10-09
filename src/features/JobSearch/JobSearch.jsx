@@ -173,7 +173,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                     { title: "Job Search", desc: "Search 20+ boards — LinkedIn, Glassdoor, Indeed, Jobstreet and more in one place", color: C.green, tag: "Always Free" },
                     { title: "Resume Scan", desc: "AI credibility score and specific issues quoted from YOUR resume", color: C.accent, tag: "Free account" },
                     { title: "Weakness Radar", desc: "7-dimension gap map showing exactly which skills are costing you interviews right now", color: C.red, tag: "Free account" },
-                    { title: "Market Intel", desc: "General guidance on hiring norms and interview styles for 4 regions (not live data)", color: C.muted, tag: "Always Free" },
+                    { title: "Regional Guide", desc: "General guidance on hiring norms and interview styles for 4 regions (not live data)", color: C.muted, tag: "Always Free" },
                   ].map((f, i) => (
                     <Card key={i} style={{ background: C.surface, border: `1px solid ${C.border}`, padding: 16 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -235,7 +235,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                   { n: 2, color: C.green, title: "Scan your resume", desc: "AI reads it like a hiring manager. Get a credibility score in 20 seconds." },
                   { n: 3, color: C.gold, title: "See your gaps", desc: "Weakness Radar shows which skills are costing you interviews right now." },
                   { n: 4, color: C.purple, title: "Prepare to win", desc: "Mock interviews, STAR stories, and cover letters built from your data." },
-                  { n: 5, color: C.pink, title: "Negotiate and close", desc: "Salary benchmarks, scripts, and live AI roleplay before the real call." },
+                  { n: 5, color: C.pink, title: "Negotiate and close", desc: "Negotiation scripts and AI roleplay before the real call, using the numbers you enter." },
                 ].map((s, i) => (
                   <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 0", borderBottom: i < 4 ? `1px solid ${C.border}44` : "none" }}>
                     <div style={{ width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0, background: s.color + "22", color: s.color, border: `1px solid ${s.color}44` }}>{s.n}</div>
@@ -423,7 +423,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
           <Card style={{ border: `1px solid ${C.purple}33` }}>
             <div style={{ color: C.text, fontWeight: 900, fontSize: 16, marginBottom: 8 }}>Find real salary data</div>
             <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.7, marginBottom: 14 }}>
-              CareerAiHub doesn't have a salary database, so it doesn't show salary figures it can't back up. Check current ranges for <strong style={{ color: C.text }}>{title.trim() || "your role"}</strong>{location.trim() ? <> in <strong style={{ color: C.text }}>{location.trim()}</strong></> : null} on several of these sources and compare them:
+              CareerAiHub doesn't have a salary database yet; benchmarks from verified sources are being prepared. Until then, check current ranges for <strong style={{ color: C.text }}>{title.trim() || "your role"}</strong>{location.trim() ? <> in <strong style={{ color: C.text }}>{location.trim()}</strong></> : null} on several of these sources and compare them:
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {SALARY_SOURCES.map(src => (

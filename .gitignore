@@ -21,6 +21,10 @@ build/
 .env.test.local
 .env.production.local
 
+# Supabase local function secrets
+supabase/.env.local
+supabase/.temp/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
@@ -35,6 +39,14 @@ yarn-error.log*
 *.sln
 *.sw?
 
-# Supabase local function secrets
-supabase/.env.local
-supabase/.temp/
+# MCP config (contains secrets)
+.mcp.json
+.claude/
+
+# Playwright screenshots & logs (use _screenshots/ folder instead)
+.playwright-mcp/
+*.png
+*.jpeg
+*.jpg
+_screenshots/
+public/ref.html

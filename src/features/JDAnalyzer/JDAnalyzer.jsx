@@ -4,6 +4,7 @@ import { Card, Btn, Spinner } from '../../components/CommonUI';
 import { AnimatedScore } from '../../components/OriginalFeatures';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { MIN_JD_CHARS, MAX_JD_CHARS, pickResumeSource, buildJDPrompt, normalizeJDResult } from './jdAnalysis';
+import '../../styles/featurePage.css';
 
 const SOURCE_LABEL = {
   structured: 'your ATS Builder resume',
@@ -35,19 +36,27 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory, set
     const resume = pickResumeSource({ memory, resumeText });
     const hasResume = resume.kind !== 'none';
     try {
-      const prompt = buildJDPrompt({ jd: text, resume, targetRole: form?.role });
+      const prompt = buildJDPrompt({ jd: text, resume, targetRole: form?.role, industry: form?.industry, market: form?.market });
       const raw = await callLLM([{ role: 'user', content: prompt }], 2500, resume.pdfBase64);
       const parsed = normalizeJDResult(extractJSON(raw), { hasResume });
 
       setResult(parsed);
       setUsedSource(resume.kind);
       // Newest first, keep the 20 most recent.
-      updateMemory?.(m => ({
-        jdAnalyses: [
-          { date: new Date().toISOString(), company: parsed.company, role: parsed.roleTitle, roleTitle: parsed.roleTitle, matchScore: parsed.matchScore, result: parsed },
-          ...(m.jdAnalyses || []),
-        ].slice(0, 20),
-      }));
+      // Only an analysis that was scored against a resume is stored as a database row (a JD-only
+      // analysis has no score to store); both kinds stay in the memory backup.
+      updateMemory?.(
+        m => ({
+          jdAnalyses: [
+            { date: new Date().toISOString(), company: parsed.company, role: parsed.roleTitle, roleTitle: parsed.roleTitle, matchScore: parsed.matchScore, result: parsed },
+            ...(m.jdAnalyses || []),
+          ].slice(0, 20),
+        }),
+        parsed.matchScore == null ? null : {
+          table: 'jd_analyses',
+          data: { role_title: parsed.roleTitle, company: parsed.company, match_score: parsed.matchScore, key_requirements: parsed.keyRequirements, critical_gaps: parsed.criticalGaps },
+        },
+      );
     } catch (e) {
       if (e.status === 401 && setAuthModal) {
         setErr('Create a free account or sign in to analyze job descriptions.');
@@ -65,7 +74,7 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory, set
   const tooShort = jd.trim().length < MIN_JD_CHARS;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="fp-wrap" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Job Description Analyzer</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Paste any JD. Get match score, ATS keywords, red flags, and your positioning strategy.</div>

@@ -3,12 +3,14 @@ import { C } from '../../styles/theme';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { pickResumeSource } from '../../lib/resumeSource';
+import '../../styles/featurePage.css';
 import { TONES, buildCoverLetterPrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount } from './coverLetter';
 
 const label = { color: C.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 };
 
 export default function CoverLetterGen({ resumeText, form, memory, user, updateMemory, setAuthModal, setActiveModule }) {
   const [jd, setJd] = useState("");
+  const [company, setCompany] = useState("");
   const [role, setRole] = useState(form?.role || "");
   const [tone, setTone] = useState("professional");
   const [loading, setLoading] = useState(false);
@@ -27,18 +29,21 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
     setLoading(true); setResult(null); setErr(""); setCopied("");
     try {
       const applicantName = memory?.resumeData?.personalInfo?.fullName || user?.name || "";
-      const prompt = buildCoverLetterPrompt({ jd, role: role.trim(), tone, resume, applicantName });
+      const prompt = buildCoverLetterPrompt({ jd, role: role.trim(), tone, resume, applicantName, company: company.trim() });
       const raw = await callLLM([{ role: 'user', content: prompt }], 2500, resume.pdfBase64);
       const parsed = normalizeCoverLetterResult(extractJSON(raw), { role: role.trim() });
       setResult(parsed);
       setLetter(parsed.coverLetter);
       // Newest first, keep the 20 most recent.
-      updateMemory?.(m => ({
-        coverLetters: [
-          { date: new Date().toISOString(), roleTitle: parsed.roleTitle, company: parsed.company, tone, subject: parsed.subject, coverLetter: parsed.coverLetter, sellingPoints: parsed.sellingPoints },
-          ...(m.coverLetters || []),
-        ].slice(0, 20),
-      }));
+      updateMemory?.(
+        m => ({
+          coverLetters: [
+            { date: new Date().toISOString(), roleTitle: parsed.roleTitle, company: parsed.company, tone, subject: parsed.subject, coverLetter: parsed.coverLetter, sellingPoints: parsed.sellingPoints },
+            ...(m.coverLetters || []),
+          ].slice(0, 20),
+        }),
+        { table: 'cover_letters', data: { company: parsed.company !== 'Not stated' ? parsed.company : company.trim(), tone, subject: parsed.subject, content: parsed.coverLetter } },
+      );
     } catch (e) {
       if (e.status === 401 && setAuthModal) {
         setErr('Create a free account or sign in to generate cover letters.');
@@ -56,10 +61,17 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
     setCopied(ok ? what : `${what}-failed`);
     setTimeout(() => setCopied(""), 2000);
   };
+  const download = () => {
+    if (!letter) return;
+    const url = URL.createObjectURL(new Blob([letter], { type: 'text/plain' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `cover-letter-${(result?.roleTitle || role || 'draft').trim().replace(/[^\w.-]+/g, '-')}.txt`; a.click();
+    URL.revokeObjectURL(url);
+  };
   const copyLabel = (what, idle) => copied === what ? "Copied ✓" : copied === `${what}-failed` ? "Copy failed — select the text" : idle;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="fp-wrap" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>Cover Letter Generator</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>AI writes a tailored letter from your real resume + JD. No generic templates.</div>
@@ -79,6 +91,17 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
               {t.icon} {t.label}
             </button>
           ))}
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={label}>Target Company (Optional)</div>
+          <input
+            aria-label="Target company"
+            value={company}
+            onChange={e => { setCompany(e.target.value); setErr(""); }}
+            placeholder="e.g. Grab Singapore"
+            style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: "10px 14px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+          />
         </div>
 
         <div style={{ marginBottom: 16 }}>
@@ -122,7 +145,10 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
           <Card style={{ border: `1px solid ${C.accent}44` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
               <div style={{ color: C.accent, fontWeight: 900, fontSize: 14 }}>✉️ Your Cover Letter <span style={{ color: C.muted, fontWeight: 600, fontSize: 11 }}>· {wordCount(letter)} words · editable</span></div>
-              <button onClick={() => copy("letter", letter)} style={copyBtn}>{copyLabel("letter", "Copy Text")}</button>
+              <span style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => copy("letter", letter)} style={copyBtn}>{copyLabel("letter", "Copy Text")}</button>
+                <button onClick={download} style={copyBtn}>Download</button>
+              </span>
             </div>
             <textarea
               aria-label="Cover letter text"

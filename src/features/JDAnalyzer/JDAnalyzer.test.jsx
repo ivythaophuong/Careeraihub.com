@@ -69,6 +69,36 @@ describe('JDAnalyzer', () => {
     expect(Object.keys(next)).toEqual(['jdAnalyses']);
   });
 
+  it('writes a jd_analyses row (hotfix persistence) when the analysis was scored against a resume', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    const p = setup();
+    paste(); analyze();
+    await screen.findByText('Senior Frontend Engineer');
+    const relational = p.updateMemory.mock.calls[0][1];
+    expect(relational).toMatchObject({
+      table: 'jd_analyses',
+      data: { role_title: 'Senior Frontend Engineer', company: 'Grab', match_score: 72, key_requirements: ['React', 'Performance'], critical_gaps: ['No Golang'] },
+    });
+  });
+
+  it('does not write a database row for a JD-only analysis (there is no score to store)', async () => {
+    callLLM.mockResolvedValue(JSON.stringify({ ...REPLY, matchScore: 90 }));
+    const p = setup({ resumeText: null, memory: {} });
+    paste(); analyze();
+    await screen.findByText('Senior Frontend Engineer');
+    expect(p.updateMemory.mock.calls[0][1]).toBeNull();
+  });
+
+  it('passes the target industry and market to the model', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    setup({ form: { role: 'Frontend', industry: 'Fintech', market: 'Singapore' } });
+    paste(); analyze();
+    await screen.findByText('Senior Frontend Engineer');
+    const prompt = callLLM.mock.calls[0][0][0].content;
+    expect(prompt).toContain('Target industry: Fintech.');
+    expect(prompt).toContain('Target market: Singapore.');
+  });
+
   it('works without a resume: no score, no invented comparison, offers to scan', async () => {
     callLLM.mockResolvedValue(JSON.stringify({ ...REPLY, matchScore: 99, candidateStrengths: [] }));
     const p = setup({ resumeText: null, memory: {} });

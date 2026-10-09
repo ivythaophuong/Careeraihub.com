@@ -1,5 +1,11 @@
+// @vitest-environment jsdom
+// Adapted from main's landing test. Main's version looked for `.hero`, the search card and the hero
+// keyword check, none of which are rendered by this landing page, so those cases would have passed
+// without checking anything. These check the page that is actually shown on first render (the
+// feature sections further down only render on interaction; tests/security/noFakeData.test.js scans
+// all of their source).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 import LandingPage from './LandingPage';
 
 beforeEach(() => {
@@ -8,7 +14,7 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
   window.scrollTo = vi.fn();
   window.matchMedia = window.matchMedia || (() => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
-  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline'))); // job feed unavailable → link-out fallback
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
@@ -16,64 +22,37 @@ const mount = () => render(<LandingPage setAuthModal={vi.fn()} onModuleSelect={v
 const text = () => document.body.textContent;
 
 describe('Landing page — honest claims', () => {
-  it('has no fake live counters or "live" market signals', () => {
+  it('renders the page', () => {
     mount();
-    for (const fake of ['right now in Singapore', 'open roles in Singapore', 'median salary', 'hiring velocity', 'SGD 8.2K']) {
-      // the feature-panel previews are illustrations, so check the hero areas only
-      expect(document.querySelector('.hero')?.textContent || '').not.toContain(fake);
+    expect(text().length).toBeGreaterThan(2000);
+    expect(document.querySelector('.v36-page')).not.toBeNull();
+  });
+
+  it('has no fake live counters or live market signals anywhere on the page', () => {
+    mount();
+    for (const fake of ['job seekers active', 'open roles in Singapore', 'hiring velocity', 'SGD 8.2K', '2,400+', 'Real-time salary', 'live Singapore', 'live salary', '3.2×', '$18K', '38% → 91%', '$155,000']) {
+      expect(text()).not.toContain(fake);
     }
     expect(document.querySelector('.market-signals')).toBeNull();
-    expect(document.querySelector('.hf-live')).toBeNull();
+    expect(document.querySelector('.sc-live-bar')).toBeNull();
   });
 
-  it('shows verifiable hero stats instead of unsourced ones', () => {
+  it('names the regional guide as a guide, not as market intelligence', () => {
     mount();
-    const hero = document.querySelector('.hero').textContent;
-    expect(hero).not.toMatch(/38%.*91%|5×|faster job search/);
-    expect(hero).toMatch(/interviewer styles/);
-    expect(hero).not.toContain('Salary data');
+    expect(text()).not.toMatch(/Market Intel/i);
   });
 
-  it('labels the feature previews as illustrative examples', () => {
+  it('labels the sample profile in the hero as an example (it is not a real person)', () => {
     mount();
-    expect(text()).toMatch(/Illustrative example — sample data/);
+    expect(text()).toMatch(/ExampleSarah Tan/);
+    expect(text()).not.toMatch(/\bLive\b/);
   });
 
-  it('autocomplete suggestions carry no invented salaries or open-role counts', () => {
+  it('does not use randomness to produce what it shows (two renders give the same text)', () => {
     mount();
-    fireEvent.change(document.querySelector('.ac-wrap input'), { target: { value: 'Product' } });
-    expect(document.querySelector('.ac-dropdown').textContent).toContain('Product Manager');
-    expect(document.querySelector('.ac-dropdown').textContent).not.toMatch(/SGD|open roles/);
-  });
-});
-
-describe('Landing page — hero keyword check', () => {
-  const setField = (selector, value) => fireEvent.change(document.querySelector(selector), { target: { value } });
-  const scan = () => { fireEvent.click(screen.getByText('Check keywords →')); return document.querySelector('.ats-score-num').textContent; };
-
-  it('is labelled as a quick keyword check, not an AI scan', () => {
+    const first = text();
+    cleanup();
     mount();
-    expect(screen.getByText('ATS Keyword Check')).toBeTruthy();
-    expect(screen.getByText('Quick check')).toBeTruthy();
-    expect(text()).not.toMatch(/Scan with AI/);
-  });
-
-  it('gives the same score every time for the same input (no randomness)', () => {
-    mount();
-    setField('.ats-input:not(.ats-ta)', 'Product Manager');
-    setField('.ats-ta', 'Owned the roadmap, ran user research and set the product strategy with stakeholders using metrics.');
-    const scores = [scan(), scan(), scan(), scan(), scan()];
-    expect(new Set(scores).size).toBe(1);
-  });
-
-  it('scores by keyword coverage: more matching keywords, higher score; none matched, 0%', () => {
-    mount();
-    setField('.ats-input:not(.ats-ta)', 'Product Manager');
-    setField('.ats-ta', 'xyz nothing relevant here');
-    expect(scan()).toBe('0%');
-    expect(document.querySelectorAll('.mk-tag.m').length).toBe(0); // no fake "found" keywords
-    setField('.ats-ta', 'roadmap roadmap user research stakeholder metrics strategy');
-    const high = parseInt(scan(), 10);
-    expect(high).toBeGreaterThan(0);
+    expect(text()).toBe(first);
   });
 });

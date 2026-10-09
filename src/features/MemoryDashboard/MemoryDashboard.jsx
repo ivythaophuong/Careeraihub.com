@@ -2,34 +2,48 @@ import React, { useState } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
 import { callLLM, extractJSON } from '../../lib/ai';
+import { sb } from '../../lib/supabase';
+import { GetReadyTabStrip } from '../Landing/LandingPage';
+import '../../styles/featurePage.css';
 
-function buildMemoryContext(mem, form) {
+// Missing data is left out, never turned into a number: an item without a finite score does not
+// count towards an average, and with nothing to average there is no average to show.
+const finiteScores = (list, key) => (list || []).map(x => x?.[key]).filter(Number.isFinite);
+const average = (list, key) => {
+  const v = finiteScores(list, key);
+  return v.length ? Math.round(v.reduce((s, x) => s + x, 0) / v.length) : null;
+};
+
+// scanHistory is stored newest-first, so index 0 is the latest scan.
+export function buildMemoryContext(mem, form) {
   if (!mem) return "";
   const lines = [];
   if (mem.scanHistory?.length) {
-    const latest = mem.scanHistory[mem.scanHistory.length - 1];
-    const trend = mem.scanHistory.length > 1
-      ? (latest.score - mem.scanHistory[0].score > 0 ? "improving" : "declining")
-      : "first scan";
-    lines.push(`Resume scan history: ${mem.scanHistory.length} scans, latest score ${latest.score}/100 (${trend})`);
+    const scored = mem.scanHistory.filter(s => Number.isFinite(s?.score)); // newest first
+    if (scored.length) {
+      const latest = scored[0].score, first = scored[scored.length - 1].score;
+      const trend = scored.length > 1 ? (latest > first ? "improving" : latest < first ? "declining" : "unchanged") : "first scan";
+      lines.push(`Resume scan history: ${mem.scanHistory.length} scans, latest score ${latest}/100 (${trend})`);
+    } else {
+      lines.push(`Resume scan history: ${mem.scanHistory.length} scans, no score recorded`);
+    }
   }
   if (mem.starBank?.length) {
-    const scored = mem.starBank.filter(x => Number.isFinite(x.score));
-    lines.push(`STAR story bank: ${mem.starBank.length} stories banked${scored.length ? `, avg score ${Math.round(scored.reduce((s,x)=>s+x.score,0)/scored.length)}/100` : ''}`);
+    const avg = average(mem.starBank, 'score');
+    lines.push(`STAR story bank: ${mem.starBank.length} stories banked${avg == null ? '' : `, avg score ${avg}/100`}`);
   }
   if (mem.mockSessions?.length) lines.push(`Mock interview history: ${mem.mockSessions.length} sessions completed`);
   if (mem.negotiationPractice > 0) lines.push(`Negotiation practice: ${mem.negotiationPractice} roleplay sessions`);
   if (mem.jdAnalyses?.length) {
-    // JD-only analyses (no resume to compare) have a null matchScore and must not skew the average.
-    const scored = mem.jdAnalyses.filter(x => Number.isFinite(x.matchScore));
-    const avgMatch = scored.length ? Math.round(scored.reduce((s,x)=>s+x.matchScore,0)/scored.length) : null;
+    // JD-only analyses (no resume to compare) have no match score and must not count as 0.
+    const avgMatch = average(mem.jdAnalyses, 'matchScore');
     lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed${avgMatch == null ? '' : `, avg match score ${avgMatch}%`}`);
   }
-  lines.push(`Target: ${form.level} ${form.role} in ${form.industry}, ${form.market}`);
+  lines.push(`Target: ${[form.level, form.role].filter(Boolean).join(' ')} in ${form.industry}, ${form.market}`);
   return lines.length ? "\n\nUSER HISTORY CONTEXT:\n" + lines.join("\n") : "";
 }
 
-export default function MemoryDashboard({ memory, form, updateMemory }) {
+export default function MemoryDashboard({ memory, form, user, updateMemory, setActiveModule, onStudyPlan, embedded }) {
   if (!memory) return <div style={{textAlign:"center",padding:40}}><Spinner label="Assembling AI memory bank..."/></div>;
 
   const [aiSummary, setAiSummary]   = useState(null);
@@ -45,22 +59,29 @@ export default function MemoryDashboard({ memory, form, updateMemory }) {
       const raw = await callLLM([{role:"user", content:`Elite career coach. Based on comprehensive user history, generate a personalized career acceleration plan.${memCtx}
 
 Return ONLY raw JSON:
-{"overallProgress":"0-100 score based on activity","status":"Ready|Almost|Needs Work","topStrength":"best thing about their journey","biggestRisk":"most critical risk to landing the job","weeklyPlan":[{"day":"Mon","action":"..."},{"day":"Tue","action":"..."},{"day":"Wed","action":"..."},{"day":"Thu","action":"..."},{"day":"Fri","action":"..."}],"uniqueInsights":["insight1 specific to their data","insight2","insight3"],"predictedTimeline":"estimated weeks to get offer based on their activity pace","nextMilestone":"the single most important thing to do next"}`}], 1500,"memory");
+{"overallProgress":"0-100 score based on activity","status":"Ready|Almost|Needs Work","topStrength":"best thing about their journey","biggestRisk":"most critical risk to landing the job","weeklyPlan":[{"day":"Mon","action":"..."},{"day":"Tue","action":"..."},{"day":"Wed","action":"..."},{"day":"Thu","action":"..."},{"day":"Fri","action":"..."}],"uniqueInsights":["insight1 specific to their data","insight2","insight3"],"predictedTimeline":"estimated weeks to get offer based on their activity pace","nextMilestone":"the single most important thing to do next"}`}], 1500);
       setAiSummary(extractJSON(raw));
     } catch(e) { setAiSummary({error:e.message}); }
     setLoading(false);
   };
 
-  const clearMemory = () => {
-    updateMemory(() => ({
-      scanHistory: [], starBank: [], mockSessions: [], applications: [], 
+  const clearMemory = async () => {
+    setCleared(true);
+    setAiSummary(null);
+    // Updates merge into memory, so to clear everything we explicitly empty every key that exists
+    // (lists become [], numbers 0, everything else null) on top of the known defaults.
+    updateMemory(m => ({
+      scanHistory: [], starBank: [], mockSessions: [], applications: [],
       rejections: [], negotiationPractice: 0, coverLetters: [], jdAnalyses: [],
       insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null,
-      resumeText: null, scanResult: null, scanFileName: null, scanPdfBase64: null,
-      resumeData: null, activeTemplateId: null, originalFileUrl: null, visibleSections: null, suggestions: {}
+      ...Object.fromEntries(Object.keys(m || {}).map(k => [k, Array.isArray(m[k]) ? [] : typeof m[k] === 'number' ? 0 : null])),
     }));
-    setAiSummary(null);
-    setCleared(true);
+    if (user?.id && user?.token) {
+      const filter = { user_id: `eq.${user.id}` };
+      const tables = ['resume_scans', 'star_stories', 'mock_sessions', 'cover_letters',
+                      'jd_analyses', 'applications', 'negotiation_practice', 'insights'];
+      await Promise.allSettled(tables.map(t => sb.delete(t, filter, user.token)));
+    }
   };
 
   const statCards = [
@@ -74,15 +95,21 @@ Return ONLY raw JSON:
     { icon:"📅", label:"Days Active",          val: memory.lastSeen ? Math.max(1, Math.ceil((Date.now()-new Date(memory.joinedAt||memory.lastSeen))/86400000)) : 1, color: C.muted },
   ];
 
-  const latestScore = memory.scanHistory?.length ? memory.scanHistory[memory.scanHistory.length-1].score : null;
-  const firstScore  = memory.scanHistory?.length > 1 ? memory.scanHistory[0].score : null;
+  // scanHistory is stored newest-first (index 0 is the latest scan); the chart reads oldest to newest.
+  // Only scans that have a score are drawn or compared; a scan without one is not shown as a 0 bar.
+  const scoredScans = (memory.scanHistory || []).filter(s => Number.isFinite(s?.score)); // newest first
+  const latestScore = scoredScans.length ? scoredScans[0].score : null;
+  const firstScore  = scoredScans.length > 1 ? scoredScans[scoredScans.length-1].score : null;
+  const scansOldestFirst = [...scoredScans].reverse();
 
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+    <div className="fp-wrap" style={{display:"flex",flexDirection:"column",gap:0}}>
+      {!embedded && <GetReadyTabStrip activeModuleId="memory" onNavigate={setActiveModule} onStudyPlan={onStudyPlan || (() => {})} />}
+      <div style={{display:"flex",flexDirection:"column",gap:16,padding:24}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
-          <div style={{color:C.text, fontWeight:900, fontSize:24, fontFamily:"var(--font-display)"}}>🧬 AI Memory Dashboard</div>
-          <div style={{color:C.muted,fontSize:13,marginTop:4,fontFamily:"var(--font-body)"}}>Your personalized career intelligence — built from {totalActivity} activity events across all sessions.</div>
+          <div style={{color:C.text, fontWeight:900, fontSize:24}}>🧬 AI Memory Dashboard</div>
+          <div style={{color:C.muted,fontSize:13,marginTop:4}}>Your personalized career intelligence — built from {totalActivity} activity events across all sessions.</div>
         </div>
         <div style={{display:"flex",gap:8}}>
           <Btn onClick={getPersonalizedPlan} disabled={loadingSummary||totalActivity<2} color={C.purple} style={{width:"auto",padding:"8px 16px",fontSize:12}}>
@@ -94,7 +121,7 @@ Return ONLY raw JSON:
       {cleared && <Card glow={C.gold}><div style={{color:C.gold,fontSize:13}}>✓ Memory cleared. Fresh start!</div></Card>}
 
       {/* Activity Stats Grid */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+      <div className="fp-grid-4" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
         {statCards.map(s=>(
           <Card key={s.label} glow={s.color} style={{padding:"14px 16px",textAlign:"center"}}>
             <div style={{fontSize:20,marginBottom:6}}>{s.icon}</div>
@@ -108,8 +135,9 @@ Return ONLY raw JSON:
       {memory.scanHistory?.length > 0 && (
         <Card glow={C.accent}>
           <div style={{color:C.accent,fontWeight:700,fontSize:13,marginBottom:12}}>📈 Resume Score Progression</div>
+          {scoredScans.length === 0 && <div style={{color:C.muted,fontSize:12}}>No score recorded yet.</div>}
           <div style={{display:"flex",gap:4,alignItems:"flex-end",height:60,marginBottom:10}}>
-            {memory.scanHistory.map((s,i)=>{
+            {scansOldestFirst.map((s,i)=>{
               const h=Math.max(6,Math.round((s.score/100)*60));
               const c=s.score>=70?C.green:s.score>=50?C.gold:C.red;
               return (
@@ -121,7 +149,7 @@ Return ONLY raw JSON:
               );
             })}
           </div>
-          {firstScore && latestScore && (
+          {firstScore != null && latestScore != null && (
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div style={{color:C.muted,fontSize:12}}>Started: <strong style={{color:C.text}}>{firstScore}/100</strong></div>
               <div style={{color:latestScore>firstScore?C.green:C.red,fontWeight:800,fontSize:13}}>
@@ -190,7 +218,7 @@ Return ONLY raw JSON:
           </div>
           <Card glow={C.accent}>
             <div style={{color:C.accent,fontWeight:700,fontSize:13,marginBottom:12}}>📅 Your Personalized Weekly Plan</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8}}>
+            <div className="fp-grid-5" style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8}}>
               {aiSummary.weeklyPlan?.map((d,i)=>(
                 <div key={i} style={{background:C.surface,borderRadius:8,padding:"10px 8px",textAlign:"center"}}>
                   <div style={{color:C.accent,fontWeight:800,fontSize:11,marginBottom:6}}>{d.day}</div>
@@ -216,6 +244,7 @@ Return ONLY raw JSON:
           🗑 Clear All Memory
         </button>
       </Card>
+      </div>
     </div>
   );
 }

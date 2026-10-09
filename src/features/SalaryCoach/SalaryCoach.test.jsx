@@ -25,6 +25,8 @@ const REPLY = {
 const setup = (props = {}) => {
   const p = { resumeText: null, form: { role: '' }, memory: {}, setAuthModal: vi.fn(), ...props };
   render(<SalaryCoach {...p} />);
+  // The coach now lives in the "Negotiation roleplay" tab of the three-tab Salary Prep page.
+  fireEvent.click(screen.getByText('Negotiation roleplay'));
   return p;
 };
 const type = (name, value) => fireEvent.change(screen.getByLabelText(name), { target: { value } });
@@ -143,5 +145,68 @@ describe('SalaryCoach', () => {
     type('Situation', SITUATION); go();
     await waitFor(() => expect(p.setAuthModal).toHaveBeenCalledWith('register'));
     expect((await screen.findByRole('alert')).textContent).toMatch(/Create a free account/);
+  });
+});
+
+describe('Salary Prep page (three tabs)', () => {
+  const open = (props = {}) => render(<SalaryCoach resumeText={null} form={{ role: '' }} memory={{}} setAuthModal={vi.fn()} {...props} />);
+
+  it('offers the market, negotiation and strategy tabs', () => {
+    open();
+    for (const t of ['Market data', 'Negotiation roleplay', 'Your strategy']) expect(screen.getByText(t)).toBeTruthy();
+  });
+
+  it('does not call the AI on open', () => {
+    open();
+    expect(callLLM).not.toHaveBeenCalled();
+  });
+
+  it('the negotiation tab never asks the model for market figures', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    open();
+    fireEvent.click(screen.getByText('Negotiation roleplay'));
+    fireEvent.change(screen.getByLabelText('Situation'), { target: { value: SITUATION } });
+    fireEvent.click(screen.getByText(/Get Negotiation Strategy/));
+    await screen.findByText(/Word-for-Word Scripts/);
+    const prompt = callLLM.mock.calls[0][0][0].content;
+    expect(prompt).toMatch(/do NOT have market salary data/i);
+    expect(prompt).not.toMatch(/marketMin|marketMid|marketMax/);
+  });
+
+  it('the strategy tab shows the static scripts and checklist', () => {
+    open();
+    fireEvent.click(screen.getByText('Your strategy'));
+    expect(screen.getByText(/Word-for-word scripts/i)).toBeTruthy();
+    expect(screen.getByText(/Negotiation checklist/i)).toBeTruthy();
+  });
+});
+
+describe('Market data tab is switched off until a verified source exists', () => {
+  const open = (props = {}) => render(<SalaryCoach resumeText={null} form={{ role: 'Product Manager', level: 'Senior', market: 'Singapore' }} memory={{}} setAuthModal={vi.fn()} {...props} />);
+
+  it('opens on the negotiation tab, not on a page with no data', () => {
+    open();
+    expect(screen.getByLabelText('Situation')).toBeTruthy();
+  });
+
+  it('says the data is unavailable and never calls the model, even with a role set', () => {
+    open();
+    fireEvent.click(screen.getByText('Market data'));
+    expect(screen.getByRole('status').textContent).toMatch(/Market salary data is temporarily unavailable/);
+    expect(screen.getByRole('status').textContent).toMatch(/verified market sources/);
+    expect(callLLM).not.toHaveBeenCalled();
+  });
+
+  it('shows no salary figures on that tab', () => {
+    open();
+    fireEvent.click(screen.getByText('Market data'));
+    expect(screen.queryByText(/P50|P75|AI estimate|\d+\s?K/)).toBeNull();
+  });
+
+  it('does not use cached AI estimates from earlier sessions either', () => {
+    const memory = { salaryMarket: { v: 2, forRole: 'Product Manager', forLevel: 'Senior', forMarket: 'Singapore', computedAt: '2026-01-01', data: { levels: [{ label: 'Senior', range: '9–12K', pct: 50 }], employerTypes: [], aiInsight: 'x' } } };
+    open({ memory });
+    fireEvent.click(screen.getByText('Market data'));
+    expect(screen.queryByText('9–12K')).toBeNull();
   });
 });

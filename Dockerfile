@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy source and build. No secrets are needed or used at build time:
+# Copy source and build. The only build-time settings are the PUBLIC ones in .env.production;
 # AI and job-search keys live in Supabase Edge Function secrets, not in this image.
 COPY . .
 RUN npm run build

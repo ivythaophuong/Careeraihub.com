@@ -1,6 +1,22 @@
 import mammoth from 'mammoth';
 import { callLLM, extractJSON } from './ai.jsx';
 
+// ── pdfjs text extraction (no LLM required) ──────────────────────────────────
+export async function extractTextFromPdfFile(file) {
+  const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
+  GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.js', import.meta.url
+  ).toString();
+  const ab = await file.arrayBuffer();
+  const pdf = await getDocument({ data: ab }).promise;
+  const pages = await Promise.all(
+    Array.from({ length: pdf.numPages }, (_, i) =>
+      pdf.getPage(i + 1).then(p => p.getTextContent())
+    )
+  );
+  return pages.flatMap(p => p.items.map(i => i.str)).join('\n');
+}
+
 const EXTRACT_PROMPT = `Extract the resume data from the provided document and return ONLY raw JSON (no markdown, no explanation, start with {):
 {
   "personalInfo": { "fullName": "", "email": "", "phone": "", "location": "", "linkedin": "", "website": "" },
@@ -17,7 +33,7 @@ Rules:
 - If a field has no data, use empty string or empty array.
 - Do not invent data. Only extract what is present.`;
 
-// ── PDF: send directly to the model as base64 (models read the layout natively) ──
+// ── PDF: send directly to LLM as base64 (Gemini reads layout natively) ───────
 export const extractResumeFromPdf = async (file) => {
   const arrayBuffer = await file.arrayBuffer();
   const base64 = _arrayBufferToBase64(arrayBuffer);

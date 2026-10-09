@@ -1,12 +1,14 @@
 import React from 'react';
 import { C } from '../styles/theme';
+import { OrbitSpinner } from './OrbitMark';
 
 export const Card = ({ children, glow, style, animate, onClick }) => (
-  <div 
+  <div
+    className="ui-card"
     onClick={onClick}
     style={{
-      background: C.surface,
-      border: `1px solid ${glow || C.border}`,
+      background: `linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0) 100%), var(--card-bg, ${C.surface})`,
+      border: `1px solid ${glow || 'var(--card-bdr, rgba(255,255,255,0.1))'}`,
       borderRadius: 12,
       padding: "16px 18px",
       boxShadow: glow ? `0 0 28px ${glow}22` : "none",
@@ -62,9 +64,9 @@ export const Btn = ({ children, onClick, disabled, color, dark, style }) => (
   </button>
 );
 
-export const Spinner = ({ label }) => (
+export const Spinner = ({ label, size = 32 }) => (
   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 20 }}>
-    <div className="spinner" />
+    <OrbitSpinner size={size} />
     {label && <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>}
   </div>
 );
@@ -75,5 +77,20 @@ export const EmptyState = ({ icon, title, desc, cta, onCta, ctaColor = C.accent 
     <div style={{ color: C.text, fontWeight: 800, fontSize: 16, marginBottom: 8 }}>{title}</div>
     <div style={{ color: C.muted, fontSize: 12, marginBottom: 24, maxWidth: 300, margin: "0 auto 24px", lineHeight: 1.6 }}>{desc}</div>
     {cta && <Btn onClick={onCta} color={ctaColor} dark style={{ margin: "0 auto" }}>{cta}</Btn>}
+  </div>
+);
+
+export const NextStepBanner = ({ message, cta, onClick, onDismiss }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: `${C.green}12`, border: `1px solid ${C.green}40`, borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+    <div style={{ fontSize: 16, flexShrink: 0 }}>✓</div>
+    <div style={{ flex: 1, fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>{message}</div>
+    {cta && onClick && (
+      <button onClick={onClick} style={{ background: C.green, border: 'none', color: '#000', borderRadius: 6, padding: '6px 14px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, whiteSpace: 'nowrap' }}>
+        {cta}
+      </button>
+    )}
+    {onDismiss && (
+      <button onClick={onDismiss} style={{ background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
+    )}
   </div>
 );

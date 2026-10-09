@@ -9,6 +9,11 @@ export const MAX_ANSWER_CHARS = 3000;
 const MAX_RESUME_SNIPPET = 4000;
 const MAX_ITEM_CHARS = 300;
 
+// The mock_sessions row written for a finished session. The server-side trigger averages avg_score
+// from this table to compute interview_score, and useMemory maps questions_count / avg_score back
+// to questionsCount / avgScore on reload, so the names here must stay in step with both.
+export const toSessionRow = (rec) => ({ avg_score: rec.avgScore, questions_count: rec.questionsCount, mode: rec.persona });
+
 export const PERSONAS = {
   startup:    { label: 'Seed Startup',  icon: '🚀', desc: 'Fast-paced, metric obsessed.',  color: 'gold',
     guidance: 'You are the founder or head of a seed-stage startup. You value speed, ownership, scrappiness and measurable impact. You probe for bias to action, how the candidate operates with little structure, and concrete numbers.' },

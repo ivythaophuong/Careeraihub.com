@@ -1,11 +1,22 @@
-# Keep secrets and local state out of the build context (and therefore out of the image)
+node_modules
+dist
+.git
+coverage
+*.log
+
+# Secrets and local state must never enter the build context (and therefore the image).
+# .env.production is excluded too: a build without it is byte-identical to production.
 .env
 .env.*
 *.pem
-.git
-node_modules
-dist
-coverage
+.mcp.json
+.claude
+
+# Not build inputs
 supabase
+tests
+docs
+scripts
 **/*.test.js
+**/*.test.jsx
 *.md

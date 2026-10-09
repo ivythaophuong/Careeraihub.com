@@ -165,6 +165,11 @@ describe('a full session', () => {
     expect(screen.getByText('2. Tip for 55')).toBeTruthy();
 
     expect(p.updateMemory).toHaveBeenCalledTimes(1);
+    // The mock_sessions row feeds the server-side interview_score, so it must be written too.
+    expect(p.updateMemory.mock.calls[0][1]).toEqual({
+      table: 'mock_sessions',
+      data: { avg_score: 65, questions_count: 5, mode: 'seriesb' },
+    });
     const next = p.updateMemory.mock.calls[0][0]({ mockSessions: Array.from({ length: 25 }, (_, i) => ({ id: i })) });
     expect(next.mockSessions).toHaveLength(20);
     expect(next.mockSessions[0]).toMatchObject({ persona: 'seriesb', personaLabel: 'Series B', questionsCount: 5, avgScore: 65, skipped: 0 });

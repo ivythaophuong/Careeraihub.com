@@ -1,13 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
 :root {
   --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
   --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px; --space-12:48px;
   --radius-sm:6px; --radius-md:10px; --radius-lg:14px; --radius-xl:20px; --radius-full:9999px;
-  --font-display:'Outfit',sans-serif;
-  --font-serif:'Instrument Serif',serif;
+  --font-display:'Inter',sans-serif;
   --font-body:'Inter',sans-serif;
   --font-mono:'JetBrains Mono',monospace;
+  --lp-ff:'Inter',system-ui,sans-serif;
+  --lp-ffm:'DM Mono',monospace;
+  --lp-mono:'JetBrains Mono',monospace;
   --transition-fast:all 0.12s ease;
   --transition-base:all 0.2s ease;
   --transition-slow:all 0.35s ease;
@@ -38,6 +40,9 @@ body {
 .section-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#6B7E9F;margin-bottom:16px;text-align:center}
 .step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
 
+@keyframes orbit-spin-cw{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes orbit-spin-ccw{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
+
 .mod-tab{
   border:1px solid #1E2D45;background:transparent;color:#6B7E9F;
   border-radius:var(--radius-md);padding:8px 14px;font-size:11px;font-weight:700;
@@ -45,7 +50,7 @@ body {
   transition:var(--transition-base);font-family:var(--font-mono);
   position:relative;
 }
-.mod-tab:hover{border-color:#00D4FF55;color:#E8F0FE;background:#0F1520}
+.mod-tab:hover{border-color:#EC489955;color:#E8F0FE;background:#0F1520}
 .mod-tab.active{font-size:12px;font-weight:800}
 
 .skeleton{background:#0F1520;border-radius:6px;overflow:hidden;position:relative}
@@ -57,8 +62,8 @@ body {
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(0, 212, 255, 0.1);
-  border-top-color: #00D4FF;
+  border: 2px solid rgba(236, 72, 153, 0.1);
+  border-top-color: #EC4899;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -72,5 +77,6 @@ body {
 .grid-2{grid-template-columns:1fr 1fr}
 @media(max-width:600px){.grid-2{grid-template-columns:1fr}}
 
-/* Visible keyboard focus */
-:focus-visible{outline:2px solid #00D4FF;outline-offset:2px}
+/* Visible keyboard focus (mouse clicks do not show it) */
+/* !important because many inputs carry an inline `outline: none`, which would otherwise win */
+:focus-visible{outline:2px solid #EC4899 !important;outline-offset:2px}

@@ -1,28 +1,28 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Responsive layer
+   Responsive layer (ported from main, limited to what applies to this UI)
+
    Most layout is inline-styled (React style objects), which can't carry media
    queries. This sheet is imported last and uses !important + attribute
    selectors on the serialized inline `grid-template-columns` to reflow grids.
    Breakpoints: ≤1024 tablet-landscape · ≤768 tablet · ≤480 phone
+
+   Not ported on purpose:
+   - main's `.lp ...` landing rules: the landing page was redesigned here and has its own
+     media queries; porting them blind could change its look. Check them against the
+     landing page at 375 / 768 / 1280 px first.
+   - `.app-container` / `.app-footer-inner` / data-device shell rules: those classes do not
+     exist in this app (its shell is AppSidebar, with its own mobile nav in appTheme.css).
+   - body overflow-x and the 44px touch targets: appTheme.css already sets them (≤768px).
+   `data-device` / `data-touch` are still set on <html> by useDevice, for CSS to use.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-body { overflow-x: hidden; }
 img, svg, video, canvas { max-width: 100%; }
 input, select, textarea { max-width: 100%; }
-
-/* Fluid content gutters (used by .app-container / .app-footer-inner in App.jsx) */
-.app-container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 24px clamp(12px, 3vw, 32px); }
-.app-footer-inner { max-width: 1200px; }
 
 /* ── ≤1024px — tablet landscape ─────────────────────────────────────────── */
 @media (max-width: 1024px) {
   [style*="repeat(5,"], [style*="repeat(5, "] { grid-template-columns: repeat(3, 1fr) !important; }
-
-  .lp .hero-top { grid-template-columns: 1fr !important; gap: 32px !important; }
-  .lp .lp-mem, .lp-tv-kanban { grid-template-columns: repeat(3, 1fr) !important; }
-  .lp .footer-grid { grid-template-columns: 1fr 1fr !important; }
-  .lp .price-grid { grid-template-columns: 1fr 1fr !important; }
 }
 
 /* ── ≤768px — tablet / large phone ──────────────────────────────────────── */
@@ -34,69 +34,16 @@ input, select, textarea { max-width: 100%; }
   [style*="grid-template-columns: 1fr 1fr;"],
   [style*="grid-template-columns: 1fr 2fr"],
   [style*="grid-template-columns: 1.5fr 1fr"] { grid-template-columns: 1fr !important; }
-
-  /* nav + module pills */
-  .lp-nav { padding: 0 16px; }
-  .lp-nav-center { display: none; }
-  .lp-mod-nav { padding: 8px 12px; -webkit-overflow-scrolling: touch; }
-  .lp-tv-nav-inner { padding: 0 16px; }
-
-  /* landing page */
-  .lp .hero { padding: 36px 16px 0; }
-  .lp .section { padding: 48px 16px; }
-  .lp .footer { padding: 36px 16px 22px; }
-  .lp .sh { font-size: 24px; }
-  .lp .hero-bottom, .lp .feat-panel { grid-template-columns: 1fr !important; }
-  .lp .fp-left { border-right: none; border-bottom: 1px solid var(--lp-bdr); padding: 24px 18px; }
-  .lp .lp-mods { grid-template-columns: repeat(2, 1fr) !important; }
-  .lp .lp-mem, .lp-tv-kanban, .lp .layer-tabs, .lp-tv-stats { grid-template-columns: repeat(2, 1fr) !important; }
-  .lp .price-grid { grid-template-columns: 1fr !important; }
-  .lp .pw-block { grid-template-columns: 1fr !important; }
-  .lp .fg3 { grid-template-columns: 1fr 1fr !important; }
-  .lp-tv-body { padding: 20px 16px; }
-  .lp .nurture-in { width: 100%; }
-  .lp-ext-promo { flex-wrap: wrap; }
-
-  /* tables never force the page wider than the viewport */
-  .lp .ctbl { font-size: 11px; }
-
-  /* type scale */
-  .t-display { font-size: clamp(26px, 7vw, 36px); }
-  .t-score { font-size: 60px; }
 }
 
 /* ── ≤480px — phone ─────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   [style*="repeat(5,"], [style*="repeat(5, "] { grid-template-columns: repeat(2, 1fr) !important; }
   [style*="grid-template-columns: 1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
-
-  .lp .fg2, .lp .fg3, .lp .footer-grid, .lp .stats-grid { grid-template-columns: 1fr !important; }
-  .lp .stt { border-right: none; }
-  .lp .lp-mods, .lp .lp-mem, .lp-tv-kanban { grid-template-columns: 1fr !important; }
-  .lp .layer-tabs, .lp-tv-stats { grid-template-columns: 1fr 1fr !important; }
-  .lp .market-signals { grid-template-columns: 1fr !important; }
-  .lp-nav-r { gap: 6px; }
-  .lp-btn-si { padding: 7px 12px; }
-  .lp-btn-join { padding: 8px 14px; }
-  .lp .sh { font-size: 21px; }
-  .t-score { font-size: 48px; }
 }
 
-/* Touch devices: comfortable tap targets */
+/* Touch devices of any width (tablets too): comfortable tap targets, and no iOS zoom-on-focus */
 @media (hover: none) and (pointer: coarse) {
-  button, .mod-tab, .lp-mpill, .lp-nl { min-height: 40px; }
-  input, select, textarea { font-size: 16px; } /* prevents iOS zoom-on-focus */
+  button, .mod-tab, .lp-nl { min-height: 40px; }
+  input, select, textarea { font-size: 16px; }
 }
-
-/* ── Device-specific shell (data-device is set by useDevice) ────────────── */
-/* Phone: bottom nav replaces the pill row; compact header + tighter content */
-[data-device="mobile"] .app-container { padding-top: 16px; }
-[data-device="mobile"] .app-footer-inner { justify-content: center !important; text-align: center; }
-[data-device="mobile"] .lp-nav { height: 52px; }
-[data-device="mobile"] .lp-mod-nav { top: 52px; }
-
-/* Tablet: pills stay at the top; content gets a little more breathing room */
-[data-device="tablet"] .app-container { padding-top: 20px; }
-
-/* Desktop: full-width pills, hover affordances */
-[data-device="desktop"] .lp-mod-nav { justify-content: flex-start; }

@@ -84,6 +84,43 @@ describe('CoverLetterGen', () => {
     expect(Object.keys(next)).toEqual(['coverLetters']);
   });
 
+  it('writes a cover_letters row with the generated letter (hotfix persistence)', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    const p = setup();
+    role('PM'); generate();
+    await screen.findByText('Application — Senior PM');
+    expect(p.updateMemory.mock.calls[0][1]).toEqual({
+      table: 'cover_letters',
+      data: { company: 'Grab', tone: 'professional', subject: 'Application — Senior PM', content: LETTER },
+    });
+  });
+
+  it('uses the company the user typed when the AI cannot find one, and tells the model about it', async () => {
+    callLLM.mockResolvedValue(JSON.stringify({ ...REPLY, company: 'Not stated' }));
+    const p = setup();
+    role('PM');
+    fireEvent.change(screen.getByLabelText('Target company'), { target: { value: 'Stripe' } });
+    generate();
+    await screen.findByText('Application — Senior PM');
+    expect(callLLM.mock.calls[0][0][0].content).toContain('the target company is "Stripe"');
+    expect(p.updateMemory.mock.calls[0][1].data.company).toBe('Stripe');
+  });
+
+  it('downloads the edited letter as a text file', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    URL.createObjectURL = vi.fn(() => 'blob:x'); URL.revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    setup();
+    role('PM'); generate();
+    await screen.findByText('Application — Senior PM');
+    fireEvent.change(screen.getByLabelText('Cover letter text'), { target: { value: 'edited letter body' } });
+    fireEvent.click(screen.getByText('Download'));
+    expect(click).toHaveBeenCalled();
+    const blob = URL.createObjectURL.mock.calls[0][0];
+    expect(await blob.text()).toBe('edited letter body');
+    click.mockRestore();
+  });
+
   it('lets the user edit the letter and copies the edited text', async () => {
     callLLM.mockResolvedValue(JSON.stringify(REPLY));
     setup();

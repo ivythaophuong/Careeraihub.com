@@ -16,11 +16,13 @@ const jwtExpiry = (token) => {
 
 export function normalizeSession(raw, now = Date.now()) {
   if (!raw) return null;
+  // The access token's own `exp` claim is authoritative. A stored `expires_at` can be stale: some code
+  // paths refresh the token and copy only the new tokens over, leaving the old expiry behind.
   const expiresAt =
+    (raw.access_token ? jwtExpiry(raw.access_token) : null) ??
     raw.expiresAt ??
     (raw.expires_at ? raw.expires_at * 1000 : null) ??
-    (raw.expires_in ? now + raw.expires_in * 1000 : null) ??
-    (raw.access_token ? jwtExpiry(raw.access_token) : null);
+    (raw.expires_in ? now + raw.expires_in * 1000 : null);
   return { ...raw, expiresAt };
 }
 

@@ -14,20 +14,28 @@ export const toBackup = (state) => {
 // ── Production-Grade Relational Memory Hook ──────────────────────────────────
 export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
   const [memory, setMemory] = useState({});
-  const memoryRef = useRef({});
+  const memoryRef = useRef({}); // Synchronous mirror of memory — avoids React batching race on setState updater
   const userRef = useRef(user);
   userRef.current = user;
   const queueRef = useRef(Promise.resolve());
   const timerRef = useRef(null);
   const syncLockedRef = useRef(true); // Atomic lock to prevent race conditions during initial load
+  const pendingWhileLockedRef = useRef(false); // A change was made during boot; save it once boot finishes
+  const relationalFailedRef = useRef(false); // A relational insert failed since the last fully successful save
   const [isSyncing, setIsSyncing] = useState(false);
+  // Set (as a fresh object each time) when a save fails, so the UI can tell the user instead of
+  // leaving the failure in the console. Cleared by the next fully successful save.
+  const [syncError, setSyncError] = useState(null);
+  // Changes after every fully successful save, so screens that read database-computed values
+  // (the practice score is recalculated by a database trigger) can re-read them.
+  const [syncedAt, setSyncedAt] = useState(0);
 
   // 1. COMPOSITE FETCH: Load from all relational tables with isolation
   useEffect(() => {
     async function loadAll() {
       if (!user || !isRestoring) return;
       console.log("[useMemory] Refactor Boot Initializing:", { email: user.email, id: user.id });
-      
+
       try {
         // Auth failures and a failed load of the main backup row are fatal: carrying on
         // with empty data would let the next save overwrite the user's real memory.
@@ -61,7 +69,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
         console.log(`[useMemory] Data Arrival: Scans(${scans.length}), Apps(${apps.length}), Stars(${stars.length})`);
 
         // 2. CONSTRUCT COMPOSITE STATE (Backward Compatible & Normalized)
-        const base = dbMem?.[0]?.data || {}; 
+        const base = dbMem?.[0]?.data || {};
         const normalize = (rows, mapper) => (rows || []).map(r => {
           const obj = { ...r, date: r.created_at };
           Object.keys(mapper).forEach(key => {
@@ -72,7 +80,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
 
         const compositeMap = {
           ...base,
-          scanHistory: (scans && scans.length > 0) 
+          scanHistory: (scans && scans.length > 0)
             ? normalize(scans, { credibility_score: 'score', file_name: 'fileName', metrics_found: 'metricsFound' }).map(s => ({
                 ...s,
                 // RE-ASSEMBLE: Stitch relational columns back into a unified result object for UI compatibility
@@ -93,16 +101,29 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
           negotiationPractice: practice?.length ? practice.length : (base.negotiationPractice || 0),
           insights: insights?.length ? insights : (base.insights || []),
         };
-        memoryRef.current = compositeMap;
-        setMemory(compositeMap);
+        // Merge with any in-flight state set while locked (e.g. onboarding resume upload before boot finished)
+        const merged = {
+          ...compositeMap,
+          resumeText: compositeMap.resumeText || memoryRef.current.resumeText,
+        };
+        memoryRef.current = merged;
+        setMemory(merged);
         syncLockedRef.current = false; // Release lock for UI edits
+
+        // A change made during boot was not saved. Save the CURRENT merged state (never an older
+        // snapshot, which would overwrite the stored memory that was just loaded).
+        if (pendingWhileLockedRef.current) {
+          pendingWhileLockedRef.current = false;
+          await writeBackup();
+        }
+
         setIsRestoring(false);
         console.log("[useMemory] Refactor Boot Complete. Memory state live.");
       } catch (e) {
         console.error("[useMemory] Refactor Global Error:", e.message);
-        // Stay locked (no saves) and let the UI offer a retry.
+        // Stay locked (no saves) and let the UI offer a retry. isRestoring is left as it is: the
+        // restore did not finish, so it must not be reported as done.
         setRestoreError(true);
-        setIsRestoring(false);
       }
     }
     loadAll();
@@ -117,6 +138,8 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
   // - Relational inserts run immediately; the JSON backup is debounced so rapid
   //   edits (e.g. typing in the ATS builder) produce one write, not one per keystroke.
   // - All writes run through one promise chain so they never overlap or reorder.
+  // - The returned promise resolves once the relational row (if any) has been written, so a caller
+  //   that awaits it can then re-read database-computed values.
   const updateMemory = (updater, relational = null) => {
     const prev = memoryRef.current;
     const patch = typeof updater === 'function' ? updater(prev) : updater;
@@ -127,23 +150,27 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
     const u = userRef.current;
     if (!u) return Promise.resolve();
     if (syncLockedRef.current) {
-      console.warn("[Sync] Persistence Blocked: Boot in progress.");
+      console.warn("[Sync] Persistence Blocked: Boot in progress. Change will be saved once it finishes.");
+      pendingWhileLockedRef.current = true;
       return Promise.resolve();
     }
 
+    let done = Promise.resolve();
     if (relational && relational.table && relational.data) {
-      enqueue(async () => {
+      done = enqueue(async () => {
         try {
           await sb.insert(relational.table, { ...relational.data, user_id: u.id }, u.token);
         } catch (e) {
-          // The JSON backup below still carries this change.
+          // The JSON backup below still carries this change, but tell the user the row was not saved.
           console.error(`[Sync] Relational insert failed (${relational.table}):`, e.message);
+          relationalFailedRef.current = true;
+          setSyncError({ message: e.message || 'Save failed', at: Date.now() });
         }
       });
     }
 
     scheduleBackup();
-    return Promise.resolve();
+    return done;
   };
 
   const enqueue = (task) => {
@@ -153,7 +180,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
 
   const writeBackup = () => {
     const u = userRef.current;
-    if (!u) return Promise.resolve();
+    if (!u || syncLockedRef.current) return Promise.resolve();
     return enqueue(async () => {
       setIsSyncing(true);
       try {
@@ -162,8 +189,16 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
           data: toBackup(memoryRef.current),
           updated_at: new Date().toISOString(),
         }, u.token);
+        if (relationalFailedRef.current) {
+          // The backup saved but a row did not: keep the error visible until a fully good save.
+          relationalFailedRef.current = false;
+        } else {
+          setSyncError(null);
+          setSyncedAt(Date.now());
+        }
       } catch (e) {
         console.error("[Sync] Memory backup failed:", e.message);
+        setSyncError({ message: e.message || 'Save failed', at: Date.now() });
       } finally {
         setIsSyncing(false);
       }
@@ -191,5 +226,5 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
     return () => { document.removeEventListener('visibilitychange', onHide); flush(); };
   }, []);
 
-  return { memory, updateMemory, flushMemory: flush, isSyncing };
+  return { memory, updateMemory, flushMemory: flush, isSyncing, syncError, syncedAt };
 }
