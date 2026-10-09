@@ -138,10 +138,18 @@ no `COPY`/`INSERT`, no keys). Nothing is truncated any more. Class: **CONFIRMED 
 - **CONFIRMED IN PRODUCTION (dump):** the role `gtm_readonly` has `USAGE` on schema `public`, `SELECT` on all 27 tables and views (including `user_memory`, `profiles`, `resume_scans`, `evidence`, `consents`,
   `candidate_trust_profiles`, `trusted_issuers`), and `ALTER DEFAULT PRIVILEGES ... GRANT SELECT ON TABLES TO gtm_readonly`, so every future table is readable too.
 - **CONFIRMED IN REPOSITORY:** nothing in the repository or its git history creates or mentions this role (the only "gtm" strings are in two HTML documents, presumably "go-to-market").
-- **UNKNOWN:** who created it and for what (a reporting or analytics tool?), whether it can log in, whether it has `BYPASSRLS` (role attributes are not in the schema dump), whether anyone or anything connects with it.
-- **Why it matters:** the table policies are `TO public` and compare `auth.uid()` with the owner; for a database role with no JWT, `auth.uid()` is null, so **if the role does not bypass RLS it sees no user rows**.
-  If it has `BYPASSRLS` (or is a superuser), it can read every user's resume text, profile and consents directly, outside every control studied so far, and none of the fixes S1-S3 would limit it.
+- **CONFIRMED IN PRODUCTION (role attributes, read with `supabase db query --linked` from `pg_roles`, 2026-10-09):** `rolcanlogin = true`, **`rolbypassrls = true`**, `rolsuper = false`,
+  `rolinherit = true`, `rolconnlimit = 5`, `rolvaliduntil = null` (the login never expires). The other login roles are `postgres`, `authenticator`, `pgbouncer` and `cli_login_postgres`
+  (the last one is created by the Supabase CLI for its own sessions); `anon`, `authenticated`, `dashboard_user` and `service_role` cannot log in.
+- **Consequence (CONFIRMED by combining the two facts above):** anyone who holds the credentials of `gtm_readonly` can connect to the database directly and read every row of every table, including
+  resume text in `user_memory`, `profiles`, `consents` and `evidence`, **without passing any RLS policy**. None of the fixes S1-S3 limits this role, because they change policies and row-level
+  rules and this role ignores them.
+- **UNKNOWN:** who created it and for what (the connection limit of 5 and the default privileges look like a reporting or analytics tool being onboarded), who or what holds its password, whether
+  it is used today, from which addresses, and whether the password was ever shared. Not established from the repository or the catalog.
 - **INFERRED RISK:** a standing read-everything credential held by a tool or person outside the application.
-- **To establish (read-only, from `~/supabase-baseline`):**
-  `supabase db query --linked --output-format json "select rolname, rolcanlogin, rolsuper, rolbypassrls, rolinherit, rolconnlimit, rolvaliduntil from pg_roles where rolname = 'gtm_readonly'"`
-  and `... "select rolname, rolcanlogin, rolbypassrls from pg_roles where rolname !~ '^(pg_|supabase_)' order by 1"`. Then the owner decides what the role is for; no change is proposed here.
+- **To establish next (read-only):** the owner asks who created `gtm_readonly` and which tool uses it; the Postgres logs in the Supabase dashboard (Logs, filter `gtm_readonly`) show recent
+  connections and their addresses (retention depends on the plan); `select usename, application_name, client_addr, state, backend_start from pg_stat_activity where usename = 'gtm_readonly'`
+  shows live sessions. Whatever is decided (keep, restrict, rotate, disable) is the owner's decision and is not part of S1-S3.
+- **Options for the owner, none applied:** (1) if nobody needs it: `alter role gtm_readonly nologin` is reversible and does not affect the application, which connects through the API roles;
+  (2) if a tool needs it: rotate its password, remove `BYPASSRLS`, and give it a narrower source (aggregate views without personal data) instead of `SELECT` on every table;
+  (3) in every case review who holds the credential. Because the role can read personal data, treat "who has had access" as a privacy question as well as a security one.
