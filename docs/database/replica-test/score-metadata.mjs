@@ -7,7 +7,7 @@ import fs from 'node:fs';
 const db = new PGlite();
 await db.exec(fs.readFileSync('replica.sql', 'utf8'));
 await db.exec(fs.readFileSync('../2026-10-05-lock-scores-and-verify-employers.sql', 'utf8'));
-const MIGRATION = fs.readFileSync('../proposed/2026-10-08-resume-scans-score-metadata.sql', 'utf8');
+const MIGRATION = fs.readFileSync('../2026-10-08-resume-scans-score-metadata.sql', 'utf8');
 
 const U = '00000000-0000-0000-0000-0000000000a1';
 const V = '00000000-0000-0000-0000-0000000000b2';
