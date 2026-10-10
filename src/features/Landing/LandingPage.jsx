@@ -3290,7 +3290,7 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                 ))}
               </div>
               <div className="lp-sp-upgrade-strip">
-                <div className="lp-sp-upgrade-text"><strong>Free during the beta.</strong> Paid plans are not available yet and nothing is charged. This plan is an example of how the tools fit together.</div>
+                <div className="lp-sp-upgrade-text"><strong>Example plan.</strong> This shows how the tools fit together. Plans and prices are shown inside the product.</div>
                 <button className="lp-sp-upgrade-btn" onClick={onClose}>Got it</button>
               </div>
             </div>
@@ -3304,8 +3304,8 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                   {n:'1',title:'Concrete examples drill',badge:'Active — session 1/3',bc:'weak',pct:38,bg:'#FF4D6A',desc:"You'll practice 6 behavioral questions. For each, AI coaches you to replace vague language with a specific number, outcome, or named result. Score must reach 70 before module 2 unlocks.",active:true},
                   {n:'2',title:'STAR structure mastery',badge:'Unlocks after module 1',bc:'',pct:44,bg:'#FFD233',desc:'2-session deep dive on Situation, Task, Action, Result framing. AI gives real-time feedback on each section of your answer.'},
                   {n:'3',title:'Clarity + filler word reduction',badge:'Maintenance',bc:'ok',pct:72,bg:'#00E5A0',desc:'You\'re already strong here. 1 drill per week keeps you above 70. AI tracks "um", "like", and hedging language across every session.'},
-                  {n:'4',title:'Salary negotiation roleplay',badge:'Available in beta',bc:'',pct:0,bg:'var(--lp-bdr)',desc:'Practise counter-offer language for your target role.'},
-                  {n:'5',title:'Weakness framing',badge:'Available in beta',bc:'',pct:0,bg:'var(--lp-bdr)',desc:'A common hard question. Practise framing a weakness until it sounds natural, not rehearsed.'},
+                  {n:'4',title:'Salary negotiation roleplay',badge:'Available',bc:'',pct:0,bg:'var(--lp-bdr)',desc:'Practise counter-offer language for your target role.'},
+                  {n:'5',title:'Weakness framing',badge:'Available',bc:'',pct:0,bg:'var(--lp-bdr)',desc:'A common hard question. Practise framing a weakness until it sounds natural, not rehearsed.'},
                 ].map((m,i)=>(
                   <div key={i} className={`lp-sp-mod${m.active?' sp-active':''}${m.locked?' sp-locked':''}`} style={{borderRadius:'var(--lp-r)'}}>
                     <div className="lp-sp-mod-hd">
@@ -3349,7 +3349,7 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                       Open {f.label} →
                     </button>
                   ) : (
-                    <button className="lp-sp-upgrade-btn" onClick={onClose}>Free during the beta</button>
+                    <button className="lp-sp-upgrade-btn" onClick={onClose}>Got it</button>
                   )}
                 </div>
               </div>
@@ -3483,7 +3483,7 @@ function ToSModal({ onClose }) {
               <li>You may not attempt to reverse-engineer or copy the platform</li>
             </ul>
             <h3>4. Fees</h3>
-            <p>CareerAiHub is free during the beta. Paid plans are not offered yet and nothing is charged. If paid plans are introduced we will announce them in advance, and we will not charge you unless you have agreed to a plan.</p>
+            <p>No payment is taken at present. Plans and prices are shown inside the product. If paid plans are introduced, we will show the price and the billing period before you agree, and we will not charge you unless you have explicitly agreed to a plan.</p>
             <h3>5. Limitation of liability</h3>
             <p>CareerAiHub provides career guidance tools, not guaranteed employment outcomes. AI-generated scores and suggestions are for informational purposes. We are not liable for employment decisions made by third parties.</p>
             <h3>6. Governing law</h3>
@@ -3803,11 +3803,11 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
       <div className="v36-stats-ticker-wrap">
         <div className="v36-stats-ticker-track">
           {[
-            { color:'#10b981', val:'Free', label:'during the beta' },
+            { color:'#10b981', val:'Free', label:'to start' },
             { color:'#5b6ef5', val:'No card', label:'needed to start' },
             { color:'#8b5cf6', val:'Rule-based', label:'ATS readiness check' },
             { color:'#06b6d4', val:'EN · VI', label:'resume headings read' },
-            { color:'#10b981', val:'Free', label:'during the beta' },
+            { color:'#10b981', val:'Free', label:'to start' },
             { color:'#5b6ef5', val:'No card', label:'needed to start' },
             { color:'#8b5cf6', val:'Rule-based', label:'ATS readiness check' },
             { color:'#06b6d4', val:'EN · VI', label:'resume headings read' },
@@ -3993,38 +3993,6 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
         </div>
       </div>
 
-      {/* ── FREE DURING THE BETA (no paid plans are offered yet) ── */}
-      <div id="v36-pricing" className="v36-pricing">
-        <div className="v36-pricing-inner">
-          <div className="reveal" style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:32,gap:32,flexWrap:'wrap'}}>
-            <h2 style={{fontFamily:"'Inter',sans-serif",fontSize:'clamp(26px,3.5vw,38px)',fontWeight:800,letterSpacing:'-.03em',lineHeight:1.1,color:'var(--text)',margin:0}}>Free while we build.</h2>
-            <p style={{fontSize:13,color:'var(--text3)',fontWeight:300,lineHeight:1.7,maxWidth:360,margin:0}}>Every tool is free during the beta. Paid plans are not available yet, nothing is charged, and we will tell you well before that changes.</p>
-          </div>
-          <div className="reveal v36-price-grid" style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:1,background:'var(--border)',borderRadius:16,overflow:'hidden',border:'1px solid var(--border)'}}>
-            <div style={{background:'var(--card)',padding:'28px 24px',display:'flex',flexDirection:'column'}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'#818cf8',marginBottom:16}}>Candidates · Beta</div>
-              <div style={{fontFamily:"'Inter',sans-serif",fontSize:30,fontWeight:800,letterSpacing:'-.03em',color:'var(--text)',marginBottom:6}}>Free</div>
-              <div style={{fontSize:11,color:'var(--text3)',marginBottom:20}}>No credit card. Some AI tools may be slow or limited at busy times.</div>
-              <div style={{display:'flex',flexDirection:'column',gap:10,flex:1,marginBottom:24}}>
-                {['ATS Readiness check of your resume (rule-based)','AI help to find issues and rewrite bullets (free account)','STAR story and interview practice','Salary, skills-gap and regional guides'].map(f=>(
-                  <div key={f} style={{display:'flex',alignItems:'center',gap:9,fontSize:12,color:'var(--text2)'}}>
-                    <span style={{width:14,height:14,borderRadius:'50%',background:'rgba(236,72,153,.15)',border:'1px solid rgba(236,72,153,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#818cf8',flexShrink:0}}>✓</span>{f}
-                  </div>
-                ))}
-              </div>
-              <button onClick={join} style={{display:'block',textAlign:'center',padding:11,borderRadius:8,background:'linear-gradient(110deg,#7c3aed,#db2777)',fontSize:'12.5px',fontWeight:700,color:'#fff',cursor:'pointer',border:'none',fontFamily:"'Inter',sans-serif"}}>Start free</button>
-            </div>
-            <div style={{background:'var(--bg2)',padding:'28px 24px',display:'flex',flexDirection:'column'}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--cyan)',marginBottom:16}}>Employers</div>
-              <div style={{fontFamily:"'Inter',sans-serif",fontSize:22,fontWeight:800,letterSpacing:'-.03em',color:'var(--text)',marginBottom:6}}>By invitation</div>
-              <div style={{fontSize:11,color:'var(--text3)',marginBottom:20}}>Employer access is being tested with a small group. Candidates are shown to employers only with their consent.</div>
-              <div style={{flex:1}}></div>
-              <a href="mailto:hello.careeraihub@gmail.com" style={{display:'block',textAlign:'center',padding:10,borderRadius:8,border:'1px solid rgba(6,182,212,.3)',fontSize:'12.5px',fontWeight:600,color:'var(--cyan)',textDecoration:'none'}}>Write to us</a>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* ── FAQ ── */}
       <div className="v36-section" id="v36-faq" style={{borderTop:'1px solid var(--border)'}}>
         <div className="v36-section-inner" style={{maxWidth:900}}>
@@ -4048,7 +4016,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
                                         {q:'What is the Practice Score?',a:'A number that combines your resume check, interview practice and STAR stories. It shows how much you have practised, not that your identity or credentials are verified. The way it is calculated is being rebuilt to rely on fixed rules.'},
                     {q:'I\'m actively employed. Can I stay private?',a:'Yes. Use all AI tools in complete privacy without appearing in TrustMatch. You choose when to go "discoverable," and you can turn it off instantly.'},
                                         {q:'Which countries are supported?',a:'The tools can be used from any country. The market and salary guides focus on Singapore and Southeast Asia for now.'},
-                                        {q:'What does it cost?',a:'Everything is free during the beta and no card is needed. The AI tools need a free account and can be slow or limited at busy times. Paid plans are not offered yet, and we will tell you well before anything changes.'},
+                                        {q:'What does it cost?',a:'You can start without a card. The AI tools need a free account and can be slow or limited at busy times. Plans and prices are shown inside the product, and nothing is charged without your explicit agreement.'},
                   ].map((faq, i) => (
                     <details key={i} style={{background:'var(--card)',border:'1px solid var(--border2)',borderRadius:12,padding:'18px 20px',cursor:'pointer'}}>
                       <summary style={{fontSize:'13.5px',fontWeight:600,color:'var(--text)',listStyle:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>{faq.q}<span className="v36-faq-plus">+</span></summary>
@@ -4082,7 +4050,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             <span style={{width:24,height:1,background:'rgba(236,72,153,.3)',display:'block'}}></span>
           </div>
           <h2 style={{fontFamily:"'Inter',sans-serif",fontSize:'clamp(40px,6vw,68px)',fontWeight:800,letterSpacing:'-.04em',lineHeight:.96,marginBottom:20,color:'var(--text)'}}>The future of hiring is<br /><span style={{background:'linear-gradient(95deg,#ec4899,#8b5cf6,#f59e0b)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text',fontStyle:'italic'}}>proof,</span> not keywords.</h2>
-          <p style={{fontSize:15,color:'var(--text2)',marginBottom:44,maxWidth:440,marginLeft:'auto',marginRight:'auto',fontWeight:300,lineHeight:1.7}}>CareerAiHub is being built in the open: practice tools for job seekers first, employer sharing with consent later. It is free during the beta.</p>
+          <p style={{fontSize:15,color:'var(--text2)',marginBottom:44,maxWidth:440,marginLeft:'auto',marginRight:'auto',fontWeight:300,lineHeight:1.7}}>CareerAiHub is being built in the open: practice tools for job seekers first, employer sharing with consent later. </p>
           <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,flexWrap:'wrap',marginBottom:22}}>
             <button onClick={join} className="v36-btn-cta">Get Started Free →</button>
             <button onClick={join} className="v36-btn-outline">Create Recruiter Account ↗</button>

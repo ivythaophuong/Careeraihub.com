@@ -44,11 +44,14 @@ describe('the live landing copy does not promise what the product does not have'
       expect(hit ? hit[0] : null).toBeNull();
     });
   }
-  it('says plainly that the product is free during the beta and that no paid plans exist yet', () => {
-    expect(LIVE['LandingPage component']).toMatch(/Free while we build/);
-    expect(LIVE['LandingPage component']).toMatch(/Paid plans are not available yet/);
-    expect(LIVE['Terms modal']).toMatch(/free during the beta/i);
-    expect(LIVE['Terms modal']).toMatch(/nothing is charged/i);
+  it('has no pricing section on the landing page: prices are shown inside the product, after use', () => {
+    const page = LIVE['LandingPage component'];
+    expect(page).not.toMatch(/id="v36-pricing"/);
+    expect(page).not.toMatch(/Free while we build/);
+  });
+  it('the Terms say plainly that nothing is charged without explicit agreement and that no payment is taken now', () => {
+    expect(LIVE['Terms modal']).toMatch(/No payment is taken at present/);
+    expect(LIVE['Terms modal']).toMatch(/explicitly agreed/);
   });
   it('the navigation and footer have no Pricing link', () => {
     const nav = LIVE['LandingPage component'];
