@@ -10,6 +10,7 @@ import html2pdf from 'html2pdf.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
+import { sectionReport } from '../../lib/sectionReport';
 import { computeDeterministicScore } from '../../scoring/computeDeterministicScore';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -468,6 +469,15 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                         </div>
                       );
                     })}
+                    {(() => {
+                      const rep = sectionReport(rawText);
+                      return (
+                        <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', lineHeight: 1.5, borderTop: '1px solid var(--lp-bdr)', paddingTop: 10 }}>
+                          Sections we recognised: {rep.recognised.length ? rep.recognised.join(', ') : 'none'}.
+                          {rep.unrecognisedHeadings.length > 0 && <> Lines that look like headings but were not recognised: {rep.unrecognisedHeadings.map(h => `"${h}"`).join(', ')}.</>}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
