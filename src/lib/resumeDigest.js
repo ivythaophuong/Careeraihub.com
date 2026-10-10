@@ -9,8 +9,13 @@ const normalize = (text) => String(text || '').replace(/\r\n?/g, '\n').replace(/
 
 // Other names people give the same section, including Vietnamese ones. Each alias is read as the section it stands for, so everything
 // downstream (digest, facts, score) sees one name. Without this a standard Vietnamese CV had no Education, Skills or Experience at all.
+// "WORKING EXPERIENCE", "Industry Experience", "Career History"...: a modifier + a noun that means work experience.
+const EXP_MODIFIERS = ['working', 'work', 'professional', 'relevant', 'industry', 'employment', 'career', 'practical', 'internship', 'internships', 'job'];
+const EXP_NOUNS = ['experience', 'experiences', 'history', 'background', 'record'];
+const EXPERIENCE_COMBOS = EXP_MODIFIERS.flatMap((m) => EXP_NOUNS.map((n) => `${m} ${n}`)).concat(['experience & achievements', 'experience and achievements', 'experiences', 'employments']);
+
 const ALIASES = {
-  'work experience': ['work history', 'career history', 'professional history', 'professional background', 'relevant experience', 'kinh nghiệm', 'kinh nghiệm làm việc', 'kinh nghiệm chuyên môn', 'quá trình làm việc'],
+  'work experience': [...EXPERIENCE_COMBOS, 'work history', 'career history', 'professional history', 'professional background', 'relevant experience', 'kinh nghiệm', 'kinh nghiệm làm việc', 'kinh nghiệm chuyên môn', 'quá trình làm việc'],
   'education': ['academic background', 'academic qualifications', 'educational background', 'education & training', 'học vấn', 'trình độ học vấn', 'quá trình học tập', 'học vấn và đào tạo'],
   'skills': ['key skills', 'skills & tools', 'kỹ năng', 'kĩ năng', 'kỹ năng chuyên môn', 'kỹ năng và công cụ'],
   'summary': ['professional summary', 'career objective', 'career summary', 'mục tiêu nghề nghiệp', 'giới thiệu bản thân', 'tóm tắt'],

@@ -6,10 +6,14 @@ const EXPERIENCE = /^(experience|work experience|professional experience|employm
 const TITLE = { 'work experience': 'Experience', experience: 'Experience', 'professional experience': 'Experience', employment: 'Experience', 'employment history': 'Experience', 'technical skills': 'Skills', 'core competencies': 'Skills', education: 'Education', skills: 'Skills', summary: 'Summary', certifications: 'Certifications', projects: 'Projects', awards: 'Awards', languages: 'Languages', interests: 'Interests', contact: 'Contact' };
 const pretty = (name) => TITLE[name] || (name.charAt(0).toUpperCase() + name.slice(1));
 
+const CONTACT_LABELS = new Set(['linkedin', 'email', 'e-mail', 'phone', 'tel', 'mobile', 'github', 'website', 'portfolio', 'address', 'location', 'skype', 'twitter', 'telegram', 'zalo']);
+
 // A line that looks like a heading: short, no sentence punctuation, and either ALL CAPS or ending with a colon.
 function looksLikeHeading(line) {
   const t = line.trim();
   if (t.length < 3 || t.length > 48) return false;
+  if (/^[^\p{L}\p{N}]/u.test(t)) return false;                       // starts with punctuation: a fragment such as ", CFA"
+  if (CONTACT_LABELS.has(t.replace(/:$/, '').toLowerCase())) return false; // "LinkedIn:" labels a contact detail
   const words = t.replace(/:$/, '').split(/\s+/);
   if (words.length > 6) return false;
   if (/[.!?@]|https?:|\d{4}/.test(t) || /\d/.test(t)) return false;
@@ -29,11 +33,12 @@ export function sectionReport(text) {
   const LIST_LIKE = new Set(['skills', 'education', 'certifications', 'languages', 'interests', 'awards']);
   for (const s of sections) {
     if (LIST_LIKE.has(s.name)) continue;
-    for (const line of s.body.split('\n')) {
+    // The first two lines of a resume are usually the name (often split over several lines by the layout).
+    const lines = s.body.split('\n').filter((l) => l.trim());
+    for (const line of s.name === 'header' ? lines.slice(2) : lines) {
       if (looksLikeHeading(line) && !unrecognised.includes(line.trim())) unrecognised.push(line.trim());
     }
   }
   // The name at the top of a resume is often in capitals; a one-line header is not a heading.
-  const header = sections[0]?.body.split('\n')[0]?.trim();
-  return { recognised: [...new Set(recognised)], unrecognisedHeadings: unrecognised.filter((l) => l !== header).slice(0, 6), hasExperience: [...known].some((n) => EXPERIENCE.test(n)) };
+    return { recognised: [...new Set(recognised)], unrecognisedHeadings: unrecognised.slice(0, 6), hasExperience: [...known].some((n) => EXPERIENCE.test(n)) };
 }

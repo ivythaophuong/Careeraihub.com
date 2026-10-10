@@ -7,11 +7,21 @@ const empty = (source) => ({ value: null, normalized_value: null, source, eviden
 const found = (value, source, evidence, confidence, method = 'regex', normalized_value = null) =>
   ({ value, normalized_value, source, evidence, confidence, extraction_method: method, requiresInterpretation: false });
 
+// PDF text often spaces an address out ("name @ gmail . com") or the author writes "name (at) gmail.com". Read those as the address they mean,
+// at a lower confidence than a plain match. A plain match always wins.
+const SPACED_EMAIL_RE = /[\w.+-]+\s*(?:@|\(at\)|\[at\])\s*[\w-]+(?:\s*\.\s*[\w-]+)+/i;
+
 export function extractEmail(headerText, source = 'contact.email') {
   const m = (headerText.match(EMAIL_RE) || [])[0];
-  if (!m) return empty(source);
-  const v = trimTrailingPunct(m);
-  return found(v, source, v, 0.97, 'regex', v.toLowerCase());
+  if (m) {
+    const v = trimTrailingPunct(m);
+    return found(v, source, v, 0.97, 'regex', v.toLowerCase());
+  }
+  const loose = (headerText.match(SPACED_EMAIL_RE) || [])[0];
+  if (!loose) return empty(source);
+  const v = trimTrailingPunct(loose.replace(/\s*(?:\(at\)|\[at\])\s*/i, '@').replace(/\s+/g, ''));
+  if (!v.match(EMAIL_RE)) return empty(source); // (EMAIL_RE is global: use match, not test)
+  return found(v, source, loose.trim(), 0.8, 'regex', v.toLowerCase());
 }
 
 export function extractPhone(headerText, source = 'contact.phone') {

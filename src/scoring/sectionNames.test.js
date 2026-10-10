@@ -30,3 +30,33 @@ describe('section headings are recognised in English variants and in Vietnamese'
     expect(r.score.parts.find(p => p.id === 'measurable_impact').score).toBeNull();
   });
 });
+
+describe('experience headings that real resumes use (found on a real English CV: "WORKING EXPERIENCE" was not read)', () => {
+  const make = (heading) => `Jane Doe\njane@example.com\n\n${heading}\nSenior Product Manager, Acme\nJan 2021 - Present\n• Led roadmap, growing revenue by 20%\n\nEducation\nBSc Business, 2017\nSkills\nSQL`;
+  it.each(['WORKING EXPERIENCE', 'Working Experience', 'Work History', 'Professional Experience', 'INDUSTRY EXPERIENCE', 'Career History', 'Employment Background', 'Relevant Experience', 'Experience & Achievements'])('%s', (h) => {
+    const r = computeDeterministicScore(make(h));
+    expect(r.facts.experiences).toHaveLength(1);
+    expect(r.score.parts.find(p => p.id === 'measurable_impact').score).toBe(100);
+  });
+  it('an ordinary sentence that mentions experience is not a heading', () => {
+    const r = computeDeterministicScore('Jane Doe\njane@example.com\nSkills\nSQL\nI bring working experience in finance and a love of data.');
+    expect(r.facts.experiences).toHaveLength(0);
+  });
+});
+
+describe('email written the way PDF text often shows it', () => {
+  const email = (text) => computeDeterministicScore(`Jane Doe\n${text}\n\nSkills\nSQL`).facts.contact.email;
+  it('plain address: found, high confidence', () => {
+    expect(email('jane.doe@gmail.com').value).toBe('jane.doe@gmail.com');
+    expect(email('jane.doe@gmail.com').confidence).toBeGreaterThan(0.9);
+  });
+  it.each([['jane.doe @ gmail . com'], ['jane.doe (at) gmail.com'], ['jane.doe [at] gmail.com'], ['Email: jane.doe @gmail.com']])('%s', (t) => {
+    const e = email(t);
+    expect(e.value).toBe('jane.doe@gmail.com');
+    expect(e.confidence).toBeLessThan(0.9); // read loosely, so less sure
+  });
+  it('no address at all stays missing (never invented)', () => {
+    expect(email('Phone: 0912 345 678 | Singapore').value).toBeNull();
+    expect(email('I am at home at 5 pm').value).toBeNull();
+  });
+});

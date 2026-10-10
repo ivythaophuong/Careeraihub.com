@@ -18,4 +18,14 @@ describe('sectionReport', () => {
     const r = sectionReport('Jane Doe\nExperience\nLed the roadmap for payments.\nGrew revenue by 20%.\nSkills\nSQL');
     expect(r.unrecognisedHeadings).toEqual([]);
   });
+  it('does not report a name split over lines, credentials or contact labels as headings (a real CV showed "NGUYEN", ", CFA", "LinkedIn:")', () => {
+    const r = sectionReport('NGUYEN\nTRUNG HIEU\n, CFA\nLinkedIn:\nhieu@example.com\n\nWORKING EXPERIENCE\nAnalyst at Acme\nJan 2021 - Present\n\nEducation\nBSc 2017\nSkills\nSQL');
+    expect(r.unrecognisedHeadings).toEqual([]);
+    expect(r.recognised).toContain('Experience');
+    expect(r.hasExperience).toBe(true);
+  });
+  it('still reports a real unrecognised heading even before the first recognised section', () => {
+    const r = sectionReport('Jane Doe\njane@example.com\n+65 9123 4567\nSingapore\n\nCAREER HIGHLIGHTS AND ROLES\nPM at Acme\n\nEducation\nBSc 2017');
+    expect(r.unrecognisedHeadings).toContain('CAREER HIGHLIGHTS AND ROLES');
+  });
 });
