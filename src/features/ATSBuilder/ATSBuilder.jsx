@@ -284,7 +284,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
               { k: 'Target role',  v: profile.targetRole  },
               { k: 'Experience',   v: profile.experience  },
               { k: 'Market',       v: profile.market      },
-              { k: 'ATS readiness', v: detScore !== null ? `${detScore}/100` : '—', color: atsColor },
+              { k: 'Resume readiness', v: detScore !== null ? `${detScore}/100` : '—', color: atsColor },
             ].map(row => (
               <div key={row.k} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--lp-bdr2, rgba(255,255,255,.03))' }}>
                 <span style={{ color: 'var(--lp-text3)', fontSize: 12 }}>{row.k}</span>
@@ -394,7 +394,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
               {/* Section 1 — Score Hero */}
               <div className="atb-score-hero" style={{ background: 'var(--lp-bg2)', borderRadius: 12, border: '1px solid var(--lp-bdr)', padding: '20px 20px 18px' }}>
                 <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)', marginBottom: 18 }}>
-                  ATS Readiness Score
+                  Resume Readiness
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 16 }}>
                   <svg className="atb-score-ring" width="72" height="72" viewBox="0 0 72 72" style={{ flexShrink: 0 }}>
@@ -416,7 +416,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                   <div style={{ height: '100%', width: `${score}%`, background: scoreColor, borderRadius: 2, transition: 'width .6s ease' }} />
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 10, lineHeight: 1.5 }}>
-                  Calculated by fixed rules from your resume text: the same resume always gets the same score. The AI does not set this number; it only explains the problems below.
+                  Calculated by fixed rules from your resume text (completeness, quantified bullets, date consistency): the same resume always gets the same score. The AI does not set this number; it only explains the problems below. It is not a prediction of interviews or hiring: real recruiting systems do not publish one universal ATS score.
                 </div>
               </div>
 

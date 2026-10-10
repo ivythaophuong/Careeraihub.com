@@ -24,7 +24,9 @@ const shownNumber = () => Number(screen.getByText('out of 100').previousSibling.
 describe('ATS Builder shows the computed score', () => {
   it('shows the score computed from the resume text and ignores the model\'s number', () => {
     render(<ATSBuilder {...base} resumeText={GOOD} />);
-    expect(screen.getByText('ATS Readiness Score')).toBeTruthy();
+    expect(screen.getByText('Resume Readiness')).toBeTruthy();
+    expect(screen.queryByText(/ATS Readiness Score/)).toBeNull(); // not named after ATS: real ATS vendors publish no single score
+    expect(screen.getByText(/not a prediction of interviews or hiring/i)).toBeTruthy();
     const n = shownNumber();
     expect(n).not.toBe(99);
     expect(n).toBeGreaterThan(0);
