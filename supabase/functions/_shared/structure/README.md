@@ -27,6 +27,14 @@ Every result: `score_type`, `score_version`, `status`, `score`, `language`, `evi
 
 `rules.js` holds the weights, bands and thresholds; the word lists are in `lexicon.en.js` and `lexicon.vi.js`. `rulesFingerprint(scoreType)` hashes all of them. `structure.test.js` pins the version and fingerprint of each score type: if you change any weight, threshold, list, tokenisation or language rule, that test fails until you bump `SCORE_VERSIONS` and update the pinned fingerprint on purpose. Versions are `1.0.0` and have not been used by any stored data.
 
+## Rollback
+
+Nothing outside this folder imports it (`structure.test.js`, "isolation"). Roll back by reverting the pull request's merge commit (`git revert -m 1 <merge commit>`), not by deleting files by hand, so later changes are not removed by mistake.
+
+## Repetition cap (why and how far it reaches)
+
+A section is capped at 50 only when it has at least 15 words and fewer than 40% distinct words (`REPEAT_MIN_WORDS`, `REPEAT_UNIQUE_SHARE` in `rules.js`). Normal repetition of a key word ("customers", "orders") stays far above that, and a test with such a text checks that nothing is capped. The thresholds are guesses until Gate C; changing them is a versioned change.
+
 ## What is not done (later gates)
 
 - No human review or calibration (needs 50 real STAR stories, reviewed per language); thresholds and word lists are first guesses and the score must be labelled beta when it is ever shown.

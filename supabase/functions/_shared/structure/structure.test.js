@@ -150,6 +150,71 @@ describe('STAR Structure Score — English', () => {
   });
 });
 
+describe('repetition cap: stops padding, does not punish natural repetition', () => {
+  const natural = {
+    // Repeats "customers" and "orders" on purpose, as real writing does; still mostly distinct words.
+    situation: 'Last year our customers kept leaving because checkout was slow, and the customers who stayed told the company that orders failed.',
+    task: 'I was responsible for fixing the orders flow so customers could finish their orders before the November campaign.',
+    action: 'I profiled the orders page, removed two blocking scripts, added caching and then I ran load tests with the team to confirm customers saw the fix.',
+    result: 'Load time dropped by 40% and orders from customers rose 12% in the first month, and complaints stopped.',
+  };
+  it('natural repetition is not capped', () => {
+    const r = star(natural, EN);
+    for (const k of ['situation', 'task', 'action', 'result']) expect(r.sections[k].capped).toBeUndefined();
+    expect(r.score).toBeGreaterThanOrEqual(85);
+  });
+  it('heavy repetition is capped section by section, and the cap applies only to the repeated sections', () => {
+    const r = star({ ...EN_STORIES.strong, action: EN_STORIES.padded.action }, EN);
+    expect(r.sections.action.capped).toBe('repeated words');
+    expect(r.sections.action.score).toBeLessThanOrEqual(50);
+    expect(r.sections.situation.capped).toBeUndefined();
+  });
+  it('short texts are never judged as repeated (too few words to say)', () => {
+    const r = star({ situation: 'Slow slow slow site.', task: 'Fix fix it now.', action: 'I fixed fixed it.', result: 'Fast fast now.' }, EN);
+    for (const k of ['situation', 'task', 'action', 'result']) expect(r.sections[k].capped).toBeUndefined();
+  });
+});
+
+describe('missing data never inflates a score', () => {
+  it('three perfect sections and one missing give no score at all (weights are not re-spread over the three)', () => {
+    for (const missing of ['situation', 'task', 'action', 'result']) {
+      const r = star({ ...EN_STORIES.strong, [missing]: '' }, EN);
+      expect(r.status).toBe(STATUS.INSUFFICIENT_DATA);
+      expect(r.score).toBeNull();
+      expect(r.sections[missing].score).toBeNull();
+      for (const k of Object.keys(r.sections)) if (k !== missing) expect(r.sections[k].status).toBe('not_assessed'); // present sections are not scored either
+    }
+  });
+  it('a check that cannot be evaluated is left out and listed, not counted as 0', () => {
+    const r = ans('I led the migration at Acme and we cut errors by 30% in two weeks across all teams.', '', EN); // empty question: no relevance comparison
+    expect(r.status).toBe(STATUS.SCORED);
+    const rel = r.evidence.find((c) => c.id === 'relevance');
+    expect(rel.outcome).toBe('not_evaluated');
+    expect(rel.score).toBeNull();
+  });
+});
+
+describe('isolation: nothing depends on this folder yet (rollback is a plain revert)', () => {
+  it('no file outside _shared/structure imports it', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const here = path.dirname(new URL(import.meta.url).pathname);
+    const root = path.resolve(here, '../../../..');
+    const hits = [];
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (['node_modules', '.git', 'dist', 'research'].includes(e.name)) continue;
+        const full = path.join(dir, e.name);
+        if (full === here) continue;
+        if (e.isDirectory()) walk(full);
+        else if (/\.(jsx?|tsx?|mjs)$/.test(e.name) && /_shared\/structure|\.\/structure\//.test(fs.readFileSync(full, 'utf8'))) hits.push(path.relative(root, full));
+      }
+    };
+    for (const d of ['src', 'supabase', 'tests', 'scripts']) if (fs.existsSync(path.join(root, d))) walk(path.join(root, d));
+    expect(hits).toEqual([]);
+  });
+});
+
 describe('STAR Structure Score — Vietnamese', () => {
   it('works on Vietnamese text with diacritics and ranks complete over short, vague and quantified-but-irrelevant', () => {
     const s = star(VI_STORIES.strong, VI);

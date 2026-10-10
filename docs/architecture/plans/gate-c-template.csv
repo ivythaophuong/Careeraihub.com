@@ -1,0 +1,3 @@
+item_id,language,group,reviewer,structure_1to4,relevance_1to4,specificity_1to4,action_result_identifiable_1to4,overall_1to4,misleading_if_high,reason
+SYN-001,en,strong,reviewer_a,4,4,4,4,4,no,"synthetic example: all four parts present, concrete result"
+SYN-002,vi,quantified_irrelevant,reviewer_a,2,1,2,1,1,yes,"synthetic example: has numbers but they do not relate to the situation"
