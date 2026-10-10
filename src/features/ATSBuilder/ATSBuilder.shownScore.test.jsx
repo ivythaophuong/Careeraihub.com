@@ -5,7 +5,8 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 
 afterEach(cleanup);
-vi.mock('../../lib/ai', () => ({ callLLM: vi.fn() }));
+const callLLM = vi.fn();
+vi.mock('../../lib/ai', () => ({ callLLM: (...a) => callLLM(...a) }));
 vi.mock('html2pdf.js', () => ({ default: vi.fn() }));
 import ATSBuilder from './ATSBuilder';
 
@@ -46,9 +47,23 @@ describe('ATS Builder shows the computed score', () => {
     expect(shownNumber()).toBe(first);
   });
 
-  it('shows no score (not 0) when the resume text cannot be read', () => {
+  it('shows the score at once, without calling the AI (the AI only runs when the user asks)', () => {
+    callLLM.mockClear();
+    render(<ATSBuilder {...base} memory={{}} resumeText={GOOD} />);
+    expect(shownNumber()).toBeGreaterThan(0);
+    expect(callLLM).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/Find issues & enhance with AI/).length).toBeGreaterThan(0); // the AI step is offered, not forced
+  });
+
+  it('says in one line what the score is, and keeps the longer explanation behind "What is this score?"', () => {
+    render(<ATSBuilder {...base} resumeText={GOOD} />);
+    expect(screen.getByText(/Same resume, same score\. No AI involved\./)).toBeTruthy();
+    expect(screen.getByText('What is this score?').tagName).toBe('SUMMARY');
+  });
+
+  it('shows no score card at all (not a 0) when there is no readable text', () => {
     render(<ATSBuilder {...base} resumeText={'   '} />);
-    expect(screen.getByText('no score yet')).toBeTruthy();
     expect(screen.queryByText('out of 100')).toBeNull();
+    expect(screen.queryByText('ATS Readiness')).toBeNull();
   });
 });

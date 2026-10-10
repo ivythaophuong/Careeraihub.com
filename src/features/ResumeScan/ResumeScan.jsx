@@ -4,6 +4,7 @@ import { OrbitSpinner } from '../../components/OrbitMark';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { TEMPLATES } from '../ATSBuilder/resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
+import { TEMPLATE_PARSE, JD_MAX_CHARS, missingSections } from '../../lib/templateParse';
 import mammoth from 'mammoth';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
 import { neutralizeInventedFigures, hasPlaceholder, revertInsertion } from '../../lib/factGuard.js';
@@ -69,6 +70,8 @@ function guardIssues(issues, resume) {
     return { ...issue, fix: g.text, needsInput: hasPlaceholder(g.text) };
   });
 }
+
+const nextBtn = { textAlign: 'left', padding: '8px 10px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 'unset' };
 
 function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMemory, memory }) {
   const [jd, setJd]           = useState('');
@@ -149,10 +152,15 @@ function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMe
   const resumeCtx = resumeText
     ? (typeof resumeText === 'string' ? resumeText : resumeText.content || '') : '';
 
-  const parseForTemplate = async (textToUse) => {
-    if (templateProfile || parsingTemplate) return;
+  // Which text the current templateProfile was built from, and which text was last tried (so a failed attempt is not retried in a loop).
+  const templateSrcRef = useRef('');
+  const templateTriedRef = useRef('');
+
+  const parseForTemplate = async (textToUse, force = false) => {
+    if ((templateProfile && !force) || parsingTemplate) return;
     const src = (textToUse || resumeCtx).trim();
     if (!src) return;
+    templateTriedRef.current = src;
     setParsingTemplate(true);
     try {
       const raw = await callLLM([{ role: 'user', content:
@@ -160,9 +168,9 @@ function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMe
 {"name":"full name","email":"email","phone":"phone","linkedin":"linkedin url or handle","location":"city/region","summary":"professional summary","workExperience":[{"title":"job title","company":"company","period":"date range","bullets":["bullet 1"]}],"education":[{"degree":"degree","institution":"school","year":"graduation year"}],"skills":["skill1","skill2"],"awards":["award 1"],"extras":[{"heading":"Section Name","items":["item 1"]}]}
 
 Resume:
-${src.slice(0, 4000)}` }], 3000);
+${src.slice(0, TEMPLATE_PARSE.maxChars)}` }], TEMPLATE_PARSE.maxTokens);
       const parsed = extractJSON(raw);
-      if (!parsed.error) setTemplateProfile(parsed);
+      if (!parsed.error) { setTemplateProfile(parsed); templateSrcRef.current = src; }
     } catch (_) { /* silently fall back to TextResumePDF */ } finally {
       setParsingTemplate(false);
     }
@@ -204,7 +212,7 @@ ${src.slice(0, 4000)}` }], 3000);
   };
 
   const scan = async () => {
-    if (!jd.trim()) return;
+    if (!jd.trim() || jd.length > JD_MAX_CHARS) return;
     const lastAnalysis = (memory?.jdAnalyses || []).find(a => a.matchScore > 0);
     setPrevMatchScore(lastAnalysis?.matchScore ?? null);
     const prepared = prepareJdMatch(resumeCtx, jd);
@@ -236,7 +244,7 @@ Return ONLY raw JSON (no markdown, start with {):
     {"severity":"critical|warning","type":"Vague Bullet|Missing Metric|Weak Ownership|Weak Impact","original":"exact short quote max 8 words from the resume","fix":"XYZ rewrite of the SAME bullet — keep the exact same role, company, and technologies already in the resume. Only improve structure and clarity. Never add a number, percentage, count, team size, timeline, tool, certification, or any level of ownership or scope that the resume does not already state. Where a figure would strengthen the bullet, write [X] (for example by [X]%) so the candidate fills in their real value, or leave it out."}
   ]
 }
-Generate 3-5 issues. Each issue must target an actual weak bullet from the resume. Fix must rewrite that bullet only — same context, better structure and impact. Do NOT reference the target company's specific tools, products, or proprietary services unless the candidate already mentions them in their resume.` }], 1500);
+Generate 3-5 issues. Each issue must target an actual weak bullet from the resume. Fix must rewrite that bullet only — same context, better structure and impact. Do NOT reference the target company's specific tools, products, or proprietary services unless the candidate already mentions them in their resume.` }], 2500);
       const parsed = extractJSON(raw);
       if (!parsed.error) {
         // Keyword presence is decided by code over the full resume and JD, not by what the AI happened to see.
@@ -280,6 +288,20 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
     URL.revokeObjectURL(url);
   };
 
+  // What to do after fixing: save, re-check against the same job, or practise.
+  const [versionSaved, setVersionSaved] = useState(false);
+  const saveAsVersion = () => {
+    if (!templateProfile || lostSections.length || !updateMemory) return;
+    const tpl = TEMPLATES.find(t => t.id === selectedTpl) || TEMPLATES[0];
+    const label = `${(resumeText?.fileName || 'Resume').replace(/\.(pdf|docx)$/i, '')} – tailored for ${result?.roleTitle || 'a job'}`.slice(0, 80);
+    updateMemory(m => ({ resumeVersions: [...(m.resumeVersions || []), { label, data: profileToTemplateData(templateProfile), text: editorText, templateLabel: tpl.label, date: new Date().toISOString() }] }));
+    setVersionSaved(true);
+  };
+  const rescanEdited = () => {
+    setResumeText?.({ type: 'text', content: editorText, fileName: `${(resumeText?.fileName || 'Resume').replace(/ \(edited\)$/, '')} (edited)` });
+    setResult(null); setEditMode(false); setAppliedFixes({}); setEditorPatchStatus({}); setPatchRecords({}); setScanErr(''); setVersionSaved(false);
+  };
+
   const appendKeyword = (kw) => {
     setEditorText(t => t + (t.endsWith('\n') ? '' : '\n') + `[Add: ${kw}]`);
   };
@@ -287,6 +309,10 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
   const handleExportPdf = async () => {
     if (!pdfExportRef.current) return;
     setPdfDownloading(true);
+    // The template must show the text as it is NOW (fixes applied, edits made), not the text it was first built from.
+    const current = (editorText || resumeCtx).trim();
+    if (current && current !== templateSrcRef.current) await parseForTemplate(current, true);
+    await new Promise(r => setTimeout(r, 80)); // let React draw the new template before it is captured
     const tpl = TEMPLATES.find(t => t.id === selectedTpl) || TEMPLATES[0];
     const exportText = editorText || resumeCtx;
     const firstName = ((templateProfile?.name || exportText.split('\n').find(l => l.trim()) || 'resume')).replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30);
@@ -309,8 +335,21 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
   };
 
   // Reset templateProfile when resume changes so export re-parses
-  useEffect(() => { setTemplateProfile(null); }, [resumeCtx]);
+  useEffect(() => { setTemplateProfile(null); templateSrcRef.current = ''; templateTriedRef.current = ''; }, [resumeCtx]);
 
+  // While editing, keep the template in step with the text: applying a fix or editing the text rebuilds it (once, after a short pause).
+  useEffect(() => {
+    if (!editMode || parsingTemplate) return undefined;
+    const current = (editorText || '').trim();
+    if (!current || current === templateSrcRef.current || current === templateTriedRef.current) return undefined;
+    const t = setTimeout(() => parseForTemplate(current, true), 1200);
+    return () => clearTimeout(t);
+  }, [editMode, editorText, parsingTemplate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sections the parsed template lost (they are in the text but not in the profile): show the full text rather than a resume without them.
+  const lostSections = templateProfile ? missingSections(editorText || resumeCtx, templateProfile) : [];
+
+  const canScan = !!jd.trim() && !!resumeCtx && jd.length <= JD_MAX_CHARS;
   const phase = loading ? 'scanning' : editMode ? 'edit' : result ? 'results' : 'input';
   const scoreColor = result
     ? result.matchScore >= 80 ? '#00E5A0' : result.matchScore >= 60 ? '#FFB84D' : '#FF5A5A'
@@ -319,15 +358,18 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
 
   /* ─── Hidden PDF render target — always mounted so ref is valid ─── */
   const pdfModal = (
-    <div ref={pdfExportRef} style={{ position: 'fixed', left: -9999, top: 0, zIndex: -1, width: 794 }}>
+    <div aria-hidden="true" style={{ position: 'fixed', left: -9999, top: 0, zIndex: -1, width: 794 }}>
+      {/* The element that is captured must carry NO position/offset style of its own: html2pdf copies it, and a copy at left:-9999 is an empty page (the blank PDF). */}
+      <div ref={pdfExportRef} data-testid="pdf-export-target" style={{ width: 794 }}>
       {(() => {
         const tpl = TEMPLATES.find(t => t.id === selectedTpl) || TEMPLATES[0];
-        if (templateProfile && tpl.component) {
+        if (templateProfile && tpl.component && !lostSections.length) {
           const T = tpl.component;
           return <T {...profileToTemplateData(templateProfile)} />;
         }
         return <TextResumePDF text={editorText || resumeCtx} accent={tpl.accent === '#111' ? '#333' : tpl.accent} />;
       })()}
+      </div>
     </div>
   );
 
@@ -352,6 +394,28 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                   <div style={{ fontSize: 10, color: 'var(--lp-text3)', marginTop: 2 }}>{resumeCtx.length.toLocaleString()} characters</div>
                 </div>
               </div>
+              {(memory?.resumeVersions?.length > 0) && (() => {
+                // Pick which resume to scan by its name: the one loaded now, then the saved versions (newest first).
+                const versions = (memory.resumeVersions || []).slice().reverse();
+                const current = resumeText?.fileName || 'Uploaded resume';
+                const names = [...new Set([current, ...versions.map((v, i) => v.label || `Version ${versions.length - i}`)])];
+                return (
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10, color: 'var(--lp-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                    Resume to scan
+                    <select
+                      aria-label="Resume to scan"
+                      value={current}
+                      onChange={e => {
+                        const i = versions.findIndex((v, k) => (v.label || `Version ${versions.length - k}`) === e.target.value);
+                        if (i >= 0) setResumeText?.({ type: 'text', content: versions[i].text || dataToResumeText(versions[i].data), fileName: e.target.value });
+                      }}
+                      style={{ background: 'var(--lp-bg3)', color: 'var(--lp-text)', border: '1px solid var(--lp-bdr)', borderRadius: 7, padding: '7px 10px', fontSize: 12, fontFamily: 'inherit', textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}
+                    >
+                      {names.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
+                );
+              })()}
               <input ref={uploadRef} type="file" accept=".pdf,.docx" style={{ display: 'none' }} onChange={e => handleResumeUpload(e.target.files[0])} />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => uploadRef.current?.click()} style={{ background: 'none', border: '1px solid rgba(0,229,160,.3)', color: '#00E5A0', borderRadius: 7, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -374,7 +438,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                 <button onClick={() => setShowVersionPicker(false)} style={{ background: 'none', border: 'none', color: 'var(--lp-text3)', cursor: 'pointer', fontSize: 13, padding: 0, fontFamily: 'inherit' }}>✕</button>
               </div>
               {(memory?.resumeVersions || []).slice().reverse().map((v, i) => (
-                <button key={i} onClick={() => { setResumeText({ content: dataToResumeText(v.data), fileName: v.label || `Version ${i + 1}` }); setShowVersionPicker(false); }} style={{ textAlign: 'left', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 9, padding: '10px 14px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button key={i} onClick={() => { setResumeText({ type: 'text', content: v.text || dataToResumeText(v.data), fileName: v.label || `Version ${i + 1}` }); setShowVersionPicker(false); }} style={{ textAlign: 'left', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 9, padding: '10px 14px', cursor: 'pointer', fontFamily: 'inherit' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--lp-text)' }}>{v.label || `Version ${i + 1}`}</div>
                   <div style={{ fontSize: 10, color: 'var(--lp-text3)', marginTop: 2 }}>{v.templateLabel} · {new Date(v.date).toLocaleDateString()}</div>
                 </button>
@@ -433,7 +497,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
           <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--lp-text3)', marginBottom: 10 }}>Job Description</div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <textarea
-              value={jd} onChange={e => setJd(e.target.value)}
+              value={jd} onChange={e => setJd(e.target.value)} aria-label="Job description"
               placeholder={'Paste the full job description here…\ne.g. We are looking for a Senior Product Manager at Grab Singapore with 5+ years experience…'}
               style={{
                 flex: 1, minHeight: 180, width: '100%',
@@ -445,18 +509,24 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
               onFocus={e => { e.target.style.borderColor = 'rgba(236,72,153,.4)'; }}
               onBlur={e => { e.target.style.borderColor = 'var(--lp-bdr)'; }}
             />
+            {jd.length > JD_MAX_CHARS && (
+              <div role="alert" style={{ fontSize: 11, color: '#FF5A5A' }}>⚠ This job description is too long ({jd.length.toLocaleString()} of {JD_MAX_CHARS.toLocaleString()} characters). Remove company background and benefits; keep the responsibilities and requirements.</div>
+            )}
+            {jd.length > JD_MAX_CHARS * 0.8 && jd.length <= JD_MAX_CHARS && (
+              <div style={{ fontSize: 10, color: 'var(--lp-text3)' }}>{jd.length.toLocaleString()} / {JD_MAX_CHARS.toLocaleString()} characters</div>
+            )}
             {scanErr && <div style={{ fontSize: 11, color: '#FF5A5A' }}>⚠ {scanErr}</div>}
             <button
               onClick={scan}
-              disabled={!jd.trim() || !resumeCtx}
+              disabled={!jd.trim() || !resumeCtx || jd.length > JD_MAX_CHARS}
               style={{
                 width: '100%', padding: '14px 0',
-                background: (!jd.trim() || !resumeCtx) ? 'var(--lp-bdr)' : 'linear-gradient(135deg, #EC4899, #F59E0B)',
-                color: (!jd.trim() || !resumeCtx) ? 'var(--lp-text3)' : '#fff',
+                background: !canScan ? 'var(--lp-bdr)' : 'linear-gradient(135deg, #EC4899, #F59E0B)',
+                color: !canScan ? 'var(--lp-text3)' : '#fff',
                 border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800,
-                cursor: (!jd.trim() || !resumeCtx) ? 'default' : 'pointer',
+                cursor: !canScan ? 'default' : 'pointer',
                 letterSpacing: .3, transition: 'all .2s',
-                boxShadow: (!jd.trim() || !resumeCtx) ? 'none' : '0 4px 20px rgba(236,72,153,.25)',
+                boxShadow: !canScan ? 'none' : '0 4px 20px rgba(236,72,153,.25)',
               }}
             >
               {!resumeCtx ? 'Upload resume first' : !jd.trim() ? 'Paste a job description' : 'Scan match →'}
@@ -488,7 +558,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
   /* ════════════════════ EDIT PHASE ════════════════════ */
   if (phase === 'edit') {
     const ActiveTpl = TEMPLATES.find(t => t.id === selectedTpl)?.component;
-    const tplData   = templateProfile ? profileToTemplateData(templateProfile) : null;
+    const tplData   = templateProfile && !lostSections.length ? profileToTemplateData(templateProfile) : null;
     const showTextPanel = !tplData || showRawEditor;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', animation: 'rs-fadein .25s ease' }}>
@@ -531,6 +601,11 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '60px 0', color: 'var(--lp-text3)' }}>
                 <OrbitSpinner size={36} />
                 <div style={{ fontSize: 12 }}>Parsing resume into template…</div>
+              </div>
+            )}
+            {!parsingTemplate && lostSections.length > 0 && (
+              <div role="alert" style={{ width: 794, maxWidth: '100%', boxSizing: 'border-box', background: '#FFF4D6', color: '#5a4300', border: '1px solid #FFB84D', borderRadius: 8, padding: '10px 14px', fontSize: 12, marginBottom: 12 }}>
+                The template could not place your {lostSections.join(' and ')} section{lostSections.length > 1 ? 's' : ''}, so your full text is shown below instead of dropping {lostSections.length > 1 ? 'them' : 'it'}. Use "Edit text" to check it.
               </div>
             )}
             {!parsingTemplate && tplData && ActiveTpl && (
@@ -600,6 +675,17 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                 color: copyDone ? '#00E5A0' : 'var(--lp-text2)',
                 borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all .2s', minHeight: 'unset',
               }}>{copyDone ? 'Copied ✓' : 'Copy text'}</button>
+
+              {/* What next? */}
+              <div style={{ borderTop: '1px solid var(--lp-bdr)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--lp-text3)' }}>What next?</div>
+                <div style={{ fontSize: 11, color: 'var(--lp-text2)' }}>{pdfExported ? '✓' : '1.'} Download your PDF (top right).</div>
+                <button type="button" onClick={saveAsVersion} disabled={!templateProfile || lostSections.length > 0 || versionSaved} style={nextBtn}>
+                  {versionSaved ? '✓ Saved to your resume versions' : '2. Save as a new version'}
+                </button>
+                <button type="button" onClick={rescanEdited} style={nextBtn}>3. Re-check this resume against the same job</button>
+                <button type="button" onClick={() => setActiveModule?.('simulate')} style={nextBtn}>4. Practise the interview for this role</button>
+              </div>
             </div>
           </div>
         </div>

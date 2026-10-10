@@ -172,7 +172,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
       setFileInfo({ name: file.name, words });
       setRawText(text);
       if (onResumeExtracted) onResumeExtracted(text);
-      await parseResume(text);
+      // The ATS Readiness score appears at once (computed by code from rawText). The AI runs only when the user asks for issues and fixes.
     } catch (err) {
       setError('Could not read file — try a DOCX or paste your resume below.');
     }
@@ -265,7 +265,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
             cursor: loading || !rawText.trim() ? 'default' : 'pointer',
           }}
         >
-          {loading ? 'Parsing…' : profile ? 'Re-parse →' : 'Parse and build profile →'}
+          {loading ? 'Analysing with AI…' : profile ? 'Re-run AI analysis →' : 'Find issues & enhance with AI →'}
         </button>
 
         {error && (
@@ -373,21 +373,13 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           </div>
         )}
 
-        {/* Loading */}
-        {loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12, color: 'var(--lp-text3)', fontSize: 13 }}>
-            <OrbitSpinner size={40} />
-            Analysing resume…
-          </div>
-        )}
-
-        {!loading && profile && (() => {
+        {detResult && (() => {
           const hasScore = detScore !== null;
           const score = hasScore ? detScore : 0;
           const scoreColor = score >= 80 ? '#00E5A0' : score >= 60 ? '#FFB84D' : '#FF5A5A';
           const scoreLabel = !hasScore ? 'Not enough readable content to score' : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
           const circumference = 2 * Math.PI * 28;
-          const goToBuilder = () => { if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(); };
+          const goToBuilder = () => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(); };
 
           return (
             <>
@@ -416,8 +408,15 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                   <div style={{ height: '100%', width: `${score}%`, background: scoreColor, borderRadius: 2, transition: 'width .6s ease' }} />
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 10, lineHeight: 1.5 }}>
-                  Calculated by fixed rules from your resume text (completeness, quantified bullets, date consistency): the same resume always gets the same score. The AI does not set this number; it only explains the problems below. "ATS readiness" means how well the resume meets common applicant-tracking-system checks. It is not the score any real recruiting system gives you and not a prediction of interviews or hiring: no major ATS publishes one universal score.
+                  Calculated by fixed rules from your resume text. Same resume, same score. No AI involved.
                 </div>
+                <details style={{ marginTop: 6, fontSize: 11, color: 'var(--lp-text3)', lineHeight: 1.5 }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600 }}>What is this score?</summary>
+                  <p style={{ margin: '6px 0 0' }}>
+                    It checks completeness, quantified bullets and date consistency. "ATS readiness" means how well the resume meets common applicant-tracking-system checks.
+                    It is not the score any real recruiting system gives you and not a prediction of interviews or hiring: no major ATS publishes one universal score.
+                  </p>
+                </details>
               </div>
 
               {/* Section 2 — Score Breakdown (computed by code; each part says what was counted) */}
@@ -450,7 +449,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
               )}
 
               {/* Section 3 — Issues */}
-              {profile.issues?.length > 0 && (
+              {profile?.issues?.length > 0 && (
                 <div className="atb-issues-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)', display: 'flex', alignItems: 'center', gap: 8 }}>
                     Issues to Fix
@@ -505,8 +504,25 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                 </div>
               )}
 
+              {/* Ask for the AI part: issues, before/after rewrites */}
+              {!profile && !loading && (
+                <div style={{ background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--lp-text)' }}>Want to know what to fix?</div>
+                  <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.5 }}>AI reads your resume, lists the problems behind this score and suggests rewrites. It never changes the score.</div>
+                  <button onClick={() => { if (rawText.trim()) { if (onResumeExtracted) onResumeExtracted(rawText); parseResume(rawText); } }} style={{ alignSelf: 'flex-start', padding: '9px 16px', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                    Find issues & enhance with AI →
+                  </button>
+                </div>
+              )}
+              {loading && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '24px 0', color: 'var(--lp-text3)', fontSize: 13 }}>
+                  <OrbitSpinner size={28} />
+                  AI is looking for issues…
+                </div>
+              )}
+
               {/* Bottom CTA */}
-              {onGoToBuilder && (
+              {profile && onGoToBuilder && (
                 <button onClick={goToBuilder} style={{ width: '100%', padding: '14px 0', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
                   Fix These Issues in Builder →
                 </button>
