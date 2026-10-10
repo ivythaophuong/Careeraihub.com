@@ -2,10 +2,11 @@
 // Product decision 2026-10-09: the ATS score shown to the user is computed by code (src/scoring/), never by the model.
 // An AI-made score in a stored profile (profile.atsScore / profile.scoreBreakdown) must not reach the screen.
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 afterEach(cleanup);
-vi.mock('../../lib/ai', () => ({ callLLM: vi.fn() }));
+const callLLM = vi.fn();
+vi.mock('../../lib/ai', () => ({ callLLM: (...a) => callLLM(...a) }));
 vi.mock('html2pdf.js', () => ({ default: vi.fn() }));
 import ATSBuilder from './ATSBuilder';
 
@@ -26,6 +27,7 @@ describe('ATS Builder shows the computed score', () => {
     render(<ATSBuilder {...base} resumeText={GOOD} />);
     expect(screen.getByText('ATS Readiness')).toBeTruthy();
     expect(screen.queryByText(/ATS Readiness Score/)).toBeNull(); // approved name is "ATS Readiness", never "ATS score"
+    fireEvent.click(screen.getByLabelText('How is this score calculated?'));
     expect(screen.getByText(/not the score any real recruiting system gives you/i)).toBeTruthy(); // says what it is not
     expect(screen.getByText(/not a prediction of interviews or hiring/i)).toBeTruthy();
     const n = shownNumber();
@@ -46,9 +48,30 @@ describe('ATS Builder shows the computed score', () => {
     expect(shownNumber()).toBe(first);
   });
 
-  it('shows no score (not 0) when the resume text cannot be read', () => {
+  it('shows the score at once, without calling the AI (the AI only runs when the user asks)', () => {
+    callLLM.mockClear();
+    render(<ATSBuilder {...base} memory={{}} resumeText={GOOD} />);
+    expect(shownNumber()).toBeGreaterThan(0);
+    expect(callLLM).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/Find issues & enhance with AI/).length).toBeGreaterThan(0); // the AI step is offered, not forced
+  });
+
+  it('marks the score as rule-based with a small badge; the explanation opens from an info button instead of sitting on the screen', () => {
+    render(<ATSBuilder {...base} resumeText={GOOD} />);
+    expect(screen.getByText('Rule-based')).toBeTruthy();
+    expect(screen.queryByRole('note')).toBeNull();                    // closed by default: no wall of text
+    const info = screen.getByLabelText('How is this score calculated?');
+    expect(info.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(info);
+    expect(info.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('note').textContent).toMatch(/same resume always gets the same score; no AI is involved/);
+    fireEvent.click(info);
+    expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  it('shows no score card at all (not a 0) when there is no readable text', () => {
     render(<ATSBuilder {...base} resumeText={'   '} />);
-    expect(screen.getByText('no score yet')).toBeTruthy();
     expect(screen.queryByText('out of 100')).toBeNull();
+    expect(screen.queryByText('ATS Readiness')).toBeNull();
   });
 });

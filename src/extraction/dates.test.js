@@ -77,3 +77,20 @@ describe('findDateRangeInLine', () => {
     expect(findDateRangeInLine('Phone: +65 9123 4567')).toBeNull();
   });
 });
+
+describe('Vietnamese date forms', () => {
+  it('reads "Tháng 1/2021" and the present markers "nay", "đến nay", "hiện nay"', () => {
+    expect(parseDate('Tháng 1/2021').normalized_value).toBe('2021-01');
+    expect(parseDate('tháng 03/2020').normalized_value).toBe('2020-03');
+    for (const w of ['nay', 'đến nay', 'hiện nay', 'Hiện tại']) expect(parseDate(w).normalized_value).toBe('present');
+  });
+  it('reads a Vietnamese range inside a line', () => {
+    const r = findDateRangeInLine('Chuyên viên, Công ty ABC  Tháng 1/2021 – nay');
+    expect(r.range.start.normalized_value).toBe('2021-01');
+    expect(r.range.end.normalized_value).toBe('present');
+    expect(findDateRangeInLine('01/2021 - Hiện tại').range.end.normalized_value).toBe('present');
+  });
+  it('does not turn ordinary words that contain "nay" into a date', () => {
+    expect(parseDate('Nayla').normalized_value).toBeNull();
+  });
+});

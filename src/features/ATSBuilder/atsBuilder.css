@@ -1048,23 +1048,7 @@
     grid-template-columns: 1fr !important;
   }
 
-  /* Upload+Parse tab: diagnostic pane first, then profile/upload */
-  .atb-parse-grid {
-    grid-template-columns: 1fr !important;
-    min-height: unset !important;
-  }
-
-  .atb-parse-preview-pane {
-    order: -1;
-    border-top: none !important;
-    border-bottom: 1px solid var(--atb-bdr);
-    padding: 16px !important;
-  }
-
-  .atb-parse-left-pane {
-    border-right: none !important;
-    padding: 16px !important;
-  }
+  /* Upload+Parse tab: the stacking rules moved to the container query at the end of this file (the screen has a sidebar, so the viewport width says little about the room this tab has). */
 
   /* Score Hero — compact ring + tighter padding */
   .atb-score-hero { padding: 14px 14px 12px !important; }
@@ -1095,5 +1079,25 @@
   }
   .atb-issue-card:first-child {
     border-top: 1px solid var(--atb-bdr) !important;
+  }
+}
+
+/* Upload+Parse tab: resume on the left, result on the right (top aligned). They stack only when THIS area is narrow, not when the window is. */
+.atb-parse-wrap { container-type: inline-size; }
+.atb-parse-grid { align-items: start; }
+@container (max-width: 640px) {
+  .atb-parse-grid {
+    grid-template-columns: 1fr !important;
+    min-height: unset !important;
+  }
+  .atb-parse-preview-pane {
+    order: -1;
+    border-top: none !important;
+    border-bottom: 1px solid var(--atb-bdr);
+    padding: 16px !important;
+  }
+  .atb-parse-left-pane {
+    border-right: none !important;
+    padding: 16px !important;
   }
 }

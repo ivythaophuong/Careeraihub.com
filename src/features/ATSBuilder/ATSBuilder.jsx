@@ -9,6 +9,8 @@ import { TEMPLATES } from './resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
+import { describePart } from '../../lib/describeScorePart';
+import { sectionReport } from '../../lib/sectionReport';
 import { computeDeterministicScore } from '../../scoring/computeDeterministicScore';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -71,6 +73,7 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
   const [localSkills, setLocalSkills] = useState(initialProfile?.skills?.filter(s => s.trim()) || []);
   const [skillInputVal, setSkillInputVal] = useState('');
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
   // The ATS readiness score shown to the user. Product decision 2026-10-09 (later): the number is computed by code (src/scoring/), never by the
   // model, so the same resume always gets the same score and the score survives an AI outage. Covers all three ways rawText changes here (loaded from memory, a file upload, or the paste
   // textarea) in one place. Pure/synchronous (no AI, no network — src/scoring/'s own tests enforce that),
@@ -172,7 +175,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
       setFileInfo({ name: file.name, words });
       setRawText(text);
       if (onResumeExtracted) onResumeExtracted(text);
-      await parseResume(text);
+      // The ATS Readiness score appears at once (computed by code from rawText). The AI runs only when the user asks for issues and fixes.
     } catch (err) {
       setError('Could not read file — try a DOCX or paste your resume below.');
     }
@@ -185,6 +188,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
     : 'var(--lp-text3)';
 
   return (
+    <div className="atb-parse-wrap">
     <div className="atb-parse-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, minHeight: 500 }}>
       {/* Left */}
       <div className="atb-parse-left-pane" style={{ borderRight: '1px solid var(--lp-bdr)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
@@ -216,6 +220,11 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
               <div style={{ color: 'var(--lp-text3)', fontSize: 11 }}>
                 {fileInfo.words.toLocaleString()} words · extracted
               </div>
+              <details onClick={e => e.stopPropagation()} style={{ marginTop: 8, textAlign: 'left', fontSize: 11, color: 'var(--lp-text3)' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 600, textAlign: 'center' }}>See the text we read</summary>
+                <div style={{ marginTop: 6, lineHeight: 1.5 }}>If something is missing here (for example your email), the file reader missed it: paste your text instead.</div>
+                <pre style={{ marginTop: 6, maxHeight: 180, overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: 10.5, background: 'var(--lp-bg3)', borderRadius: 6, padding: 8, color: 'var(--lp-text2)' }}>{rawText}</pre>
+              </details>
               <button
                 onClick={e => { e.stopPropagation(); setFileInfo(null); setRawText(''); setProfile(null); inputRef.current?.click(); }}
                 style={{ marginTop: 8, background: 'none', border: '1px solid rgba(255,255,255,.12)', borderRadius: 6, color: 'var(--lp-text3)', fontSize: 10, padding: '3px 10px', cursor: 'pointer' }}
@@ -265,7 +274,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
             cursor: loading || !rawText.trim() ? 'default' : 'pointer',
           }}
         >
-          {loading ? 'Parsing…' : profile ? 'Re-parse →' : 'Parse and build profile →'}
+          {loading ? 'Analysing with AI…' : profile ? 'Re-run AI analysis →' : 'Find issues & enhance with AI →'}
         </button>
 
         {error && (
@@ -373,29 +382,38 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           </div>
         )}
 
-        {/* Loading */}
-        {loading && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12, color: 'var(--lp-text3)', fontSize: 13 }}>
-            <OrbitSpinner size={40} />
-            Analysing resume…
-          </div>
-        )}
-
-        {!loading && profile && (() => {
+        {detResult && (() => {
           const hasScore = detScore !== null;
           const score = hasScore ? detScore : 0;
           const scoreColor = score >= 80 ? '#00E5A0' : score >= 60 ? '#FFB84D' : '#FF5A5A';
           const scoreLabel = !hasScore ? 'Not enough readable content to score' : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
           const circumference = 2 * Math.PI * 28;
-          const goToBuilder = () => { if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(); };
+          const goToBuilder = () => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(); };
 
           return (
             <>
               {/* Section 1 — Score Hero */}
               <div className="atb-score-hero" style={{ background: 'var(--lp-bg2)', borderRadius: 12, border: '1px solid var(--lp-bdr)', padding: '20px 20px 18px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)', marginBottom: 18 }}>
-                  ATS Readiness
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)' }}>ATS Readiness</div>
+                  <button
+                    type="button"
+                    aria-label="How is this score calculated?"
+                    aria-expanded={showScoreInfo}
+                    onClick={() => setShowScoreInfo(v => !v)}
+                    style={{ width: 16, height: 16, minHeight: 'unset', padding: 0, borderRadius: '50%', border: '1px solid var(--lp-bdr2, rgba(255,255,255,.2))', background: showScoreInfo ? 'var(--lp-teal)' : 'transparent', color: showScoreInfo ? '#000' : 'var(--lp-text3)', fontSize: 10, fontWeight: 800, lineHeight: '14px', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >i</button>
+                  <span title="Same resume, same score. No AI involved." style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, letterSpacing: .3, color: 'var(--lp-text2)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: '2px 9px' }}>
+                    Rule-based
+                  </span>
                 </div>
+                {showScoreInfo && (
+                  <div role="note" style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--lp-bg3)', borderRadius: 8, fontSize: 11.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--lp-text)', marginBottom: 4 }}>How this score works</div>
+                    Fixed rules read your resume text and check completeness, quantified bullets and date consistency. The same resume always gets the same score; no AI is involved.
+                    <div style={{ marginTop: 6, color: 'var(--lp-text3)' }}>It is not the score any real recruiting system gives you and not a prediction of interviews or hiring: no major ATS publishes one universal score.</div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 16 }}>
                   <svg className="atb-score-ring" width="72" height="72" viewBox="0 0 72 72" style={{ flexShrink: 0 }}>
                     <circle cx="36" cy="36" r="28" fill="none" stroke="var(--lp-bdr2, rgba(255,255,255,.13))" strokeWidth="6"/>
@@ -415,9 +433,6 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                 <div style={{ height: 4, borderRadius: 2, background: 'var(--lp-bdr)', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${score}%`, background: scoreColor, borderRadius: 2, transition: 'width .6s ease' }} />
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 10, lineHeight: 1.5 }}>
-                  Calculated by fixed rules from your resume text (completeness, quantified bullets, date consistency): the same resume always gets the same score. The AI does not set this number; it only explains the problems below. "ATS readiness" means how well the resume meets common applicant-tracking-system checks. It is not the score any real recruiting system gives you and not a prediction of interviews or hiring: no major ATS publishes one universal score.
-                </div>
               </div>
 
               {/* Section 2 — Score Breakdown (computed by code; each part says what was counted) */}
@@ -428,7 +443,8 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                   </div>
                   <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {detResult.score.parts.map(part => {
-                      const assessed = Number.isFinite(part.score);
+                      const d = describePart(part);
+                      const assessed = d.assessed;
                       const c = !assessed ? 'var(--lp-text3)' : part.score >= 80 ? '#00E5A0' : part.score >= 60 ? '#FFB84D' : '#FF5A5A';
                       return (
                         <div key={part.id}>
@@ -439,18 +455,35 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                             </div>
                             <span style={{ fontSize: 12, fontWeight: 700, color: c, width: 26, textAlign: 'right', flexShrink: 0 }}>{assessed ? part.score : '—'}</span>
                           </div>
-                          <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', marginTop: 3, marginLeft: 128, lineHeight: 1.4 }}>
-                            {assessed ? (part.evidence || []).join(' · ') : 'Not assessed: this resume has nothing to check here yet.'}
-                          </div>
+                          {assessed && d.items.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, marginLeft: 128 }}>
+                              {d.items.map(it => (
+                                <span key={it.label} style={{ fontSize: 10.5, padding: '2px 8px', borderRadius: 10, border: `1px solid ${it.ok ? 'rgba(0,229,160,.3)' : 'rgba(255,90,90,.35)'}`, color: it.ok ? '#00E5A0' : '#FF5A5A' }}>
+                                  {it.ok ? '✓' : '✗'} {it.label}{it.ok ? '' : ' not found'}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', marginTop: 3, marginLeft: 128, lineHeight: 1.4 }}>{d.text}</div>
+                          )}
                         </div>
                       );
                     })}
+                    {(() => {
+                      const rep = sectionReport(rawText);
+                      return (
+                        <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', lineHeight: 1.5, borderTop: '1px solid var(--lp-bdr)', paddingTop: 10 }}>
+                          Sections we recognised: {rep.recognised.length ? rep.recognised.join(', ') : 'none'}.
+                          {rep.unrecognisedHeadings.length > 0 && <> Lines that look like headings but were not recognised: {rep.unrecognisedHeadings.map(h => `"${h}"`).join(', ')}.</>}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
 
               {/* Section 3 — Issues */}
-              {profile.issues?.length > 0 && (
+              {profile?.issues?.length > 0 && (
                 <div className="atb-issues-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)', display: 'flex', alignItems: 'center', gap: 8 }}>
                     Issues to Fix
@@ -505,8 +538,25 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                 </div>
               )}
 
+              {/* Ask for the AI part: issues, before/after rewrites */}
+              {!profile && !loading && (
+                <div style={{ background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--lp-text)' }}>Want to know what to fix?</div>
+                  <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.5 }}>AI reads your resume, lists the problems behind this score and suggests rewrites. It never changes the score.</div>
+                  <button onClick={() => { if (rawText.trim()) { if (onResumeExtracted) onResumeExtracted(rawText); parseResume(rawText); } }} style={{ alignSelf: 'flex-start', padding: '9px 16px', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                    Find issues & enhance with AI →
+                  </button>
+                </div>
+              )}
+              {loading && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '24px 0', color: 'var(--lp-text3)', fontSize: 13 }}>
+                  <OrbitSpinner size={28} />
+                  AI is looking for issues…
+                </div>
+              )}
+
               {/* Bottom CTA */}
-              {onGoToBuilder && (
+              {profile && onGoToBuilder && (
                 <button onClick={goToBuilder} style={{ width: '100%', padding: '14px 0', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
                   Fix These Issues in Builder →
                 </button>
@@ -515,6 +565,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           );
         })()}
       </div>
+    </div>
     </div>
   );
 }
