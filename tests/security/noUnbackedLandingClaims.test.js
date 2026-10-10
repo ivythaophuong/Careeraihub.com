@@ -31,6 +31,8 @@ const FORBIDDEN = [
   [/4\.9\s?★|★★★★★/, 'a star rating'],
   [/\b95% ATS Match Rate\b/i, 'an invented match rate'],
   [/Premium · locked/, 'a locked premium badge'],
+  [/free forever/i, '"free forever" (credits and plans are planned)'],
+  [/modules? unlocked instantly/i, 'an unlock claim'],
   [/blockchain[- ](anchored|verified|backed)|blockchain-verifiable/i, 'a blockchain claim'],
   [/Connect OpenCerts, Credly, Singpass/i, 'an integration that does not exist'],
   [/Singpass for identity, OpenCerts/i, 'an integration that does not exist'],

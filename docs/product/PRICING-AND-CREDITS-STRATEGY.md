@@ -3,6 +3,16 @@
 Status: **proposal for the owner's review, 2026-10-10. Nothing in sections 3 to 7 is built.** What is done: the landing page no longer shows any price, and its claims are corrected (`LANDING-CLAIMS-AUDIT.md`).
 Evidence labels: **Verified** (read in code or measured), **Opinion** (the assistant's judgement), **UNKNOWN** (not checked, or no data in the repository).
 
+## 0. Decisions confirmed by the owner (2026-10-10, later)
+
+1. Prices in **USD**. **Weekly plans are included** alongside monthly ones.
+2. **Credits really work**: a user can claim the voucher and spend it on real AI actions. A voucher that does nothing is not allowed.
+3. The goal of credits and plans is **stickiness and learning**: do people find the product useful enough to come back and keep using it? Revenue is not the goal of this phase.
+4. **No payment system now.** No card form, no charging.
+5. The landing page shows no prices; "Free forever" wording is removed (credits and plans are planned).
+
+What this changes in this document: section 9 questions 1, 2 and 4 are answered. Credit amounts, tier contents and voucher size and expiry stay open until step C1 has measured the real cost of each AI action.
+
 ## 1. The owner's decision (2026-10-10)
 
 - Keep the price points in the product: Lite and Pro, weekly and monthly (the owner's figures: 2.99 and 5.99 per week, 11 and 19 per month; the pairing Lite = 2.99 / 11 and Pro = 5.99 / 19 and the currency are assumptions to confirm).

@@ -4055,7 +4055,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             <button onClick={join} className="v36-btn-cta">Get Started Free →</button>
             <button onClick={join} className="v36-btn-outline">Create Recruiter Account ↗</button>
           </div>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--text3)',letterSpacing:'.04em'}}>Free forever · No card required · 10 AI modules unlocked instantly</div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'var(--text3)',letterSpacing:'.04em'}}>No card required · Start in a minute</div>
         </div>
       </div>
 
