@@ -4,7 +4,7 @@
 import { makeCheck, makeResult, processingError, weightedMean, STATUS, SCORE_TYPES } from './contract.js';
 import { detectLanguage, tokenize, usesUnsupportedScript } from './text.js';
 import { ENABLED_LANGUAGES } from './languageGate.js';
-import { SCORE_VERSIONS, STAR_BANDS, STAR_CHECK_WEIGHTS, STAR_SECTIONS, STAR_WEIGHTS, MIN_SECTION_TOKENS } from './rules.js';
+import { SCORE_VERSIONS, PADDED_SECTION_CAP, STAR_BANDS, STAR_CHECK_WEIGHTS, STAR_SECTIONS, STAR_WEIGHTS, MIN_SECTION_TOKENS } from './rules.js';
 import { concreteCheck, contextCheck, lengthCheck, ownershipCheck, responsibilityCheck, vagueCheck } from './checks.js';
 
 const TYPE = SCORE_TYPES.STAR;
@@ -26,7 +26,10 @@ function scoreSection(name, text, lang) {
     ...(name === 'result' ? { concrete: concreteCheck(text) } : {}),
   };
   const checks = Object.entries(raw).map(([id, r]) => makeCheck({ id, label: LABELS[id], section: name, score: r.score, weight: w[id], value: r.value, note: r.note }));
-  return { score: weightedMean(checks), status: STATUS.SCORED, checks };
+  // Padding (the same few words repeated) cannot pass for a good section whatever its other checks say.
+  const padded = raw.length.note === 'many repeated words';
+  const mean = weightedMean(checks);
+  return { score: padded ? Math.min(mean, PADDED_SECTION_CAP) : mean, status: STATUS.SCORED, checks, ...(padded ? { capped: 'repeated words' } : {}) };
 }
 
 // story: { situation, task, action, result } (strings). options.enabledLanguages: languages allowed to be scored (default: the gate file).

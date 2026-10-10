@@ -14,6 +14,9 @@ export const SCORE_VERSIONS = Object.freeze({
 export const STAR_WEIGHTS = Object.freeze({ situation: 0.15, task: 0.15, action: 0.4, result: 0.3 });
 export const STAR_SECTIONS = Object.freeze(['situation', 'task', 'action', 'result']);
 export const MIN_SECTION_TOKENS = 3;
+export const REPEAT_MIN_WORDS = 15; // repetition is judged on texts of at least this many words
+export const REPEAT_UNIQUE_SHARE = 0.4; // fewer distinct words than this share = repeated words
+export const PADDED_SECTION_CAP = 50; // a section made of repeated words cannot score above this
 
 // Weights of the checks inside a STAR section (sum to 1 per section).
 export const STAR_CHECK_WEIGHTS = Object.freeze({
@@ -46,7 +49,7 @@ const asJson = (o) => JSON.parse(JSON.stringify(o, (k, v) => (v instanceof RegEx
 // What each score type depends on. The fingerprint changes if any of it changes.
 export const rulesOf = (scoreType) => {
   const shared = { EN: asJson(EN), VI: asJson(VI), LANGUAGE_RULES, MIN_TOKENS_FOR_LANGUAGE, DENSITY_BANDS, DENSITY_FLOOR, VI_LENGTH_FACTOR };
-  if (scoreType === 'star_structure') return { shared, STAR_WEIGHTS, STAR_CHECK_WEIGHTS, STAR_BANDS, MIN_SECTION_TOKENS };
-  return { shared, INTERVIEW_WEIGHTS, INTERVIEW_BAND, INTERVIEW_MIN_TOKENS, RELEVANCE_MIN_NEW_WORDS };
+  if (scoreType === 'star_structure') return { shared, STAR_WEIGHTS, STAR_CHECK_WEIGHTS, STAR_BANDS, MIN_SECTION_TOKENS, PADDED_SECTION_CAP, REPEAT_MIN_WORDS, REPEAT_UNIQUE_SHARE };
+  return { shared, INTERVIEW_WEIGHTS, INTERVIEW_BAND, INTERVIEW_MIN_TOKENS, RELEVANCE_MIN_NEW_WORDS, REPEAT_MIN_WORDS, REPEAT_UNIQUE_SHARE };
 };
 export const rulesFingerprint = (scoreType) => fp(rulesOf(scoreType));

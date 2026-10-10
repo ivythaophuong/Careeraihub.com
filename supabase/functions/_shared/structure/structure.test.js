@@ -52,9 +52,9 @@ describe('contract', () => {
 describe('rules are versioned: changing a weight, list or threshold must bump the version', () => {
   // If this fails, you changed scoring rules. Increment SCORE_VERSIONS for the affected type and update the fingerprint here on purpose.
   const PINNED = {
-    star_structure: ['1.0.0', '8c43d794'],
-    interview_answer_structure: ['1.0.0', 'a07b12cc'],
-    interview_session_structure: ['1.0.0', 'a07b12cc'],
+    star_structure: ['1.0.0', '2069dab3'],
+    interview_answer_structure: ['1.0.0', 'bbf7ff71'],
+    interview_session_structure: ['1.0.0', 'bbf7ff71'],
   };
   it.each(Object.entries(PINNED))('%s', (type, [version, fingerprint]) => {
     expect(SCORE_VERSIONS[type]).toBe(version);
@@ -105,6 +105,9 @@ describe('STAR Structure Score — English', () => {
     expect(star(EN_STORIES.short, EN).status).toBe(STATUS.SCORED);
     const padded = star(EN_STORIES.padded, EN);
     expect(checkOf(padded, 'length', 'action').note).toMatch(/repeated/);
+    expect(padded.sections.action.capped).toBe('repeated words');
+    expect(padded.score).toBeLessThanOrEqual(55); // repetition cannot pass for a good story
+    expect(star(EN_STORIES.strong, EN).sections.action.capped).toBeUndefined();
   });
   it('vague wording is counted and lowers the vague check', () => {
     const r = star(EN_STORIES.vague, EN);

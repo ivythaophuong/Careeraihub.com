@@ -1,6 +1,6 @@
 // The individual checks. Each returns { score: 0-100 | null, value: counts, note }. Pure and deterministic.
 import { countPhrases, hasPhrase, lexiconFor, metricSignals, namedThings, squeeze, tokenize } from './text.js';
-import { DENSITY_BANDS, DENSITY_FLOOR, VI_LENGTH_FACTOR } from './rules.js';
+import { DENSITY_BANDS, DENSITY_FLOOR, REPEAT_MIN_WORDS, REPEAT_UNIQUE_SHARE, VI_LENGTH_FACTOR } from './rules.js';
 
 // Length: a range, not "longer is better". Padding (many repeated words) caps the score.
 export function lengthCheck(tokens, [min, max], lang) {
@@ -10,7 +10,7 @@ export function lengthCheck(tokens, [min, max], lang) {
   let score = w < lo * 0.5 ? 20 : w < lo ? 60 : w <= hi ? 100 : w <= hi * 1.5 ? 70 : 40;
   let note = '';
   const unique = new Set(tokens).size;
-  if (w >= 30 && unique / w < 0.4) { score = Math.min(score, 40); note = 'many repeated words'; }
+  if (w >= REPEAT_MIN_WORDS && unique / w < REPEAT_UNIQUE_SHARE) { score = Math.min(score, 40); note = 'many repeated words'; }
   return { score, value: { words: w, idealMin: lo, idealMax: hi, uniqueWordShare: w ? Math.round((unique / w) * 100) / 100 : null }, note };
 }
 
