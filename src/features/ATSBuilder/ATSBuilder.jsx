@@ -385,8 +385,12 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
         {detResult && (() => {
           const hasScore = detScore !== null;
           const score = hasScore ? detScore : 0;
-          const scoreColor = score >= 80 ? '#00E5A0' : score >= 60 ? '#FFB84D' : '#FF5A5A';
-          const scoreLabel = !hasScore ? 'Not enough readable content to score' : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
+          // A score built from fewer than all three checks is a partial result: it must not look like a green "strong" resume.
+          const parts = detResult?.score?.parts || [];
+          const assessedCount = parts.filter(p => Number.isFinite(p.score)).length;
+          const partial = hasScore && assessedCount < parts.length;
+          const scoreColor = partial ? 'var(--lp-text2)' : score >= 80 ? '#00E5A0' : score >= 60 ? '#FFB84D' : '#FF5A5A';
+          const scoreLabel = !hasScore ? 'Not enough readable content to score' : partial ? `Partial result: based on ${assessedCount} of ${parts.length} checks` : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
           const circumference = 2 * Math.PI * 28;
           const goToBuilder = () => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(); };
 

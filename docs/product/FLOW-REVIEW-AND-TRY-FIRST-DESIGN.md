@@ -75,3 +75,15 @@ Events: `cta_check_click`, `check_started`, `check_completed` (score band only),
 3. Which single number should a new user see first: ATS Readiness (rules), as proposed?
 4. Keep "urgency"? If yes, what should it change (suggestion: the length of the roadmap)?
 5. Who reviews the check on real CVs before the landing button changes?
+
+## 7. Review of 2026-10-10 and what changed in this proposal
+
+An outside review agreed with the direction (check first, sign up after) and asked for three changes, which the assistant checked and accepted:
+
+1. **Pricing and usage promises are P0**, ahead of the new flow. Recommendation kept: if billing is not in the next release, make the landing page, Terms (section 4), pricing text and any modal say what is true in the beta; do not build billing only to keep an advertised price.
+2. **A reader quality gate comes before the public check.** See `READER-QUALITY-GATE.md`: a pre-registered gate, a local evaluation tool (built), and a first observation on four public templates that already shows missed experience sections on table and icon layouts. The landing button does not change until the gate passes.
+3. **Two decisions were bundled and are now separate**: (a) letting people check a CV before signing up; (b) showing the ATS Readiness number at once. (a) is proposed now; (b) waits for the gate. Correction to the review's premise: the score is already shown in the ATS Builder (decision of 2026-10-10 reversed the earlier decision to hide it); what is new is showing it to visitors without an account.
+
+Also adopted: onboarding values inferred from the CV (role, level) are shown as suggestions to confirm, never stored as facts; "partial" results are labelled (done in the ATS Builder on 2026-10-10); one parser and one score pipeline remain the direction, migrated one flow at a time with the old behaviour kept until the new one is tested; server-side writing of the resume score and the TrustMatch fix stay a separate, security-reviewed item.
+
+Revised order: P0 pricing copy; P0 reader gate; then B2 and B3 (result and sign-up after, with the carry-over tests); then B4 and B5; then the A/B test with a pre-registered metric; later the parser merge, Job Match and the server-side score writer.

@@ -74,4 +74,15 @@ describe('ATS Builder shows the computed score', () => {
     expect(screen.queryByText('out of 100')).toBeNull();
     expect(screen.queryByText('ATS Readiness')).toBeNull();
   });
+
+  it('a score built from fewer than all three checks is labelled as a partial result, not as a strong resume', () => {
+    // Only completeness can be assessed here: no experience section, so no bullets and no dates to check.
+    render(<ATSBuilder {...base} resumeText={'Jane Doe\njane@example.com\n\nEducation\nBSc Business, 2017\n\nSkills\nSQL, Excel'} />);
+    expect(screen.getByText(/Partial result: based on 1 of 3 checks/)).toBeTruthy();
+    expect(screen.queryByText('Strong Resume')).toBeNull();
+  });
+  it('a complete result is not labelled partial', () => {
+    render(<ATSBuilder {...base} resumeText={GOOD} />);
+    expect(screen.queryByText(/Partial result/)).toBeNull();
+  });
 });
