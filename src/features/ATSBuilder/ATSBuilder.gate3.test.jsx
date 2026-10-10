@@ -3,9 +3,9 @@
 // UploadAndParseTab — see ATSBuilder.jsx and docs/AI_ARCHITECTURE_CONTRACT.md). Each test asserts an actual
 // COMPUTED VALUE, not just "it ran" — a value mismatch here is a real behaviour regression.
 //
-// Revised 2026-10-09 (product decision): the score is computed silently and never rendered in the UI — the
+// Revised 2026-10-09 (product decision): (superseded: the computed score is now the one shown, see ATSBuilder.shownScore.test.jsx) the score was computed silently and never rendered in the UI — the
 // screen must look exactly as it did before Gate 2. The only observable trace is
-// console.log('[ATS Builder] deterministic score (not shown in UI):', score), so every assertion below
+// console.log('[ATS Builder] computed ATS readiness score:', score), so every assertion below
 // reads that logged value instead of querying the DOM (see ATSBuilder.gate4.upload.test.jsx and
 // ATSBuilder.resumeShape.test.jsx for the same change applied there).
 //
@@ -38,7 +38,7 @@ const textFromFixture = async (name) => {
 
 const base = { user: { id: 'u1', token: 't' }, memory: {}, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn() };
 
-const LOG_PREFIX = '[ATS Builder] deterministic score (not shown in UI):';
+const LOG_PREFIX = '[ATS Builder] computed ATS readiness score:';
 let logSpy;
 beforeEach(() => { logSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
 afterEach(() => { logSpy.mockRestore(); });

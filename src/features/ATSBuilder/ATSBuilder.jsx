@@ -56,6 +56,8 @@ function ResumeBuilderTabBar({ active, onTab }) {
 }
 
 // ── Upload & Parse Tab ────────────────────────────────────────────────────────
+const PART_LABELS = { completeness: 'Completeness', measurable_impact: 'Measurable impact', chronology_health: 'Date consistency' };
+
 function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initialProfile, onResumeExtracted, onPdfUploaded, onProfileParsed, onGoToBuilder, setActiveModule }) {
   const inputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
@@ -69,10 +71,8 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
   const [localSkills, setLocalSkills] = useState(initialProfile?.skills?.filter(s => s.trim()) || []);
   const [skillInputVal, setSkillInputVal] = useState('');
   const [verifyOpen, setVerifyOpen] = useState(false);
-  // Computed alongside the existing AI score (profile.atsScore), never replacing it or shown in the UI —
-  // the product decision (2026-10-09) is that the UI stays exactly as it was; this runs so the pipeline
-  // is exercised and verifiable (see the console.log below and ATSBuilder.gate*.test.jsx), not to be seen
-  // by a user. Covers all three ways rawText changes here (loaded from memory, a file upload, or the paste
+  // The ATS readiness score shown to the user. Product decision 2026-10-09 (later): the number is computed by code (src/scoring/), never by the
+  // model, so the same resume always gets the same score and the score survives an AI outage. Covers all three ways rawText changes here (loaded from memory, a file upload, or the paste
   // textarea) in one place. Pure/synchronous (no AI, no network — src/scoring/'s own tests enforce that),
   // so no loading state is needed for it.
   const [detResult, setDetResult] = useState(null);
@@ -84,7 +84,7 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
   useEffect(() => {
     const result = rawText && rawText.trim() ? computeDeterministicScore(rawText) : null;
     setDetResult(result);
-    if (result) console.log('[ATS Builder] deterministic score (not shown in UI):', result.score);
+    if (result) console.log('[ATS Builder] computed ATS readiness score:', result.score);
   }, [rawText]);
 
   const parseResume = async (text) => {
@@ -106,35 +106,20 @@ Return ONLY raw JSON (no markdown, start with {):
   "experience": "X years",
   "topSkills": ["skill1","skill2","skill3"],
   "market": "city / region",
-  "atsScore": 0,
   "summary": "professional summary paragraph if present, else empty string",
   "workExperience": [{"title":"job title","company":"company name","period":"date range","duration":"X years","bullets":["bullet point 1","bullet point 2"]}],
   "education": [{"degree":"degree name","institution":"school","year":"graduation year","gpa":"if present"}],
   "skills": ["skill1","skill2","skill3","skill4","skill5","skill6","skill7","skill8"],
   "awards": ["award 1","award 2"],
   "extras": [{"heading":"Section Name as written in resume","items":["item 1","item 2"]}],
-  "scoreBreakdown": [
-    {"dimension":"Impact Metrics","score":0},
-    {"dimension":"Bullet Quality","score":0},
-    {"dimension":"Keywords","score":0},
-    {"dimension":"Structure","score":0},
-    {"dimension":"Career Signals","score":0}
-  ],
   "issues": [
     {"severity":"critical","title":"4-6 word specific title","description":"2-3 sentences: what is wrong and why it hurts.","before":"exact weak text quoted from resume","after":"improved version with specifics","builderStep":2,"module":null}
   ]
 }
 For extras: include every section not already captured above (e.g. Certifications, Publications, Projects, Volunteer, Languages, Interests, Patents, etc.). Do NOT put work experience, education, skills, awards, or summary into extras.
 
-scoreBreakdown: Score each dimension 0-100. These five scores should aggregate to the overall atsScore.
-- Impact Metrics: quantified achievements with numbers, %, $, timeframes in bullets
-- Bullet Quality: action verb openers, specificity, outcome-focus (not vague openers like "worked on")
-- Keywords: domain keyword density relevant to the target role
-- Structure: section completeness, standard headers, appropriate length, no ATS-breaking formatting
-- Career Signals: clear progression, healthy tenure, no unexplained gaps
-
 issues: List 3-6 specific, actionable problems found in THIS resume. Rules:
-- severity: "critical" (score <50), "high" (50-69), "medium" (70-79) — based on the dimension score driving this issue
+- severity: "critical" (the resume is likely rejected because of it), "high" (clearly hurts screening), "medium" (worth fixing)
 - title: 4-6 words, hyper-specific (NOT "Improve bullet quality" — instead "No metrics in any bullet")
 - description: 2-3 sentences. Name the exact problem and why it hurts ATS or recruiter screening.
 - before: quote exact weak text from the resume (keep short, max 12 words)
@@ -143,30 +128,7 @@ issues: List 3-6 specific, actionable problems found in THIS resume. Rules:
 - module: "scan" if this issue requires comparing against a JD (keyword gaps); null otherwise
 Only include issues that are genuinely present. Do not fabricate problems.
 
-Compute atsScore as an honest general resume quality score (0-100) based solely on the resume content. Evaluate every criterion below and weight them in aggregate:
-
-CONTENT QUALITY
-- Impact metrics: quantified achievements with numbers, %, $, timeframes. Vague bullets ("responsible for managing") with no proof penalise heavily.
-- Bullet quality: action verbs at start, specific, outcome-focused. Generic openers ("worked on", "helped with") lower score.
-- Buzzword overuse: "synergy", "passionate", "results-driven", "dynamic", "thought leader" with no evidence behind them = penalty.
-
-CAREER SIGNALS
-- Career continuity: unexplained employment gaps of 6+ months penalise score. Gaps with context ("career break", "freelance", "study leave", "relocation") are acceptable and should not penalise.
-- Job title progression: clear upward trajectory (Junior → Senior → Lead) improves score. Flat or downward moves without context lower it.
-- Tenure per role: multiple roles under 12 months signals job-hopping and lowers score. One short stint is acceptable; a pattern is not.
-
-STRUCTURE & COMPLETENESS
-- Section completeness: summary/headline, experience, education, skills all present. Missing any major section penalises.
-- Resume length: too long (4+ pages for <10 years experience) or too short (half a page for a senior candidate) both penalise.
-- Date format consistency: mixing formats (Jan 2020 vs 2020-01 vs 01/2020) across roles penalises.
-
-PROFESSIONAL PRESENTATION
-- Contact completeness: missing LinkedIn, location, or phone when they are standard for the target role penalises.
-- Email professionalism: unprofessional email addresses (coolhacker99@, nicknames, old ISP domains) penalise mildly.
-- Keyword density: role-relevant terms present without stuffing. Completely absent domain keywords lower score.
-- Formatting & readability: clear section headings, consistent structure, no walls of text, no tables/columns that break ATS parsing.
-
-Score calibration: most real resumes score 35–60. A well-structured resume with some quantified bullets and no gaps scores 60–75. Strong metrics, complete sections, compelling summary, clear progression, no red flags = 75–88. Near-perfect resume = 88–95. Do NOT output 67 as a default — compute the real score from the criteria above.` }], 4000);
+Do NOT output any overall score or per-dimension scores: the score is computed by code, not by you. Your job here is to extract the data and to explain concrete problems.` }], 4000);
       const parsed = extractJSON(raw);
       if (!parsed.error) {
         setProfile(parsed);
@@ -216,8 +178,10 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
     }
   };
 
-  const atsColor = profile?.atsScore
-    ? profile.atsScore >= 80 ? '#00E5A0' : profile.atsScore >= 60 ? '#FFB84D' : '#FF5A5A'
+  // The score shown to the user is computed by code from the resume text (src/scoring/), never by the model.
+  const detScore = Number.isFinite(detResult?.score?.score) ? detResult.score.score : null;
+  const atsColor = detScore !== null
+    ? detScore >= 80 ? '#00E5A0' : detScore >= 60 ? '#FFB84D' : '#FF5A5A'
     : 'var(--lp-text3)';
 
   return (
@@ -270,8 +234,8 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
           )}
         </div>
 
-        {/* Paste textarea — only shown when no file loaded */}
-        {!fileInfo ? (
+        {/* Paste textarea — shown when no file is loaded, and also after a failed parse so the error's advice (paste the text) is possible */}
+        {(!fileInfo || error) ? (
           <>
             <div style={{ textAlign: 'center', color: 'var(--lp-text3)', fontSize: 12 }}>or paste resume text</div>
             <textarea
@@ -320,7 +284,7 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
               { k: 'Target role',  v: profile.targetRole  },
               { k: 'Experience',   v: profile.experience  },
               { k: 'Market',       v: profile.market      },
-              { k: 'ATS score',    v: profile.atsScore ? `${profile.atsScore}/100` : '—', color: atsColor },
+              { k: 'ATS readiness', v: detScore !== null ? `${detScore}/100` : '—', color: atsColor },
             ].map(row => (
               <div key={row.k} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--lp-bdr2, rgba(255,255,255,.03))' }}>
                 <span style={{ color: 'var(--lp-text3)', fontSize: 12 }}>{row.k}</span>
@@ -343,9 +307,9 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
               </div>
             )}
             {/* ATS score contextual CTA */}
-            {profile.atsScore && setActiveModule && (
+            {detScore !== null && setActiveModule && (
               <div style={{ padding: '10px 14px', fontSize: 11.5, color: 'var(--lp-text3)', lineHeight: 1.6 }}>
-                {profile.atsScore < 80
+                {detScore < 80
                   ? <>Score below 80 — <button onClick={() => setActiveModule('scan')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--lp-teal)', fontSize: 11.5, cursor: 'pointer', fontWeight: 700 }}>scan vs a JD in Resume Scanner →</button></>
                   : <>Strong resume — <button onClick={() => setActiveModule('scan')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--lp-teal)', fontSize: 11.5, cursor: 'pointer', fontWeight: 700 }}>scan vs a target JD to optimise keywords →</button></>
                 }
@@ -418,9 +382,10 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
         )}
 
         {!loading && profile && (() => {
-          const score = profile.atsScore || 0;
+          const hasScore = detScore !== null;
+          const score = hasScore ? detScore : 0;
           const scoreColor = score >= 80 ? '#00E5A0' : score >= 60 ? '#FFB84D' : '#FF5A5A';
-          const scoreLabel = score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
+          const scoreLabel = !hasScore ? 'Not enough readable content to score' : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
           const circumference = 2 * Math.PI * 28;
           const goToBuilder = () => { if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(); };
 
@@ -429,7 +394,7 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
               {/* Section 1 — Score Hero */}
               <div className="atb-score-hero" style={{ background: 'var(--lp-bg2)', borderRadius: 12, border: '1px solid var(--lp-bdr)', padding: '20px 20px 18px' }}>
                 <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)', marginBottom: 18 }}>
-                  ATS Score
+                  ATS Readiness
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 16 }}>
                   <svg className="atb-score-ring" width="72" height="72" viewBox="0 0 72 72" style={{ flexShrink: 0 }}>
@@ -442,35 +407,41 @@ Score calibration: most real resumes score 35–60. A well-structured resume wit
                     />
                   </svg>
                   <div>
-                    <div className="atb-score-number" style={{ fontSize: 42, fontWeight: 900, color: scoreColor, lineHeight: 1, letterSpacing: '-2px' }}>{score}</div>
-                    <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 2 }}>out of 100</div>
+                    <div className="atb-score-number" style={{ fontSize: 42, fontWeight: 900, color: scoreColor, lineHeight: 1, letterSpacing: '-2px' }}>{hasScore ? score : '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 2 }}>{hasScore ? 'out of 100' : 'no score yet'}</div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: scoreColor, marginTop: 6 }}>{scoreLabel}</div>
                   </div>
                 </div>
                 <div style={{ height: 4, borderRadius: 2, background: 'var(--lp-bdr)', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${score}%`, background: scoreColor, borderRadius: 2, transition: 'width .6s ease' }} />
                 </div>
+                <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 10, lineHeight: 1.5 }}>
+                  Calculated by fixed rules from your resume text (completeness, quantified bullets, date consistency): the same resume always gets the same score. The AI does not set this number; it only explains the problems below. "ATS readiness" means how well the resume meets common applicant-tracking-system checks. It is not the score any real recruiting system gives you and not a prediction of interviews or hiring: no major ATS publishes one universal score.
+                </div>
               </div>
 
-              {/* Section 2 — Score Breakdown */}
-              {profile.scoreBreakdown?.length > 0 && (
+              {/* Section 2 — Score Breakdown (computed by code; each part says what was counted) */}
+              {detResult?.score?.parts?.length > 0 && (
                 <div style={{ background: 'var(--lp-bg2)', borderRadius: 12, border: '1px solid var(--lp-bdr)', overflow: 'hidden' }}>
                   <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--lp-bdr)', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)' }}>
                     Score Breakdown
                   </div>
-                  <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-                    {profile.scoreBreakdown.map(dim => {
-                      const c = dim.score >= 80 ? '#00E5A0' : dim.score >= 60 ? '#FFB84D' : '#FF5A5A';
+                  <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {detResult.score.parts.map(part => {
+                      const assessed = Number.isFinite(part.score);
+                      const c = !assessed ? 'var(--lp-text3)' : part.score >= 80 ? '#00E5A0' : part.score >= 60 ? '#FFB84D' : '#FF5A5A';
                       return (
-                        <div key={dim.dimension} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span className="atb-dim-label" style={{ fontSize: 11.5, color: 'var(--lp-text2)', width: 118, flexShrink: 0 }}>{dim.dimension}</span>
-                          <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--lp-bdr)' }}>
-                            <div style={{ height: '100%', width: `${dim.score}%`, background: c, borderRadius: 2, transition: 'width .5s ease' }} />
+                        <div key={part.id}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span className="atb-dim-label" style={{ fontSize: 11.5, color: 'var(--lp-text2)', width: 118, flexShrink: 0 }}>{PART_LABELS[part.id] || part.id}</span>
+                            <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--lp-bdr)' }}>
+                              <div style={{ height: '100%', width: `${assessed ? part.score : 0}%`, background: c, borderRadius: 2, transition: 'width .5s ease' }} />
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: c, width: 26, textAlign: 'right', flexShrink: 0 }}>{assessed ? part.score : '—'}</span>
                           </div>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: c, width: 26, textAlign: 'right', flexShrink: 0 }}>{dim.score}</span>
-                          <span style={{ fontSize: 11, width: 14, flexShrink: 0, color: dim.score >= 80 ? '#00E5A0' : '#FFB84D' }}>
-                            {dim.score >= 80 ? '✓' : '⚠'}
-                          </span>
+                          <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', marginTop: 3, marginLeft: 128, lineHeight: 1.4 }}>
+                            {assessed ? (part.evidence || []).join(' · ') : 'Not assessed: this resume has nothing to check here yet.'}
+                          </div>
                         </div>
                       );
                     })}
@@ -738,9 +709,15 @@ function mapProfileToData(profile) {
   };
 }
 
-const BUILDER_DRAFT_KEY = 'careerai_builder_draft';
+// The builder draft lives in this browser, so it is stored per signed-in user. The old unscoped key leaked one person's resume into the next
+// account used on the same browser; it is removed the first time a scoped draft is looked up.
+const DRAFT_PREFIX = 'careerai_builder_draft';
+const LEGACY_DRAFT_KEY = 'careerai_builder_draft';
+export const builderDraftKey = (userId) => `${DRAFT_PREFIX}:${userId || 'guest'}`;
+export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(builderDraftKey(userId)); } catch {} };
 
-function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule }) {
+function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user }) {
+  const draftKey = builderDraftKey(user?.id);
   const [step, setStep] = useState(0);
   const [activeTemplate, setActiveTemplate] = useState('modern');
   const [skillInput, setSkillInput] = useState('');
@@ -749,12 +726,13 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const [data, setData] = useState(() => {
     if (restoredData) return restoredData;
     try {
-      const saved = localStorage.getItem(BUILDER_DRAFT_KEY);
+      localStorage.removeItem(LEGACY_DRAFT_KEY);
+      const saved = localStorage.getItem(draftKey);
       if (saved) return JSON.parse(saved);
     } catch {}
     return mapProfileToData(initialProfile);
   });
-  const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(BUILDER_DRAFT_KEY));
+  const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(draftKey));
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [versionLabel, setVersionLabel] = useState('');
@@ -763,8 +741,8 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // Autosave draft to localStorage on every change (skip sample placeholder data)
   useEffect(() => {
     if (isSample) return;
-    try { localStorage.setItem(BUILDER_DRAFT_KEY, JSON.stringify(data)); } catch {}
-  }, [data, isSample]);
+    try { localStorage.setItem(draftKey, JSON.stringify(data)); } catch {}
+  }, [data, isSample, draftKey]);
 
   // Sync restored data when user clicks Restore in history — only fires when non-null
   useEffect(() => {
@@ -1172,6 +1150,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
 
   // Called by UploadAndParseTab when parse succeeds — persist profile so re-login shows cards without re-parsing
   const handleProfileParsed = (parsedProfile) => {
+    clearBuilderDraft(user?.id); // a newly parsed resume must win over an older saved draft
     if (updateMemory) updateMemory(m => ({ ...m, parseProfile: parsedProfile }));
   };
 
@@ -1261,6 +1240,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
       )}
       {mainTab === 'builder' && entryMode === 'existing' && (
         <BuilderTab
+          user={user}
           initialProfile={memory?.parseProfile || null}
           memory={memory}
           onSaveVersion={handleSaveVersion}
@@ -1270,6 +1250,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
       )}
       {mainTab === 'builder' && entryMode === 'scratch' && (
         <BuilderTab
+          user={user}
           initialProfile={null}
           memory={memory}
           onSaveVersion={handleSaveVersion}

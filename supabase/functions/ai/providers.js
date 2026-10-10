@@ -81,6 +81,13 @@ export function geminiGenerationConfig(model, maxTokens) {
   return { ...base, maxOutputTokens: Math.min(8192, Math.max(maxTokens * 2, 4096)) };
 }
 
+// Groq's gpt-oss models "think" before they answer, and the thinking can use up the output limit so the JSON is cut off ("response hit the length limit").
+// Documented fix (console.groq.com/docs/reasoning): reasoning_effort "low", and an output limit that leaves room for the thinking.
+export function groqBody(model, maxTokens, messages) {
+  if (!/gpt-oss/i.test(model)) return { model, max_completion_tokens: maxTokens, messages };
+  return { model, max_completion_tokens: Math.min(8192, Math.max(maxTokens * 2, 2048)), reasoning_effort: 'low', include_reasoning: false, messages };
+}
+
 function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) {
   if (provider === 'gemini') {
     const text = messages.map(m => m.content).join('\n\n');
@@ -104,9 +111,10 @@ function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) 
     return {
       url: COMPAT_URL[provider] || 'https://api.openai.com/v1/chat/completions',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: isCompat(provider)
-        ? { model, max_tokens: maxTokens, messages: msgs, ...(provider === 'openrouter' ? { provider: { zdr: true } } : {}) } // OpenRouter: route only to endpoints with Zero Data Retention
-        : { model, max_completion_tokens: maxTokens, messages: msgs },
+      body: provider === 'groq' ? groqBody(model, maxTokens, msgs)
+        : isCompat(provider)
+          ? { model, max_tokens: maxTokens, messages: msgs, ...(provider === 'openrouter' ? { provider: { zdr: true } } : {}) } // OpenRouter: route only to endpoints with Zero Data Retention
+          : { model, max_completion_tokens: maxTokens, messages: msgs },
     };
   }
   const msgs = pdfBase64

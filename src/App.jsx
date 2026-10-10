@@ -244,6 +244,7 @@ function App() {
   const logout = () => {
     sb.signOut(user?.token);
     localStorage.removeItem("supabase.auth.token");
+    try { Object.keys(localStorage).filter(k => k.startsWith('careerai_builder_draft')).forEach(k => localStorage.removeItem(k)); } catch {} // drafts hold resume text
     setUser(null);
     setIsRecruiter(false);
     setSetupDone(false);
