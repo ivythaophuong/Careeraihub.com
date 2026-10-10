@@ -2,7 +2,7 @@
 // Product decision 2026-10-09: the ATS score shown to the user is computed by code (src/scoring/), never by the model.
 // An AI-made score in a stored profile (profile.atsScore / profile.scoreBreakdown) must not reach the screen.
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 afterEach(cleanup);
 const callLLM = vi.fn();
@@ -27,6 +27,7 @@ describe('ATS Builder shows the computed score', () => {
     render(<ATSBuilder {...base} resumeText={GOOD} />);
     expect(screen.getByText('ATS Readiness')).toBeTruthy();
     expect(screen.queryByText(/ATS Readiness Score/)).toBeNull(); // approved name is "ATS Readiness", never "ATS score"
+    fireEvent.click(screen.getByLabelText('How is this score calculated?'));
     expect(screen.getByText(/not the score any real recruiting system gives you/i)).toBeTruthy(); // says what it is not
     expect(screen.getByText(/not a prediction of interviews or hiring/i)).toBeTruthy();
     const n = shownNumber();
@@ -55,10 +56,17 @@ describe('ATS Builder shows the computed score', () => {
     expect(screen.getAllByText(/Find issues & enhance with AI/).length).toBeGreaterThan(0); // the AI step is offered, not forced
   });
 
-  it('says in one line what the score is, and keeps the longer explanation behind "What is this score?"', () => {
+  it('marks the score as rule-based with a small badge; the explanation opens from an info button instead of sitting on the screen', () => {
     render(<ATSBuilder {...base} resumeText={GOOD} />);
-    expect(screen.getByText(/Same resume, same score\. No AI involved\./)).toBeTruthy();
-    expect(screen.getByText('What is this score?').tagName).toBe('SUMMARY');
+    expect(screen.getByText('Rule-based')).toBeTruthy();
+    expect(screen.queryByRole('note')).toBeNull();                    // closed by default: no wall of text
+    const info = screen.getByLabelText('How is this score calculated?');
+    expect(info.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(info);
+    expect(info.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('note').textContent).toMatch(/same resume always gets the same score; no AI is involved/);
+    fireEvent.click(info);
+    expect(screen.queryByRole('note')).toBeNull();
   });
 
   it('shows no score card at all (not a 0) when there is no readable text', () => {

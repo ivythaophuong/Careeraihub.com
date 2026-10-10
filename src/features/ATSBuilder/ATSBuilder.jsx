@@ -71,6 +71,7 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
   const [localSkills, setLocalSkills] = useState(initialProfile?.skills?.filter(s => s.trim()) || []);
   const [skillInputVal, setSkillInputVal] = useState('');
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
   // The ATS readiness score shown to the user. Product decision 2026-10-09 (later): the number is computed by code (src/scoring/), never by the
   // model, so the same resume always gets the same score and the score survives an AI outage. Covers all three ways rawText changes here (loaded from memory, a file upload, or the paste
   // textarea) in one place. Pure/synchronous (no AI, no network — src/scoring/'s own tests enforce that),
@@ -385,9 +386,26 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
             <>
               {/* Section 1 — Score Hero */}
               <div className="atb-score-hero" style={{ background: 'var(--lp-bg2)', borderRadius: 12, border: '1px solid var(--lp-bdr)', padding: '20px 20px 18px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)', marginBottom: 18 }}>
-                  ATS Readiness
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)' }}>ATS Readiness</div>
+                  <button
+                    type="button"
+                    aria-label="How is this score calculated?"
+                    aria-expanded={showScoreInfo}
+                    onClick={() => setShowScoreInfo(v => !v)}
+                    style={{ width: 16, height: 16, minHeight: 'unset', padding: 0, borderRadius: '50%', border: '1px solid var(--lp-bdr2, rgba(255,255,255,.2))', background: showScoreInfo ? 'var(--lp-teal)' : 'transparent', color: showScoreInfo ? '#000' : 'var(--lp-text3)', fontSize: 10, fontWeight: 800, lineHeight: '14px', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >i</button>
+                  <span title="Same resume, same score. No AI involved." style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, letterSpacing: .3, color: 'var(--lp-text2)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: '2px 9px' }}>
+                    Rule-based
+                  </span>
                 </div>
+                {showScoreInfo && (
+                  <div role="note" style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--lp-bg3)', borderRadius: 8, fontSize: 11.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--lp-text)', marginBottom: 4 }}>How this score works</div>
+                    Fixed rules read your resume text and check completeness, quantified bullets and date consistency. The same resume always gets the same score; no AI is involved.
+                    <div style={{ marginTop: 6, color: 'var(--lp-text3)' }}>It is not the score any real recruiting system gives you and not a prediction of interviews or hiring: no major ATS publishes one universal score.</div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 16 }}>
                   <svg className="atb-score-ring" width="72" height="72" viewBox="0 0 72 72" style={{ flexShrink: 0 }}>
                     <circle cx="36" cy="36" r="28" fill="none" stroke="var(--lp-bdr2, rgba(255,255,255,.13))" strokeWidth="6"/>
@@ -407,16 +425,6 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                 <div style={{ height: 4, borderRadius: 2, background: 'var(--lp-bdr)', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${score}%`, background: scoreColor, borderRadius: 2, transition: 'width .6s ease' }} />
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 10, lineHeight: 1.5 }}>
-                  Calculated by fixed rules from your resume text. Same resume, same score. No AI involved.
-                </div>
-                <details style={{ marginTop: 6, fontSize: 11, color: 'var(--lp-text3)', lineHeight: 1.5 }}>
-                  <summary style={{ cursor: 'pointer', fontWeight: 600 }}>What is this score?</summary>
-                  <p style={{ margin: '6px 0 0' }}>
-                    It checks completeness, quantified bullets and date consistency. "ATS readiness" means how well the resume meets common applicant-tracking-system checks.
-                    It is not the score any real recruiting system gives you and not a prediction of interviews or hiring: no major ATS publishes one universal score.
-                  </p>
-                </details>
               </div>
 
               {/* Section 2 — Score Breakdown (computed by code; each part says what was counted) */}
