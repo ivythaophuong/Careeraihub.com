@@ -3612,34 +3612,40 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
           {/* LEFT */}
           <div className="v36-hero-left reveal visible">
             {/* Eyebrow */}
-            <div style={{display:'inline-flex',alignItems:'center',gap:7,background:'rgba(236,72,153,0.08)',border:'1px solid rgba(236,72,153,0.2)',borderRadius:100,padding:'5px 14px',marginBottom:28,width:'fit-content'}}>
-              <span style={{width:6,height:6,borderRadius:'50%',background:'#ec4899',boxShadow:'0 0 8px rgba(236,72,153,0.8)',flexShrink:0,animation:'v36blink 2s ease-in-out infinite',display:'inline-block'}}></span>
-              <span style={{fontSize:12,fontWeight:500,color:'rgba(160,174,192,0.75)',letterSpacing:'0.02em'}}>Singapore's verified career platform</span>
+            <div data-testid="hero-eyebrow" style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.16em',textTransform:'uppercase',color:'rgba(160,174,192,0.7)',marginBottom:26}}>
+              CareerAiHub <span style={{opacity:.5,margin:'0 6px'}}>·</span> Your career operating system
             </div>
-            {/* Headline */}
-            <h1 style={{fontSize:58,fontWeight:700,lineHeight:1.08,letterSpacing:'-0.025em',margin:'0 0 20px',fontFamily:"'Inter',sans-serif"}}>
-              <span style={{display:'block',color:'#ffffff'}}>From Invisible</span>
-              <span style={{display:'block',background:'linear-gradient(100deg,#ec4899 0%,#8b5cf6 55%,#f59e0b 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>To Get Hired.</span>
+            {/* Brand slogan (main headline) */}
+            <h1 style={{fontSize:'clamp(38px,4.4vw,58px)',fontWeight:700,lineHeight:1.06,letterSpacing:'-0.03em',margin:'0 0 18px',fontFamily:"'Inter',sans-serif",color:'#ffffff'}}>
+              Built for Every<br />Next Chapter.
             </h1>
-            {/* Sub */}
-            <p style={{fontSize:16,color:'rgba(160,174,192,0.6)',lineHeight:1.65,margin:'0 0 36px',maxWidth:420,fontWeight:400,letterSpacing:'-0.01em'}}>
-              Build a verified profile, practice with AI, and get discovered by top Singapore recruiters.
+            <p style={{fontSize:18,color:'rgba(200,212,230,0.85)',lineHeight:1.55,margin:'0 0 30px',maxWidth:440,fontWeight:400,letterSpacing:'-0.01em'}}>
+              Your career is always evolving. Your tools should evolve with it.
             </p>
+            {/* Product headline and what it means */}
+            <div style={{borderLeft:'2px solid rgba(236,72,153,0.7)',paddingLeft:18,margin:'0 0 34px',maxWidth:470}}>
+              <h2 style={{fontSize:20,fontWeight:600,lineHeight:1.3,letterSpacing:'-0.015em',margin:'0 0 10px',color:'#ffffff',fontFamily:"'Inter',sans-serif"}}>
+                Your skills. Your progress. Your next move.
+              </h2>
+              <p style={{fontSize:14.5,color:'rgba(160,174,192,0.72)',lineHeight:1.7,margin:0,fontWeight:400}}>
+                Understand your strengths. Build your capabilities. Prepare for new opportunities. Keep your career moving forward — all in one place.
+              </p>
+            </div>
             {/* CTAs */}
-            <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:40,flexWrap:'wrap'}}>
-              <button onClick={join} style={{display:'inline-flex',alignItems:'center',gap:8,background:'#ec4899',color:'#fff',border:'none',fontSize:15,fontWeight:600,padding:'15px 32px',borderRadius:100,cursor:'pointer',fontFamily:"'Inter',sans-serif",letterSpacing:'-0.02em',boxShadow:'0 0 40px rgba(236,72,153,0.4),0 1px 0 rgba(255,255,255,0.12) inset'}}>
-                Build My Profile Free &nbsp;→
+            <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:18,flexWrap:'wrap'}}>
+              <button onClick={join} style={{display:'inline-flex',alignItems:'center',gap:8,background:'#ec4899',color:'#fff',border:'none',fontSize:15,fontWeight:600,padding:'14px 30px',borderRadius:100,cursor:'pointer',fontFamily:"'Inter',sans-serif"}}>
+                Get started free &nbsp;→
               </button>
-              <button onClick={join} style={{display:'inline-flex',alignItems:'center',gap:8,background:'rgba(255,255,255,0.04)',color:'rgba(200,215,235,0.85)',border:'1px solid rgba(255,255,255,0.14)',fontSize:14,fontWeight:500,padding:'13px 22px',borderRadius:100,cursor:'pointer',fontFamily:"'Inter',sans-serif",letterSpacing:'-0.01em'}}>
+              <button onClick={join} style={{display:'inline-flex',alignItems:'center',gap:8,background:'rgba(255,255,255,0.04)',color:'rgba(200,215,235,0.85)',border:'1px solid rgba(255,255,255,0.14)',fontSize:14,fontWeight:500,padding:'13px 24px',borderRadius:100,cursor:'pointer',fontFamily:"'Inter',sans-serif"}}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Scan My Resume Free
+                Check my resume
               </button>
             </div>
-            {/* Social proof */}
-            <div style={{display:'flex',alignItems:'center',gap:14}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                <span style={{fontSize:12,color:'rgba(74,86,104,0.9)',letterSpacing:'-0.01em'}}><strong style={{color:'rgba(160,174,192,0.7)',fontWeight:600}}>Free to start</strong> · No credit card</span>
-              </div>
+            <div style={{fontSize:12,color:'rgba(120,134,156,0.9)',marginBottom:38}}>Free to start · No credit card</div>
+            {/* Principle */}
+            <div data-testid="hero-principle" style={{borderTop:'1px solid rgba(255,255,255,0.08)',paddingTop:18,maxWidth:470}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.16em',textTransform:'uppercase',color:'rgba(236,72,153,0.9)',marginBottom:6}}>Proof over claims.</div>
+              <div style={{fontSize:13,color:'rgba(160,174,192,0.62)'}}>The principle behind everything we build.</div>
             </div>
           </div>
 

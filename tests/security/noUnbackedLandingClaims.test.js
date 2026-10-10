@@ -31,6 +31,8 @@ const FORBIDDEN = [
   [/4\.9\s?★|★★★★★/, 'a star rating'],
   [/\b95% ATS Match Rate\b/i, 'an invented match rate'],
   [/Premium · locked/, 'a locked premium badge'],
+  [/Singapore's verified career platform/i, 'a verified-platform claim'],
+  [/From Invisible/, 'the old headline (with a grammar slip)'],
   [/free forever/i, '"free forever" (credits and plans are planned)'],
   [/modules? unlocked instantly/i, 'an unlock claim'],
   [/blockchain[- ](anchored|verified|backed)|blockchain-verifiable/i, 'a blockchain claim'],
@@ -59,5 +61,24 @@ describe('the live landing copy does not promise what the product does not have'
     const nav = LIVE['LandingPage component'];
     expect(nav).not.toMatch(/href="#v36-pricing">Pricing</);
     expect(nav).not.toMatch(/'TrustMatch','Pricing'/);
+  });
+});
+
+describe('hero copy chosen by the owner (2026-10-10)', () => {
+  const page = LIVE['LandingPage component'];
+  const left = page.slice(page.indexOf('className="v36-hero-left'), page.indexOf('className="v36-hero-right'));
+  it.each([
+    'Your career operating system', 'Built for Every', 'Next Chapter.', 'Your career is always evolving. Your tools should evolve with it.',
+    'Your skills. Your progress. Your next move.',
+    'Understand your strengths. Build your capabilities. Prepare for new opportunities. Keep your career moving forward — all in one place.',
+    'Proof over claims.', 'The principle behind everything we build.',
+  ])('the left side says: %s', (text) => expect(left).toContain(text));
+  it('has no gradient text in the left side', () => {
+    expect(left).not.toMatch(/WebkitBackgroundClip|backgroundClip/);
+  });
+  it('the right side (the example dashboard card) is still there', () => {
+    const right = page.slice(page.indexOf('className="v36-hero-right'), page.indexOf('className="v36-hero-right') + 4000);
+    expect(right).toContain('ndc-wrap');
+    expect(right).toContain('TRUSTMATCH VERIFIED');
   });
 });
