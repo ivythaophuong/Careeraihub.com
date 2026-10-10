@@ -3290,8 +3290,8 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                 ))}
               </div>
               <div className="lp-sp-upgrade-strip">
-                <div className="lp-sp-upgrade-text"><strong>Get Ready · Pro — $24.99/month</strong> · This plan re-scores every 7 days. Once you hit 80+ on all 5 dimensions, we generate your shareable Readiness Certificate.</div>
-                <button className="lp-sp-upgrade-btn" onClick={onClose}>Upgrade to Pro ✦</button>
+                <div className="lp-sp-upgrade-text"><strong>Free during the beta.</strong> Paid plans are not available yet and nothing is charged. This plan is an example of how the tools fit together.</div>
+                <button className="lp-sp-upgrade-btn" onClick={onClose}>Got it</button>
               </div>
             </div>
           )}
@@ -3304,8 +3304,8 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                   {n:'1',title:'Concrete examples drill',badge:'Active — session 1/3',bc:'weak',pct:38,bg:'#FF4D6A',desc:"You'll practice 6 behavioral questions. For each, AI coaches you to replace vague language with a specific number, outcome, or named result. Score must reach 70 before module 2 unlocks.",active:true},
                   {n:'2',title:'STAR structure mastery',badge:'Unlocks after module 1',bc:'',pct:44,bg:'#FFD233',desc:'2-session deep dive on Situation, Task, Action, Result framing. AI gives real-time feedback on each section of your answer.'},
                   {n:'3',title:'Clarity + filler word reduction',badge:'Maintenance',bc:'ok',pct:72,bg:'#00E5A0',desc:'You\'re already strong here. 1 drill per week keeps you above 70. AI tracks "um", "like", and hedging language across every session.'},
-                  {n:'4',title:'Salary negotiation roleplay',badge:'Premium · locked',bc:'locked',pct:0,bg:'var(--lp-bdr)',desc:'AI plays the hiring manager. Practice counter-offer language for your target role.',locked:true},
-                  {n:'5',title:'Weakness framing',badge:'Premium · locked',bc:'locked',pct:0,bg:'var(--lp-bdr)',desc:'The most-failed question type. Pre-built frameworks, AI scores your framing, practice until it sounds natural — not rehearsed.',locked:true},
+                  {n:'4',title:'Salary negotiation roleplay',badge:'Available in beta',bc:'',pct:0,bg:'var(--lp-bdr)',desc:'Practise counter-offer language for your target role.'},
+                  {n:'5',title:'Weakness framing',badge:'Available in beta',bc:'',pct:0,bg:'var(--lp-bdr)',desc:'A common hard question. Practise framing a weakness until it sounds natural, not rehearsed.'},
                 ].map((m,i)=>(
                   <div key={i} className={`lp-sp-mod${m.active?' sp-active':''}${m.locked?' sp-locked':''}`} style={{borderRadius:'var(--lp-r)'}}>
                     <div className="lp-sp-mod-hd">
@@ -3349,7 +3349,7 @@ export function StudyPlanModal({ onClose, initialTab = 'dashboard', onModuleSele
                       Open {f.label} →
                     </button>
                   ) : (
-                    <button className="lp-sp-upgrade-btn">Upgrade to Pro — $24.99/mo ✦</button>
+                    <button className="lp-sp-upgrade-btn" onClick={onClose}>Free during the beta</button>
                   )}
                 </div>
               </div>
@@ -3433,7 +3433,7 @@ function PrivacyModal({ onClose }) {
         </div>
         <div className="lp-modal-body">
           <div className="lp-legal-content">
-            <p style={{fontSize:11,color:'var(--lp-text3)',marginBottom:16}}>Last updated: April 2026 · CareerAiHub Pte. Ltd. · Singapore</p>
+            <p style={{fontSize:11,color:'var(--lp-text3)',marginBottom:16}}>Last updated: October 2026 · CareerAiHub Pte. Ltd. · Singapore</p>
             <h3>1. What data we collect</h3>
             <p>We collect your resume file (PDF or DOCX), your email address when you create an account, and your usage data within the platform (modules used, scores generated, sessions completed). We do not collect payment card data directly — this is handled by our payment processor.</p>
             <h3>2. How we use your data</h3>
@@ -3482,8 +3482,8 @@ function ToSModal({ onClose }) {
               <li>You may not use the platform for any unlawful purpose</li>
               <li>You may not attempt to reverse-engineer or copy the platform</li>
             </ul>
-            <h3>4. Subscription and billing</h3>
-            <p>Premium subscriptions are billed monthly at $19 USD (Premium) or $24.99 USD (Pro · Get Ready), or annually at $180 USD / $239 USD respectively. You may cancel at any time. Refunds are available within 7 days of initial purchase if you are unsatisfied.</p>
+            <h3>4. Fees</h3>
+            <p>CareerAiHub is free during the beta. Paid plans are not offered yet and nothing is charged. If paid plans are introduced we will announce them in advance, and we will not charge you unless you have agreed to a plan.</p>
             <h3>5. Limitation of liability</h3>
             <p>CareerAiHub provides career guidance tools, not guaranteed employment outcomes. AI-generated scores and suggestions are for informational purposes. We are not liable for employment decisions made by third parties.</p>
             <h3>6. Governing law</h3>
@@ -3598,7 +3598,6 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
           <li><a href="#v36-platform">Platform</a></li>
           <li><a href="#v36-future">For Recruiters</a></li>
           <li><a href="#v36-faq">Resources</a></li>
-          <li><a href="#v36-pricing">Pricing</a></li>
         </ul>
         <div className="v36-nav-right">
           <button className="v36-btn-ghost" onClick={login}>Log in</button>
@@ -3639,8 +3638,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             {/* Social proof */}
             <div style={{display:'flex',alignItems:'center',gap:14}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:13,color:'#fbbf24',letterSpacing:1}}>★★★★★</span>
-                <span style={{fontSize:12,color:'rgba(74,86,104,0.9)',letterSpacing:'-0.01em'}}><strong style={{color:'rgba(160,174,192,0.7)',fontWeight:600}}>Free to start</strong> · No credit card · Cancel anytime</span>
+                                <span style={{fontSize:12,color:'rgba(74,86,104,0.9)',letterSpacing:'-0.01em'}}><strong style={{color:'rgba(160,174,192,0.7)',fontWeight:600}}>Free to start</strong> · No credit card</span>
               </div>
             </div>
           </div>
@@ -3805,18 +3803,14 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
       <div className="v36-stats-ticker-wrap">
         <div className="v36-stats-ticker-track">
           {[
-            { color:'#fbbf24', val:'4.9★', label:'User Rating' },
-            { color:'#10b981', val:'95%', label:'ATS Match Rate' },
-            { color:'#5b6ef5', val:'50+', label:'Hiring Partners' },
-            { color:'#8b5cf6', val:'2,714+', label:'Verified Profiles' },
-            { color:'#06b6d4', val:'9 Days', label:'Avg. to Shortlist' },
-            { color:'#f59e0b', val:'SGD 4–12k', label:'Salary Uplift' },
-            { color:'#fbbf24', val:'4.9★', label:'User Rating' },
-            { color:'#10b981', val:'95%', label:'ATS Match Rate' },
-            { color:'#5b6ef5', val:'50+', label:'Hiring Partners' },
-            { color:'#8b5cf6', val:'2,714+', label:'Verified Profiles' },
-            { color:'#06b6d4', val:'9 Days', label:'Avg. to Shortlist' },
-            { color:'#f59e0b', val:'SGD 4–12k', label:'Salary Uplift' },
+            { color:'#10b981', val:'Free', label:'during the beta' },
+            { color:'#5b6ef5', val:'No card', label:'needed to start' },
+            { color:'#8b5cf6', val:'Rule-based', label:'ATS readiness check' },
+            { color:'#06b6d4', val:'EN · VI', label:'resume headings read' },
+            { color:'#10b981', val:'Free', label:'during the beta' },
+            { color:'#5b6ef5', val:'No card', label:'needed to start' },
+            { color:'#8b5cf6', val:'Rule-based', label:'ATS readiness check' },
+            { color:'#06b6d4', val:'EN · VI', label:'resume headings read' },
           ].map((item, i) => (
             <React.Fragment key={i}>
               {i > 0 && <span className="v36-stats-tick-sep">·</span>}
@@ -3839,10 +3833,10 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
           </div>
           <div className="v36-mem-timeline reveal">
             {[
-              { day:'Day 1', title:'Upload your resume', desc:'AI scans and scores your resume. ATS match calculated instantly.', metric:'ATS Score: 72 → optimised to 95', color:'#EC4899', icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.75" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> },
-              { day:'Week 1', title:'Practice interviews', desc:'AI coaches your answers, remembers your STAR stories, tracks improvement.', metric:'Interview Score: 6.2 → 8.5 / 10', color:'#EC4899', icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.75" strokeLinecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> },
-              { day:'Week 2', title:'Verify credentials', desc:'Connect OpenCerts, Credly, Singpass. Trust Score rises with every verification.', metric:'Trust Score: 61 → 87 / 100', color:'#EC4899', icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.75" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg> },
-              { day:'Week 3+', title:'Get discovered', desc:'Recruiters find your verified profile. TrustChat connects you to the right roles.', metric:'3 recruiter messages · 95% role match', color:'#EC4899', icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.75" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
+              { day:'Day 1', title:'Upload your resume', desc:'AI scans and scores your resume. ATS match calculated instantly.', metric:'Example: ATS Readiness 72 → 95', color:'#EC4899', icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.75" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> },
+              { day:'Week 1', title:'Practice interviews', desc:'AI coaches your answers, remembers your STAR stories, tracks improvement.', metric:'Example: practice score going up', color:'#EC4899', icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.75" strokeLinecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> },
+              { day:'Week 2', title:'Verify credentials (planned)', desc:'Credential verification with providers such as OpenCerts, Credly and Singpass is planned and not available yet.', metric:'Planned: not live', color:'#EC4899', icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.75" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg> },
+              { day:'Week 3+', title:'Get discovered (planned)', desc:'Share your profile with employers you choose, only with your consent. Employer access is not open to the public yet.', metric:'Planned: not live', color:'#EC4899', icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="1.75" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
             ].map((step, i) => (
               <div className="v36-mem-tl-item" key={i}>
                 <div className="v36-mem-tl-node">{step.icon}</div>
@@ -3935,15 +3929,15 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             <div className="v36-plat-card rd3">
               <div className="v36-plat-title">Verification Engine</div>
               <ul className="v36-plat-feats">
-                <li><span className="v36-feat-check">✓</span> Credential Verification</li>
-                <li><span className="v36-feat-check">✓</span> OpenCerts &amp; W3C VC</li>
-                <li><span className="v36-feat-check">✓</span> Trust Score Algorithm</li>
-                <li><span className="v36-feat-check">✓</span> Verified Badge</li>
+                <li><span className="v36-feat-check">·</span> Credential verification (planned)</li>
+                <li><span className="v36-feat-check">·</span> OpenCerts &amp; W3C VC (planned)</li>
+                <li><span className="v36-feat-check">✓</span> Practice Score (rule-based, in progress)</li>
+                <li><span className="v36-feat-check">·</span> Verified badge (planned)</li>
               </ul>
               <div className="v36-plat-divider"></div>
               <div className="v36-plat-mock">
                 <div style={{display:'flex',flexDirection:'column',gap:4}}>
-                  {[{icon:'🏅',name:'AWS Certified',sub:'Solutions Architect'},{icon:'🛡️',name:'OpenCerts',sub:'Blockchain anchored'}].map((c,i)=>(
+                  {[{icon:'🏅',name:'Example credential',sub:'illustration only'}].map((c,i)=>(
                     <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:7}}>
                       <span style={{fontSize:13}}>{c.icon}</span>
                       <div style={{flex:1}}>
@@ -3954,7 +3948,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
                   ))}
                 </div>
                 <div style={{marginTop:8,paddingTop:7,borderTop:'1px solid rgba(255,255,255,0.05)'}}>
-                  <div style={{fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'#2e3d52',marginBottom:5}}>Supported by</div>
+                  <div style={{fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'#2e3d52',marginBottom:5}}>Planned integrations</div>
                   <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
                     <span className="v36-verif-logo-pill vl-singpass">🇸🇬 Singpass</span>
                     <span className="v36-verif-logo-pill vl-opencerts">🎓 OpenCerts</span>
@@ -3967,10 +3961,10 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             <div className="v36-plat-card" style={{transitionDelay:'.24s'}}>
               <div className="v36-plat-title">TrustMatch Marketplace</div>
               <ul className="v36-plat-feats">
-                <li><span className="v36-feat-check">✓</span> AI Matching Engine</li>
-                <li><span className="v36-feat-check">✓</span> Verified Candidates</li>
-                <li><span className="v36-feat-check">✓</span> Recruiter Discovery</li>
-                <li><span className="v36-feat-check">✓</span> Outcomes Dashboard</li>
+                <li><span className="v36-feat-check">·</span> AI matching (planned)</li>
+                <li><span className="v36-feat-check">·</span> Verified candidates (planned)</li>
+                <li><span className="v36-feat-check">·</span> Recruiter discovery with your consent (planned)</li>
+                <li><span className="v36-feat-check">·</span> Outcomes dashboard (planned)</li>
               </ul>
               <div className="v36-plat-divider"></div>
               <div className="v36-plat-mock">
@@ -3999,78 +3993,33 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
         </div>
       </div>
 
-      {/* ── PRICING ── */}
+      {/* ── FREE DURING THE BETA (no paid plans are offered yet) ── */}
       <div id="v36-pricing" className="v36-pricing">
         <div className="v36-pricing-inner">
-          <div className="reveal" style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:40,gap:32,flexWrap:'wrap'}}>
-            <div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.16em',textTransform:'uppercase',color:'var(--blue)',marginBottom:12,display:'flex',alignItems:'center',gap:8}}><span style={{width:20,height:1,background:'rgba(91,110,245,.4)',display:'block'}}></span>Pricing</div>
-              <h2 style={{fontFamily:"'Inter',sans-serif",fontSize:'clamp(26px,3.5vw,38px)',fontWeight:800,letterSpacing:'-.03em',lineHeight:1.1,color:'var(--text)',margin:0}}>Free to start.<br /><span style={{background:'linear-gradient(95deg,#ec4899,#8b5cf6,#f59e0b)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Proven to pay off.</span></h2>
-            </div>
-            <p style={{fontSize:13,color:'var(--text3)',fontWeight:300,lineHeight:1.7,maxWidth:300,margin:0}}>Try everything free. Upgrade when you're ready to be found by the right recruiters.</p>
+          <div className="reveal" style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:32,gap:32,flexWrap:'wrap'}}>
+            <h2 style={{fontFamily:"'Inter',sans-serif",fontSize:'clamp(26px,3.5vw,38px)',fontWeight:800,letterSpacing:'-.03em',lineHeight:1.1,color:'var(--text)',margin:0}}>Free while we build.</h2>
+            <p style={{fontSize:13,color:'var(--text3)',fontWeight:300,lineHeight:1.7,maxWidth:360,margin:0}}>Every tool is free during the beta. Paid plans are not available yet, nothing is charged, and we will tell you well before that changes.</p>
           </div>
-          <div className="reveal v36-price-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:1,background:'var(--border)',borderRadius:16,overflow:'hidden',border:'1px solid var(--border)'}}>
-            {/* Free */}
-            <div style={{background:'var(--bg2)',padding:'28px 24px',display:'flex',flexDirection:'column',gap:0}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text3)',marginBottom:20}}>Free</div>
-              <div style={{display:'flex',alignItems:'baseline',gap:6,marginBottom:4}}>
-                <span style={{fontFamily:"'Inter',sans-serif",fontSize:36,fontWeight:800,letterSpacing:'-.04em',color:'var(--text)',lineHeight:1}}>$0</span>
-                <span style={{fontSize:12,color:'var(--text3)'}}>forever</span>
-              </div>
-              <div style={{fontSize:11,color:'var(--text3)',marginBottom:24,paddingBottom:24,borderBottom:'1px solid var(--border)'}}>No credit card required</div>
+          <div className="reveal v36-price-grid" style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:1,background:'var(--border)',borderRadius:16,overflow:'hidden',border:'1px solid var(--border)'}}>
+            <div style={{background:'var(--card)',padding:'28px 24px',display:'flex',flexDirection:'column'}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'#818cf8',marginBottom:16}}>Candidates · Beta</div>
+              <div style={{fontFamily:"'Inter',sans-serif",fontSize:30,fontWeight:800,letterSpacing:'-.03em',color:'var(--text)',marginBottom:6}}>Free</div>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:20}}>No credit card. Some AI tools may be slow or limited at busy times.</div>
               <div style={{display:'flex',flexDirection:'column',gap:10,flex:1,marginBottom:24}}>
-                {['2 resume scans + ATS keyword fixes','JD gap analysis','1 AI cover letter','3 interview prep sessions','Basic Trust Score'].map(f=>(
+                {['ATS Readiness check of your resume (rule-based)','AI help to find issues and rewrite bullets (free account)','STAR story and interview practice','Salary, skills-gap and regional guides'].map(f=>(
                   <div key={f} style={{display:'flex',alignItems:'center',gap:9,fontSize:12,color:'var(--text2)'}}>
-                    <span style={{width:14,height:14,borderRadius:'50%',background:'rgba(16,185,129,.1)',border:'1px solid rgba(16,185,129,.25)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#10b981',flexShrink:0}}>✓</span>{f}
-                  </div>
-                ))}
-                {['TrustMatch marketplace','Salary coach'].map(f=>(
-                  <div key={f} style={{display:'flex',alignItems:'center',gap:9,fontSize:12,color:'var(--text3)'}}>
-                    <span style={{width:14,height:14,borderRadius:'50%',background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--text3)',flexShrink:0}}>—</span>{f}
+                    <span style={{width:14,height:14,borderRadius:'50%',background:'rgba(236,72,153,.15)',border:'1px solid rgba(236,72,153,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#818cf8',flexShrink:0}}>✓</span>{f}
                   </div>
                 ))}
               </div>
-              <button onClick={join} style={{display:'block',textAlign:'center',padding:10,borderRadius:8,border:'1px solid var(--border2)',fontSize:'12.5px',fontWeight:600,color:'var(--text2)',background:'transparent',cursor:'pointer',fontFamily:"'Inter',sans-serif",letterSpacing:'-.01em'}}>Get started free</button>
+              <button onClick={join} style={{display:'block',textAlign:'center',padding:11,borderRadius:8,background:'linear-gradient(110deg,#7c3aed,#db2777)',fontSize:'12.5px',fontWeight:700,color:'#fff',cursor:'pointer',border:'none',fontFamily:"'Inter',sans-serif"}}>Start free</button>
             </div>
-            {/* Pro */}
-            <div style={{background:'var(--card)',padding:'28px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
-              <div style={{position:'absolute',top:0,left:0,right:0,height:2,background:'linear-gradient(90deg,#ec4899,#f59e0b)'}}></div>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'#818cf8'}}>Pro</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,padding:'3px 8px',borderRadius:20,background:'rgba(236,72,153,.1)',color:'#818cf8',border:'1px solid rgba(236,72,153,.22)'}}>Most popular</div>
-              </div>
-              <div style={{display:'flex',alignItems:'baseline',gap:6,marginBottom:4}}>
-                <span style={{fontFamily:"'Inter',sans-serif",fontSize:36,fontWeight:800,letterSpacing:'-.04em',color:'var(--text)',lineHeight:1}}>SGD 19.90</span>
-                <span style={{fontSize:12,color:'var(--text3)'}}>/mo</span>
-              </div>
-              <div style={{fontSize:11,color:'var(--text3)',marginBottom:8}}>after 7-day trial · cancel anytime</div>
-              <div style={{fontSize:11,color:'#818cf8',background:'rgba(236,72,153,.07)',border:'1px solid rgba(236,72,153,.15)',borderRadius:6,padding:'7px 10px',marginBottom:20}}>🎯 Start with 7 days full access — SGD 8.99</div>
-              <div style={{height:1,background:'var(--border)',marginBottom:20}}></div>
-              <div style={{display:'flex',flexDirection:'column',gap:10,flex:1,marginBottom:24}}>
-                {['Everything in Free','Unlimited scans, letters, verifications','TrustMatch marketplace — recruiter discovery','Salary coach + P75 negotiation scripts','HM Simulator · all 4 pressure personas','AI Memory Dashboard — full adaptive profile'].map(f=>(
-                  <div key={f} style={{display:'flex',alignItems:'center',gap:9,fontSize:12,color:'var(--text2)'}}>
-                    <span style={{width:14,height:14,borderRadius:'50%',background:'rgba(236,72,153,.15)',border:'1px solid rgba(236,72,153,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#818cf8',flexShrink:0}}>✓</span>
-                    <span dangerouslySetInnerHTML={{__html: f.replace('Unlimited','<strong style="color:var(--text);font-weight:500">Unlimited</strong>')}}></span>
-                  </div>
-                ))}
-              </div>
-              <button onClick={join} style={{display:'block',textAlign:'center',padding:11,borderRadius:8,background:'linear-gradient(110deg,#7c3aed,#db2777)',fontSize:'12.5px',fontWeight:700,color:'#fff',cursor:'pointer',border:'none',fontFamily:"'Inter',sans-serif",letterSpacing:'-.01em',boxShadow:'0 0 28px rgba(236,72,153,.25)'}}>Start free trial · SGD 8.99 →</button>
-            </div>
-            {/* Recruiter */}
             <div style={{background:'var(--bg2)',padding:'28px 24px',display:'flex',flexDirection:'column'}}>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--cyan)',marginBottom:20}}>Recruiter</div>
-              <div style={{display:'flex',alignItems:'baseline',gap:6,marginBottom:4}}>
-                <span style={{fontFamily:"'Inter',sans-serif",fontSize:28,fontWeight:800,letterSpacing:'-.04em',color:'var(--text)',lineHeight:1}}>Custom</span>
-              </div>
-              <div style={{fontSize:11,color:'var(--text3)',marginBottom:24,paddingBottom:24,borderBottom:'1px solid var(--border)'}}>Per seat · billed annually</div>
-              <div style={{display:'flex',flexDirection:'column',gap:10,flex:1,marginBottom:24}}>
-                {['Full verified candidate pool','TrustMatch + TrustChat direct messaging','AI-ranked shortlists in minutes','Zero fake credentials — blockchain-verified','ATS integration + CSV export','Dedicated account manager'].map(f=>(
-                  <div key={f} style={{display:'flex',alignItems:'center',gap:9,fontSize:12,color:'var(--text2)'}}>
-                    <span style={{width:14,height:14,borderRadius:'50%',background:'rgba(6,182,212,.1)',border:'1px solid rgba(6,182,212,.25)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--cyan)',flexShrink:0}}>✓</span>{f}
-                  </div>
-                ))}
-              </div>
-              <a href="mailto:hello.careeraihub@gmail.com" style={{display:'block',textAlign:'center',padding:10,borderRadius:8,border:'1px solid rgba(6,182,212,.3)',fontSize:'12.5px',fontWeight:600,color:'var(--cyan)',textDecoration:'none',letterSpacing:'-.01em'}}>Contact us →</a>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--cyan)',marginBottom:16}}>Employers</div>
+              <div style={{fontFamily:"'Inter',sans-serif",fontSize:22,fontWeight:800,letterSpacing:'-.03em',color:'var(--text)',marginBottom:6}}>By invitation</div>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:20}}>Employer access is being tested with a small group. Candidates are shown to employers only with their consent.</div>
+              <div style={{flex:1}}></div>
+              <a href="mailto:hello.careeraihub@gmail.com" style={{display:'block',textAlign:'center',padding:10,borderRadius:8,border:'1px solid rgba(6,182,212,.3)',fontSize:'12.5px',fontWeight:600,color:'var(--cyan)',textDecoration:'none'}}>Write to us</a>
             </div>
           </div>
         </div>
@@ -4083,9 +4032,9 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             <div className="reveal">
               <div style={{display:'flex',flexDirection:'column',gap:4}}>
                 {[
-                  {q:'Is my data shared with recruiters without my consent?',a:'No. You control exactly what\'s visible. Recruiters see only your verified Trust Score and the credential badges you choose to publish. Raw data and personal identifiers are never shared without your explicit opt-in.'},
-                  {q:'How does credential verification work?',a:'We connect directly to institutional sources — Singpass for identity, OpenCerts for academic credentials, Credly for professional certifications. Every check is real-time. Nothing is self-reported.'},
-                  {q:'How is CareerAiHub different from LinkedIn?',a:'LinkedIn is built on self-reported claims. We\'re a trust infrastructure — every signal is verified against an external source. We\'re also not ad-supported, so we have no incentive to show you irrelevant jobs.'},
+                                    {q:'Is my data shared with employers?',a:'Employer access is closed while we finish consent-based sharing. When it opens, a candidate will be shown to an employer only after the candidate chooses to share, and you will be able to stop sharing at any time. We will update this page when that is live.'},
+                                    {q:'How does credential verification work?',a:'Today the Verify Creds tool checks a certificate link against a short list of issuing platforms (sign-in required). Identity checks and direct links to institutions such as Singpass, OpenCerts and Credly are planned and are not available yet.'},
+                                    {q:'What is CareerAiHub?',a:'A set of practice tools for job seekers: a resume check, AI help with fixes, interview and STAR practice, and salary and skills guides. Sharing your profile with employers is planned. It is not a replacement for LinkedIn.'},
                 ].map((faq, i) => (
                   <details key={i} style={{background:'var(--card)',border:'1px solid var(--border2)',borderRadius:12,padding:'18px 20px',cursor:'pointer'}}>
                     <summary style={{fontSize:'13.5px',fontWeight:600,color:'var(--text)',listStyle:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>{faq.q}<span className="v36-faq-plus">+</span></summary>
@@ -4096,10 +4045,10 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
               {faqExpanded && (
                 <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:4}}>
                   {[
-                    {q:'What is a Trust Score and how is it calculated?',a:'A 100-point index across four weighted dimensions: identity verification (25%), credential depth (35%), platform activity (20%), and engagement signals (20%). Cannot be gamed by self-reporting.'},
+                                        {q:'What is the Practice Score?',a:'A number that combines your resume check, interview practice and STAR stories. It shows how much you have practised, not that your identity or credentials are verified. The way it is calculated is being rebuilt to rely on fixed rules.'},
                     {q:'I\'m actively employed. Can I stay private?',a:'Yes. Use all AI tools in complete privacy without appearing in TrustMatch. You choose when to go "discoverable," and you can turn it off instantly.'},
-                    {q:'Which countries are supported?',a:'Live in Singapore with Singpass and OpenCerts integration. Malaysia, Hong Kong, and Australia are on our 2027 roadmap. International candidates can use all AI tools and Credly-based verification from day one.'},
-                    {q:'What can I do on the free tier?',a:'Free includes 2 resume scans + ATS fixes, JD gap analysis, 1 cover letter, 3 interview prep sessions, and basic Trust Score. TrustMatch requires Pro (SGD 19.90/mo after 7-day trial at SGD 8.99).'},
+                                        {q:'Which countries are supported?',a:'The tools can be used from any country. The market and salary guides focus on Singapore and Southeast Asia for now.'},
+                                        {q:'What does it cost?',a:'Everything is free during the beta and no card is needed. The AI tools need a free account and can be slow or limited at busy times. Paid plans are not offered yet, and we will tell you well before anything changes.'},
                   ].map((faq, i) => (
                     <details key={i} style={{background:'var(--card)',border:'1px solid var(--border2)',borderRadius:12,padding:'18px 20px',cursor:'pointer'}}>
                       <summary style={{fontSize:'13.5px',fontWeight:600,color:'var(--text)',listStyle:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>{faq.q}<span className="v36-faq-plus">+</span></summary>
@@ -4133,7 +4082,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             <span style={{width:24,height:1,background:'rgba(236,72,153,.3)',display:'block'}}></span>
           </div>
           <h2 style={{fontFamily:"'Inter',sans-serif",fontSize:'clamp(40px,6vw,68px)',fontWeight:800,letterSpacing:'-.04em',lineHeight:.96,marginBottom:20,color:'var(--text)'}}>The future of hiring is<br /><span style={{background:'linear-gradient(95deg,#ec4899,#8b5cf6,#f59e0b)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text',fontStyle:'italic'}}>proof,</span> not keywords.</h2>
-          <p style={{fontSize:15,color:'var(--text2)',marginBottom:44,maxWidth:440,marginLeft:'auto',marginRight:'auto',fontWeight:300,lineHeight:1.7}}>CareerAiHub is building the trust infrastructure for modern hiring. Join 2,714 verified candidates and forward-thinking companies already on the platform.</p>
+          <p style={{fontSize:15,color:'var(--text2)',marginBottom:44,maxWidth:440,marginLeft:'auto',marginRight:'auto',fontWeight:300,lineHeight:1.7}}>CareerAiHub is being built in the open: practice tools for job seekers first, employer sharing with consent later. It is free during the beta.</p>
           <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,flexWrap:'wrap',marginBottom:22}}>
             <button onClick={join} className="v36-btn-cta">Get Started Free →</button>
             <button onClick={join} className="v36-btn-outline">Create Recruiter Account ↗</button>
@@ -4164,7 +4113,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             <div>
               <div className="v36-footer-col-label">Product</div>
               <div className="v36-footer-links">
-                {['ATS Builder','AI Interview Coach','Salary Coach','TrustMatch','Pricing'].map(l=>(
+                {['ATS Builder','AI Interview Coach','Salary Coach','TrustMatch'].map(l=>(
                   <button key={l} onClick={join}>{l}</button>
                 ))}
               </div>
