@@ -1,6 +1,8 @@
 // Provider adapters used by the `ai` Edge Function. Pure JS (no Deno APIs) so the same
 // code runs under Deno in production and under Vitest in tests.
 
+import { extractUsage, buildEvent } from '../_shared/usage.js';
+
 export const DEFAULT_MODELS = {
   anthropic: 'claude-sonnet-5-5', gemini: 'gemini-3.8-flash', openai: 'gpt-4o-mini',
   groq: 'openai/gpt-oss-120b', openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
@@ -154,25 +156,35 @@ function parseResponse(provider, data) {
   return text;
 }
 
-// Calls the provider once (retries are the client's job) and returns the text.
-export async function callProvider({ provider, model, key, messages, maxTokens, pdfBase64 }, fetchImpl = fetch, timeoutMs = 80_000) {
+// Calls the provider once (retries are the client's job). Returns { text, usage, durationMs } where usage is what the provider reported (or null).
+export async function callProviderDetailed({ provider, model, key, messages, maxTokens, pdfBase64 }, fetchImpl = fetch, timeoutMs = 80_000) {
   const { url, headers, body } = buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 });
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const started = Date.now();
   let res, data = null;
   try {
     res = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal });
     try { data = await res.json(); } catch { /* non-JSON body */ }
   } catch (e) {
-    throw new ProviderError(e?.name === 'AbortError' ? 'The AI provider timed out.' : 'Could not reach the AI provider.', { kind: 'upstream', status: 0 });
+    throw withTiming(new ProviderError(e?.name === 'AbortError' ? 'The AI provider timed out.' : 'Could not reach the AI provider.', { kind: 'upstream', status: 0 }), started);
   } finally {
     clearTimeout(timer);
   }
   if (!res.ok || !data || data.error) {
     const raw = data?.error?.message ?? (typeof data?.error === 'string' ? data.error : null);
-    throw new ProviderError(raw || `The AI provider request failed (${res.status}).`, { kind: 'upstream', status: res.status });
+    throw withTiming(new ProviderError(raw || `The AI provider request failed (${res.status}).`, { kind: 'upstream', status: res.status }), started);
   }
-  return parseResponse(provider, data);
+  let text;
+  try { text = parseResponse(provider, data); } catch (e) { throw withTiming(e, started); }
+  return { text, usage: extractUsage(provider, data), durationMs: Date.now() - started };
+}
+
+const withTiming = (err, started) => { err.durationMs = Date.now() - started; return err; };
+
+// Same call, text only (kept for callers that do not need usage).
+export async function callProvider(args, fetchImpl = fetch, timeoutMs) {
+  return (await callProviderDetailed(args, fetchImpl, timeoutMs)).text;
 }
 
 // Errors worth trying the next provider for: the provider is busy, down, unreachable, returned nothing, or rejected OUR key or model.
@@ -184,20 +196,25 @@ export const shouldFallBack = (e) =>
 
 // Calls the providers in order until one answers. Throws the FIRST provider's error if all fail (or the first error that must not fall back).
 // A PDF can only go to providers that read PDFs. Never logs keys or bodies.
-export async function callWithFallback({ env, messages, maxTokens, pdfBase64 }, fetchImpl = fetch, timeoutMs) {
+export async function callWithFallback({ env, messages, maxTokens, pdfBase64, meter = null }, fetchImpl = fetch, timeoutMs) {
   const chain = providerChain(env).filter(p => !pdfBase64 || SUPPORTS_PDF[p]);
   if (!chain.length) throw new ProviderError('No AI provider is configured.', { kind: 'upstream', status: 500 });
+  // meter: { record(event), correlationId, feature, userRef, priceTable? }. Metering failures never reach the caller.
+  const emit = (fields) => { try { meter?.record?.(buildEvent({ correlationId: meter.correlationId, feature: meter.feature, userRef: meter.userRef, hasPdf: !!pdfBase64, priceTable: meter.priceTable, ...fields })); } catch { /* never break the request */ } };
   let firstErr;
-  for (const provider of chain) {
+  for (let i = 0; i < chain.length; i++) {
+    const provider = chain[i];
+    const model = modelFor(env, provider);
     try {
-      const model = modelFor(env, provider);
-      const text = await callProvider({ provider, model, key: setting(env, KEY_ENV[provider]), messages, maxTokens, pdfBase64 }, fetchImpl, timeoutMs);
-      console.log(`[ai] answered by ${provider} (${model})${provider === chain[0] ? '' : ' as a fallback'}`); // names only: no keys, no content
+      const { text, usage, durationMs } = await callProviderDetailed({ provider, model, key: setting(env, KEY_ENV[provider]), messages, maxTokens, pdfBase64 }, fetchImpl, timeoutMs);
+      emit({ provider, model, attempt: i + 1, fallback: i > 0, outcome: 'success', durationMs, usage });
+      console.log(`[ai] answered by ${provider} (${model})${i === 0 ? '' : ' as a fallback'}`); // names only: no keys, no content
       return text;
     } catch (e) {
+      emit({ provider, model, attempt: i + 1, fallback: i > 0, outcome: 'error', errorKind: e?.kind ?? 'unknown', httpStatus: e?.status ?? null, durationMs: e?.durationMs ?? 0 });
       firstErr = firstErr || e;
       if (!shouldFallBack(e)) throw e;
-      console.error(`[ai] ${provider} failed (${e.kind} ${e.status}); ${provider === chain[chain.length - 1] ? 'no more providers' : 'trying the next one'}.`);
+      console.error(`[ai] ${provider} failed (${e.kind} ${e.status}); ${i === chain.length - 1 ? 'no more providers' : 'trying the next one'}.`);
     }
   }
   throw firstErr; // the chosen provider's error is the one the user should hear about; the others are in the logs

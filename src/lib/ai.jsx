@@ -61,12 +61,21 @@ async function postToProxy(token, payload) {
 // pdfBase64: optional PDF sent alongside the prompt.
 // Returns the reply text. Throws LLMError: `.status === 401` means the user must sign in;
 // `.truncated` means the reply hit the length limit.
-export async function callLLM(messages, maxTokens = 8192, pdfBase64 = null) {
+// A short label of where the call came from, sent so the server can attribute usage and cost to a feature (never the content of the call).
+// options.feature wins; otherwise the open tool (?tab=<id>) gives "tab_<id>"; otherwise "app".
+export function featureFromLocation() {
+  try {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    return tab && /^[a-z0-9_]{1,30}$/i.test(tab) ? `tab_${tab.toLowerCase()}` : 'app';
+  } catch { return 'app'; }
+}
+
+export async function callLLM(messages, maxTokens = 8192, pdfBase64 = null, options = {}) {
   const session = await getValidSession(); // refreshes the token if it is about to expire
   if (!session?.access_token) {
     throw new LLMError('Please sign in to use AI features.', { status: 401, retryable: false });
   }
-  const payload = { messages, maxTokens };
+  const payload = { messages, maxTokens, feature: options.feature || featureFromLocation() };
   if (pdfBase64) payload.pdfBase64 = pdfBase64;
   return postToProxy(session.access_token, payload);
 }
