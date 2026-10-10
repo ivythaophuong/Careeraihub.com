@@ -1,0 +1,22 @@
+# Runs the same checks that were run by hand before each merge: install exactly what package-lock.json pins, run the tests, build.
+# tests/integration calls real Supabase endpoints, so it is left out here (it is not deterministic offline).
+name: test
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --exclude "tests/integration/**" --exclude "node_modules/**"
+      - run: npm run build
