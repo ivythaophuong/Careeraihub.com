@@ -49,7 +49,7 @@ describe('callLLM → ai Edge Function', () => {
     expect(url).toMatch(/\/functions\/v1\/ai$/);
     expect(init.headers.Authorization).toBe('Bearer user-jwt');
     expect(init.headers.apikey).toBeTruthy();
-    expect(bodyOf(f)).toEqual({ messages: msg, maxTokens: 500, pdfBase64: 'BASE64PDF' });
+    expect(bodyOf(f)).toEqual({ messages: msg, maxTokens: 500, pdfBase64: 'BASE64PDF', feature: 'app' });
   });
 
   it('omits pdfBase64 when there is no PDF', async () => {
@@ -147,5 +147,32 @@ describe('error handling (audit 2.4)', () => {
     const { callLLM } = await loadAi();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res({})));
     await expect(callLLM(msg)).rejects.toBeInstanceOf(Error);
+  });
+});
+
+describe('feature label (so the server can attribute usage to a tool; never content)', () => {
+  const setTab = (q) => window.history.replaceState({}, '', q);
+  afterEach(() => setTab('/'));
+  const send = async (...args) => {
+    const { callLLM } = await loadAi();
+    const f = vi.fn().mockResolvedValue(res({ text: 'ok' }));
+    vi.stubGlobal('fetch', f);
+    await callLLM(msg, ...args);
+    return f;
+  };
+  it('is "app" when no tool is open', async () => {
+    expect(bodyOf(await send()).feature).toBe('app');
+  });
+  it('is tab_<id> for the open tool', async () => {
+    setTab('/?tab=scan');
+    expect(bodyOf(await send()).feature).toBe('tab_scan');
+  });
+  it('an explicit feature wins', async () => {
+    setTab('/?tab=scan');
+    expect(bodyOf(await send(100, null, { feature: 'ats_builder_parse' })).feature).toBe('ats_builder_parse');
+  });
+  it('an odd tab value falls back to "app"', async () => {
+    setTab('/?tab=' + encodeURIComponent('<script>'));
+    expect(bodyOf(await send()).feature).toBe('app');
   });
 });

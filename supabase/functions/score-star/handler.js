@@ -11,6 +11,7 @@ import { callWithFallback, providerChain, ProviderError } from '../ai/providers.
 import { corsHeaders, json, fail, authenticate, createRateLimiter } from '../ai/handler.js';
 import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, overallScore } from '../_shared/starScoring.js';
 import { extractJSON } from '../_shared/extractJson.js';
+import { makeRecorder, userRef as makeUserRef } from '../_shared/usage.js';
 import { signingKey, hmacHex, sameText, rest, countLastDay } from '../_shared/receipt.js';
 
 export const LIMITS = {
@@ -48,7 +49,7 @@ async function review(body, user, env, fetchImpl, cors, now) {
   const prompt = buildStarPrompt(story, { role: clipText(ctx.role, 80), level: clipText(ctx.level, 40), industry: clipText(ctx.industry, 80) });
   let result;
   try {
-    const text = await callWithFallback({ env, messages: [{ role: 'user', content: prompt }], maxTokens: LIMITS.maxTokens, pdfBase64: null }, fetchImpl);
+    const text = await callWithFallback({ env, messages: [{ role: 'user', content: prompt }], maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_star_review', userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) } }, fetchImpl);
     result = normalizeStarResult(extractJSON(text));
   } catch (e) {
     if (e instanceof ProviderError) {

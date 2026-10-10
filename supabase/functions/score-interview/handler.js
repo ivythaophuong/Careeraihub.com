@@ -12,6 +12,7 @@ import { callWithFallback, providerChain, ProviderError } from '../ai/providers.
 import { corsHeaders, json, fail, authenticate, createRateLimiter } from '../ai/handler.js';
 import { PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildEvaluationPrompt, normalizeEvaluation } from '../_shared/interviewScoring.js';
 import { extractJSON } from '../_shared/extractJson.js';
+import { makeRecorder, userRef as makeUserRef } from '../_shared/usage.js';
 import { signingKey, hmacHex, sameText, rest, countLastDay } from '../_shared/receipt.js';
 
 export const LIMITS = {
@@ -43,7 +44,7 @@ async function evaluate(body, user, env, fetchImpl, cors, now) {
 
   let feedback;
   try {
-    const reply = await callWithFallback({ env, messages: [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }], maxTokens: LIMITS.maxTokens, pdfBase64: null }, fetchImpl);
+    const reply = await callWithFallback({ env, messages: [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }], maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_interview_evaluate', userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) } }, fetchImpl);
     feedback = normalizeEvaluation(extractJSON(reply));
   } catch (e) {
     if (e instanceof ProviderError) {
