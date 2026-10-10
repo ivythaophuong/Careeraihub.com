@@ -9,6 +9,7 @@ import { TEMPLATES } from './resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
+import { describePart } from '../../lib/describeScorePart';
 import { computeDeterministicScore } from '../../scoring/computeDeterministicScore';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -186,6 +187,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
     : 'var(--lp-text3)';
 
   return (
+    <div className="atb-parse-wrap">
     <div className="atb-parse-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, minHeight: 500 }}>
       {/* Left */}
       <div className="atb-parse-left-pane" style={{ borderRight: '1px solid var(--lp-bdr)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
@@ -217,6 +219,11 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
               <div style={{ color: 'var(--lp-text3)', fontSize: 11 }}>
                 {fileInfo.words.toLocaleString()} words · extracted
               </div>
+              <details onClick={e => e.stopPropagation()} style={{ marginTop: 8, textAlign: 'left', fontSize: 11, color: 'var(--lp-text3)' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 600, textAlign: 'center' }}>See the text we read</summary>
+                <div style={{ marginTop: 6, lineHeight: 1.5 }}>If something is missing here (for example your email), the file reader missed it: paste your text instead.</div>
+                <pre style={{ marginTop: 6, maxHeight: 180, overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: 10.5, background: 'var(--lp-bg3)', borderRadius: 6, padding: 8, color: 'var(--lp-text2)' }}>{rawText}</pre>
+              </details>
               <button
                 onClick={e => { e.stopPropagation(); setFileInfo(null); setRawText(''); setProfile(null); inputRef.current?.click(); }}
                 style={{ marginTop: 8, background: 'none', border: '1px solid rgba(255,255,255,.12)', borderRadius: 6, color: 'var(--lp-text3)', fontSize: 10, padding: '3px 10px', cursor: 'pointer' }}
@@ -435,7 +442,8 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                   </div>
                   <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {detResult.score.parts.map(part => {
-                      const assessed = Number.isFinite(part.score);
+                      const d = describePart(part);
+                      const assessed = d.assessed;
                       const c = !assessed ? 'var(--lp-text3)' : part.score >= 80 ? '#00E5A0' : part.score >= 60 ? '#FFB84D' : '#FF5A5A';
                       return (
                         <div key={part.id}>
@@ -446,9 +454,17 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                             </div>
                             <span style={{ fontSize: 12, fontWeight: 700, color: c, width: 26, textAlign: 'right', flexShrink: 0 }}>{assessed ? part.score : '—'}</span>
                           </div>
-                          <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', marginTop: 3, marginLeft: 128, lineHeight: 1.4 }}>
-                            {assessed ? (part.evidence || []).join(' · ') : 'Not assessed: this resume has nothing to check here yet.'}
-                          </div>
+                          {assessed && d.items.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, marginLeft: 128 }}>
+                              {d.items.map(it => (
+                                <span key={it.label} style={{ fontSize: 10.5, padding: '2px 8px', borderRadius: 10, border: `1px solid ${it.ok ? 'rgba(0,229,160,.3)' : 'rgba(255,90,90,.35)'}`, color: it.ok ? '#00E5A0' : '#FF5A5A' }}>
+                                  {it.ok ? '✓' : '✗'} {it.label}{it.ok ? '' : ' not found'}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', marginTop: 3, marginLeft: 128, lineHeight: 1.4 }}>{d.text}</div>
+                          )}
                         </div>
                       );
                     })}
@@ -539,6 +555,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           );
         })()}
       </div>
+    </div>
     </div>
   );
 }

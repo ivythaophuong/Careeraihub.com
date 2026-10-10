@@ -7,15 +7,36 @@ export const JD_BUDGET = 4000;
 
 const normalize = (text) => String(text || '').replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 
-const HEADING = /^\s*(summary|profile|objective|about me|experience|work experience|professional experience|employment(?: history)?|projects?|skills?|technical skills|core competencies|education|certifications?|licenses?|awards?|publications?|languages?|volunteer(?:ing)?(?: experience)?|interests|contact(?: info(?:rmation)?| details)?|personal (?:info(?:rmation)?|details))\s*:?\s*$/i;
+// Other names people give the same section, including Vietnamese ones. Each alias is read as the section it stands for, so everything
+// downstream (digest, facts, score) sees one name. Without this a standard Vietnamese CV had no Education, Skills or Experience at all.
+const ALIASES = {
+  'work experience': ['work history', 'career history', 'professional history', 'professional background', 'relevant experience', 'kinh nghiệm', 'kinh nghiệm làm việc', 'kinh nghiệm chuyên môn', 'quá trình làm việc'],
+  'education': ['academic background', 'academic qualifications', 'educational background', 'education & training', 'học vấn', 'trình độ học vấn', 'quá trình học tập', 'học vấn và đào tạo'],
+  'skills': ['key skills', 'skills & tools', 'kỹ năng', 'kĩ năng', 'kỹ năng chuyên môn', 'kỹ năng và công cụ'],
+  'summary': ['professional summary', 'career objective', 'career summary', 'mục tiêu nghề nghiệp', 'giới thiệu bản thân', 'tóm tắt'],
+  'certifications': ['chứng chỉ', 'chứng chỉ và đào tạo'],
+  'projects': ['dự án', 'dự án nổi bật'],
+  'awards': ['giải thưởng', 'thành tích'],
+  'languages': ['ngoại ngữ', 'ngôn ngữ'],
+  'interests': ['sở thích'],
+  'contact': ['thông tin liên hệ', 'thông tin cá nhân'],
+};
+const ALIAS_TO_NAME = new Map(Object.entries(ALIASES).flatMap(([name, list]) => list.map((a) => [a, name])));
+const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+');
+const ALIAS_RE = [...ALIAS_TO_NAME.keys()].sort((a, b) => b.length - a.length).map(esc).join('|');
+const HEADING_BASE = 'summary|profile|objective|about me|experience|work experience|professional experience|employment(?: history)?|projects?|skills?|technical skills|core competencies|education|certifications?|licenses?|awards?|publications?|languages?|volunteer(?:ing)?(?: experience)?|interests|contact(?: info(?:rmation)?| details)?|personal (?:info(?:rmation)?|details)';
+const HEADING = new RegExp('^\\s*(' + ALIAS_RE + '|' + HEADING_BASE + ')\\s*:?\\s*$', 'iu');
 const COMPACT = /^(skills?|technical skills|core competencies|education|certifications?|licenses?|languages?)$/;
 
 // Split into [{ name, body }]. Text before the first heading is the "header" (name, contact, tagline).
 export function splitSections(text) {
   const sections = [{ name: 'header', body: [] }];
   for (const line of normalize(text).split('\n')) {
-    const m = line.match(HEADING);
-    if (m) sections.push({ name: m[1].toLowerCase(), body: [] });
+    const m = line.normalize('NFC').match(HEADING);
+    if (m) {
+      const found = m[1].toLowerCase().replace(/\s+/g, ' ');
+      sections.push({ name: ALIAS_TO_NAME.get(found) || found, body: [] });
+    }
     else sections[sections.length - 1].body.push(line);
   }
   return sections.map(s => ({ name: s.name, body: s.body.join('\n').trim() }));

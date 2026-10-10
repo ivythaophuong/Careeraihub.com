@@ -57,3 +57,31 @@ describe('choosing which resume to scan', () => {
     expect(screen.queryByLabelText('Resume to scan')).toBeNull();
   });
 });
+
+describe('next steps in the editor', () => {
+  const SCAN = { matchScore: 70, roleTitle: 'Product Manager', company: 'Acme', bars: [], jdKeywords: ['SQL'], aiInsight: 'x', issues: [] };
+  const PROFILE = { name: 'Jane Doe', workExperience: [{ title: 'PM', company: 'Acme', period: '2021', bullets: ['Grew revenue'] }], education: [{ degree: 'BSc', institution: 'X', year: '2017' }], skills: ['SQL'] };
+  const open = async () => {
+    const { callLLM } = await import('../../lib/ai.jsx');
+    callLLM.mockImplementation(async (msgs) => JSON.stringify(msgs[0].content.includes('Compare this resume') ? SCAN : PROFILE));
+    const setResumeText = vi.fn(); const setActiveModule = vi.fn(); const updateMemory = vi.fn();
+    render(<ResumeScan {...base} resumeText={{ type: 'text', content: 'Jane Doe\nExperience\nPM at Acme\nEducation\nBSc 2017\nSkills\nSQL', fileName: 'cv.docx' }} setResumeText={setResumeText} setActiveModule={setActiveModule} updateMemory={updateMemory} />);
+    fireEvent.change(screen.getByLabelText('Job description'), { target: { value: 'We need a Product Manager who knows SQL.' } });
+    fireEvent.click(screen.getByRole('button', { name: /scan match/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /edit|resume editor|open/i }));
+    return { setResumeText, setActiveModule, updateMemory };
+  };
+
+  it('lists four steps as rows with a title and a hint, and the first one is the current step', async () => {
+    await open();
+    for (const t of ['Download your PDF', 'Save as a new version', 'Re-check against this job', 'Practise the interview']) expect(await screen.findByRole('button', { name: t })).toBeTruthy();
+    expect(screen.getByText('Next steps')).toBeTruthy();
+  });
+  it('practise opens the interview coach; re-check loads the edited text and returns to the scan page', async () => {
+    const { setResumeText, setActiveModule } = await open();
+    fireEvent.click(await screen.findByRole('button', { name: 'Practise the interview' }));
+    expect(setActiveModule).toHaveBeenCalledWith('simulate');
+    fireEvent.click(screen.getByRole('button', { name: 'Re-check against this job' }));
+    expect(setResumeText).toHaveBeenCalledWith(expect.objectContaining({ fileName: 'cv.docx (edited)' }));
+  });
+});

@@ -71,8 +71,6 @@ function guardIssues(issues, resume) {
   });
 }
 
-const nextBtn = { textAlign: 'left', padding: '8px 10px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 'unset' };
-
 function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMemory, memory }) {
   const [jd, setJd]           = useState('');
   const [loading, setLoading] = useState(false);
@@ -676,16 +674,41 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                 borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all .2s', minHeight: 'unset',
               }}>{copyDone ? 'Copied ✓' : 'Copy text'}</button>
 
-              {/* What next? */}
-              <div style={{ borderTop: '1px solid var(--lp-bdr)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--lp-text3)' }}>What next?</div>
-                <div style={{ fontSize: 11, color: 'var(--lp-text2)' }}>{pdfExported ? '✓' : '1.'} Download your PDF (top right).</div>
-                <button type="button" onClick={saveAsVersion} disabled={!templateProfile || lostSections.length > 0 || versionSaved} style={nextBtn}>
-                  {versionSaved ? '✓ Saved to your resume versions' : '2. Save as a new version'}
-                </button>
-                <button type="button" onClick={rescanEdited} style={nextBtn}>3. Re-check this resume against the same job</button>
-                <button type="button" onClick={() => setActiveModule?.('simulate')} style={nextBtn}>4. Practise the interview for this role</button>
-              </div>
+              {/* Next steps: one clear action per row; the first step not done yet is highlighted */}
+              {(() => {
+                const canSave = !!templateProfile && lostSections.length === 0 && !!updateMemory;
+                const steps = [
+                  { title: 'Download your PDF', hint: pdfDownloading ? 'Generating…' : 'Keeps the fixes you applied', done: pdfExported, action: handleExportPdf, disabled: pdfDownloading || parsingTemplate },
+                  { title: 'Save as a new version', hint: versionSaved ? 'Saved to your resume versions' : canSave ? 'Reuse it for other jobs' : 'Available once the template is ready', done: versionSaved, action: saveAsVersion, disabled: !canSave || versionSaved },
+                  { title: 'Re-check against this job', hint: 'See how the edited resume scores now', done: false, action: rescanEdited, disabled: false },
+                  { title: 'Practise the interview', hint: `For ${result?.roleTitle || 'this role'}`, done: false, action: () => setActiveModule?.('simulate'), disabled: !setActiveModule },
+                ];
+                const current = steps.findIndex(st => !st.done);
+                return (
+                  <div style={{ borderTop: '1px solid var(--lp-bdr)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--lp-text3)', marginBottom: 2 }}>Next steps</div>
+                    {steps.map((st, i) => {
+                      const isCurrent = i === current;
+                      return (
+                        <button key={st.title} type="button" onClick={st.action} disabled={st.disabled} aria-label={st.title}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', width: '100%', padding: '9px 10px', minHeight: 'unset',
+                            background: isCurrent ? 'rgba(236,72,153,.06)' : 'transparent',
+                            border: `1px solid ${isCurrent ? 'rgba(236,72,153,.35)' : 'var(--lp-bdr)'}`, borderRadius: 9,
+                            cursor: st.disabled ? 'default' : 'pointer', opacity: st.disabled && !st.done ? 0.55 : 1, fontFamily: 'inherit' }}>
+                          <span aria-hidden="true" style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800,
+                            background: st.done ? '#00E5A0' : 'transparent', color: st.done ? '#000' : isCurrent ? '#EC4899' : 'var(--lp-text3)',
+                            border: `1.5px solid ${st.done ? '#00E5A0' : isCurrent ? '#EC4899' : 'var(--lp-bdr)'}` }}>{st.done ? '✓' : i + 1}</span>
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--lp-text)' }}>{st.title}</span>
+                            <span style={{ display: 'block', fontSize: 10.5, color: 'var(--lp-text3)', marginTop: 1 }}>{st.hint}</span>
+                          </span>
+                          <span aria-hidden="true" style={{ color: 'var(--lp-text3)', fontSize: 14 }}>›</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

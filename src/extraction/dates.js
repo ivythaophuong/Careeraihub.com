@@ -5,7 +5,7 @@ const MONTHS = {
   jul: 7, july: 7, aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11,
   november: 11, dec: 12, december: 12,
 };
-const PRESENT = /^(present|current|now|ongoing|hiện tại|hien tai|đang làm|dang lam)$/i;
+const PRESENT = /^(present|current|now|ongoing|hiện tại|hien tai|hiện nay|đến nay|nay|đang làm|dang lam)$/iu;
 // Built from MONTHS so "a real month name" means the same thing everywhere it is checked, instead of
 // accepting any run of letters before a 4-digit number (which used to also match "Ltd\t2021").
 const MONTH_NAME_SRC = Object.keys(MONTHS).sort((a, b) => b.length - a.length).join('|');
@@ -17,7 +17,8 @@ const empty = (source) => ({ value: null, normalized_value: null, source, eviden
 
 // Parses ONE date token (not a range). Returns a Fact.
 export function parseDate(token, source = 'date') {
-  const t = String(token || '').trim();
+  // Vietnamese writes "Tháng 1/2021" (month 1, 2021): the word is dropped and the rest is read as "1/2021".
+  const t = String(token || '').normalize('NFC').trim().replace(/^(?:tháng|thang)\s*/iu, '');
   if (!t) return empty(source);
   if (PRESENT.test(t)) return fact(t, source, t, 0.95, 'present');
 
@@ -66,8 +67,8 @@ export function parseDateRange(text, source = 'dates') {
 
 // Finds the first date-range-shaped run in a line of text (e.g. a tab-separated trailing date on an
 // experience line) and returns { range: {start,end}, matchedText } or null if nothing looks like a date.
-const DATE_TOKEN_SRC = `${MONTH_YEAR_RE.source}|(?:\\d{1,2}[/.-])?\\d{4}|present|current|now|hiện tại`;
-const SCAN_RE = new RegExp(`((?:${DATE_TOKEN_SRC})\\s*[-–—]\\s*(?:${DATE_TOKEN_SRC}))|((?<!\\d)(?:19|20)\\d{2}(?!\\d))`, 'i');
+const DATE_TOKEN_SRC = `${MONTH_YEAR_RE.source}|(?:(?:tháng|thang)\\s*)?(?:\\d{1,2}[/.-])?\\d{4}|present|current|now|hiện tại|hiện nay|đến nay|nay`;
+const SCAN_RE = new RegExp(`((?:${DATE_TOKEN_SRC})\\s*[-–—]\\s*(?:${DATE_TOKEN_SRC}))|((?<!\\d)(?:19|20)\\d{2}(?!\\d))`, 'iu');
 export function findDateRangeInLine(line, source = 'dates') {
   const m = SCAN_RE.exec(String(line || ''));
   if (!m) return null;
