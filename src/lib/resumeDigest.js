@@ -2,6 +2,8 @@
 // Keyword presence is decided by code over the WHOLE text; the AI only reads a condensed, section-aware digest,
 // and the user is told whenever that digest is shorter than what they provided.
 
+import { classifyHeading } from './sectionHeadings';
+
 export const RESUME_BUDGET = 6000;
 export const JD_BUDGET = 4000;
 
@@ -37,7 +39,12 @@ export function splitSections(text) {
       const found = m[1].toLowerCase().replace(/\s+/g, ' ');
       sections.push({ name: ALIAS_TO_NAME.get(found) || found, body: [] });
     }
-    else sections[sections.length - 1].body.push(line);
+    else {
+      // Fallback for other wordings of a heading (see sectionHeadings.js). Lines the exact table knows never get here.
+      const c = classifyHeading(line);
+      if (c) sections.push({ name: c.canonical, body: [] });
+      else sections[sections.length - 1].body.push(line);
+    }
   }
   return sections.map(s => ({ name: s.name, body: s.body.join('\n').trim() }));
 }
