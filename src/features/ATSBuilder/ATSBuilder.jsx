@@ -389,7 +389,8 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           const scoreColor = score >= 80 ? '#00E5A0' : score >= 60 ? '#FFB84D' : '#FF5A5A';
           const scoreLabel = !hasScore ? 'Not enough readable content to score' : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
           const circumference = 2 * Math.PI * 28;
-          const goToBuilder = () => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(); };
+          // focus = { step, issue } when the user came from one issue, so the builder opens at that issue's step and keeps it on screen.
+          const goToBuilder = (focus) => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(focus); };
 
           return (
             <>
@@ -529,7 +530,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                           </div>
                         )}
                         {issue.builderStep != null
-                          ? <button onClick={goToBuilder} style={{ alignSelf: 'flex-start', background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '5px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                          ? <button onClick={() => goToBuilder({ step: issue.builderStep, issue })} style={{ alignSelf: 'flex-start', background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '5px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                               Fix in Builder →
                             </button>
                           : issue.module === 'scan' && setActiveModule
@@ -563,7 +564,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
 
               {/* Bottom CTA */}
               {profile && onGoToBuilder && (
-                <button onClick={goToBuilder} style={{ width: '100%', padding: '14px 0', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
+                <button onClick={() => goToBuilder()} style={{ width: '100%', padding: '14px 0', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
                   Fix These Issues in Builder →
                 </button>
               )}
@@ -773,9 +774,14 @@ const LEGACY_DRAFT_KEY = 'careerai_builder_draft';
 export const builderDraftKey = (userId) => `${DRAFT_PREFIX}:${userId || 'guest'}`;
 export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(builderDraftKey(userId)); } catch {} };
 
-function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user }) {
+// builderStep from an issue is 1=Contact ... 5=Summary, the same order as BUILDER_STEPS (index = builderStep - 1). Anything else opens step 1.
+const stepIndexFor = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n - 1 : 0);
+
+function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user, focus }) {
   const draftKey = builderDraftKey(user?.id);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => stepIndexFor(focus?.step));
+  const [fixing, setFixing] = useState(focus?.issue || null);
+  useEffect(() => { setStep(stepIndexFor(focus?.step)); setFixing(focus?.issue || null); }, [focus]);
   const [activeTemplate, setActiveTemplate] = useState('modern');
   const [skillInput, setSkillInput] = useState('');
   const [previewScale, setPreviewScale] = useState(1);
@@ -926,6 +932,16 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         {isSample && (
           <div style={{ background: 'rgba(236,72,153,.08)', border: '1px solid rgba(236,72,153,.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 11.5, color: 'var(--lp-teal)', lineHeight: 1.5 }}>
             👆 Sample resume shown — go to <strong>Upload & Parse</strong> tab to load yours
+          </div>
+        )}
+
+        {fixing && (
+          <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--lp-bg3)', border: '1px solid var(--lp-teal)', borderRadius: 8, fontSize: 12, lineHeight: 1.55, color: 'var(--lp-text2)' }}>
+            <div style={{ fontWeight: 800, color: 'var(--lp-text)', marginBottom: 2 }}>Fixing: {fixing.title}</div>
+            {fixing.description && <div>{fixing.description}</div>}
+            {fixing.before && <div style={{ marginTop: 6 }}><strong>In your resume:</strong> {fixing.before}</div>}
+            {fixing.after && <div style={{ marginTop: 4 }}><strong>Suggestion (check every figure is true):</strong> {fixing.after}</div>}
+            <button type="button" onClick={() => setFixing(null)} style={{ marginTop: 8, background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer' }}>Done</button>
           </div>
         )}
 
@@ -1185,6 +1201,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
   const globalResume = resumeContent(globalResumeRaw); // Resume Scan stores an object here, not a string
   const [mainTab, setMainTab] = useState('parse');
   const [entryMode, setEntryMode] = useState(null); // null=choose, 'scratch', 'existing'
+  const [builderFocus, setBuilderFocus] = useState(null); // { step, issue } when the builder was opened from one issue
 
   // Resume data
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -1253,7 +1270,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
           onResumeExtracted={handleResumeExtracted}
           onPdfUploaded={handlePdfUploaded}
           onProfileParsed={handleProfileParsed}
-          onGoToBuilder={() => { setEntryMode('existing'); setMainTab('builder'); }}
+          onGoToBuilder={(focus) => { setBuilderFocus(focus?.issue ? focus : null); setEntryMode('existing'); setMainTab('builder'); }}
           setActiveModule={setActiveModule}
         />
       )}
@@ -1300,6 +1317,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
           user={user}
           initialProfile={memory?.parseProfile || null}
           memory={memory}
+          focus={builderFocus}
           onSaveVersion={handleSaveVersion}
           restoredData={restoredData}
           setActiveModule={setActiveModule}
