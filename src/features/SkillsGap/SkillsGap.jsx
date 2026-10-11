@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
+import { skillsGapInputKey } from './skillsGapInputs';
 
 function SectionLabel({ children }) {
   return <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--lp-text3)', fontFamily: 'var(--lp-ffm)', marginBottom: 10 }}>{children}</div>;
@@ -57,10 +58,18 @@ export default function SkillsGap({ resumeText, form, memory, updateMemory, show
   const cached = memory.skillsGap;
   const [result, setResult] = useState(cached?.result || null);
   const [loading, setLoading] = useState(false);
+  const [analysedKey, setAnalysedKey] = useState(null); // the key of the analysis made in this visit, before memory catches up
 
   const resumeCtx = resumeText
     ? (typeof resumeText === 'string' ? resumeText : resumeText.content || '')
     : '';
+
+  const scanSummary = memory.scanHistory?.[0]?.result?.summary || '';
+  const jdTitles = (memory.jdAnalyses || []).map(j => j.roleTitle);
+  const currentKey = skillsGapInputKey({ form, resumeCtx, scanSummary, jdTitles });
+  const savedKey = analysedKey ?? cached?.inputKey ?? null;
+  // none: no result yet. current: the result was made from these inputs. stale: an input changed. untracked: a result from before inputs were tracked.
+  const state = !result ? 'none' : savedKey === currentKey ? 'current' : savedKey ? 'stale' : 'untracked';
 
   const analyze = async () => {
     if (!resumeCtx && !memory.scanHistory?.length) {
@@ -92,7 +101,8 @@ Include 6-9 skills. Be specific to their actual profile.` }], 1500);
       const parsed = extractJSON(raw);
       if (parsed.error) throw new Error(parsed.msg);
       setResult(parsed);
-      updateMemory(m => ({ ...m, skillsGap: { result: parsed, forRole: form?.role, computedAt: new Date().toISOString() } }));
+      setAnalysedKey(currentKey);
+      updateMemory(m => ({ ...m, skillsGap: { result: parsed, forRole: form?.role, inputKey: currentKey, computedAt: new Date().toISOString() } }));
     } catch (e) {
       showToast('Analysis failed: ' + e.message, 'error');
     }
@@ -110,18 +120,23 @@ Include 6-9 skills. Be specific to their actual profile.` }], 1500);
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>
             AI reviews your profile for {form?.role || 'your target'} roles
-            {cached?.computedAt && ` · cached ${new Date(cached.computedAt).toLocaleDateString()}`}
+            {cached?.computedAt && ` · analysed ${new Date(cached.computedAt).toLocaleDateString()}`}
           </div>
+          {state === 'current' && <div style={{ fontSize: 11.5, color: 'var(--lp-text3)', marginTop: 4 }}>Up to date. Based on your CV, role, level and market. It is analysed again only when one of these changes.</div>}
+          {state === 'stale' && <div style={{ fontSize: 11.5, color: '#F5B340', marginTop: 4 }}>Your inputs changed since this analysis (role, level, market, CV or analysed roles).</div>}
+          {state === 'untracked' && <div style={{ fontSize: 11.5, color: '#F5B340', marginTop: 4 }}>This analysis was made before inputs were tracked. Update it once so it stays in step with your CV.</div>}
         </div>
-        <button
-          onClick={analyze}
-          disabled={loading}
-          style={{ background: loading ? 'var(--lp-bg3)' : 'var(--lp-teal)', color: loading ? 'var(--lp-text3)' : '#000', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: 'var(--lp-ff)', display: 'flex', alignItems: 'center', gap: 7 }}
-        >
-          {loading ? (
-            <><span style={{ display: 'inline-flex', gap: 3 }}>{[0,1,2].map(i => <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--lp-teal)', animation: `lp-pulse 1.2s ease ${i * 0.2}s infinite`, display: 'inline-block' }} />)}</span> Analyzing…</>
-          ) : (result ? '↺ Refresh analysis' : '⚡ Analyze my gaps')}
-        </button>
+        {state !== 'current' && (
+          <button
+            onClick={analyze}
+            disabled={loading}
+            style={{ background: loading ? 'var(--lp-bg3)' : 'var(--lp-teal)', color: loading ? 'var(--lp-text3)' : '#000', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: 'var(--lp-ff)', display: 'flex', alignItems: 'center', gap: 7 }}
+          >
+            {loading ? (
+              <><span style={{ display: 'inline-flex', gap: 3 }}>{[0,1,2].map(i => <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--lp-teal)', animation: `lp-pulse 1.2s ease ${i * 0.2}s infinite`, display: 'inline-block' }} />)}</span> Analyzing…</>
+            ) : (result ? 'Update analysis' : '⚡ Analyze my gaps')}
+          </button>
+        )}
       </div>
 
       {!result && !loading && (
