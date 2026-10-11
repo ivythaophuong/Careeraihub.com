@@ -96,3 +96,19 @@ describe('copyToClipboard', () => {
     expect(await copyToClipboard('hi')).toBe(false);
   });
 });
+
+describe('buildToneChangePrompt', () => {
+  it('sends only the letter and the tone: no resume, no job description, and a hard rule not to add facts', async () => {
+    const { buildToneChangePrompt, TONES } = await import('./coverLetter');
+    const prompt = buildToneChangePrompt({ letter: 'Dear Hiring Manager,\n\nI cut latency by 40% at Acme.\n\nSincerely,\nAnn Lee', tone: 'confident' });
+    expect(prompt).toContain('I cut latency by 40% at Acme.');
+    expect(prompt).toContain(TONES.confident.style);
+    expect(prompt).toMatch(/Do not add any fact/i);
+    expect(prompt).not.toMatch(/<resume>|<job_description>/);
+    expect(prompt).toMatch(/untrusted data/i);
+  });
+  it('falls back to the professional tone for an unknown tone', async () => {
+    const { buildToneChangePrompt, TONES } = await import('./coverLetter');
+    expect(buildToneChangePrompt({ letter: 'x'.repeat(100), tone: 'nope' })).toContain(TONES.professional.style);
+  });
+});

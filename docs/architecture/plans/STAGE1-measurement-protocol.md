@@ -22,6 +22,7 @@ Per feature label, per run: `input_tokens`, `output_tokens`, `thinking_tokens`, 
 | `ats_bullet_rewrite` | ATS Builder, Bullets tab | digest, up to 3 000 chars |
 | `jd_analyze` | JD Analyzer | text or pdf |
 | `cover_letter` | Cover Letter | text or pdf |
+| `cover_letter_tone` | Cover Letter, tone change on an existing letter (only the letter is sent) | none |
 | `mock_questions` | Mock Interview, start | text or pdf |
 | `score_interview_evaluate` | Mock Interview, each answer (server) | text up to 6 000 chars |
 | `salary_script` | Salary Prep, negotiation | text or pdf |
