@@ -1,5 +1,7 @@
 # Plan: integrity signals for mock interviews (paste, tab switches, follow-up questions)
 
+> **Superseded in part on 2026-10-11 (ADR-012).** Paste and tab-switch signals, `integrity jsonb` and any recruiter-facing labels built on them are **not to be implemented**. The server-issued, signed `start` action and server-measured time (sections 2.2 and 3, without the browser signals) remain design options. The follow-up question idea (2.3) is not decided.
+
 Status: **design for the owner's review. Nothing here is implemented or approved.** Written 2026-10-09 after an external review proposed anti-cheating measures for the interview coach.
 Evidence classes as in `docs/architecture/EVIDENCE_RESULTS_2026-10-09.md`. Today's behaviour is in section 1; everything else is a proposal.
 
@@ -19,7 +21,7 @@ The external review says the score "cannot be cheated" and the proof is "undenia
 
 ## 2. Signals
 
-### 2.1 Reported by the browser (untrusted, advisory). Counts and timings only, never the content of keys
+### 2.1 [SUPERSEDED, DO NOT IMPLEMENT] Reported by the browser (untrusted, advisory). Counts and timings only, never the content of keys
 
 | Signal | How | Notes |
 |---|---|---|
@@ -44,13 +46,15 @@ After a normal answer the server asks one deeper question about a claim in that 
 - Cost and delay: 2 extra AI calls on 2 questions per session. UNKNOWN until measured.
 - The follow-up grade is a normal `PRACTICE_SCORE` part; it is not an authenticity verdict.
 
-## 3. Storage (needs SQL run by the owner)
+## 3. [SUPERSEDED IN PART] Storage (needs SQL run by the owner)
+
+> Not in scope: the `integrity` and `integrity_version` columns for browser signals. Only server-side session and time storage may come back, in a separate approved proposal (see `docs/audits/INTERVIEW-CONSTRAINTS-PHASE0-AUDIT.md` section 10).
 
 `mock_sessions.integrity jsonb` and `mock_sessions.integrity_version int`. Written only by the Edge Function (the browser has no write privilege on the table). Example, per session: totals and per-answer entries of section 2 plus `depth_score` and `signals_source: "browser_reported" | "server_measured"` for each field. The raw numbers are stored; labels are derived when read, with versioned thresholds, so a threshold can be corrected without rewriting history.
 
 Receipts: the signals sent with `evaluate` are part of what the receipt signs, so they cannot be changed between answering and saving.
 
-## 4. Who sees what
+## 4. [SUPERSEDED] Who sees what (labels built on browser signals are not to be shown to anyone)
 
 | Audience | Version 1 |
 |---|---|
@@ -64,7 +68,7 @@ Receipts: the signals sent with `evaluate` are part of what the receipt signs, s
 - Retention: UNKNOWN, owner to decide (suggest 12 months with the session).
 - A timer is optional and off by default: it can disadvantage people with disabilities and non-native speakers.
 
-## 6. Phases
+## 6. [SUPERSEDED] Phases (any phase that collects paste or tab signals is cancelled)
 
 | Phase | Content | DB change | Depends on |
 |---|---|---|---|

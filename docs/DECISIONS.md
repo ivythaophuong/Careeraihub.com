@@ -40,6 +40,15 @@ Only decisions with evidence in code, comments, docs or git history. Dates are c
 - **Evidence:** `ATSBuilder.shownScore.test.jsx` (shown number is the computed one, ignores a stored model score, same input gives the same score, unreadable text shows no score, not 0); `docs/AI_ARCHITECTURE_CONTRACT.md` section 1.
 - **Limit:** the computed score measures three things only (completeness, quantified bullets, date consistency). It is not a prediction of how any particular ATS will rank the resume. Resume Scan's JD-match score and the Dashboard/Roadmap numbers that read it are still model-made (not yet changed).
 
+## ADR-012: Server-side limits for the Interview Coach / Mock Interview, and no browser behaviour signals (owner decisions, 2026-10-11)
+- **Decision:**
+  1. **Order of work** (PR sequence in `docs/audits/INTERVIEW-CONSTRAINTS-PHASE0-AUDIT.md` section 10): PR 1 documents only; PR 2 adds an overall deadline for the provider fallback chain and merges the usage metering (C1, log only); no limit value is set before real usage is measured.
+  2. **Timeout accounting is "Approach B":** a concurrency slot may be released only when the server knows it has stopped holding the request; the cost reservation is kept as a separate resource until the provider outcome is reconciled or its upper bound expires. Releasing everything on an application timeout ("Approach A") is not allowed if it can exceed the approved cost budget. Nothing is built yet.
+  3. **Practice scores and the trust score: (a) + (c).** (a) Consent-screen wording is changed only after it is verified accurate; today it is accurate for the new read path (`employer_view_candidates`) and not for the Employer Portal's direct read of `candidate_trust_profiles`, so it is not changed now and the consent screen is not released as a guarantee. No text may suggest that practice scores no longer affect `trust_score` while the trigger still uses them. (c) The claim that recruiter access is controlled waits until consent-only read access is deployed and tested. Changing the trigger (b) is not decided.
+  4. **No paste, tab-focus or other browser behaviour signals** are collected or used to infer cheating or lower a score. `docs/architecture/plans/PLAN-interview-integrity-signals.md` is superseded in part: the server-issued, signed `start` action and server-measured time are kept as design options.
+- **Evidence:** `docs/audits/INTERVIEW-CONSTRAINTS-PHASE0-AUDIT.md` (sections 6, 7, 11). Facts there are tagged CODE, TEST, DB, ESTIMATE or UNKNOWN.
+- **Limits:** no quota, entitlement or cost ledger exists yet; the `ai` function is still an open proxy for any signed-in user (finding R1). Speech-to-text provider, audio storage and recording limits are not decided; a provider is not to be chosen by the implementer.
+
 ## Superseded: ADR for hiding the computed score (commit c0463ec) is reversed by ADR-011.
 
 ## Not yet decided (no evidence of a choice)
