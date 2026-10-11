@@ -16,20 +16,21 @@ describe('ReadinessScore never invents a score', () => {
     ['a stored scan without a score', { memory: { scanHistory: [{ result: { summary: 'x' } }] } }],
   ])('%s shows the empty state, not a default number', (_n, props) => {
     show(props);
-    expect(screen.getByText('No readiness score yet')).toBeTruthy();
+    expect(screen.getByText('No saved readiness result')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/\b50\b|Excellent|Strong|Found/);
   });
 
-  it('the empty state sends the user to the scanner', () => {
+  it('the empty state sends the user to ATS Builder, where resume checks now run', () => {
     const setActiveModule = vi.fn();
     show({ setActiveModule });
-    fireEvent.click(screen.getByText('Run a scan'));
-    expect(setActiveModule).toHaveBeenCalledWith('scan');
+    fireEvent.click(screen.getByText('Open ATS Builder'));
+    expect(setActiveModule).toHaveBeenCalledWith('ats');
+    expect(document.body.textContent).not.toMatch(/Scan your resume to get a score/);
   });
 
   it('with a real score it shows that score and the status derived from it', () => {
     show({ scanResult: { credibilityScore: 72, issues: [{ severity: 'critical' }, { severity: 'warning' }, { severity: 'warning' }] } });
-    expect(screen.getByText('Latest scan score')).toBeTruthy();
+    expect(screen.getByText('Earlier AI estimate (latest scan)')).toBeTruthy();
     expect(screen.getByText('Needs polish')).toBeTruthy();
     expect(screen.getByText('3 (1 critical)')).toBeTruthy(); // counted from the scan, not typed in
   });
@@ -42,7 +43,7 @@ describe('ReadinessScore never invents a score', () => {
   it('keeps a real score of 0 (zero is data; missing is not)', () => {
     show({ scanResult: { credibilityScore: 0, issues: [] } });
     expect(screen.getByText('Needs work')).toBeTruthy();
-    expect(screen.queryByText('No readiness score yet')).toBeNull();
+    expect(screen.queryByText('No saved readiness result')).toBeNull();
   });
 
   it('no longer shows made-up verdicts, probabilities or progress', () => {

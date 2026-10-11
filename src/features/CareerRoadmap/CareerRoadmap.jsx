@@ -74,12 +74,11 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
   }, [user, syncedAt]);
 
   // Step states derived from memory
-  const atsScore      = memory.scanHistory?.[0]?.score ?? 0;
   const readiness     = memory.mockSessions?.[0]?.avgScore ?? 0;
   const starCount     = memory.starBank?.length ?? 0;
-  const hasResume     = !!(memory.resumeText || memory.scanHistory?.length);
+  const hasResume     = !!memory.resumeText; // step 1 is "resume added": no scan score is recorded anywhere, so none can be required
   const hasSkillsGap  = !!memory.skillsGap?.result;
-  const s1Done  = hasResume && atsScore >= 75;
+  const s1Done  = hasResume;
   const s2Done  = readiness >= 75 && starCount >= 5;
   const s3Done  = hasSkillsGap;
   const s4Done  = trustScore >= 65;
@@ -118,7 +117,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
         Your goal: <strong style={{ color: 'var(--lp-text)' }}>{targetRole}</strong>
         {form?.market ? ` in ${form.market}` : ''}. You're <strong style={{ color: '#EC4899' }}>{progressPct}%</strong> of the way there.
         {stepsCompleted < 5 && (
-          <> The next unlock: <strong style={{ color: '#F5B340' }}>{!s1Done ? 'get your ATS score above 75' : !s2Done ? 'clear 75+ interview readiness with 5+ STAR stories' : !s3Done ? 'run skills gap analysis' : !s4Done ? 'raise your practice score to 65+ with interview and STAR practice' : 'activate TrustMatch visibility'}</strong>. Estimated offer timeline: {estimatedDays} at current pace.</>
+          <> The next unlock: <strong style={{ color: '#F5B340' }}>{!s1Done ? 'add your resume' : !s2Done ? 'clear 75+ interview readiness with 5+ STAR stories' : !s3Done ? 'run skills gap analysis' : !s4Done ? 'raise your practice score to 65+ with interview and STAR practice' : 'activate TrustMatch visibility'}</strong>. Estimated offer timeline: {estimatedDays} at current pace.</>
         )}
         {stepsCompleted === 5 && <> All 5 steps complete — you're fully prepared. Activate TrustMatch to start receiving recruiter matches.</>}
       </AiBubble>
@@ -134,10 +133,10 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
           </div>
 
           <RoadmapStep num={1} state={stepState(s1Done, true)}
-            title="Resume ready · ATS 75+"
-            desc={s1Done ? `ATS score ${atsScore}/100 — your resume clears initial filters.` : `Current ATS: ${atsScore > 0 ? atsScore + '/100' : 'not scanned'}. Scan your resume and rewrite bullets to reach 75+.`}
-            cta={!s1Done ? 'Scan resume →' : null}
-            onCta={() => setActiveModule('scan')}
+            title="Add your resume"
+            desc={s1Done ? 'Your resume is added. ATS Builder shows what a reader finds in it and what to improve.' : 'Upload or paste your resume in ATS Builder. Every other step builds on it.'}
+            cta={!s1Done ? 'Add resume →' : null}
+            onCta={() => setActiveModule('ats')}
             isLast={false} />
 
           <RoadmapStep num={2} state={stepState(s2Done, s1Done)}
@@ -186,8 +185,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
           {/* Milestone tracker */}
           <div style={{ background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: '16px 18px' }}>
             <SectionLabel>Milestone tracker</SectionLabel>
-            <MilestoneRow done={atsScore >= 75} label="Resume ATS score > 75"  current={atsScore}  target={75} />
-            <MilestoneRow done={atsScore >= 87} label="Resume ATS score > 87 (strong)" current={atsScore} target={87} />
+            <MilestoneRow done={hasResume} label="Resume added" current={0} target={0} />
             <MilestoneRow done={readiness >= 75} label="Interview readiness > 75" current={readiness} target={75} />
             <MilestoneRow done={starCount >= 5}  label="STAR bank 5+ stories"   current={starCount} target={5} />
             <MilestoneRow done={hasSkillsGap}    label="Skills gap analysis run" current={hasSkillsGap ? 1 : 0} target={1} />

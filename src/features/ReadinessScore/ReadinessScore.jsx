@@ -20,9 +20,9 @@ export default function ReadinessScore({ scanResult, memory, setActiveModule, on
         {!embedded && <GetReadyTabStrip activeModuleId="score" onNavigate={setActiveModule} onStudyPlan={onStudyPlan || (() => {})} />}
         <div style={{ textAlign: "center", padding: 60 }}>
           <div style={{ fontSize: 60, marginBottom: 20 }}>📊</div>
-          <div style={{ color: C.text, fontWeight: 900, fontSize: 18, marginBottom: 8 }}>No readiness score yet</div>
-          <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Scan your resume to get a score.</div>
-          <button onClick={() => setActiveModule?.("scan")} style={{ background: C.accent, color: "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 800, cursor: "pointer" }}>Run a scan</button>
+          <div style={{ color: C.text, fontWeight: 900, fontSize: 18, marginBottom: 8 }}>No saved readiness result</div>
+          <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Resume checks now run in ATS Builder. This page only shows a result saved earlier, and none is saved for your account.</div>
+          <button onClick={() => setActiveModule?.("ats")} style={{ background: C.accent, color: "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 800, cursor: "pointer" }}>Open ATS Builder</button>
         </div>
       </div>
     );
@@ -39,12 +39,12 @@ export default function ReadinessScore({ scanResult, memory, setActiveModule, on
       <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24 }}>
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>Resume Readiness Score</div>
-        <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>From your latest resume scan. It scores how your resume reads; it does not predict hiring outcomes.</div>
+        <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>An estimate saved from an earlier scan, set by an AI model. It scores how your resume reads; it does not predict hiring outcomes.</div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 12 }}>
         <Card style={{ textAlign: "center", padding: 40, border: `1px solid ${color}44`, background: color + "05" }}>
-          <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>Latest scan score</div>
+          <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>Earlier AI estimate (latest scan)</div>
           <AnimatedScore value={score} color={color} size="large" suffix="/100" />
           <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
             <Badge label={status} color={color} size="md" />
