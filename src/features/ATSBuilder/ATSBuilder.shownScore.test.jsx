@@ -75,3 +75,19 @@ describe('ATS Builder shows the computed score', () => {
     expect(screen.queryByText('ATS Readiness')).toBeNull();
   });
 });
+
+describe('ATS Builder when the pasted text has lost its line breaks', () => {
+  const ONE_LINE = GOOD.replace(/\s*\n\s*/g, ' ').repeat(3);
+  it('shows no score and says the line breaks are missing, with what to do, instead of a low score', () => {
+    render(<ATSBuilder {...base} resumeText={ONE_LINE} />);
+    expect(screen.getByText(/line breaks/i)).toBeTruthy();
+    expect(screen.getByText(/paste it again|upload the file/i)).toBeTruthy();
+    expect(screen.queryByText('out of 100')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Needs Major Work/);
+  });
+  it('a normal text still gets its score', () => {
+    render(<ATSBuilder {...base} resumeText={GOOD} />);
+    expect(screen.getByText('out of 100')).toBeTruthy();
+    expect(screen.queryByText(/line breaks are missing/i)).toBeNull();
+  });
+});

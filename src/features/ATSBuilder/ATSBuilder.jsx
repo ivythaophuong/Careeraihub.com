@@ -429,6 +429,11 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                     <div className="atb-score-number" style={{ fontSize: 42, fontWeight: 900, color: scoreColor, lineHeight: 1, letterSpacing: '-2px' }}>{hasScore ? score : '—'}</div>
                     <div style={{ fontSize: 11, color: 'var(--lp-text3)', marginTop: 2 }}>{hasScore ? 'out of 100' : 'no score yet'}</div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: scoreColor, marginTop: 6 }}>{scoreLabel}</div>
+                    {!hasScore && detResult?.facts?.extraction?.notes?.includes('structure_lost') && (
+                      <div role="note" style={{ marginTop: 8, fontSize: 11.5, lineHeight: 1.55, color: 'var(--lp-text2)', maxWidth: 360 }}>
+                        This text has no line breaks, so we cannot tell where one section ends and the next begins. Paste it again with its line breaks, or upload the file.
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ height: 4, borderRadius: 2, background: 'var(--lp-bdr)', overflow: 'hidden' }}>

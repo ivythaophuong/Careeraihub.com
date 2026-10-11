@@ -5,6 +5,7 @@ import { splitSections } from '../lib/resumeDigest';
 import { RESUME_FACTS_VERSION, validateResumeFacts } from '../contracts/resumeFacts';
 import { contentHash } from './hash';
 import { normalizeResumeText } from '../lib/textNormalize';
+import { detectLostStructure } from '../lib/textStructure';
 import { extractContact } from './contact';
 import { extractExperiences } from './experience';
 import { extractEducation } from './education';
@@ -25,6 +26,7 @@ const bySectionName = (sections, re) => sections.filter(s => re.test(s.name));
 export function extractResumeFacts(text) {
   // One normalisation for pasted and extracted text (odd spaces, curly quotes, a lone bullet glyph), so both read the same.
   const raw = normalizeResumeText(text);
+  const structure = detectLostStructure(raw);
   const sections = splitSections(raw);
   const header = sections.find(s => s.name === 'header');
   const contactSections = bySectionName(sections, CONTACT_SECTION);
@@ -44,7 +46,8 @@ export function extractResumeFacts(text) {
   const facts = {
     schema_version: RESUME_FACTS_VERSION,
     content_hash: contentHash(raw),
-    extraction: { status: raw.trim() ? 'ok' : 'failed', notes: [] },
+    // A text whose line breaks are lost cannot be read section by section: say so (status failed, note structure_lost) instead of scoring it low.
+    extraction: { status: raw.trim() && !structure.lost ? 'ok' : 'failed', notes: structure.lost ? ['structure_lost'] : [] },
     contact: extractContact(contactText, raw),
     experiences,
     education,
