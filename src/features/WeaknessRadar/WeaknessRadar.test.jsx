@@ -67,3 +67,19 @@ describe('WeaknessRadar', () => {
     expect(screen.queryByText(/Not enough evidence yet/)).toBeNull();
   });
 });
+
+describe('WeaknessRadar says what it counts', () => {
+  it('counts practice SESSIONS, so one finished session is "you have 1" in sessions, not questions', () => {
+    render(<WeaknessRadar memory={{ mockSessions: [{ avgScore: 70, questionsCount: 2 }] }} setActiveModule={() => {}} />);
+    expect(document.body.textContent).toMatch(/at least 2 practice sessions \(you have 1\)/i);
+    expect(document.body.textContent).not.toMatch(/practice questions/i);
+  });
+
+  it('names the unit in the average it shows', () => {
+    render(<WeaknessRadar setActiveModule={() => {}}
+      memory={{ mockSessions: [{ avgScore: 30 }, { avgScore: 50 }], starBank: [{ score: 80 }, { score: 90 }] }} />);
+    expect(screen.getByText(/Average of your last 2 practice sessions\./)).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/practice answers/i);
+    expect(screen.getByText(/Average of your last 2 STAR stories\./)).toBeTruthy();
+  });
+});

@@ -97,15 +97,15 @@ export default function WeaknessRadar({ scanResult, memory, setActiveModule, onS
 
         {ev.interview.score != null ? (
           <ScoreCard title="Interview practice" score={ev.interview.score}
-            basis={`Average of your last ${ev.interview.count} practice answers.`} action="Practice another answer" onAction={go('simulate')} />
+            basis={`Average of your last ${ev.interview.count} practice sessions.`} action="Practice another answer" onAction={go('simulate')} />
         ) : (
           <NotEnoughEvidence title="Interview practice"
-            need={`Answer at least ${MIN_EVIDENCE} practice questions (you have ${ev.interview.count}).`} action="Start a practice session" onAction={go('simulate')} />
+            need={`Complete at least ${MIN_EVIDENCE} practice sessions (you have ${ev.interview.count}).`} action="Start a practice session" onAction={go('simulate')} />
         )}
 
         {ev.star.score != null ? (
           <ScoreCard title="STAR stories" score={ev.star.score}
-            basis={`Average of your last ${ev.star.count} refined stories.`} action="Refine another story" onAction={go('star')} />
+            basis={`Average of your last ${ev.star.count} STAR stories.`} action="Refine another story" onAction={go('star')} />
         ) : (
           <NotEnoughEvidence title="STAR stories"
             need={`Refine at least ${MIN_EVIDENCE} stories (you have ${ev.star.count}).`} action="Build a STAR story" onAction={go('star')} />
