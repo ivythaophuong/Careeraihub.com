@@ -196,7 +196,20 @@ export const shouldFallBack = (e) =>
 
 // Calls the providers in order until one answers. Throws the FIRST provider's error if all fail (or the first error that must not fall back).
 // A PDF can only go to providers that read PDFs. Never logs keys or bodies.
-export async function callWithFallback({ env, messages, maxTokens, pdfBase64, meter = null }, fetchImpl = fetch, timeoutMs) {
+// Overall time budget for the whole chain (ADR-012). Must stay below the browser's wait (100 s in src/lib/ai.jsx and serverScoring.js), which in turn is
+// below the platform's 150 s request idle timeout (Supabase Edge Function limits page, read 2026-10-11), so the server does not keep calling providers
+// for a request the browser has already given up on. AI_DEADLINE_MS (a secret) can change it without a code change. Proposed value, to be confirmed by the owner.
+export const DEFAULT_DEADLINE_MS = 90_000;
+// A provider attempt shorter than this is not started: it could not finish a real answer.
+export const MIN_ATTEMPT_MS = 5_000;
+export const deadlineFor = (env) => {
+  const n = Number(setting(env, 'AI_DEADLINE_MS'));
+  return Number.isFinite(n) && n >= MIN_ATTEMPT_MS ? Math.floor(n) : DEFAULT_DEADLINE_MS;
+};
+
+export async function callWithFallback({ env, messages, maxTokens, pdfBase64, meter = null }, fetchImpl = fetch, timeoutMs, clock = Date.now) {
+  const startedAt = clock();
+  const deadlineMs = deadlineFor(env);
   const chain = providerChain(env).filter(p => !pdfBase64 || SUPPORTS_PDF[p]);
   if (!chain.length) throw new ProviderError('No AI provider is configured.', { kind: 'upstream', status: 500 });
   // meter: { record(event), correlationId, feature, userRef, priceTable? }. Metering failures never reach the caller.
@@ -205,8 +218,13 @@ export async function callWithFallback({ env, messages, maxTokens, pdfBase64, me
   for (let i = 0; i < chain.length; i++) {
     const provider = chain[i];
     const model = modelFor(env, provider);
+    const remaining = deadlineMs - (clock() - startedAt);
+    if (i > 0 && remaining < MIN_ATTEMPT_MS) {
+      console.error(`[ai] Time budget used up after ${i} attempt(s); not trying ${provider} or the rest.`);
+      break;
+    }
     try {
-      const { text, usage, durationMs } = await callProviderDetailed({ provider, model, key: setting(env, KEY_ENV[provider]), messages, maxTokens, pdfBase64 }, fetchImpl, timeoutMs);
+      const { text, usage, durationMs } = await callProviderDetailed({ provider, model, key: setting(env, KEY_ENV[provider]), messages, maxTokens, pdfBase64 }, fetchImpl, Math.min(timeoutMs ?? 80_000, Math.max(remaining, MIN_ATTEMPT_MS)));
       emit({ provider, model, attempt: i + 1, fallback: i > 0, outcome: 'success', durationMs, usage });
       console.log(`[ai] answered by ${provider} (${model})${i === 0 ? '' : ' as a fallback'}`); // names only: no keys, no content
       return text;

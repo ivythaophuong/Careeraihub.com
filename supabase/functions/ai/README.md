@@ -65,6 +65,15 @@ A fallback model may answer differently from the primary one: JSON shape is stil
 | Mistral | Free Experiment plan: data may be used for training unless opted out in the Admin Console; paid plans: not used for training (secondary sources, official page not readable) | confirm on Mistral's own page |
 | OpenRouter | Does not store prompts unless the account opts in. Requests carry `provider: { zdr: true }`, so only Zero Data Retention endpoints are used (docs: openrouter.ai/docs/guides/features/zdr) | whether `:free` models have a ZDR endpoint: UNKNOWN. If not, the request fails and the next provider is tried |
 
+## Time budget for the fallback chain (ADR-012)
+
+`callWithFallback` has an overall budget (default 90 s, `DEFAULT_DEADLINE_MS` in `providers.js`). Each provider attempt gets at most the time that is left (and never more than its own 80 s), and no further provider is started when less than 5 s remain; the first provider's error is then reported, as before. `ai`, `score-star` and `score-interview` all use it because they all call `callWithFallback`.
+
+- Why 90 s: it must stay below the browser's wait (100 s in `src/lib/ai.jsx` and `src/lib/serverScoring.js`), which is below the platform's request idle timeout of 150 s (Supabase Edge Function limits page, read 2026-10-11; the page lists 150 s idle timeout for both plans and 150 s / 400 s wall clock for free / paid plans). The value 90 s is a proposal pending owner confirmation.
+- Optional secret `AI_DEADLINE_MS` changes the budget without a code change (ignored if it is not a number of at least 5000).
+- Limit of this change: aborting a request closes the connection but does not prove the provider stopped processing or billing. Reconciling that is later work (cost reservation, "Approach B").
+- The browser still retries once on 5xx, so one user action can cost up to two budgets. Not changed here.
+
 ## Usage metering (step C1 of the pricing plan)
 
 Every model call attempt writes one log line `[usage] {json}` (Supabase dashboard, Functions, `ai` / `score-star` / `score-interview`, Logs). It holds counts and metadata only:
