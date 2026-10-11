@@ -223,6 +223,8 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
   }, [user, syncedAt]);
 
   const validScans = (memory.scanHistory || []).filter(s => s.status !== 'failed' && s.score > 0);
+  // No flow records a resume scan any more, so for a new user there is no score. Only an older stored scan (an AI estimate) can exist; it is shown as such and never as a target.
+  const hasAts     = validScans.length > 0;
   const atsScore   = validScans[0]?.score ?? 0;
   const prevAtsScore = validScans[1]?.score ?? null;
   const atsDelta   = prevAtsScore !== null ? atsScore - prevAtsScore : null;
@@ -244,7 +246,8 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
 
   const aiInsight = useMemo(() => {
     const gaps = [];
-    if (atsScore < 70)   gaps.push(`ATS score ${atsScore}/100${atsDelta !== null ? ` (${atsDelta > 0 ? '+' : ''}${atsDelta} vs last scan)` : ''} — paste a JD to close keyword gaps`);
+    if (!hasAts)         gaps.push('your CV has not been checked yet — open ATS Builder');
+    else if (atsScore < 70) gaps.push(`earlier AI estimate of your resume ${atsScore}/100 — paste a JD to close keyword gaps`);
     if (starCount < 3)   gaps.push(`${starCount} STAR ${starCount === 1 ? 'story' : 'stories'} saved — aim for 8+`);
     if (readiness < 70)  gaps.push(`interview readiness ${readiness}/100 — run a mock session`);
     if (trustScore < 65) gaps.push(`practice score ${trustScore}/100 — practise interview answers and STAR stories`);
@@ -253,32 +256,36 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
       return 'Profile looks strong. Keep running mock sessions to stay sharp.';
     }
     return `Top priority: ${gaps[0]}.${gaps[1] ? ` Also: ${gaps[1]}.` : ''}`;
-  }, [atsScore, atsDelta, starCount, readiness, trustScore]);
+  }, [hasAts, atsScore, atsDelta, starCount, readiness, trustScore]);
 
   const weeklyPlan = useMemo(() => {
     const steps = [];
-    if (atsScore < 70)   steps.push('Scan resume against your target JD — close keyword gaps');
+    if (!hasAts)         steps.push('Check your CV in ATS Builder');
+    else if (atsScore < 70) steps.push('Scan resume against your target JD — close keyword gaps');
     if (starCount < 8)   steps.push(`Add ${8 - starCount} STAR ${8 - starCount === 1 ? 'story' : 'stories'} to cover behavioral questions`);
     if (readiness < 80)  steps.push('Complete 2 mock interview sessions this week');
     if (trustScore < 65) steps.push('Raise your practice score with interview answers and STAR stories');
     steps.push('Review AI feedback and refine target role keywords');
     return steps.slice(0, 4);
-  }, [atsScore, starCount, readiness, trustScore]);
+  }, [hasAts, atsScore, starCount, readiness, trustScore]);
 
   const actionItems = useMemo(() => [
-    atsScore < 70   && { label: 'Improve ATS Score',  why: `Score ${atsScore}/100 — add missing keywords from your target JD`,         color: '#FF5A5A', id: 'scan'       },
+    !hasAts         && { label: 'Check your CV',      why: 'See which sections a reader finds, how many bullets carry numbers, and whether dates are consistent', color: '#FF5A5A', id: 'ats'  },
+    hasAts && atsScore < 70 && { label: 'Improve your resume', why: `Earlier AI estimate ${atsScore}/100 — add missing keywords from your target JD`, color: '#FF5A5A', id: 'scan' },
     starCount < 5   && { label: 'Build STAR Bank',     why: `${starCount} of 8 stories saved — cover all behavioral categories`,         color: '#FFB84D', id: 'star'       },
     readiness < 70  && { label: 'Run Mock Interview',  why: `Readiness ${readiness}/100 — simulate to sharpen your answers`,             color: '#EC4899', id: 'simulate'   },
     trustScore < 65 && { label: 'Raise Practice Score', why: `Practice score ${trustScore}/100 — it builds from your interview and STAR practice`, color: '#8B7CF6', id: 'simulate' },
     jdCount < 3     && { label: 'Analyze More JDs',   why: `${jdCount} JD${jdCount !== 1 ? 's' : ''} scanned — tailor prep to each role`, color: '#00E5A0', id: 'jd'        },
-  ].filter(Boolean).slice(0, 4), [atsScore, starCount, readiness, trustScore, jdCount]);
+  ].filter(Boolean).slice(0, 4), [hasAts, atsScore, starCount, readiness, trustScore, jdCount]);
 
   const atsDeltaLabel = atsDelta !== null
     ? atsDelta > 0 ? `↑ +${atsDelta} since last scan` : atsDelta < 0 ? `↓ ${atsDelta} since last scan` : '→ no change'
-    : atsScore >= 80 ? '✓ Strong' : atsScore > 0 ? 'Rescan to track progress' : 'No scans yet';
+    : atsScore >= 80 ? 'Earlier estimate: strong' : atsScore > 0 ? 'Earlier AI estimate' : 'Check your CV in ATS Builder';
 
   const milestones = [
-    { iconLabel: 'ATS Score',   value: atsScore > 0 ? atsScore : '—',    label: 'Resume ATS',        delta: atsDeltaLabel,              color: '#EC4899', pct: atsScore,                        onClick: () => setActiveModule('scan')       },
+    hasAts
+      ? { iconLabel: 'Earlier ATS estimate', value: atsScore, label: 'AI estimate, earlier scan', delta: atsDeltaLabel, color: '#EC4899', pct: atsScore, onClick: () => setActiveModule('ats') }
+      : { iconLabel: 'ATS Readiness', value: '—', label: 'Rule-based check', delta: 'Check your CV in ATS Builder', color: '#EC4899', pct: 0, onClick: () => setActiveModule('ats') },
     { iconLabel: 'Readiness',   value: readiness > 0 ? readiness : '—',  label: 'Interview prep',    delta: readiness > 0 ? `${100 - readiness} pts to go` : 'Start a session',                      color: '#FFB84D', pct: readiness,                       onClick: () => setActiveModule('simulate')   },
     { iconLabel: 'STAR Bank',   value: starCount,                         label: 'Stories saved',     delta: starCount >= 8 ? '✓ Solid bank' : `target: 8`,                                            color: '#FFB800', pct: Math.min(100, starCount * 12.5), onClick: () => setActiveModule('star')       },
     { iconLabel: 'Practice Score', value: trustScore > 0 ? trustScore : '—', label: 'From your practice', delta: trustScore >= 65 ? '✓ Strong' : 'Practise to raise it',                                 color: trustScore >= 65 ? '#00E5A0' : '#FF5A5A', pct: trustScore, onClick: () => setActiveModule('trustmatch') },
@@ -310,18 +317,18 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
       </div>
 
       {/* No resume — upload CTA */}
-      {!resumeText && atsScore === 0 && (
+      {!resumeText && !hasAts && (
         <div style={{ marginBottom: 16, background: 'rgba(236,72,153,.05)', border: '1px solid rgba(236,72,153,.2)', borderRadius: 10, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--lp-text)', marginBottom: 4 }}>Upload your resume to unlock everything</div>
-            <div style={{ fontSize: 11.5, color: 'var(--lp-text2)', lineHeight: 1.5 }}>Your ATS score, skills gap, readiness, and AI coaching all activate after your first scan.</div>
+            <div style={{ fontSize: 11.5, color: 'var(--lp-text2)', lineHeight: 1.5 }}>Add your resume once and the other tools can use it: the ATS Builder check, skills gap, interview practice and AI coaching.</div>
           </div>
-          <button onClick={() => setActiveModule('ats')} style={{ ...btnStyle('primary'), flexShrink: 0, padding: '9px 18px', fontSize: 13 }}>Scan my resume →</button>
+          <button onClick={() => setActiveModule('ats')} style={{ ...btnStyle('primary'), flexShrink: 0, padding: '9px 18px', fontSize: 13 }}>Add my resume →</button>
         </div>
       )}
 
       {/* Resume exists, no scan yet — show profile or loading spinner */}
-      {resumeText && atsScore === 0 && (
+      {resumeText && !hasAts && (
         <div style={{ marginBottom: 16, background: 'rgba(236,72,153,.04)', border: '1px solid rgba(236,72,153,.18)', borderRadius: 12, padding: '16px 20px' }}>
           {profileLoading ? (
             /* Loading state */

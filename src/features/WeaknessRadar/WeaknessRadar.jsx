@@ -92,7 +92,11 @@ export default function WeaknessRadar({ scanResult, memory, setActiveModule, onS
             <button onClick={go('ats')} style={{ marginTop: 12, background: 'transparent', color: C.accent, border: `1px solid ${C.accent}66`, borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Fix these in the ATS Builder</button>
           </Card>
         ) : (
-          <NotEnoughEvidence title="Resume" need="Scan your resume to see specific issues quoted from it." action="Scan my resume" onAction={go('scan')} />
+          <Card>
+            <div style={{ color: C.text, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Resume</div>
+            <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>Resume checks run in ATS Builder, where each issue is quoted from your resume. They are not tracked on this page yet.</div>
+            <button onClick={go('ats')} style={{ background: 'transparent', color: C.accent, border: `1px solid ${C.accent}66`, borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Open ATS Builder</button>
+          </Card>
         )}
 
         {ev.interview.score != null ? (

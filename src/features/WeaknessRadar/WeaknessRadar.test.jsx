@@ -41,7 +41,7 @@ describe('buildEvidence', () => {
 describe('WeaknessRadar', () => {
   it('invents nothing for a new user: no bars, no percentages, only next actions', () => {
     render(<WeaknessRadar memory={{}} setActiveModule={() => {}} />);
-    expect(screen.getAllByText(/Not enough evidence yet/)).toHaveLength(3);
+    expect(screen.getAllByText(/Not enough evidence yet/)).toHaveLength(2); // interview and STAR; the resume tile points to ATS Builder
     expect(screen.queryByTestId('bar')).toBeNull();
     expect(document.body.textContent).not.toMatch(/\d+%/);
   });
@@ -53,8 +53,8 @@ describe('WeaknessRadar', () => {
     expect(go).toHaveBeenCalledWith('simulate');
     fireEvent.click(screen.getByText('Build a STAR story'));
     expect(go).toHaveBeenCalledWith('star');
-    fireEvent.click(screen.getByText('Scan my resume'));
-    expect(go).toHaveBeenCalledWith('scan');
+    fireEvent.click(screen.getByText('Open ATS Builder'));
+    expect(go).toHaveBeenCalledWith('ats');
   });
 
   it('shows real measurements and specific resume issues when evidence exists', () => {
@@ -81,5 +81,13 @@ describe('WeaknessRadar says what it counts', () => {
     expect(screen.getByText(/Average of your last 2 practice sessions\./)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/practice answers/i);
     expect(screen.getByText(/Average of your last 2 STAR stories\./)).toBeTruthy();
+  });
+});
+
+describe('WeaknessRadar resume tile', () => {
+  it('does not ask for a scan that nothing records; it points to where resume checks run', () => {
+    render(<WeaknessRadar memory={{}} setActiveModule={() => {}} />);
+    expect(document.body.textContent).not.toMatch(/Scan your resume|Scan my resume/);
+    expect(screen.getByText(/Resume checks run in ATS Builder/)).toBeTruthy();
   });
 });
