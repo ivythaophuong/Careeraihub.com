@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Badge, Spinner } from '../../components/CommonUI';
-import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { extractJSON } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 import { pickResumeSource } from '../../lib/resumeSource';
 import { serverScoringOn, evaluateAnswerOnServer, saveInterviewOnServer } from '../../lib/serverScoring';
 import {
@@ -49,7 +50,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     if (!role.trim() && resume.kind === 'none') { setErr('Enter the role you are interviewing for, or add your resume, so the questions fit you.'); return; }
     setBusy('questions'); setErr('');
     try {
-      const raw = await callLLM([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
+      const raw = await callLLMFor('mock_questions', resume)([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
       setQuestions(normalizeQuestions(extractJSON(raw)));
       setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false);
       setPhase('interview');
@@ -71,7 +72,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         const reply = await evaluateAnswerOnServer({ personaId, role: role.trim(), question: q.question, answer, resumeText: resume.kind === 'none' || resume.kind === 'pdf' ? '' : resume.text });
         fb = reply.feedback; receipt = reply.receipt;
       } else {
-        const raw = await callLLM([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume }) }], 1800);
+        const raw = await callLLMFor('mock_evaluate_legacy', resume)([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume }) }], 1800);
         fb = normalizeEvaluation(extractJSON(raw));
       }
       setCurrent(fb);

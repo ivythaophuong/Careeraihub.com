@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import mammoth from 'mammoth';
-import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { extractJSON } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
 import { digestResume } from '../../lib/resumeDigest.js';
 import { OrbitSpinner } from '../../components/OrbitMark';
@@ -93,7 +94,7 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
   const parseResume = async (text) => {
     setLoading(true); setProfile(null); setError('');
     try {
-      const raw = await callLLM([{ role: 'user', content:
+      const raw = await callLLMFor('ats_parse', { kind: 'text', chars: Math.min(text.length, 5000) })([{ role: 'user', content:
         `Parse this resume and extract all structured data for a resume builder.
 Resume text:
 ${text.slice(0, 5000)}
@@ -583,7 +584,7 @@ function BulletRewriteTab({ resumeText: sharedResume, targetRole: sharedRole }) 
     if (!bullets.trim()) return;
     setLoading(true); setRewrites([]);
     try {
-      const raw = await callLLM([{ role: 'user', content:
+      const raw = await callLLMFor('ats_bullet_rewrite', { kind: resumeCtx ? 'text' : 'none', chars: resumeCtx ? resumeCtx.length : 0 })([{ role: 'user', content:
         `Rewrite these resume bullets to be stronger, more quantified, and ATS-optimised.
 Context/role: ${context || 'general'}${resumeCtx ? `\nResume context:\n${resumeCtx}` : ''}
 Bullets:

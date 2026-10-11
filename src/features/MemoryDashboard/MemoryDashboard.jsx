@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
-import { callLLM, extractJSON } from '../../lib/ai';
+import { extractJSON } from '../../lib/ai';
+import { callLLMFor } from '../../lib/aiFeature.js';
 import { sb } from '../../lib/supabase';
 import { GetReadyTabStrip } from '../Landing/LandingPage';
 import '../../styles/featurePage.css';
@@ -56,7 +57,7 @@ export default function MemoryDashboard({ memory, form, user, updateMemory, setA
     setLoading(true);
     const memCtx = buildMemoryContext(memory, form);
     try {
-      const raw = await callLLM([{role:"user", content:`Elite career coach. Based on comprehensive user history, generate a personalized career acceleration plan.${memCtx}
+      const raw = await callLLMFor('memory_plan')([{role:"user", content:`Elite career coach. Based on comprehensive user history, generate a personalized career acceleration plan.${memCtx}
 
 Return ONLY raw JSON:
 {"overallProgress":"0-100 score based on activity","status":"Ready|Almost|Needs Work","topStrength":"best thing about their journey","biggestRisk":"most critical risk to landing the job","weeklyPlan":[{"day":"Mon","action":"..."},{"day":"Tue","action":"..."},{"day":"Wed","action":"..."},{"day":"Thu","action":"..."},{"day":"Fri","action":"..."}],"uniqueInsights":["insight1 specific to their data","insight2","insight3"],"predictedTimeline":"estimated weeks to get offer based on their activity pace","nextMilestone":"the single most important thing to do next"}`}], 1500);

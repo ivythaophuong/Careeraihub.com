@@ -89,3 +89,7 @@ Every model call attempt writes one log line `[usage] {json}` (Supabase dashboar
 
 Report: copy the log lines into a file and run `node scripts/usage-report.mjs <file>`. It prints, per feature: requests, users, errors, answers by fallback, average tokens (only over calls that reported them), cost where a price entry exists, and how many calls had no cost.
 Credit prices must not be set from this alone: they also need a judgement of the value each action gives the user (`docs/product/PRICING-AND-CREDITS-STRATEGY.md`).
+
+### Resume counts in the usage line (Stage 1 of the Resume Context design)
+
+Each `[usage]` event also carries `resume_kind` (`structured`, `text`, `pdf`, `none` or null) and `resume_chars` (a whole number or null): what kind of resume source the call carried and how many characters of it. Counts only, never text. The app sends them as the optional request fields `resumeKind` and `resumeChars` (set by `callLLMFor` in `src/lib/aiFeature.js`); `score-interview` sets them itself. Anything that is not on the fixed list or not a sensible number is recorded as null. The same change gives every call site its own feature label (a test fails if a bare `callLLM(` appears).

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { C } from '../../styles/theme';
-import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { extractJSON } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 import { OrbitSpinner } from '../../components/OrbitMark';
 import { userLevelIndex, isCacheCurrent, MARKET_CACHE_VERSION, MARKET_DATA_ENABLED } from './salaryLevel';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
@@ -79,7 +80,7 @@ function MarketDataTab({ form, memory, updateMemory, setForm }) {
   const loadMarket = async () => {
     setLoading(true); setError('');
     try {
-      const raw = await callLLM([{ role: 'user', content:
+      const raw = await callLLMFor('salary_market')([{ role: 'user', content:
         `You are a compensation analyst for ${market} tech roles.
 Give approximate MONTHLY BASE salary ranges in ${cur} for the role family "${role}" at five levels. These are market estimates, not figures from a salary survey, and they say nothing about any individual candidate. Do not name specific employers.
 
@@ -287,7 +288,7 @@ function NegotiationTab({ resumeText, form, memory, setAuthModal }) {
     const offerClean = parseAmount(offer), targetClean = parseAmount(target);
     try {
       const prompt = buildSalaryPrompt({ situation, stage, offer: offerClean, target: targetClean, currency, math: m, resume });
-      const raw = await callLLM([{ role: 'user', content: prompt }], 3000, resume.pdfBase64);
+      const raw = await callLLMFor('salary_script', resume)([{ role: 'user', content: prompt }], 3000, resume.pdfBase64);
       const parsed = normalizeSalaryResult(extractJSON(raw));
       setResult(parsed);
       setMath(m);

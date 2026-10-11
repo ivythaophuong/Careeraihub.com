@@ -18,6 +18,11 @@ export const PRICE_TABLE = Object.freeze({ version: '0', entries: Object.freeze(
 
 export const sanitizeFeature = (f) => (typeof f === 'string' && /^[a-z0-9_]{1,40}$/.test(f) ? f : 'unknown');
 
+// Counts about the resume part of a call (Stage 1 of docs/architecture/plans/DESIGN-resume-context.md). A kind from a fixed list and a number; never text.
+export const RESUME_KINDS = ['structured', 'text', 'pdf', 'none'];
+export const sanitizeResumeKind = (k) => (RESUME_KINDS.includes(k) ? k : null);
+export const sanitizeResumeChars = (n) => (Number.isFinite(n) && n >= 0 && n <= 1_000_000 ? Math.round(n) : null);
+
 const num = (v) => (Number.isFinite(v) && v >= 0 ? v : null);
 
 // What each provider reports. Returns null when nothing usable was reported.
@@ -66,7 +71,7 @@ export async function userRef(secret, userId) {
 }
 
 // Builds the event written for one attempt. Only fields listed here can reach the log.
-export function buildEvent({ correlationId, feature, userRef: uref, provider, model, attempt, fallback, outcome, errorKind = null, httpStatus = null, durationMs, usage = null, hasPdf = false, priceTable = PRICE_TABLE, now = new Date() }) {
+export function buildEvent({ correlationId, feature, userRef: uref, provider, model, attempt, fallback, outcome, errorKind = null, httpStatus = null, durationMs, usage = null, hasPdf = false, resumeKind = null, resumeChars = null, priceTable = PRICE_TABLE, now = new Date() }) {
   const date = now.toISOString().slice(0, 10);
   const cost = outcome === 'success' ? computeCost(usage, priceFor(priceTable, provider, model, date), hasPdf) : { cost_usd: null, cost_status: 'not_applicable' };
   return {
@@ -74,7 +79,7 @@ export function buildEvent({ correlationId, feature, userRef: uref, provider, mo
     provider, model, attempt, fallback: !!fallback, outcome, error_kind: errorKind, http_status: httpStatus, duration_ms: Math.round(durationMs),
     input_tokens: usage?.input ?? null, output_tokens: usage?.output ?? null, thinking_tokens: usage?.thinking ?? null, total_tokens: usage?.total ?? null,
     usage_status: outcome !== 'success' ? 'not_applicable' : usage ? 'reported' : 'usage_unavailable',
-    has_pdf: !!hasPdf, price_table_version: priceTable.version, ...cost,
+    has_pdf: !!hasPdf, resume_kind: sanitizeResumeKind(resumeKind), resume_chars: sanitizeResumeChars(resumeChars), price_table_version: priceTable.version, ...cost,
   };
 }
 
