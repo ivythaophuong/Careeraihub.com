@@ -64,3 +64,28 @@ A fallback model may answer differently from the primary one: JSON shape is stil
 | DeepInfra | Inputs not stored to disk, content not logged, no training, except Google/Anthropic models where those companies' policies apply | where data is processed: not stated |
 | Mistral | Free Experiment plan: data may be used for training unless opted out in the Admin Console; paid plans: not used for training (secondary sources, official page not readable) | confirm on Mistral's own page |
 | OpenRouter | Does not store prompts unless the account opts in. Requests carry `provider: { zdr: true }`, so only Zero Data Retention endpoints are used (docs: openrouter.ai/docs/guides/features/zdr) | whether `:free` models have a ZDR endpoint: UNKNOWN. If not, the request fails and the next provider is tried |
+
+## Time budget for the fallback chain (ADR-012)
+
+`callWithFallback` has an overall budget (default 90 s, `DEFAULT_DEADLINE_MS` in `providers.js`). Each provider attempt gets at most the time that is left (and never more than its own 80 s), and no further provider is started when less than 5 s remain; the first provider's error is then reported, as before. `ai`, `score-star` and `score-interview` all use it because they all call `callWithFallback`.
+
+- Why 90 s: it must stay below the browser's wait (100 s in `src/lib/ai.jsx` and `src/lib/serverScoring.js`), which is below the platform's request idle timeout of 150 s (Supabase Edge Function limits page, read 2026-10-11; the page lists 150 s idle timeout for both plans and 150 s / 400 s wall clock for free / paid plans). The value 90 s is a proposal pending owner confirmation.
+- Optional secret `AI_DEADLINE_MS` changes the budget without a code change (ignored if it is not a number of at least 5000).
+- Limit of this change: aborting a request closes the connection but does not prove the provider stopped processing or billing. Reconciling that is later work (cost reservation, "Approach B").
+- The browser still retries once on 5xx, so one user action can cost up to two budgets. Not changed here.
+
+## Usage metering (step C1 of the pricing plan)
+
+Every model call attempt writes one log line `[usage] {json}` (Supabase dashboard, Functions, `ai` / `score-star` / `score-interview`, Logs). It holds counts and metadata only:
+`correlation_id`, `feature`, `user_ref` (a pseudonym, not the user id), `provider`, `model`, `attempt`, `fallback`, `outcome`, `error_kind`, `http_status`, `duration_ms`,
+`input_tokens`, `output_tokens`, `thinking_tokens`, `total_tokens`, `usage_status`, `has_pdf`, `price_table_version`, `cost_usd`, `cost_status`. Never a prompt, a CV, an answer, a key or an e-mail (tests check this).
+
+- Tokens are what the provider reported. If it reported none: `usage_status: "usage_unavailable"` and null tokens. Nothing is estimated.
+- Cost comes only from `PRICE_TABLE` in `supabase/functions/_shared/usage.js` (versioned entries with an effective date). The table is **empty on purpose** until prices are copied from each provider's own pricing page, so `cost_status` is `price_unknown` for now. Thinking tokens, PDF input and free tiers are billed in provider-specific ways; an entry that cannot describe a quirk must not be added.
+- `feature` is chosen by the app (`tab_<tool>` from the open tool, or an explicit name); `score-star` and `score-interview` set their own. Anything odd becomes `unknown`.
+- `user_ref` is an HMAC of the user id. Set the secret `USAGE_LOG_SALT` once (`supabase secrets set USAGE_LOG_SALT=<random string>`); without it the service role key is used, and rotating that key changes every pseudonym.
+- An error response from `ai` carries `error.requestId`, the same value as `correlation_id`, for support.
+- Logging errors are swallowed: metering can never break a request.
+
+Report: copy the log lines into a file and run `node scripts/usage-report.mjs <file>`. It prints, per feature: requests, users, errors, answers by fallback, average tokens (only over calls that reported them), cost where a price entry exists, and how many calls had no cost.
+Credit prices must not be set from this alone: they also need a judgement of the value each action gives the user (`docs/product/PRICING-AND-CREDITS-STRATEGY.md`).

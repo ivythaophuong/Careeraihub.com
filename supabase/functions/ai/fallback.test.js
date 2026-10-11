@@ -139,3 +139,49 @@ describe('shouldFallBack', () => {
     expect(shouldFallBack(new ProviderError('x', { kind: 'upstream', status: 422 }))).toBe(false);
   });
 });
+
+describe('overall deadline (ADR-012)', () => {
+  const hang = () => vi.fn(async (url, init) => new Promise((_, rej) => { init.signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' }))); }));
+
+  it('uses a default budget below the browser wait, and AI_DEADLINE_MS can change it', async () => {
+    const { deadlineFor, DEFAULT_DEADLINE_MS, MIN_ATTEMPT_MS } = await import('./providers.js');
+    expect(DEFAULT_DEADLINE_MS).toBeLessThan(100_000);
+    expect(deadlineFor({})).toBe(DEFAULT_DEADLINE_MS);
+    expect(deadlineFor({ AI_DEADLINE_MS: '60000' })).toBe(60_000);
+    expect(deadlineFor({ AI_DEADLINE_MS: '10' })).toBe(DEFAULT_DEADLINE_MS);   // too small to be useful: ignored
+    expect(deadlineFor({ AI_DEADLINE_MS: 'abc' })).toBe(DEFAULT_DEADLINE_MS);
+    expect(MIN_ATTEMPT_MS).toBeGreaterThan(0);
+  });
+
+  it('does not start another provider once the budget is used up, and the first error is the one reported', async () => {
+    vi.useFakeTimers();
+    try {
+      const f = hang();
+      const p = callWithFallback({ env: { ...ENV, AI_DEADLINE_MS: '20000' }, messages: MSGS, maxTokens: 50 }, f, 80_000, () => Date.now());
+      const settled = p.catch(e => e);
+      await vi.advanceTimersByTimeAsync(20_000);   // first attempt is cut at the budget, not at 80 s
+      const err = await settled;
+      expect(err).toBeInstanceOf(ProviderError);
+      expect(f).toHaveBeenCalledTimes(1);          // no second provider after the budget is gone
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('still falls back when the first provider fails quickly inside the budget', async () => {
+    const f = router({ 'generativelanguage': () => err(503), 'anthropic': () => anthropicOk('from claude') });
+    expect(await callWithFallback({ env: ENV, messages: MSGS, maxTokens: 50 }, f)).toBe('from claude');
+  });
+
+  it('gives each attempt only the time that is left', async () => {
+    vi.useFakeTimers();
+    try {
+      const f = hang();
+      const p = callWithFallback({ env: { ...ENV, AI_DEADLINE_MS: '30000' }, messages: MSGS, maxTokens: 50 }, f, 10_000, () => Date.now()).catch(e => e);
+      await vi.advanceTimersByTimeAsync(10_000);   // attempt 1 times out at its own 10 s limit
+      await vi.advanceTimersByTimeAsync(10_000);   // attempt 2 likewise
+      await vi.advanceTimersByTimeAsync(10_000);   // attempt 3 would start with 10 s left, then budget ends
+      await p;
+      expect(f.mock.calls.length).toBeLessThanOrEqual(3);
+      expect(f.mock.calls.length).toBeGreaterThanOrEqual(2);
+    } finally { vi.useRealTimers(); }
+  });
+});
