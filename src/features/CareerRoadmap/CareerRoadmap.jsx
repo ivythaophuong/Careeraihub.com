@@ -94,9 +94,6 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
     return 'locked';
   }
 
-  // Salary projection
-  const currentSalary = form?.market === 'Singapore' ? 'SGD 6–9K/mo' : '$60–90K/yr';
-  const targetSalary  = form?.market === 'Singapore' ? 'SGD 10–14K/mo' : '$90–130K/yr';
 
   const targetRole = form?.role || 'Senior role';
   const estimatedDays = stepsCompleted >= 4 ? '2–4 weeks' : stepsCompleted >= 3 ? '4–8 weeks' : stepsCompleted >= 2 ? '6–12 weeks' : stepsCompleted >= 1 ? '8–16 weeks' : '10–20 weeks';
@@ -173,26 +170,17 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Salary trajectory */}
+          {/* Salary: no market figures here. There is no salary data source, so the card points to Salary Prep, which works from the user's own numbers. */}
           <div style={{ background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: '16px 18px' }}>
-            <SectionLabel>Salary trajectory</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10, background: 'var(--lp-bg3)', borderRadius: 8 }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--lp-text)' }}>Current market value</div>
-                  <div style={{ fontSize: 11, color: 'var(--lp-text2)' }}>{form?.role || 'Your role'} · mid-market</div>
-                </div>
-                <div style={{ fontFamily: 'var(--lp-ff)', fontSize: 17, fontWeight: 800, color: '#F5B340' }}>{currentSalary}</div>
-              </div>
-              <div style={{ textAlign: 'center', color: 'var(--lp-text3)', fontSize: 18 }}>↓</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10, background: 'rgba(0,229,160,.05)', borderRadius: 8, border: '1px solid rgba(0,229,160,.15)' }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--lp-text)' }}>Target after roadmap</div>
-                  <div style={{ fontSize: 11, color: 'var(--lp-text2)' }}>Senior {form?.role || 'role'} · top-tier company</div>
-                </div>
-                <div style={{ fontFamily: 'var(--lp-ff)', fontSize: 17, fontWeight: 800, color: '#00E5A0' }}>{targetSalary}</div>
-              </div>
+            <SectionLabel>Salary</SectionLabel>
+            <div style={{ fontSize: 12, color: 'var(--lp-text2)', lineHeight: 1.6, marginBottom: 12 }}>
+              We do not show market salary figures. When you have an offer, Salary Prep works out the gap to your target from the numbers you enter.
             </div>
+            {setActiveModule && (
+              <button onClick={() => setActiveModule('salary')} style={{ background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text)', borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                Open Salary Prep →
+              </button>
+            )}
           </div>
 
           {/* Milestone tracker */}
