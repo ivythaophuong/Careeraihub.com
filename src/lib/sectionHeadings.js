@@ -34,6 +34,12 @@ const GROUPS = {
     weak: ['portfolio'],
     mods: ['selected', 'key', 'personal', 'side', 'notable', 'academic', 'relevant', 'open', 'source', 'technical', 'featured', 'recent'],
   },
+  languages: {
+    canonical: 'languages',
+    strong: ['languages', 'language'],
+    weak: [],
+    mods: ['spoken', 'foreign', 'programming', 'coding'],
+  },
   summary: {
     canonical: 'summary',
     strong: ['summary', 'objective', 'overview'],
@@ -57,10 +63,16 @@ export function classifyHeading(line) {
   const content = words.filter((w) => !CONNECTORS.has(w));
   const headSections = new Set();
   for (const w of content) for (const [key, g] of Object.entries(GROUPS)) if (g.strong.includes(w) || g.weak.includes(w)) headSections.add(key);
-  if (headSections.size !== 1) return null; // no head noun, or heads of two different sections
-  const [key] = headSections;
+  // "Languages and Skills" / "Programming Languages" are skills headings: the section holds the skills (and any languages are skills too).
+  // Any other mix of two sections ("Skills and Experience") is ambiguous, so it is not a heading.
+  const isSkillsAndLanguages = headSections.size === 2 && headSections.has('skills') && headSections.has('languages');
+  const programmingLanguages = headSections.size === 1 && headSections.has('languages') && content.some((w) => w === 'programming' || w === 'coding');
+  if (headSections.size !== 1 && !isSkillsAndLanguages) return null; // no head noun, or heads of two different sections
+  const key = isSkillsAndLanguages || programmingLanguages ? 'skills' : [...headSections][0];
   const g = GROUPS[key];
-  const allowed = new Set([...g.strong, ...g.weak, ...g.mods]);
+  const allowed = new Set(isSkillsAndLanguages || programmingLanguages
+    ? [...GROUPS.skills.strong, ...GROUPS.skills.weak, ...GROUPS.skills.mods, ...GROUPS.languages.strong, ...GROUPS.languages.mods]
+    : [...g.strong, ...g.weak, ...g.mods]);
   if (!content.every((w) => allowed.has(w))) return null;
   const hasStrong = content.some((w) => g.strong.includes(w));
   if (!hasStrong && content.length < 2) return null; // a lone generic word ("Tools") is a label inside a list, not a section
