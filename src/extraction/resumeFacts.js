@@ -4,6 +4,7 @@
 import { splitSections } from '../lib/resumeDigest';
 import { RESUME_FACTS_VERSION, validateResumeFacts } from '../contracts/resumeFacts';
 import { contentHash } from './hash';
+import { normalizeResumeText } from '../lib/textNormalize';
 import { extractContact } from './contact';
 import { extractExperiences } from './experience';
 import { extractEducation } from './education';
@@ -22,7 +23,8 @@ const CONTACT_SECTION = /^(contact(?: info(?:rmation)?| details)?|personal (?:in
 const bySectionName = (sections, re) => sections.filter(s => re.test(s.name));
 
 export function extractResumeFacts(text) {
-  const raw = String(text || '');
+  // One normalisation for pasted and extracted text (odd spaces, curly quotes, a lone bullet glyph), so both read the same.
+  const raw = normalizeResumeText(text);
   const sections = splitSections(raw);
   const header = sections.find(s => s.name === 'header');
   const contactSections = bySectionName(sections, CONTACT_SECTION);

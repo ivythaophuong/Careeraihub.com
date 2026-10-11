@@ -1,5 +1,6 @@
 import mammoth from 'mammoth';
 import { callLLM, extractJSON } from './ai.jsx';
+import { buildLinesFromPdfItems } from './pdfLines';
 
 // ── pdfjs text extraction (no LLM required) ──────────────────────────────────
 export async function extractTextFromPdfFile(file) {
@@ -14,7 +15,8 @@ export async function extractTextFromPdfFile(file) {
       pdf.getPage(i + 1).then(p => p.getTextContent())
     )
   );
-  return pages.flatMap(p => p.items.map(i => i.str)).join('\n');
+  // pdf.js gives text runs, not lines: join the runs of one printed line (see pdfLines.js) instead of making every run a line.
+  return pages.map(p => buildLinesFromPdfItems(p.items)).join('\n');
 }
 
 const EXTRACT_PROMPT = `Extract the resume data from the provided document and return ONLY raw JSON (no markdown, no explanation, start with {):
