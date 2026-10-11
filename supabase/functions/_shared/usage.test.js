@@ -120,8 +120,16 @@ describe('events through callWithFallback', () => {
 describe('buildEvent and helpers', () => {
   it('only the listed fields exist', () => {
     const e = buildEvent({ correlationId: 'c', feature: 'f', userRef: 'u', provider: 'gemini', model: 'm', attempt: 1, fallback: false, outcome: 'success', durationMs: 12.6, usage: { input: 1, output: 2, thinking: null, total: 3 } });
-    expect(Object.keys(e).sort()).toEqual(['attempt', 'correlation_id', 'cost_status', 'cost_usd', 'duration_ms', 'error_kind', 'event', 'fallback', 'feature', 'has_pdf', 'http_status', 'input_tokens', 'model', 'outcome', 'output_tokens', 'price_table_version', 'provider', 'thinking_tokens', 'total_tokens', 'ts', 'usage_status', 'user_ref', 'v'].sort());
+    expect(Object.keys(e).sort()).toEqual(['attempt', 'correlation_id', 'cost_status', 'cost_usd', 'duration_ms', 'error_kind', 'event', 'fallback', 'feature', 'has_pdf', 'http_status', 'input_tokens', 'model', 'outcome', 'output_tokens', 'price_table_version', 'provider', 'resume_chars', 'resume_kind', 'thinking_tokens', 'total_tokens', 'ts', 'usage_status', 'user_ref', 'v']);
     expect(e.duration_ms).toBe(13);
+  });
+  it('resume counts are a kind from a fixed list and a number; anything else is dropped (never text)', () => {
+    const e = (k, n) => buildEvent({ correlationId: 'c', feature: 'f', provider: 'gemini', model: 'm', attempt: 1, fallback: false, outcome: 'success', durationMs: 1, resumeKind: k, resumeChars: n });
+    expect(e('text', 1234.4)).toMatchObject({ resume_kind: 'text', resume_chars: 1234 });
+    expect(e('pdf', 0)).toMatchObject({ resume_kind: 'pdf', resume_chars: 0 });
+    for (const bad of ['Jane Doe, 12 Main St', '', null, undefined, 5, {}]) expect(e(bad, 1).resume_kind).toBeNull();
+    for (const bad of ['1200', -1, NaN, Infinity, 1e9, null, undefined]) expect(e('text', bad).resume_chars).toBeNull();
+    expect(JSON.stringify(e('text', 10))).not.toMatch(/Jane|Main St/);
   });
   it('feature labels are restricted to a safe pattern', () => {
     expect(sanitizeFeature('scan_jd_match')).toBe('scan_jd_match');
@@ -160,6 +168,17 @@ describe('the ai function', () => {
     const events = [];
     await call({ messages: MSGS, feature: '<img src=x onerror=1>' }, { recordUsage: (e) => events.push(e) });
     expect(events[0].feature).toBe('unknown');
+  });
+  it('resume counts sent by the app reach the usage event; a hostile kind or count is dropped', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const events = [];
+    await call({ messages: MSGS, feature: 'jd_analyze', resumeKind: 'text', resumeChars: 4321 }, { recordUsage: (e) => events.push(e) });
+    expect(events[0]).toMatchObject({ feature: 'jd_analyze', resume_kind: 'text', resume_chars: 4321 });
+    events.length = 0;
+    await call({ messages: MSGS, feature: 'jd_analyze', resumeKind: 'Jane Doe, 12 Main St', resumeChars: 'lots' }, { recordUsage: (e) => events.push(e) });
+    expect(events[0].resume_kind).toBeNull();
+    expect(events[0].resume_chars).toBeNull();
+    expect(JSON.stringify(events[0])).not.toMatch(/Jane|Main St/);
   });
   it('an error response carries a request id that matches the usage events, for support', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});

@@ -213,7 +213,7 @@ export async function callWithFallback({ env, messages, maxTokens, pdfBase64, me
   const chain = providerChain(env).filter(p => !pdfBase64 || SUPPORTS_PDF[p]);
   if (!chain.length) throw new ProviderError('No AI provider is configured.', { kind: 'upstream', status: 500 });
   // meter: { record(event), correlationId, feature, userRef, priceTable? }. Metering failures never reach the caller.
-  const emit = (fields) => { try { meter?.record?.(buildEvent({ correlationId: meter.correlationId, feature: meter.feature, userRef: meter.userRef, hasPdf: !!pdfBase64, priceTable: meter.priceTable, ...fields })); } catch { /* never break the request */ } };
+  const emit = (fields) => { try { meter?.record?.(buildEvent({ correlationId: meter.correlationId, feature: meter.feature, userRef: meter.userRef, hasPdf: !!pdfBase64, resumeKind: meter.resumeKind, resumeChars: meter.resumeChars, priceTable: meter.priceTable, ...fields })); } catch { /* never break the request */ } };
   let firstErr;
   for (let i = 0; i < chain.length; i++) {
     const provider = chain[i];

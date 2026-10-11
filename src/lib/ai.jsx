@@ -76,6 +76,9 @@ export async function callLLM(messages, maxTokens = 8192, pdfBase64 = null, opti
     throw new LLMError('Please sign in to use AI features.', { status: 401, retryable: false });
   }
   const payload = { messages, maxTokens, feature: options.feature || featureFromLocation() };
+  // Counts only (see src/lib/aiFeature.js): what kind of resume source this call carries and how many characters of it.
+  if (typeof options.resumeKind === 'string') payload.resumeKind = options.resumeKind;
+  if (Number.isFinite(options.resumeChars)) payload.resumeChars = options.resumeChars;
   if (pdfBase64) payload.pdfBase64 = pdfBase64;
   return postToProxy(session.access_token, payload);
 }

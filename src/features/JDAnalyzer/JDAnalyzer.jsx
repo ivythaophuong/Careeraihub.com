@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
 import { AnimatedScore } from '../../components/OriginalFeatures';
-import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { extractJSON } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 import { MIN_JD_CHARS, MAX_JD_CHARS, pickResumeSource, buildJDPrompt, normalizeJDResult } from './jdAnalysis';
 import '../../styles/featurePage.css';
 
@@ -37,7 +38,7 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory, set
     const hasResume = resume.kind !== 'none';
     try {
       const prompt = buildJDPrompt({ jd: text, resume, targetRole: form?.role, industry: form?.industry, market: form?.market });
-      const raw = await callLLM([{ role: 'user', content: prompt }], 2500, resume.pdfBase64);
+      const raw = await callLLMFor('jd_analyze', resume)([{ role: 'user', content: prompt }], 2500, resume.pdfBase64);
       const parsed = normalizeJDResult(extractJSON(raw), { hasResume });
 
       setResult(parsed);

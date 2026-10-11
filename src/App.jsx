@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import mammoth from 'mammoth';
 import { sb } from './lib/supabase';
-import { callLLM, extractJSON } from './lib/ai.jsx';
+import { extractJSON } from './lib/ai.jsx';
+import { callLLMFor } from './lib/aiFeature.js';
 import { extractTextFromPdfFile } from './lib/resumeParser.js';
 import { C, MODULES } from './styles/theme';
 import { Badge, Btn, Card, Spinner } from './components/CommonUI';
@@ -361,7 +362,7 @@ function App() {
             } catch (_) {
               const ab = await file.arrayBuffer();
               const b64 = _ab2b64(ab);
-              const raw = await callLLM([{ role: 'user', content: RESUME_EXTRACT_PROMPT }], 3000, b64);
+              const raw = await callLLMFor('onboarding_pdf_extract', { kind: 'pdf', chars: 0 })([{ role: 'user', content: RESUME_EXTRACT_PROMPT }], 3000, b64);
               const parsed = extractJSON(raw);
               text = parsed.error ? '' : _formatParsedResume(parsed);
             }
@@ -597,7 +598,7 @@ function App() {
                     setProfileLoading(true);
                     try {
                       const prompt = `Extract a career profile from this resume. Return ONLY valid JSON, no markdown, no explanation:\n{"currentRole":"","yearsExp":0,"topSkills":[""],"headline":""}\n\nResume:\n${text.slice(0, 4000)}`;
-                      const raw = await callLLM([{ role: 'user', content: prompt }], 800);
+                      const raw = await callLLMFor('onboarding_profile', { kind: 'text', chars: Math.min(text.length, 4000) })([{ role: 'user', content: prompt }], 800);
                       const snap = extractJSON(raw);
                       if (snap && !snap.error) {
                         setResumeProfile(snap);

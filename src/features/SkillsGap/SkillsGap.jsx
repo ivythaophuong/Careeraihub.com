@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { extractJSON } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 
 function SectionLabel({ children }) {
   return <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--lp-text3)', fontFamily: 'var(--lp-ffm)', marginBottom: 10 }}>{children}</div>;
@@ -69,7 +70,7 @@ export default function SkillsGap({ resumeText, form, memory, updateMemory, show
     setLoading(true);
     try {
       const scanCtx = memory.scanHistory?.[0]?.result?.summary || '';
-      const raw = await callLLM([{ role: 'user', content: `You are a career market analyst for Southeast Asia tech roles.
+      const raw = await callLLMFor('skills_gap')([{ role: 'user', content: `You are a career market analyst for Southeast Asia tech roles.
 
 Target role: ${form?.role || 'Software professional'}
 Market: ${form?.market || 'Singapore'}

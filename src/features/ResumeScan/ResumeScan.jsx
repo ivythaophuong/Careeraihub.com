@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './resumeScan.css';
 import { OrbitSpinner } from '../../components/OrbitMark';
-import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { extractJSON } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 import { TEMPLATES } from '../ATSBuilder/resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
 import { TEMPLATE_PARSE, JD_MAX_CHARS, missingSections } from '../../lib/templateParse';
@@ -161,7 +162,7 @@ function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMe
     templateTriedRef.current = src;
     setParsingTemplate(true);
     try {
-      const raw = await callLLM([{ role: 'user', content:
+      const raw = await callLLMFor('scan_template_parse', { kind: 'text', chars: Math.min(src.length, TEMPLATE_PARSE.maxChars) })([{ role: 'user', content:
         `Parse this resume and extract structured data. Return ONLY raw JSON (no markdown, start with {):
 {"name":"full name","email":"email","phone":"phone","linkedin":"linkedin url or handle","location":"city/region","summary":"professional summary","workExperience":[{"title":"job title","company":"company","period":"date range","bullets":["bullet 1"]}],"education":[{"degree":"degree","institution":"school","year":"graduation year"}],"skills":["skill1","skill2"],"awards":["award 1"],"extras":[{"heading":"Section Name","items":["item 1"]}]}
 
@@ -217,7 +218,7 @@ ${src.slice(0, TEMPLATE_PARSE.maxChars)}` }], TEMPLATE_PARSE.maxTokens);
     setScanNotice(prepared.notice);
     setLoading(true); setResult(null); setScanErr('');  setAppliedFixes({}); setEditingIdx(null); setEditDraft(''); setEditMode(false); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false);
     try {
-      const raw = await callLLM([{ role: 'user', content:
+      const raw = await callLLMFor('scan_jd_match', { kind: 'text', chars: (prepared.resume || '').length })([{ role: 'user', content:
         `Compare this resume against the job description and return a match analysis.
 Resume:
 ${prepared.resume || 'No resume provided.'}

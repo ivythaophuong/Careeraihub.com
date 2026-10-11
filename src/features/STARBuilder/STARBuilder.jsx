@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
-import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { extractJSON } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 import { sb } from '../../lib/supabase';
 import { serverScoringOn, reviewStarOnServer, saveStarOnServer } from '../../lib/serverScoring';
 import { GetReadyTabStrip } from '../Landing/LandingPage';
@@ -50,7 +51,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
         parsed = reply.result;
         setReceipt(reply.receipt);
       } else {
-        const raw = await callLLM([{ role: 'user', content: buildStarPrompt(input, { role: form?.role, level: form?.level, industry: form?.industry }) }], 2500);
+        const raw = await callLLMFor('star_review_legacy')([{ role: 'user', content: buildStarPrompt(input, { role: form?.role, level: form?.level, industry: form?.industry }) }], 2500);
         parsed = normalizeStarResult(extractJSON(raw));
       }
       setResult(parsed);

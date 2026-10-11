@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { callLLM } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 
 const QUICK_PROMPTS = [
   { label: '💡 What should I focus on this week?',             text: 'What should I focus on this week to make the most progress?' },
@@ -114,7 +114,7 @@ export default function AICoach({ memory, form, updateMemory, showToast }) {
         ...messages.filter(m => !m.loading).map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content },
       ];
-      const raw = await callLLM(history, 600);
+      const raw = await callLLMFor('ai_coach')(history, 600);
       const reply = { role: 'assistant', content: raw.trim(), ts: Date.now() };
 
       setMessages(prev => {

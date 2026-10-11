@@ -44,7 +44,7 @@ async function evaluate(body, user, env, fetchImpl, cors, now) {
 
   let feedback;
   try {
-    const reply = await callWithFallback({ env, messages: [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }], maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_interview_evaluate', userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) } }, fetchImpl);
+    const reply = await callWithFallback({ env, messages: [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }], maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_interview_evaluate', resumeKind: resume.kind, resumeChars: resume.kind === 'text' ? resume.text.length : 0, userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) } }, fetchImpl);
     feedback = normalizeEvaluation(extractJSON(reply));
   } catch (e) {
     if (e instanceof ProviderError) {

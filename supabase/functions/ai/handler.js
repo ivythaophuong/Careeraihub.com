@@ -1,7 +1,7 @@
 // Request handling for the `ai` Edge Function: authenticate the caller, validate and cap the
 // request, call the configured provider with a server-held key, return { text }.
 import { callWithFallback, providerChain, setting, KEY_ENV, ProviderError } from './providers.js';
-import { makeRecorder, sanitizeFeature, userRef as makeUserRef } from '../_shared/usage.js';
+import { makeRecorder, sanitizeFeature, sanitizeResumeKind, sanitizeResumeChars, userRef as makeUserRef } from '../_shared/usage.js';
 
 export const LIMITS = {
   maxBodyBytes: 12 * 1024 * 1024, // resume PDFs travel as base64
@@ -135,7 +135,7 @@ export async function handleRequest(req, deps = {}) {
   let requestId = null;
   try {
     // Usage metering (counts and metadata only, see _shared/usage.js). `feature` is an optional label from the app; anything odd becomes "unknown".
-    const meter = { record: deps.recordUsage || makeRecorder(), correlationId: crypto.randomUUID(), feature: sanitizeFeature(body.feature), userRef: await makeUserRef(setting(env, 'USAGE_LOG_SALT') || setting(env, 'SUPABASE_SERVICE_ROLE_KEY'), user.id).catch(() => null), priceTable: deps.priceTable };
+    const meter = { record: deps.recordUsage || makeRecorder(), correlationId: crypto.randomUUID(), feature: sanitizeFeature(body.feature), resumeKind: sanitizeResumeKind(body.resumeKind), resumeChars: sanitizeResumeChars(body.resumeChars), userRef: await makeUserRef(setting(env, 'USAGE_LOG_SALT') || setting(env, 'SUPABASE_SERVICE_ROLE_KEY'), user.id).catch(() => null), priceTable: deps.priceTable };
     requestId = meter.correlationId;
     const text = await callWithFallback({
       env,

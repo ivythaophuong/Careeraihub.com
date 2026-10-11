@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Spinner } from '../../components/CommonUI';
-import { callLLM, extractJSON } from '../../lib/ai.jsx';
+import { extractJSON } from '../../lib/ai.jsx';
+import { callLLMFor } from '../../lib/aiFeature.js';
 import { pickResumeSource } from '../../lib/resumeSource';
 import '../../styles/featurePage.css';
 import { TONES, buildCoverLetterPrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount } from './coverLetter';
@@ -30,7 +31,7 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
     try {
       const applicantName = memory?.resumeData?.personalInfo?.fullName || user?.name || "";
       const prompt = buildCoverLetterPrompt({ jd, role: role.trim(), tone, resume, applicantName, company: company.trim() });
-      const raw = await callLLM([{ role: 'user', content: prompt }], 2500, resume.pdfBase64);
+      const raw = await callLLMFor('cover_letter', resume)([{ role: 'user', content: prompt }], 2500, resume.pdfBase64);
       const parsed = normalizeCoverLetterResult(extractJSON(raw), { role: role.trim() });
       setResult(parsed);
       setLetter(parsed.coverLetter);
