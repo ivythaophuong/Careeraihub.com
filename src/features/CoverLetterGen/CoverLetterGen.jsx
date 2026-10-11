@@ -5,7 +5,8 @@ import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { pickResumeSource } from '../../lib/resumeSource';
 import '../../styles/featurePage.css';
-import { TONES, buildCoverLetterPrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount } from './coverLetter';
+import { TONES, buildCoverLetterPrompt, buildToneChangePrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount } from './coverLetter';
+import { findUnsupportedNumbers } from '../../lib/numberGuard';
 
 const label = { color: C.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 };
 
@@ -19,6 +20,9 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
   const [letter, setLetter] = useState("");
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState("");
+  const [versions, setVersions] = useState({});   // tone -> the letter text for that tone (edits included), kept while this page is open
+  const [toneBusy, setToneBusy] = useState(false);
+  const [toneErr, setToneErr] = useState("");
 
   const resume = pickResumeSource({ memory, resumeText });
   const blocked = blockReason({ resumeKind: resume.kind, resumeText });
@@ -35,6 +39,8 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
       const parsed = normalizeCoverLetterResult(extractJSON(raw), { role: role.trim() });
       setResult(parsed);
       setLetter(parsed.coverLetter);
+      setVersions({ [tone]: parsed.coverLetter });
+      setToneErr("");
       // Newest first, keep the 20 most recent.
       updateMemory?.(
         m => ({
@@ -54,6 +60,33 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Changing tone: before a letter exists it only selects the tone. After, it shows the version for that tone if one was opened, and otherwise
+  // rewrites just the letter (no resume, no job description). The current text, edits included, is kept under its tone first.
+  const chooseTone = async (id) => {
+    if (!result) { setTone(id); return; }
+    if (id === tone || toneBusy) return;
+    setToneErr("");
+    const kept = { ...versions, [tone]: letter };
+    setVersions(kept);
+    if (kept[id]) { setTone(id); setLetter(kept[id]); return; }
+    setToneBusy(true);
+    try {
+      const raw = await callLLMFor('cover_letter_tone')([{ role: 'user', content: buildToneChangePrompt({ letter, tone: id }) }], 1500);
+      const next = extractJSON(raw);
+      const text = typeof next?.coverLetter === 'string' ? next.coverLetter.replace(/\r\n/g, '\n').trim() : '';
+      if (next?.error || text.length < 80) throw new Error('The AI returned an unreadable letter. Please try again.');
+      const added = findUnsupportedNumbers(letter, text);
+      if (added.length) { setToneErr(`The rewrite added figures that are not in your letter (${added.join(', ')}), so it was not applied.`); return; }
+      setVersions({ ...kept, [id]: text });
+      setTone(id);
+      setLetter(text);
+    } catch (e) {
+      setToneErr(e.message || 'Could not change the tone. Please try again.');
+    } finally {
+      setToneBusy(false);
     }
   };
 
@@ -88,11 +121,19 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
         <div style={label}>Select Tone</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
           {Object.entries(TONES).map(([id, t]) => (
-            <button key={id} onClick={() => setTone(id)} aria-pressed={tone === id} style={{ background: tone === id ? C.orange + "22" : "transparent", border: `1px solid ${tone === id ? C.orange : C.border}`, color: tone === id ? C.orange : C.muted, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            <button key={id} onClick={() => chooseTone(id)} disabled={toneBusy} aria-pressed={tone === id} style={{ background: tone === id ? C.orange + "22" : "transparent", border: `1px solid ${tone === id ? C.orange : C.border}`, color: tone === id ? C.orange : C.muted, borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
               {t.icon} {t.label}
             </button>
           ))}
         </div>
+
+        {result && (
+          <div style={{ color: C.muted, fontSize: 11, margin: "-12px 0 16px" }}>
+            Changing the tone rewrites only this letter: your resume and the job description are not sent again. Each tone you open is kept while this page is open.
+            {toneBusy && <span> Rewriting…</span>}
+          </div>
+        )}
+        {toneErr && <div role="alert" style={{ color: C.red, fontSize: 12, marginBottom: 12 }}>⚠️ {toneErr}</div>}
 
         <div style={{ marginBottom: 16 }}>
           <div style={label}>Target Company (Optional)</div>
@@ -154,7 +195,7 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
             <textarea
               aria-label="Cover letter text"
               value={letter}
-              onChange={e => setLetter(e.target.value)}
+              onChange={e => { setLetter(e.target.value); setVersions(v => ({ ...v, [tone]: e.target.value })); }}
               style={{ width: "100%", minHeight: 320, color: C.text, fontSize: 13, lineHeight: 1.9, background: C.surface, padding: 20, borderRadius: 10, border: "none", borderLeft: `4px solid ${C.orange}`, outline: "none", resize: "vertical", fontFamily: "inherit" }}
             />
             <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>AI-written from your resume. Read it through and check every fact before you send it.</div>
@@ -166,6 +207,18 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
               {result.sellingPoints.map((p, i) => (
                 <div key={i} style={{ color: C.text, fontSize: 12, marginBottom: 6, paddingLeft: 12, borderLeft: `2px solid ${C.green}` }}>{p}</div>
               ))}
+            </Card>
+          )}
+
+          {setActiveModule && (
+            <Card>
+              <div style={{ color: C.text, fontWeight: 900, fontSize: 13, marginBottom: 4 }}>What next</div>
+              <div style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>The letter is only part of the application. These tools use the same resume.</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => setActiveModule('simulate')} style={copyBtn}>Practise the interview →</button>
+                <button onClick={() => setActiveModule('scan')} style={copyBtn}>Check your resume against this job →</button>
+                <button onClick={() => setActiveModule('ats')} style={copyBtn}>Improve your resume →</button>
+              </div>
             </Card>
           )}
 
