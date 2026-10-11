@@ -58,17 +58,68 @@ const NOT_A_NAME = /^(resume|cv|curriculum vitae|cover letter|biography|r[ée]su
 // the second or third candidate rather than the first.
 const NOT_CANDIDATE_CONTENT = (line) => line.length < 3 || NOT_A_NAME.test(line);
 
-// Looks at the first 3 candidate lines of the header: a name sits at the very top of a resume, and a line
-// further down is more likely a job title or a quote. Returns null (requiresInterpretation) rather than
-// guess when no line looks like a name, or when the top candidate does not (so a line 2-3 is not promoted
-// past a top candidate that simply isn't name-shaped).
+// Job-title words and degree/credential suffixes are WEAK signals: a segment made of (or containing) a title word is not taken as the name,
+// and a trailing degree is dropped from it. Neither list is complete, so they never decide alone: with no other candidate the answer is
+// "unknown", not a guess, and a title that is missing from the list can only cost a wrong name when nothing else is name-shaped.
+const TITLE_WORDS = new Set(['analyst', 'engineer', 'manager', 'developer', 'designer', 'director', 'consultant', 'specialist', 'coordinator', 'executive',
+  'officer', 'scientist', 'architect', 'lead', 'head', 'associate', 'intern', 'administrator', 'accountant', 'assistant', 'writer', 'strategist',
+  'researcher', 'technician', 'supervisor', 'president', 'founder', 'ceo', 'cto', 'cfo', 'coo', 'vp', 'principal', 'senior', 'junior', 'staff',
+  'product', 'marketing', 'sales', 'data', 'software', 'operations', 'finance', 'recruiter', 'trainer', 'teacher', 'lecturer', 'professor',
+  'nurse', 'lawyer', 'attorney', 'editor', 'producer', 'planner', 'buyer', 'auditor', 'controller', 'owner']);
+const DEGREE_WORDS = new Set(['mba', 'phd', 'dphil', 'msc', 'bsc', 'ma', 'ba', 'bs', 'ms', 'md', 'cpa', 'cfa', 'pmp', 'meng', 'beng', 'llb', 'llm', 'mphil',
+  'mpa', 'mph', 'rn', 'pe', 'cissp', 'acca', 'frm', 'esq']);
+const LABEL_RE = /^(?:full\s+name|name|candidate|họ\s+(?:và\s+)?tên)\s*[:\-–]\s*/iu;
+const SEGMENT_SPLIT = /\s*[|·•]\s*|\s+[–—-]\s+|\t+|\s{3,}/;
+const CONTACTISH = /[@\d]|https?:|www\.|linkedin|github/i;
+
+const bare = (w) => w.replace(/[.,]/g, '').toLowerCase();
+
+// What a header line says about the name, using only its FIRST segment (a name leads; what follows a separator is a title, a city or contact info).
+//   { kind: 'contact' }   the first segment is contact information
+//   { kind: 'name', value, label }
+//   { kind: 'title' }     name-shaped words that are a job title
+//   { kind: 'other' }     not name-shaped
+function readLine(line) {
+  let text = line;
+  const label = LABEL_RE.test(text);
+  text = text.replace(LABEL_RE, '');
+  let first = text.split(SEGMENT_SPLIT)[0].trim();
+  if (!first || CONTACTISH.test(first)) return { kind: 'contact' };
+  // "Jordan A. Lee, MBA": after the first comma only degrees may follow; otherwise the comma form is not read ("Lee, Jordan" stays unknown).
+  if (first.includes(',')) {
+    const [head, ...rest] = first.split(',').map((x) => x.trim());
+    if (!rest.every((r) => r.split(/\s+/).every((w) => DEGREE_WORDS.has(bare(w))))) return { kind: 'other' };
+    first = head;
+  }
+  const words = first.split(/\s+/).filter(Boolean);
+  while (words.length > 1 && DEGREE_WORDS.has(bare(words[words.length - 1]))) words.pop();
+  const value = words.join(' ');
+  if (!nameShaped(value)) return { kind: 'other' };
+  if (words.some((w) => TITLE_WORDS.has(bare(w)))) return { kind: 'title' };
+  return { kind: 'name', value, label, words: words.length };
+}
+
+// A name sits at the top of a resume, so only the first few lines are read. Lines that are only contact information are skipped. A job-title
+// line is skipped too (a tagline often precedes or follows the name). The first line that is neither contact, title nor name-shaped makes the
+// answer "unknown" rather than promoting something further down (as before). A name found after other lines is accepted only if it is the
+// only candidate in the next two lines; two equally good candidates mean "unknown", not a pick.
 export function extractName(headerText, source = 'contact.name') {
-  const lines = nonEmptyLines(headerText).filter(l => !NOT_CANDIDATE_CONTENT(l)).slice(0, 3);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (!nameShaped(line)) { if (i === 0) return empty(source); continue; }
-    const confidence = i === 0 ? 0.85 : 0.55;
-    return found(line, source, line, confidence, 'rule');
+  const lines = nonEmptyLines(headerText).filter((l) => !NOT_CANDIDATE_CONTENT(l)).slice(0, 5);
+  const read = lines.map(readLine);
+  let skipped = 0, sawTitle = false;
+  for (let i = 0; i < read.length; i++) {
+    const r = read[i];
+    if (r.kind === 'contact') { skipped++; continue; }
+    if (r.kind === 'title') { sawTitle = true; skipped++; continue; }
+    if (r.kind === 'other') return empty(source);
+    // r.kind === 'name'. Below the first line a single word is not enough ("Singapore"), so two words are required there.
+    if (i > 0 && r.words < 2) return empty(source);
+    if (i > 0) {
+      const rivals = read.slice(i + 1, i + 3).filter((x) => x.kind === 'name' && x.words >= 2);
+      if (rivals.length) return empty(source);
+    }
+    const confidence = i === 0 ? (r.label ? 0.9 : 0.85) : sawTitle ? 0.55 : 0.7;
+    return found(r.value, source, lines[i], confidence, 'rule');
   }
   return empty(source);
 }
