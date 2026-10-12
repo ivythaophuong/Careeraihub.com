@@ -57,4 +57,68 @@ describe('extractExperiences', () => {
     expect(e.bullets.map(b => b.value)).not.toContain('Acme Ltd');
     expect(e.bullets.every(b => !/2021|2024/.test(b.value))).toBe(true);
   });
+
+  describe('the header of the NEXT job is not a bullet of the previous one', () => {
+    const bulletsOf = (e) => e.bullets.map(b => b.value);
+
+    it('"Title, Company" on its own line, then the date line', () => {
+      const [a, b] = extractExperiences(
+        'Senior Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Cut report time by 30% across 4 teams\n• Built 3 dashboards\n' +
+        'Analyst, Beta Ltd\nJun 2017 – Dec 2019\n• Reduced errors by 25%'
+      );
+      expect(bulletsOf(a)).toEqual(['Cut report time by 30% across 4 teams', 'Built 3 dashboards']);
+      expect(bulletsOf(b)).toEqual(['Reduced errors by 25%']);
+      expect(b.title.value).toBe('Analyst');
+      expect(b.company.value).toBe('Beta Ltd');
+    });
+
+    it('company line and title line before the date line (two header lines)', () => {
+      const [a, b] = extractExperiences(
+        'Acme Corp\nSenior Analyst\nJan 2020 – Mar 2023\n• Built 3 dashboards\n' +
+        'Beta Ltd\nAnalyst\nJun 2017 – Dec 2019\n• Reduced errors by 25%'
+      );
+      expect(bulletsOf(a)).toEqual(['Built 3 dashboards']);
+      expect(bulletsOf(b)).toEqual(['Reduced errors by 25%']);
+      expect(a.company.value).toBe('Acme Corp');
+      expect(b.company.value).toBe('Beta Ltd');
+      expect(b.title.value).toBe('Analyst');
+    });
+
+    it('company before the date line, title tabbed on the date line', () => {
+      const [a, b] = extractExperiences(
+        'Senior Analyst\tJan 2020 – Mar 2023\nAcme Corp\n• Built 3 dashboards\n' +
+        'Beta Ltd\nAnalyst\tJun 2017 – Dec 2019\n• Reduced errors by 25%'
+      );
+      expect(bulletsOf(a)).toEqual(['Built 3 dashboards']);
+      expect(b.company.value).toBe('Beta Ltd');
+    });
+
+    it('a real achievement line before the next date line stays a bullet of the previous job', () => {
+      const [a] = extractExperiences(
+        'Senior Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Built 3 dashboards\nManaged a budget of $2M\n' +
+        'Analyst, Beta Ltd\nJun 2017 – Dec 2019\n• Reduced errors by 25%'
+      );
+      expect(bulletsOf(a)).toEqual(['Built 3 dashboards', 'Managed a budget of $2M']);
+    });
+
+    it('a sentence that ends with a full stop is never taken as a header', () => {
+      const [a] = extractExperiences(
+        'Senior Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Built 3 dashboards\nWorked as a data analyst on weekly reports.\n' +
+        'Analyst, Beta Ltd\nJun 2017 – Dec 2019\n• Reduced errors by 25%'
+      );
+      expect(bulletsOf(a)).toContain('Worked as a data analyst on weekly reports.');
+    });
+
+    it('the last job keeps all its bullets', () => {
+      const es = extractExperiences('Analyst, Beta Ltd\nJun 2017 – Dec 2019\n• One\n• Two\n• Three');
+      expect(bulletsOf(es[0])).toEqual(['One', 'Two', 'Three']);
+    });
+
+    it('three jobs in a row each keep only their own bullets', () => {
+      const es = extractExperiences(
+        'Manager, Acme\n2021 – 2023\n• A1\n• A2\nAnalyst, Beta\n2019 – 2021\n• B1\nIntern, Gamma\n2018 – 2019\n• C1'
+      );
+      expect(es.map(bulletsOf)).toEqual([['A1', 'A2'], ['B1'], ['C1']]);
+    });
+  });
 });
