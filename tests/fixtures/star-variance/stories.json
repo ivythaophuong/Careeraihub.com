@@ -1,0 +1,107 @@
+{
+ "version": 1,
+ "synthetic": true,
+ "note": "Invented stories for measuring score stability. No real person, employer or data. 'intended' is the researcher's own label of the writing style, written before any run; it is never sent to the model and is not a ground truth.",
+ "stories": [
+  {
+   "id": "s01-minimal",
+   "intended": "weak: bare minimum, no detail",
+   "story": {
+    "situation": "We had a busy period at work.",
+    "task": "I was asked to help out.",
+    "action": "I did my best and worked hard.",
+    "result": "It went fine in the end."
+   }
+  },
+  {
+   "id": "s02-vague",
+   "intended": "weak: vague, no specifics",
+   "story": {
+    "situation": "There was a problem with how our team handled customer requests and it was causing some frustration.",
+    "task": "I needed to make things better for everyone involved in the process.",
+    "action": "I talked to a few people, looked at what we were doing and tried to improve things where I could.",
+    "result": "Things improved and people seemed happier with how requests were handled."
+   }
+  },
+  {
+   "id": "s03-we-heavy",
+   "intended": "weak-mid: team credit, own part unclear",
+   "story": {
+    "situation": "Our department had to move all records from an old system to a new one before the end of the quarter.",
+    "task": "We were responsible for making sure nothing was lost during the move.",
+    "action": "We split the work up, we checked each other's files and we met every week to review progress.",
+    "result": "We finished the move on time and the managers were pleased with the outcome."
+   }
+  },
+  {
+   "id": "s04-no-result",
+   "intended": "mid: clear actions, no outcome",
+   "story": {
+    "situation": "I was the only analyst on a small retail team when the weekly sales report started arriving two days late.",
+    "task": "I owned the report and had to find out why it was late and fix it.",
+    "action": "I traced the delay to a manual copy step between two spreadsheets, wrote a script to pull the data directly and tested it against three weeks of old reports.",
+    "result": "The script was handed to the team lead."
+   }
+  },
+  {
+   "id": "s05-solid-no-numbers",
+   "intended": "mid-strong: specific, no metric",
+   "story": {
+    "situation": "Our customer support team kept receiving the same billing complaint, and agents were answering it differently each time.",
+    "task": "I was asked to make the answers consistent and reduce the repeat contacts.",
+    "action": "I collected the last month of complaint tickets, grouped them by cause, wrote one short guide for each cause and ran a session where agents tried the guides on real tickets.",
+    "result": "Agents began using the guides, the complaint stopped coming back as a repeat contact, and the team lead asked me to do the same for refunds."
+   }
+  },
+  {
+   "id": "s06-solid-numbers",
+   "intended": "strong: specific with figures",
+   "story": {
+    "situation": "As a junior engineer I found that our nightly data export took six hours and often failed before finishing, which blocked the finance team every morning.",
+    "task": "I was given two weeks to make the export reliable without changing the finance team's file format.",
+    "action": "I profiled the job, found it loaded the whole table into memory, rewrote it to stream in batches of 10,000 rows, added a retry for the network step and wrote a check that compared row counts at the end.",
+    "result": "The export ran in 70 minutes, had no failures in the next 60 nights, and finance stopped needing a manual rerun."
+   }
+  },
+  {
+   "id": "s07-strong-detailed",
+   "intended": "strong: ownership, judgement, outcome",
+   "story": {
+    "situation": "Two weeks before a product launch our payment provider announced it would stop supporting the API version we used, and I was the engineer who owned the checkout integration.",
+    "task": "My goal was to move to the new API without delaying the launch or risking failed payments.",
+    "action": "I listed every call we made, built the new integration behind a feature flag, ran both versions side by side on 5 percent of traffic for three days, fixed two currency rounding differences I found, and wrote a rollback plan the team rehearsed.",
+    "result": "We switched fully two days before launch, with no failed payments caused by the change and the launch date unchanged."
+   }
+  },
+  {
+   "id": "s08-conflict",
+   "intended": "mid-strong: interpersonal",
+   "story": {
+    "situation": "A designer and a developer on my project disagreed for weeks about whether to rebuild a settings page, and it was holding up the sprint.",
+    "task": "As the project coordinator I had to get a decision without taking sides or overriding either of them.",
+    "action": "I met each of them separately to understand their concerns, then brought them together with a one-page comparison of the two options, effort and risk, and asked them to pick together.",
+    "result": "They agreed on a smaller change than either had proposed, we shipped it in the next sprint, and they both volunteered to review each other's work afterwards."
+   }
+  },
+  {
+   "id": "s09-short-fields",
+   "intended": "weak-mid: minimum length fields, concrete",
+   "story": {
+    "situation": "Our shop's till broke on a Saturday.",
+    "task": "I had to keep selling without it.",
+    "action": "I wrote prices on paper and counted cash by hand.",
+    "result": "We sold through the day and I reconciled the cash on Monday."
+   }
+  },
+  {
+   "id": "s10-long-padded",
+   "intended": "mid: long, padded, repetitive, little substance",
+   "story": {
+    "situation": "In my previous role there were many different situations where a lot of things were happening at the same time and it was important to stay on top of everything that was going on around me and the people around me.",
+    "task": "It was my responsibility to always make sure that everything was being taken care of in the best possible way and that all the different things that needed to be done were done properly.",
+    "action": "I made sure to stay organised and communicate with people, and I made sure to follow up with people and make sure things were being done, and I made sure that everything was done properly and on time.",
+    "result": "In the end everything was done and everything went well and people were happy with the way that everything was done."
+   }
+  }
+ ]
+}
