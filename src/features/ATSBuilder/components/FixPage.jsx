@@ -15,7 +15,7 @@ const markKeyOf = (at) => (at.kind === 'summary' ? 'summary' : `b:${at.exp}:${at
 
 const css = `
 .atb-fixpage [data-fix-marked] { outline: 2px solid var(--lp-teal, #2dd4bf); outline-offset: 3px; background: rgba(45, 212, 191, .14); }
-.atb-fixpage [data-fix-open] { outline: 2px dashed #FFB84D; outline-offset: 3px; cursor: pointer; }
+.atb-fixpage [data-fix-open] { outline: 2px dashed #FF6B6B; outline-offset: 3px; background: rgba(255, 107, 107, .12); cursor: pointer; }
 .atb-fixpage [data-fix-done] { outline: 2px solid #00E5A0; outline-offset: 3px; }
 .atb-fixpage .atb-fix-tabs { display: none; }
 @media (max-width: 768px) {

@@ -144,3 +144,44 @@ describe('undo does not depend on positions', () => {
     expect(undoApply(twice, r.record)).toBeNull();
   });
 });
+
+describe('a quote the AI shortened with an ellipsis', () => {
+  // The AI often writes the start of a sentence and ends it with "..." or "…". That mark is not in the resume, so it must not have to match.
+  const d = () => ({ ...base(), experience: [{ id: 1, company: 'Acme', title: 'Analyst', period: '2020 - 2023', bullets: ['Analyzed financial and operational data of target companies in 15+ M&A transactions using SQL and Alteryx', 'Built a dashboard for 6 managers'] }] });
+  const at0 = { kind: 'bullet', exp: 0, bullet: 0 };
+
+  it.each([
+    ['three dots at the end', 'Analyzed financial and operational data of target companies in 15+ M&A transactions...'],
+    ['an ellipsis character at the end', 'Analyzed financial and operational data of target companies in 15+ M&A transactions…'],
+    ['dots at the start', '...operational data of target companies in 15+ M&A transactions using SQL and Alteryx'],
+    ['dots in the middle', 'Analyzed financial ... using SQL and Alteryx'],
+    ['an ellipsis character with spaces in the middle', 'Analyzed  financial  …  using SQL'],
+  ])('finds the sentence with %s', (_n, before) => {
+    expect(locateBefore(d(), before)).toEqual(at0);
+  });
+
+  it('a trailing full stop in the quote does not have to be in the resume', () => {
+    expect(locateBefore(d(), 'Built a dashboard for 6 managers.')).toEqual({ kind: 'bullet', exp: 0, bullet: 1 });
+  });
+
+  it('the parts around a middle ellipsis must come in order, inside one sentence', () => {
+    expect(locateBefore(d(), 'using SQL and Alteryx ... Analyzed financial')).toBeNull();
+    expect(locateBefore(d(), 'Analyzed financial ... Built a dashboard')).toBeNull();   // two different bullets are not one sentence
+  });
+
+  it('a quote that is only dots, or too short once the dots are gone, finds nothing', () => {
+    expect(locateBefore(d(), '...')).toBeNull();
+    expect(locateBefore(d(), '…')).toBeNull();
+    expect(locateBefore(d(), 'Ana...')).toBeNull();
+  });
+
+  it('still says several places when the shortened quote is in more than one', () => {
+    const x = base();   // "Responsible for weekly reports" is in two jobs
+    expect(locateAll(x, 'Responsible for weekly...')).toHaveLength(2);
+  });
+
+  it('applying a shortened quote replaces only the part that was quoted and keeps the rest of the sentence', () => {
+    const r = applyIssue(d(), { before: 'Analyzed financial and operational data...', after: 'Analyzed deal data' });
+    expect(r.data.experience[0].bullets[0]).toBe('Analyzed deal data of target companies in 15+ M&A transactions using SQL and Alteryx');
+  });
+});

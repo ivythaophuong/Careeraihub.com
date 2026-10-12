@@ -155,3 +155,11 @@ describe('a way in that does not depend on one issue', () => {
     expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
   });
 });
+
+describe('an issue whose quote the AI shortened with an ellipsis', () => {
+  it('still opens the Fix page, because the sentence is found', () => {
+    openFix([issue({ before: 'Handled monthly reporting...' })]);
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(screen.queryByText(/Step \d of 6/)).toBeNull();
+  });
+});
