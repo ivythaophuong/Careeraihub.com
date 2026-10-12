@@ -41,7 +41,8 @@ Cột phải của Builder, phía trên bản xem trước, gập được. Trê
 - Không lưu trạng thái Apply ngoài trình duyệt (như nháp hiện tại).
 
 ## 5. Rủi ro đã biết
-- Điểm của Builder tính trên văn bản dựng lại có thể lệch vài điểm so với điểm tính trên văn bản CV gốc (khác định dạng); panel hiện nhãn "nội dung đang sửa" và không so với điểm gốc. [UNKNOWN: độ lệch thực tế chưa đo; commit 1 chỉ kiểm tra điểm ổn định và đổi khi sửa. Cần đo trên vài CV tổng hợp nhiều dạng trước khi nói điểm Builder và điểm quét "bằng nhau".]
+- Điểm của Builder tính trên văn bản dựng lại từ dữ liệu có cấu trúc, nên có thể khác điểm của chính nội dung đó khi tải lên dưới dạng file. **Đã đo (2026-10-12, 7 CV tổng hợp, `builderEquivalence.test.js`): 6/7 trùng điểm; 1/7 lệch 7 điểm.** Nguyên nhân của ca lệch nằm ở **bộ đọc file tải lên**, không phải Builder: dòng tiêu đề công việc dạng "Title, Company" đứng riêng sau một dòng trống bị tính là bullet của công việc trước (3 bullet đọc thành 4). Đã ghi thành test `it.fails`, cần PR sửa bộ đọc riêng. Mẫu 7 CV là nhỏ và tổng hợp: chưa đủ để nói "hai điểm bằng nhau" với CV thật; panel ghi rõ hai con số có thể lệch vài điểm.
+- Điểm do code tính xác định và minh bạch về nguồn, nhưng **chưa được kiểm chứng là dự đoán được kết quả của một ATS cụ thể**; panel nói rõ điều này.
 - `before` do AI trích có thể không khớp nguyên văn: khi đó Apply tắt (đã nêu ở 3.2).
 
 ## 6. Thứ tự làm

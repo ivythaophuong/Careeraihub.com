@@ -51,7 +51,7 @@ export default function BuilderScorePanel({ data, debounceMs = 300, onGoToStep }
                 </div>
               )}
               <div style={{ color: 'var(--lp-text3)', lineHeight: 1.5 }}>
-                Computed by code from the text you are editing; no AI. It reflects only these three checks, so a suggestion from the AI may improve your resume without changing the number.
+                Computed by code from the text you are editing; no AI. It reflects only these three checks, so a suggestion from the AI may improve your resume without changing the number. It is not a prediction of what a particular ATS will do, and the same content in an uploaded file can score a few points differently because of how that file is laid out.
               </div>
             </>
           )}
