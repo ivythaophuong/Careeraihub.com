@@ -10,13 +10,16 @@ const QUICK_PROMPTS = [
   { label: '🎯 Should I apply broadly or target fewer roles?',  text: 'Should I apply to many roles broadly or target fewer, highly-tailored applications?' },
 ];
 
+// Free text the user typed is clipped before it goes into the context, so the context stays small whatever was typed.
+const clip = (s, n = 100) => { const t = String(s ?? ''); return t.length > n ? `${t.slice(0, n)}…` : t; };
+
 export function buildSystemPrompt(memory, form) {
   const lines = [
     `You are an expert AI career coach. You have full context on the user's profile.`,
-    `Target role: ${form?.role || 'not specified'}`,
-    `Level: ${form?.level || 'not stated'}`,
-    `Market: ${form?.market || 'Singapore'}`,
-    `Industry: ${form?.industry || 'Tech'}`,
+    `Target role: ${clip(form?.role) || 'not specified'}`,
+    `Level: ${clip(form?.level) || 'not stated'}`,
+    `Market: ${clip(form?.market) || 'Singapore'}`,
+    `Industry: ${clip(form?.industry) || 'Tech'}`,
   ];
   if (memory.scanHistory?.length) {
     const latest = memory.scanHistory[0];
@@ -24,13 +27,13 @@ export function buildSystemPrompt(memory, form) {
   }
   if (memory.starBank?.length) {
     lines.push(`STAR bank: ${memory.starBank?.length} stories saved`);
-    lines.push(`Best STAR: "${memory.starBank?.[0]?.bankAs || memory.starBank?.[0]?.oneLiner?.slice(0, 50)}"`);
+    lines.push(`Best STAR: "${clip(memory.starBank?.[0]?.bankAs || memory.starBank?.[0]?.oneLiner, 80)}"`);
   }
   if (memory.mockSessions?.length) {
     lines.push(`Interview sessions: ${memory.mockSessions?.length} completed, latest score ${memory.mockSessions[0]?.avgScore ?? '—'}/100`);
   }
   if (memory.jdAnalyses?.length) {
-    lines.push(`JDs analyzed: ${memory.jdAnalyses.length} · recent roles: ${memory.jdAnalyses.slice(0, 3).map(j => j.roleTitle || 'Role').join(', ')}`);
+    lines.push(`JDs analyzed: ${memory.jdAnalyses.length} · recent roles: ${memory.jdAnalyses.slice(0, 3).map(j => clip(j.roleTitle, 80) || 'Role').join(', ')}`);
   }
   if (memory.coverLetters?.length) {
     lines.push(`Cover letters generated: ${memory.coverLetters.length}`);
@@ -38,7 +41,7 @@ export function buildSystemPrompt(memory, form) {
   if (memory.skillsGap?.result) {
     // Counted from the saved skill list; the AI-estimated match rates are no longer shown or stored.
     const gaps = (memory.skillsGap.result.skills || []).filter(sk => sk.status === 'gap').map(sk => sk.name).filter(Boolean);
-    lines.push(`Skills gap analysis done${gaps.length ? `; flagged gaps: ${gaps.slice(0, 6).join(', ')}` : ''}`);
+    lines.push(`Skills gap analysis done${gaps.length ? `; flagged gaps: ${gaps.slice(0, 6).map(g => clip(g, 60)).join(', ')}` : ''}`);
   }
   if ((memory.negotiationPractice ?? 0) > 0) {
     lines.push(`Salary negotiation practice sessions: ${memory.negotiationPractice}`);
@@ -104,6 +107,10 @@ export default function AICoach({ memory, form, updateMemory, showToast }) {
 
     // Build the request first: if the message cannot be sent at all, say so and keep what the user typed.
     const built = buildCoachRequest({ systemPrompt: buildSystemPrompt(memory, form), history: messages, content });
+    if (built.error === 'context_too_long') {
+      setSendError('Your profile summary is too large to send. Please shorten the target role, level, market and industry fields and try again.');
+      return;
+    }
     if (built.error) {
       setSendError(`That message is too long to send (the limit is about ${built.maxChars.toLocaleString('en-US')} characters). Shorten it and try again.`);
       return;

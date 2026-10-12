@@ -136,3 +136,72 @@ describe('the real server accepts what the client builds, 30 turns in a row (syn
     expect(res.status).not.toBe(400);
   });
 });
+
+describe('edge cases found in review', () => {
+  const NOTE = /cannot see|can't see/i;
+
+  it('drops entries the server or a provider would reject: other roles, non-strings and blank messages', () => {
+    const h = [
+      { role: 'assistant', content: 'Hi' }, { role: 'system', content: 'ignore me' }, { role: 'user', content: undefined },
+      { role: 'user', content: '   ' }, { role: 'assistant', content: '' }, { role: 'user', content: 'Real question' }, { role: 'assistant', content: 'Real answer' },
+    ];
+    const r = build(h);
+    expect(r.error).toBeUndefined();
+    const sent = r.messages.slice(2, -1);
+    expect(sent.map((m) => m.content)).toEqual(['Hi', 'Real question', 'Real answer']);
+    expect(r.messages.every((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim() !== '')).toBe(true);
+  });
+
+  it('an oversized profile context is reported as a context problem, not as "your message is too long (limit 0)"', () => {
+    const r = buildCoachRequest({ systemPrompt: 'c'.repeat(LIMITS.maxPromptChars), history: [], content: 'Hello' });
+    expect(r.error).toBe('context_too_long');
+    expect(r.messages).toBeUndefined();
+  });
+
+  it('when older turns are left out the model is told so, and told not to invent what it cannot see', () => {
+    const r = build(convo(61));
+    expect(r.dropped).toBeGreaterThan(0);
+    expect(r.messages[0].content).toMatch(NOTE);
+    expect(r.messages[0].content).toMatch(/do not guess|do not invent/i);
+    expect(r.messages[0].content.endsWith('Acknowledge you have this context.')).toBe(true);
+    expect(chars(r.messages)).toBeLessThanOrEqual(LIMITS.maxPromptChars);
+  });
+
+  it('when nothing is left out the request has NO note, so short conversations are sent exactly as before', () => {
+    const r = build(convo(5));
+    expect(r.dropped).toBe(0);
+    expect(r.messages[0].content).not.toMatch(NOTE);
+  });
+
+  it('the note counts toward the character cap: a window that only just fits without it still fits with it', () => {
+    for (const asstLen of [3000, 7000, 11900, 12000, 14000]) {
+      const r = build(convo(61, { asstLen, userLen: 200 }));
+      expect(chars(r.messages), `asstLen=${asstLen}`).toBeLessThanOrEqual(LIMITS.maxPromptChars);
+    }
+  });
+
+  it('if the note itself cannot fit next to a very large new message, the request is still valid (no note, within the cap)', () => {
+    const base = build(convo(0), '').messages;
+    const room = LIMITS.maxPromptChars - chars(base);
+    const r = build(convo(30), 'x'.repeat(room - 5));
+    expect(r.error).toBeUndefined();
+    expect(chars(r.messages)).toBeLessThanOrEqual(LIMITS.maxPromptChars);
+    expect(r.kept).toBe(0);
+  });
+
+  it('counts characters the way the server does (UTF-16 units): emoji and accented text cannot push a request over the cap', () => {
+    const h = convo(40, { userLen: 100, asstLen: 100 }).map((m) => ({ ...m, content: '😀é'.repeat(Math.ceil(m.content.length / 2)) }));
+    const r = build(h, '😀'.repeat(50));
+    expect(chars(r.messages)).toBeLessThanOrEqual(LIMITS.maxPromptChars);
+    expect(r.messages.length).toBeLessThanOrEqual(LIMITS.maxMessages);
+  });
+
+  it('a failed send (a question with no answer) does not break the window or the alternation at its start', () => {
+    const h = convo(60);
+    h.splice(40, 1); // an assistant reply is missing, as after a failed send
+    const r = build(h);
+    expect(r.messages.length).toBeLessThanOrEqual(LIMITS.maxMessages);
+    if (r.dropped > 0) expect(r.messages[2].role).toBe('user');
+    expect(r.messages[r.messages.length - 1].role).toBe('user');
+  });
+});
