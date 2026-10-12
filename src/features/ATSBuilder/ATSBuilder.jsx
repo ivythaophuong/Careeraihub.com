@@ -13,7 +13,7 @@ import BuilderScorePanel from './components/BuilderScorePanel.jsx';
 import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
-import { demoFixProfile } from './demoFix.js';
+import { demoFixProfile, demoResetRequested } from './demoFix.js';
 import { stepForIssue, draftFor } from './issueStep.js';
 import TemplateGallery from './components/TemplateGallery.jsx';
 import { confirmExport } from '../../lib/exportGuard.js';
@@ -820,13 +820,18 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const [data, setData] = useState(() => initialBuilderData({ restoredData, draftKey, initialProfile }));
   const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(draftKey));
 
-  // The Fix page opens when the user came from one issue whose quoted text is in the resume (the summary or a bullet). Any other issue keeps the step form.
   const issueList = initialProfile?.issues || [];
-  const canFixHere = (issue) => !!issue && ['one', 'many'].includes(fixTargets(data, issue).kind);
-  const [fixMode, setFixMode] = useState(() => canFixHere(focus?.issue));
-  useEffect(() => { setFixMode(canFixHere(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
   const appliedKey = builderAppliedKey(user?.id);
   const [fixRecords, setFixRecords] = useState(() => { try { return JSON.parse(localStorage.getItem(appliedKey) || '{}') || {}; } catch { return {}; } });
+  const keyOfIssueObject = (issue) => { const i = issue ? issueList.findIndex(x => x.title === issue.title && x.before === issue.before) : -1; return i >= 0 ? issueKey(issueList[i], i) : null; };
+  // The Fix page opens for an issue whose quoted text is in the resume (the summary or a bullet), and also for one that was already improved (its record
+  // says where), so it can be seen again, undone or improved again. Before, an improved issue could never be opened on that page again.
+  // Any other issue keeps the step form.
+  const canFixHere = (issue) => !!issue && (['one', 'many'].includes(fixTargets(data, issue).kind) || !!fixRecords[keyOfIssueObject(issue)]);
+  const [fixMode, setFixMode] = useState(() => canFixHere(focus?.issue));
+  const [fixStartKey, setFixStartKey] = useState(() => keyOfIssueObject(focus?.issue));
+  useEffect(() => { setFixMode(canFixHere(focus?.issue)); setFixStartKey(keyOfIssueObject(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const anyFixable = issueList.some(canFixHere);
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
@@ -1024,11 +1029,11 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   });
 
   if (fixMode) {
-    const idx = focus?.issue ? issueList.findIndex(i => i.title === focus.issue.title && i.before === focus.issue.before) : -1;
     const onFixChange = (newData, key, entry) => {
       edit(() => newData);
       setFixRecords(r => {
-        const next = { ...r, [key]: entry };
+        const next = { ...r };
+        if (entry === null) delete next[key]; else next[key] = entry;     // null: the change was undone
         try { localStorage.setItem(appliedKey, JSON.stringify(next)); } catch { /* storage unavailable: the record lives for this visit only */ }
         return next;
       });
@@ -1037,7 +1042,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
       <FixPage
         data={data}
         issues={issueList}
-        startKey={idx >= 0 ? issueKey(issueList[idx], idx) : null}
+        startKey={fixStartKey}
         records={fixRecords}
         onChange={onFixChange}
         onBackToList={onBackToList}
@@ -1077,6 +1082,12 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--lp-text)', marginBottom: 20 }}>
           {BUILDER_STEPS[step]}
         </div>
+        {anyFixable && (
+          <button type="button" onClick={() => { setFixStartKey(null); setFixMode(true); }}
+            style={{ alignSelf: 'flex-start', marginBottom: 14, background: 'transparent', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+            Fix issues side by side →
+          </button>
+        )}
         {fixCard}
         {fixPointer}
 
@@ -1326,6 +1337,8 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
   // Nothing may reach the account in this mode: no memory update, no resume text, and the draft is kept under its own key.
   const demo = demoFixProfile({ dev: import.meta.env.DEV, search: typeof window !== 'undefined' ? window.location.search : '' });
   const user = demo ? { ...signedInUser, id: 'demo-fix' } : signedInUser;
+  // ?demo=fix&reset=1 starts the demo again: its own draft and records are cleared (never the real ones), once, before anything reads them.
+  useState(() => { if (demo && demoResetRequested({ dev: import.meta.env.DEV, search: typeof window !== 'undefined' ? window.location.search : '' })) clearBuilderDraft('demo-fix'); return null; });
   const updateMemory = demo ? null : realUpdateMemory;
   const setGlobalResumeText = demo ? null : realSetGlobalResumeText;
   const globalResume = resumeContent(globalResumeRaw); // Resume Scan stores an object here, not a string
@@ -1386,7 +1399,8 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
     <div className="atb">
       {demo && (
         <div role="note" style={{ padding: '8px 24px', fontSize: 12, background: 'rgba(255,184,77,.12)', color: '#FFB84D', borderBottom: '1px solid var(--lp-bdr)' }}>
-          Demo data (development only): a synthetic resume and issues. Nothing here is saved to your account.
+          Demo data (development only): a synthetic resume and issues. Nothing here is saved to your account.{' '}
+          <a href={`${typeof window !== 'undefined' ? window.location.pathname : '/'}?tab=ats&demo=fix&reset=1`} style={{ color: 'inherit', fontWeight: 700 }}>Reset the demo</a>
         </div>
       )}
       {/* Page header + tab bar */}

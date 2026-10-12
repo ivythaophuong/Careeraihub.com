@@ -417,3 +417,74 @@ describe('a narrow screen', () => {
     expect(document.querySelector('[data-pane="original"]').getAttribute('data-active')).toBe('false');
   });
 });
+
+describe('an issue that was already improved can be opened again', () => {
+  const ORIGINAL = 'Handled monthly reporting for the sales team';
+  const IMPROVED = 'Cut monthly reporting time for the sales team';
+  const improvedSetup = (over = {}) => {
+    const data = makeData(); data.experience[0].bullets[0] = IMPROVED;
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    return setup({ data, startKey: keyOfIssue(0), records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } }, ...over });
+  };
+
+  it('opens on that issue, not on the next one', () => {
+    improvedSetup();
+    expect(screen.getByText('No metrics in bullets')).toBeTruthy();
+    expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();
+  });
+
+  it('shows the sentence as it was on the left and as it is now on the right, so the change is seen', () => {
+    improvedSetup();
+    expect(at(left(), 'b:0:0').textContent).toContain(ORIGINAL);
+    expect(at(right(), 'b:0:0').textContent).toContain(IMPROVED);
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-marked')).toBe(true);
+  });
+
+  it('says it is already improved and offers Undo, Improve again and Leave it for now; not Improve this sentence', () => {
+    improvedSetup();
+    expect(screen.getByText(/already improved/i)).toBeTruthy();
+    expect(btn(/Undo this change/i)).toBeTruthy();
+    expect(btn(/Improve again/i)).toBeTruthy();
+    expect(btn(/Leave it for now/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Improve this sentence/i })).toBeNull();
+  });
+
+  it('Undo puts the original sentence back, tells the page that holds the data, and offers to improve it again', () => {
+    const { props } = improvedSetup();
+    fireEvent.click(btn(/Undo this change/i));
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(data).toEqual(makeData());
+    expect(key).toBe(keyOfIssue(0));
+    expect(entry).toBeNull();                                           // null: the record is removed
+    expect(at(right(), 'b:0:0').textContent).toContain(ORIGINAL);
+    expect(btn(/Improve this sentence/i)).toBeTruthy();
+    expect(screen.queryByText(/already improved/i)).toBeNull();
+  });
+
+  it('Improve again starts from the improved text, and saving it keeps the very first original, so Undo still goes back to it', () => {
+    const { props } = improvedSetup();
+    fireEvent.click(btn(/Improve again/i));
+    expect(editBox().value).toBe(IMPROVED);
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time by half for the sales team' } });
+    fireEvent.click(btn(/Save & next/i));
+    const entry = props.onChange.mock.calls[0][2];
+    expect(entry.record.original).toBe(ORIGINAL);
+    expect(entry.record.inserted).toBe('Cut monthly reporting time by half for the sales team');
+  });
+
+  it('a sentence changed after it was applied says so and cannot be undone automatically', () => {
+    const data = makeData(); data.experience[0].bullets[0] = 'My own wording afterwards';
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    setup({ data, startKey: keyOfIssue(0), records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } } });
+    expect(screen.getByText(/you changed this after applying it/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Undo this change/i })).toBeNull();
+    expect(btn(/Improve again/i)).toBeTruthy();
+  });
+
+  it('with no start issue it still opens on the first one that is not improved', () => {
+    const data = makeData(); data.experience[0].bullets[0] = IMPROVED;
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    setup({ data, records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } } });
+    expect(screen.getByText('Plain dashboard bullet')).toBeTruthy();
+  });
+});

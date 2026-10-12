@@ -57,3 +57,44 @@ describe('?demo=fix', () => {
     expect(screen.queryByText(/Fix in Builder/)).toBeNull();   // the real profile in this test has no issues
   });
 });
+
+describe('?demo=fix&reset=1', () => {
+  const seedUsedDemo = () => {
+    localStorage.setItem(builderDraftKey('demo-fix'), JSON.stringify({ contact: { name: 'Used Demo', email: '', phone: '', linkedin: '', location: '' }, summary: '', experience: [{ id: 0, company: 'X', title: 'Y', period: '', bullets: ['Already changed'] }], education: [], skills: [], awards: [], extras: [] }));
+    localStorage.setItem(`${builderDraftKey('demo-fix')}:applied`, JSON.stringify({ 'x': { record: {}, placeholders: false } }));
+  };
+
+  it('clears the demo draft and the demo records, and leaves the real ones alone', () => {
+    seedUsedDemo();
+    localStorage.setItem(builderDraftKey('u1'), '{"real":"draft"}');
+    window.history.pushState({}, '', '/?demo=fix&reset=1');
+    render(<ATSBuilder {...props()} />);
+    expect(localStorage.getItem(builderDraftKey('demo-fix'))).toBeNull();
+    expect(localStorage.getItem(`${builderDraftKey('demo-fix')}:applied`)).toBeNull();
+    expect(localStorage.getItem(builderDraftKey('u1'))).toBe('{"real":"draft"}');
+  });
+
+  it('starts the demo again from its own resume', () => {
+    seedUsedDemo();
+    window.history.pushState({}, '', '/?demo=fix&reset=1');
+    render(<ATSBuilder {...props()} />);
+    fireEvent.click(screen.getAllByText(/Fix in Builder/)[0]);
+    expect(screen.getByText(/Issue 1 of 3/)).toBeTruthy();
+    expect(screen.getByRole('region', { name: /^Your resume$/i }).textContent).toContain('Handled monthly reporting for the sales team');
+  });
+
+  it('without reset the used demo is kept', () => {
+    seedUsedDemo();
+    window.history.pushState({}, '', '/?demo=fix');
+    render(<ATSBuilder {...props()} />);
+    expect(localStorage.getItem(builderDraftKey('demo-fix'))).not.toBeNull();
+  });
+
+  it('the demo note has a link that resets it', () => {
+    window.history.pushState({}, '', '/?demo=fix');
+    render(<ATSBuilder {...props()} />);
+    const link = screen.getByRole('link', { name: /reset the demo/i });
+    expect(link.getAttribute('href')).toMatch(/demo=fix/);
+    expect(link.getAttribute('href')).toMatch(/reset=1/);
+  });
+});

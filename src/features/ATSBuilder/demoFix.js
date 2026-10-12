@@ -28,3 +28,9 @@ export function demoFixProfile({ dev, search } = {}) {
   if (dev !== true) return null;
   try { return new URLSearchParams(search || '').get('demo') === 'fix' ? DEMO_FIX_PROFILE : null; } catch { return null; }
 }
+
+// ?demo=fix&reset=1: start the demo again (its own saved draft and records are cleared). Development only, like the demo itself.
+export function demoResetRequested({ dev, search } = {}) {
+  if (dev !== true) return false;
+  try { return new URLSearchParams(search || '').get('reset') === '1'; } catch { return false; }
+}

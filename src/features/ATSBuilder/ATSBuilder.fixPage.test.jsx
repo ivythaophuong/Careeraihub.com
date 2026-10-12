@@ -104,3 +104,54 @@ describe('the template', () => {
     expect(document.querySelector(`[data-template="${TEMPLATES[0].id}"]`)).toBeNull();
   });
 });
+
+describe('coming back to an issue that was already improved', () => {
+  const improveFirst = () => {
+    openFix();
+    fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /your text/i }), { target: { value: 'Cut monthly reporting time for the sales team' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Back to list/i }));
+  };
+
+  it('Fix in Builder opens the page again, showing it is already improved, instead of the step form', () => {
+    improveFirst();
+    fireEvent.click(screen.getByText(/Fix in Builder/));
+    expect(screen.getByText(/already improved/i)).toBeTruthy();
+    expect(screen.queryByText(/Step \d of 6/)).toBeNull();
+  });
+
+  it('Undo there restores the sentence in the saved draft and removes the record', () => {
+    improveFirst();
+    fireEvent.click(screen.getByText(/Fix in Builder/));
+    fireEvent.click(screen.getByRole('button', { name: /Undo this change/i }));
+    const draft = JSON.parse(localStorage.getItem(builderDraftKey('u1')));
+    expect(draft.experience[0].bullets[0]).toBe('Handled monthly reporting for the sales team');
+    expect(JSON.parse(localStorage.getItem(builderAppliedKey('u1')))).toEqual({});
+  });
+});
+
+describe('a way in that does not depend on one issue', () => {
+  it('the Builder has a Fix issues side by side button that opens the page on the first issue not improved', () => {
+    render(<ATSBuilder {...base([issue()])} />);
+    fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+    fireEvent.click(screen.getByRole('button', { name: /Fix issues side by side/i }));
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(screen.getByRole('region', { name: /^Your new resume$/i })).toBeTruthy();
+  });
+
+  it('the button is not offered when no issue can be shown there', () => {
+    render(<ATSBuilder {...base([issue({ before: 'Text that is not in the resume' })])} />);
+    fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+    expect(screen.queryByRole('button', { name: /Fix issues side by side/i })).toBeNull();
+  });
+
+  it('Open the Builder from the end of the page, then the button, brings the page back', () => {
+    render(<ATSBuilder {...base([issue()])} />);
+    fireEvent.click(screen.getByText(/Fix in Builder/));
+    fireEvent.click(screen.getByRole('button', { name: /Leave it for now/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Open the Builder/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Fix issues side by side/i }));
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+  });
+});

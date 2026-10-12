@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { undoApply } from '../applyIssue.js';
 import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText } from '../fixPage.js';
 
 // The Fix page: your resume on the left, with the sentences that can be improved highlighted; your new resume on the right, which follows what you type;
@@ -85,43 +86,60 @@ function ResumePane({ name, panel, hint, data, Template, templateId, marks, acti
   );
 }
 
+// The resume as it was before the improvements that are recorded: each recorded change is undone on a copy, so the left resume can show the
+// sentence as it was even when the user comes back in a later visit. A change that was edited afterwards cannot be undone and is left as it is.
+function revertApplied(data, records) {
+  let cur = data;
+  for (const e of Object.values(records || {})) {
+    if (!e?.record) continue;
+    const back = undoApply(cur, e.record);
+    if (back) cur = back;
+  }
+  return cur;
+}
+
 export default function FixPage({ data, issues = [], startKey = null, records = {}, onChange, onBackToList, onOpenBuilder, onChooseTemplate, template }) {
   const [work, setWork] = useState(data);
   const [recs, setRecs] = useState(records || {});
 
   // The issues this page can place: found in the summary or a bullet (or already applied). Fixed when the page opens, so an issue does not
   // leave the list because its text has just been replaced.
+  const [original] = useState(() => revertApplied(data, records));
   const [list] = useState(() => issues
     .map((issue, i) => ({ issue, i, key: issueKey(issue, i) }))
-    .filter(it => records?.[it.key] || ['one', 'many'].includes(fixTargets(data, it.issue).kind)));
+    .filter(it => records?.[it.key] || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
 
   // Where each issue's sentence is in the resume as it was when the page opened: this is what the left resume highlights.
   const [seed] = useState(() => {
     const out = [];
-    list.forEach((it, itemPos) => fixTargets(data, it.issue).places.forEach(p => out.push({ key: markKeyOf(p.at), itemPos, at: p.at })));
+    list.forEach((it, itemPos) => {
+      let ats = fixTargets(original, it.issue).places.map(p => p.at);
+      if (!ats.length && records?.[it.key]?.record) ats = [records[it.key].record.at];   // improved and then edited: the place is known from the record
+      ats.forEach(at => out.push({ key: markKeyOf(at), itemPos, at }));
+    });
     return out;
   });
-  const [original] = useState(data);
 
   const statusesFor = (d, r) => list.map(it => issueStatus(d, it.issue, r[it.key]?.record ?? null));
 
   const startPos = () => {
     const statuses = statusesFor(data, records || {});
     const asked = startKey ? list.findIndex(it => it.key === startKey) : -1;
-    if (asked >= 0 && statuses[asked] !== 'applied') return asked;
+    if (asked >= 0) return asked;                       // an issue already improved opens too: it can be seen again, undone or improved again
     return firstUnresolved(statuses);
   };
 
   // The place an issue points to when it is in exactly one place; for several places the user chooses.
-  const placeFor = (d, pos) => {
+  const placeFor = (d, pos, r = recs) => {
     if (pos === null) return null;
+    if (r?.[list[pos].key]?.record) return r[list[pos].key].record.at;   // improved: the place is in the record
     const t = fixTargets(d, list[pos].issue);
     return t.kind === 'one' ? t.places[0].at : null;
   };
 
   const [pos, setPos] = useState(startPos);
-  const [chosenAt, setChosenAt] = useState(() => placeFor(data, startPos()));
-  const [text, setText] = useState(() => { const a = placeFor(data, startPos()); return a ? fieldText(data, a) : ''; });
+  const [chosenAt, setChosenAt] = useState(() => placeFor(data, startPos(), records || {}));
+  const [text, setText] = useState(() => { const a = placeFor(data, startPos(), records || {}); return a ? fieldText(data, a) : ''; });
   const [improving, setImproving] = useState(false);
   const [showWhy, setShowWhy] = useState(false);
   const [showDraft, setShowDraft] = useState(false);
@@ -131,15 +149,17 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const [pendingPick, setPendingPick] = useState(null);
   const [pane, setPane] = useState('original');
 
-  const go = (nextPos, d, chosen) => {
-    const a = chosen || placeFor(d, nextPos);
+  const go = (nextPos, d, chosen, r = recs) => {
+    const a = chosen || placeFor(d, nextPos, r);
     setPos(nextPos); setChosenAt(a); setText(a ? fieldText(d, a) : '');
     setImproving(false); setShowWhy(false); setShowDraft(false);
     setMsg(''); setAskReplace(false); setAskLeave(false); setPendingPick(null);
   };
 
   const current = pos === null ? null : list[pos];
-  const targets = current ? fixTargets(work, current.issue) : null;
+  const statuses = statusesFor(work, recs);
+  const improved = current ? ['applied', 'applied_edited'].includes(statuses[pos]) : false;   // this issue was improved earlier (this visit or before)
+  const targets = current && !improved ? fixTargets(work, current.issue) : { kind: 'one', places: [] };
   const at = chosenAt;
   const place = at && targets ? targets.places.find(p => JSON.stringify(p.at) === JSON.stringify(at)) : null;
   const saved = at ? fieldText(work, at) : '';
@@ -147,7 +167,6 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const suggestion = at && current ? suggestionFor(work, current.issue, at) : null;
   const draft = suggestion && !suggestion.error ? suggestion : null;
 
-  const statuses = statusesFor(work, recs);
   const activeKey = at ? markKeyOf(at) : null;
   const shown = at && dirty ? withFieldText(work, at, text) : work;     // the new resume: what is saved, plus what is being typed
 
@@ -177,11 +196,21 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     const r = saveFix(work, at, text);
     if (r.error === 'empty') { setMsg('Write the text first, or leave this one for now.'); return; }
     if (r.error) { setMsg('That place is not in your resume any more.'); return; }
-    const entry = { record: r.record, placeholders: r.blanks > 0, warnings: [] };
+    const prev = recs[current.key]?.record;
+    const record = prev && undoApply(work, prev) !== null ? { ...r.record, original: prev.original } : r.record;   // Undo goes back to the very first original
+    const entry = { record, placeholders: r.blanks > 0, warnings: [] };
     const nextRecs = { ...recs, [current.key]: entry };
     setWork(r.data); setRecs(nextRecs);
     onChange?.(r.data, current.key, entry);
     go(nextUnresolved(statusesFor(r.data, nextRecs), pos), r.data);
+  };
+  const undo = () => {
+    const back = undoApply(work, recs[current.key].record);
+    if (!back) { setMsg('That sentence was changed afterwards, so it cannot be undone automatically.'); return; }
+    const nextRecs = { ...recs }; delete nextRecs[current.key];
+    setWork(back); setRecs(nextRecs);
+    onChange?.(back, current.key, null);          // null: the record is removed
+    go(pos, back, undefined, nextRecs);
   };
   const leave = () => go(nextUnresolved(statuses, pos), work);
   const back = () => { if (dirty) setAskLeave(true); else onBackToList?.(); };
@@ -262,12 +291,28 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
         {askLeave && prompt('Leave without saving your change?', () => setAskLeave(false), () => onBackToList?.(), 'Leave')}
         {pendingPick && prompt('Open another sentence without saving your change?', () => setPendingPick(null), () => openItem(pendingPick.itemPos, pendingPick.at), 'Switch')}
 
-        {targets.kind === 'none' && (<>
+        {improved && !improving && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>
+              {statuses[pos] === 'applied'
+                ? <><strong style={{ color: '#00E5A0' }}>Already improved.</strong> Your resume (left) shows the sentence as it was; your new resume (right) shows it now.</>
+                : <>You changed this after applying it. Your resume (left) shows the sentence as it was; your new resume (right) shows it now. It cannot be undone automatically.</>}
+            </div>
+            {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button type="button" style={btn(true)} onClick={() => setImproving(true)}>Improve again</button>
+              {statuses[pos] === 'applied' && <button type="button" style={btn(false)} onClick={undo}>Undo this change</button>}
+              <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
+            </div>
+          </div>
+        )}
+
+        {!improved && targets.kind === 'none' && (<>
           <div style={{ fontSize: 13, color: '#FFB84D', lineHeight: 1.6 }}>Could not find that text in your resume any more. You can leave it, or edit the field in the Builder.</div>
           <div><button type="button" style={btn(false)} onClick={leave}>Leave it for now</button></div>
         </>)}
 
-        {targets.kind === 'many' && !at && (
+        {!improved && targets.kind === 'many' && !at && (
           <div style={{ fontSize: 13, color: 'var(--lp-text2)', lineHeight: 1.6 }}>
             That text is in {targets.places.length} places, highlighted in your resume. Click one, or choose here:
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
@@ -277,7 +322,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           </div>
         )}
 
-        {at && (<>
+        {at && (!improved || improving) && (<>
           {place && !place.drawn && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.6 }}>This text is in a job with no company name, so the resume does not show it. You can still edit it here.</div>}
 
           {improving && (
