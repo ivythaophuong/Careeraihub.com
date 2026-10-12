@@ -12,7 +12,7 @@ const form = { role: 'PM', level: '', industry: 'Fintech', market: 'Singapore' }
 describe('buildMemoryContext: missing data is left out, never a number', () => {
   it('does not average a story bank where some stories have no score', () => {
     const t = buildMemoryContext({ starBank: [{ score: 80 }, { oneLiner: 'legacy, no score' }, { score: 60 }] }, form);
-    expect(t).toContain('3 stories banked, avg score 70/100'); // (80+60)/2, the legacy story is not a 0
+    expect(t).toContain('3 stories banked, avg score 70/100 (AI estimates of how the stories read)'); // (80+60)/2, the legacy story is not a 0
     expect(t).not.toMatch(/NaN/);
   });
 

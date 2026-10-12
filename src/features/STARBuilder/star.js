@@ -16,5 +16,3 @@ export function findInventedNumbers(story, result) {
     [...SECTIONS.map(k => result.refined[k]), result.oneLiner].join(' '),
   );
 }
-
-export const scoreColorKey = (score) => (score >= 75 ? 'green' : score >= 50 ? 'gold' : 'red');

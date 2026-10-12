@@ -8,7 +8,7 @@ import { serverScoringOn, reviewStarOnServer, saveStarOnServer } from '../../lib
 import { GetReadyTabStrip } from '../Landing/LandingPage';
 import '../../styles/featurePage.css';
 import { copyToClipboard } from '../CoverLetterGen/coverLetter';
-import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, findInventedNumbers, scoreColorKey } from './star';
+import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, findInventedNumbers } from './star';
 
 const fc = [C.accent, C.gold, C.purple, C.green];
 const FIELDS = [
@@ -17,7 +17,7 @@ const FIELDS = [
   { k: 'action', l: 'Action', h: 'Action Taken', rows: 4 },
   { k: 'result', l: 'Result', h: 'Outcome', rows: 2 },
 ];
-const scoreColor = (s) => C[scoreColorKey(s)];
+// A STAR score is an AI estimate of how the story reads. It is shown in one neutral colour: nothing grades it by value.
 const storyAsText = (r) => `${r.oneLiner}\n\n${SECTIONS.map(k => `${k[0].toUpperCase()}${k.slice(1)}: ${r.refined[k]}`).join('\n\n')}`;
 
 // A saved story is identified by its database row id. A story kept on screen from before the id was stored has none: it can only be
@@ -190,11 +190,11 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
 
       {result && !loading && (
         <>
-          <Card style={{ border: `1px solid ${scoreColor(result.score)}44` }}>
+          <Card>
             <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div>
-                <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Your draft scores</div>
-                <div style={{ color: scoreColor(result.score), fontWeight: 900, fontSize: 36 }} aria-label="Overall score">{result.score}<span style={{ fontSize: 16 }}>/100</span></div>
+                <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>AI estimate of your draft</div>
+                <div style={{ color: C.text, fontWeight: 900, fontSize: 36 }} aria-label="Overall score">{result.score}<span style={{ fontSize: 16 }}>/100</span></div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: 1 }}>
                 {SECTIONS.map((k, i) => (
@@ -205,7 +205,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
                 ))}
               </div>
             </div>
-            <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>Scored on your original wording, not the polished version below.</div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>An AI estimate of how your wording reads, scored on your original wording (not the polished version below). It is not a verified assessment of your skill, and the same story can score differently if you review it again.</div>
           </Card>
 
           {invented.length > 0 && (
@@ -261,10 +261,11 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
       {bank.length > 0 && (
         <Card>
           <div style={{ color: C.text, fontWeight: 900, fontSize: 14, marginBottom: 12 }}>📚 Your Story Bank <span style={{ color: C.muted, fontWeight: 600, fontSize: 11 }}>({bank.length})</span></div>
+          <div style={{ color: C.muted, fontSize: 11, marginBottom: 8 }}>Scores are AI estimates of how each story reads, not verified assessments.</div>
           {bank.map(s => (
             <div key={s.id} style={{ borderTop: `1px solid ${C.border}`, padding: "10px 0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => setOpenId(openId === s.id ? null : s.id)}>
-                <span style={{ color: scoreColor(s.score || 0), fontWeight: 900, fontSize: 13, minWidth: 28 }}>{s.score ?? '–'}</span>
+                <span style={{ color: C.text, fontWeight: 900, fontSize: 13, minWidth: 28 }}>{s.score ?? '–'}</span>
                 <span style={{ color: C.text, fontSize: 12, flex: 1 }}>{s.oneLiner || s.situation}</span>
                 <span style={{ color: C.muted, fontSize: 10 }}>{s.date ? new Date(s.date).toLocaleDateString() : ''}</span>
               </div>

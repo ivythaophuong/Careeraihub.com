@@ -292,7 +292,7 @@ export default function TrustMatch({ user, memory, updateMemory, syncedAt }) {
         {trustProfile && (
           <div style={{ background: T.bg3, border: `1px solid ${T.bdr}`, borderRadius: 10, padding: '10px 12px' }}>
             <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: T.text3, marginBottom: 8 }}>Score breakdown</div>
-            {[['ATS Resume', trustProfile.ats_score, T.teal, 0.40], ['Interview Sim', trustProfile.interview_score, T.violet, 0.35], ['STAR Stories', trustProfile.star_score, T.emerald, 0.25]].map(([label, score, color, weight]) => (
+            {[['ATS Resume', trustProfile.ats_score, T.teal, 0.40], ['Interview Sim (AI estimate)', trustProfile.interview_score, T.violet, 0.35], ['STAR Stories (AI estimate)', trustProfile.star_score, T.emerald, 0.25]].map(([label, score, color, weight]) => (
               <div key={label} style={{ marginBottom: 7 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 3 }}>
                   <span style={{ color: T.text2 }}>{label} <span style={{ color: T.text3 }}>({Math.round(weight * 100)}%)</span></span>
@@ -303,6 +303,7 @@ export default function TrustMatch({ user, memory, updateMemory, syncedAt }) {
                 </div>
               </div>
             ))}
+            <div style={{ fontSize: 9.5, color: T.text3, lineHeight: 1.5, marginTop: 2 }}>The interview and STAR numbers are AI estimates of your practice, not verified assessments.</div>
           </div>
         )}
 
