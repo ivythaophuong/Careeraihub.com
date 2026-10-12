@@ -31,7 +31,7 @@ export function buildMemoryContext(mem, form) {
   }
   if (mem.starBank?.length) {
     const avg = average(mem.starBank, 'score');
-    lines.push(`STAR story bank: ${mem.starBank.length} stories banked${avg == null ? '' : `, avg score ${avg}/100`}`);
+    lines.push(`STAR story bank: ${mem.starBank.length} stories banked${avg == null ? '' : `, avg score ${avg}/100 (AI estimates of how the stories read)`}`);
   }
   if (mem.mockSessions?.length) lines.push(`Mock interview history: ${mem.mockSessions.length} sessions completed`);
   if (mem.negotiationPractice > 0) lines.push(`Negotiation practice: ${mem.negotiationPractice} roleplay sessions`);

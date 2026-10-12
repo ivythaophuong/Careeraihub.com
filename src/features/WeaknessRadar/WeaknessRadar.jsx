@@ -14,7 +14,8 @@ const average = (values) => {
   const nums = values.filter(v => Number.isFinite(v));
   return nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) : null;
 };
-const levelOf = (score) => (score < 40 ? { label: 'Needs work', color: C.red } : score < 70 ? { label: 'Building', color: C.gold } : { label: 'Strong', color: C.green });
+// These averages are AI estimates of practice answers and story wording. They are shown in one neutral colour with no grade word:
+// no number is treated as a pass mark.
 
 export function buildEvidence({ scanResult, memory }) {
   const latestScan = scanResult || memory?.scanHistory?.[0]?.result || null;
@@ -39,19 +40,19 @@ function NotEnoughEvidence({ title, need, action, onAction }) {
 }
 
 function ScoreCard({ title, score, basis, action, onAction }) {
-  const { label, color } = levelOf(score);
+  const color = C.text;
   return (
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ color: C.text, fontWeight: 800, fontSize: 14 }}>{title}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 10, color: C.muted, fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>{label}</span>
+          <span style={{ fontSize: 10, color: C.muted, fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>AI estimate</span>
           <span style={{ color, fontSize: 14, fontWeight: 900, fontFamily: 'var(--font-mono)' }}>{score}%</span>
         </span>
       </div>
-      <GlowBar score={score} color={color} delay={0} height={10} showLabel={false} />
+      <GlowBar score={score} color={C.accent} delay={0} height={10} showLabel={false} />
       <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>{basis}</div>
-      {score < 70 && (
+      {(
         <button onClick={onAction} style={{ marginTop: 12, background: 'transparent', color: C.accent, border: `1px solid ${C.accent}66`, borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>{action}</button>
       )}
     </Card>
