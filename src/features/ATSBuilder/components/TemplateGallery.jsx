@@ -49,7 +49,7 @@ export default function TemplateGallery({ data, templates = [], selectedId, onSe
   };
 
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '20px 24px' }}>
+    <div style={{ width: '100%', boxSizing: 'border-box', maxWidth: 1400, margin: '0 auto', padding: '20px 24px' }}>   {/* a fixed width, so the layout does not shift between the steps */}
       <style>{css}</style>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -69,6 +69,12 @@ export default function TemplateGallery({ data, templates = [], selectedId, onSe
           </div>
 
           {step === 'pick' ? (<>
+            {sample ? (
+              <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--lp-text2)' }}>Upload or write your resume first, then come back to download or save it in this layout.</div>
+            ) : (<>
+              <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--lp-text2)' }}>Click a layout below to see your resume in it. When you like one, go on:</div>
+              <button type="button" data-primary="true" onClick={() => setStep('finish')} style={btn(true)}>Next: download or save →</button>
+            </>)}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {templates.map(t => {
                 const chosen = t.id === selected?.id;
@@ -88,12 +94,6 @@ export default function TemplateGallery({ data, templates = [], selectedId, onSe
                 );
               })}
             </div>
-            {sample ? (
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--lp-text2)' }}>Upload or write your resume first, then come back to download or save it in this layout.</div>
-            ) : (<>
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--lp-text2)' }}>Click a layout to see your resume in it. When you like one:</div>
-              <button type="button" data-primary="true" onClick={() => setStep('finish')} style={btn(true)}>Next: download or save →</button>
-            </>)}
           </>) : (<>
             <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>
               You chose <strong style={{ color: 'var(--lp-text)' }}>{selected.label}</strong>. <button type="button" onClick={() => setStep('pick')} style={link}>Back to layouts</button>
