@@ -855,16 +855,20 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
     setStep(0);
   }, [restoredData]);
 
-  // Scale live preview to fit the panel width without horizontal overflow
+  // Scale the live preview to fit the width of its column, without horizontal overflow. The column is only on screen when the Fix page is not, so it is
+  // measured each time it appears (the Builder can be mounted behind the Fix page first), and watched only while it is there. A width that is not
+  // measured yet, or too small to mean anything, never gives a zero or negative scale (that left the preview blank): no scaling, or at least 0.3.
   useEffect(() => {
-    if (!containerRef.current) return;
-    const ro = new ResizeObserver(([e]) => {
-      const available = e.contentRect.width - 32;
-      setPreviewScale(available < 794 ? available / 794 : 1);
-    });
+    if (fixMode || !containerRef.current) return undefined;
+    const fit = (width) => {
+      const available = width - 32;
+      setPreviewScale(available > 0 ? Math.max(0.3, Math.min(1, available / 794)) : 1);
+    };
+    if (containerRef.current.clientWidth) fit(containerRef.current.clientWidth);
+    const ro = new ResizeObserver(([e]) => fit(e.contentRect.width));
     ro.observe(containerRef.current);
     return () => ro.disconnect();
-  }, []);
+  }, [fixMode]);
 
   const inp = {
     width: '100%', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)',
