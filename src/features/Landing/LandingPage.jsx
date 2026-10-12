@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import './landing.css';
-import { SUPABASE_URL, SUPABASE_ANON } from '../../lib/supabase';
+import { FUNCTIONS_URL, SUPABASE_ANON } from '../../lib/supabase';
 import './landing-v10.css';
 import './landing-v36.css';
 import { OrbitMark } from '../../components/OrbitMark';
@@ -985,7 +985,7 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
     // Live results come from the `jobs` Edge Function (the Adzuna keys stay on the server).
     // If it is unavailable or returns nothing, fall back to search links on the major boards.
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/jobs`, {
+      const resp = await fetch(`${FUNCTIONS_URL}/functions/v1/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
         body: JSON.stringify({ what: title, where: loc, experience: exp }),

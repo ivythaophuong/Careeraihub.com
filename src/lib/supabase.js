@@ -1,6 +1,9 @@
 import { getValidSession } from "./session";
 
 export const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  || "https://ruibdsvrcctxgxctaxwe.supabase.co";
+// Where the browser calls the Edge Functions. The Supabase address unless a developer sets VITE_FUNCTIONS_URL (an empty value = the page's own origin, used with
+// the dev proxy in vite.devProxy.js because the functions answer only the production origin). Never set it in a build.
+export const FUNCTIONS_URL = import.meta.env.VITE_FUNCTIONS_URL ?? SUPABASE_URL;
 export const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1aWJkc3ZyY2N0eGd4Y3RheHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Nzg3MjksImV4cCI6MjA4OTA1NDcyOX0.TB2jdImKiHx6oP0aNNXObShT_eHk0wvtN_As5tkbcmE";
 
 // Errors from the API carry the HTTP status so callers can tell an expired
