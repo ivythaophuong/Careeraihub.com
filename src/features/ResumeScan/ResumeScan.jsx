@@ -4,7 +4,8 @@ import { OrbitSpinner } from '../../components/OrbitMark';
 import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { TEMPLATES } from '../ATSBuilder/resumeTemplates.jsx';
-import html2pdf from 'html2pdf.js';
+import { printElement } from '../../lib/printElement.js';
+import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
 import { TEMPLATE_PARSE, JD_MAX_CHARS, missingSections } from '../../lib/templateParse';
 import mammoth from 'mammoth';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
@@ -316,21 +317,18 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
     const exportText = editorText || resumeCtx;
     const firstName = ((templateProfile?.name || exportText.split('\n').find(l => l.trim()) || 'resume')).replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30);
     try {
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename: `${firstName}_${tpl.label.replace(/\s+/g, '_')}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false, width: 794, windowWidth: 794 },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-        })
-        .from(pdfExportRef.current)
-        .save();
+      await printElement(pdfExportRef.current, { title: `${firstName}_${tpl.label.replace(/\s+/g, '_')}` });
       setPdfExported(true);
     } finally {
       setPdfDownloading(false);
     }
+  };
+
+  // Word file from the same structured data as the templates. Offered only when that data matches the text as it is now and every section was captured; otherwise a section would be missing.
+  const handleExportDocx = async () => {
+    if (!templateProfile) return;
+    const base = (templateProfile.name || 'resume').replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30) || 'resume';
+    downloadBlob(await buildResumeDocx(profileToTemplateData(templateProfile)), `${base}.docx`);
   };
 
   // Reset templateProfile when resume changes so export re-parses
@@ -347,6 +345,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
 
   // Sections the parsed template lost (they are in the text but not in the profile): show the full text rather than a resume without them.
   const lostSections = templateProfile ? missingSections(editorText || resumeCtx, templateProfile) : [];
+  const docxReady = !!templateProfile && !parsingTemplate && lostSections.length === 0 && templateSrcRef.current === (editorText || resumeCtx).trim();
 
   const canScan = !!jd.trim() && !!resumeCtx && jd.length <= JD_MAX_CHARS;
   const phase = loading ? 'scanning' : editMode ? 'edit' : result ? 'results' : 'input';
@@ -358,7 +357,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
   /* ─── Hidden PDF render target — always mounted so ref is valid ─── */
   const pdfModal = (
     <div aria-hidden="true" style={{ position: 'fixed', left: -9999, top: 0, zIndex: -1, width: 794 }}>
-      {/* The element that is captured must carry NO position/offset style of its own: html2pdf copies it, and a copy at left:-9999 is an empty page (the blank PDF). */}
+      {/* The element that is printed must carry NO position/offset style of its own: its markup is copied into the print frame, and a copy at left:-9999 would print an empty page. */}
       <div ref={pdfExportRef} data-testid="pdf-export-target" style={{ width: 794 }}>
       {(() => {
         const tpl = TEMPLATES.find(t => t.id === selectedTpl) || TEMPLATES[0];
@@ -573,6 +572,15 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
             borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: (pdfDownloading || parsingTemplate) ? 'default' : 'pointer', whiteSpace: 'nowrap',
           }}>
             {pdfDownloading ? 'Generating…' : parsingTemplate ? 'Parsing…' : '⬇ Download PDF'}
+          </button>
+          <button type="button" onClick={handleExportDocx} disabled={!docxReady}
+            title={docxReady ? 'Plain Word file with real headings and bullets' : 'Available once the resume has been read into sections; use the PDF otherwise.'}
+            style={{
+              padding: '9px 14px', background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)',
+              borderRadius: 8, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap',
+              cursor: docxReady ? 'pointer' : 'default', opacity: docxReady ? 1 : 0.5,
+            }}>
+            ⬇ Word
           </button>
         </div>
 
