@@ -22,4 +22,10 @@ describe('AI Coach context', () => {
     expect(p).not.toMatch(/61|88|match rate/i);
     expect(p).toContain('Kubernetes');
   });
+
+  it('keeps the context small whatever the user typed: long free-text fields are clipped', () => {
+    const long = 'x'.repeat(500000);
+    const p = buildSystemPrompt({ jdAnalyses: [{ roleTitle: long }], starBank: [{ bankAs: long }], skillsGap: { result: { skills: [{ name: long, status: 'gap' }] } } }, { role: long, level: long, market: long, industry: long });
+    expect(p.length).toBeLessThan(3000);
+  });
 });

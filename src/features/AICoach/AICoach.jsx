@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { callLLMFor } from '../../lib/aiFeature.js';
+import { buildCoachRequest, COACH_LIMITS } from './coachRequest.js';
 
 const QUICK_PROMPTS = [
   { label: '💡 What should I focus on this week?',             text: 'What should I focus on this week to make the most progress?' },
@@ -9,13 +10,16 @@ const QUICK_PROMPTS = [
   { label: '🎯 Should I apply broadly or target fewer roles?',  text: 'Should I apply to many roles broadly or target fewer, highly-tailored applications?' },
 ];
 
+// Free text the user typed is clipped before it goes into the context, so the context stays small whatever was typed.
+const clip = (s, n = 100) => { const t = String(s ?? ''); return t.length > n ? `${t.slice(0, n)}…` : t; };
+
 export function buildSystemPrompt(memory, form) {
   const lines = [
     `You are an expert AI career coach. You have full context on the user's profile.`,
-    `Target role: ${form?.role || 'not specified'}`,
-    `Level: ${form?.level || 'not stated'}`,
-    `Market: ${form?.market || 'Singapore'}`,
-    `Industry: ${form?.industry || 'Tech'}`,
+    `Target role: ${clip(form?.role) || 'not specified'}`,
+    `Level: ${clip(form?.level) || 'not stated'}`,
+    `Market: ${clip(form?.market) || 'Singapore'}`,
+    `Industry: ${clip(form?.industry) || 'Tech'}`,
   ];
   if (memory.scanHistory?.length) {
     const latest = memory.scanHistory[0];
@@ -23,13 +27,13 @@ export function buildSystemPrompt(memory, form) {
   }
   if (memory.starBank?.length) {
     lines.push(`STAR bank: ${memory.starBank?.length} stories saved`);
-    lines.push(`Best STAR: "${memory.starBank?.[0]?.bankAs || memory.starBank?.[0]?.oneLiner?.slice(0, 50)}"`);
+    lines.push(`Best STAR: "${clip(memory.starBank?.[0]?.bankAs || memory.starBank?.[0]?.oneLiner, 80)}"`);
   }
   if (memory.mockSessions?.length) {
     lines.push(`Interview sessions: ${memory.mockSessions?.length} completed, latest score ${memory.mockSessions[0]?.avgScore ?? '—'}/100`);
   }
   if (memory.jdAnalyses?.length) {
-    lines.push(`JDs analyzed: ${memory.jdAnalyses.length} · recent roles: ${memory.jdAnalyses.slice(0, 3).map(j => j.roleTitle || 'Role').join(', ')}`);
+    lines.push(`JDs analyzed: ${memory.jdAnalyses.length} · recent roles: ${memory.jdAnalyses.slice(0, 3).map(j => clip(j.roleTitle, 80) || 'Role').join(', ')}`);
   }
   if (memory.coverLetters?.length) {
     lines.push(`Cover letters generated: ${memory.coverLetters.length}`);
@@ -37,7 +41,7 @@ export function buildSystemPrompt(memory, form) {
   if (memory.skillsGap?.result) {
     // Counted from the saved skill list; the AI-estimated match rates are no longer shown or stored.
     const gaps = (memory.skillsGap.result.skills || []).filter(sk => sk.status === 'gap').map(sk => sk.name).filter(Boolean);
-    lines.push(`Skills gap analysis done${gaps.length ? `; flagged gaps: ${gaps.slice(0, 6).join(', ')}` : ''}`);
+    lines.push(`Skills gap analysis done${gaps.length ? `; flagged gaps: ${gaps.slice(0, 6).map(g => clip(g, 60)).join(', ')}` : ''}`);
   }
   if ((memory.negotiationPractice ?? 0) > 0) {
     lines.push(`Salary negotiation practice sessions: ${memory.negotiationPractice}`);
@@ -94,9 +98,25 @@ export default function AICoach({ memory, form, updateMemory, showToast }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const [sendError, setSendError] = useState('');
+  const [dropped, setDropped] = useState(0); // how many earlier messages the last request left out
+
   const send = async (text) => {
     const content = (text || input).trim();
     if (!content || loading) return;
+
+    // Build the request first: if the message cannot be sent at all, say so and keep what the user typed.
+    const built = buildCoachRequest({ systemPrompt: buildSystemPrompt(memory, form), history: messages, content });
+    if (built.error === 'context_too_long') {
+      setSendError('Your profile summary is too large to send. Please shorten the target role, level, market and industry fields and try again.');
+      return;
+    }
+    if (built.error) {
+      setSendError(`That message is too long to send (the limit is about ${built.maxChars.toLocaleString('en-US')} characters). Shorten it and try again.`);
+      return;
+    }
+    setSendError('');
+    setDropped(built.dropped);
     setInput('');
 
     const userMsg = { role: 'user', content, ts: Date.now() };
@@ -106,30 +126,27 @@ export default function AICoach({ memory, form, updateMemory, showToast }) {
     setLoading(true);
 
     try {
-      const systemPrompt = buildSystemPrompt(memory, form);
-      // Prepend system context as first user/assistant exchange so all providers handle it
-      const history = [
-        { role: 'user',      content: `[COACH CONTEXT]\n${systemPrompt}\n[END CONTEXT]\n\nAcknowledge you have this context.` },
-        { role: 'assistant', content: 'Understood — I have your full profile context loaded.' },
-        ...messages.filter(m => !m.loading).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content },
-      ];
-      const raw = await callLLMFor('ai_coach')(history, 600);
+      const raw = await callLLMFor('ai_coach')(built.messages, 600);
       const reply = { role: 'assistant', content: raw.trim(), ts: Date.now() };
 
       setMessages(prev => {
         const next = [...prev.filter(m => !m.loading), reply];
-        updateMemory(m => ({ ...m, aiChat: next.slice(-60).map(({ role, content, ts }) => ({ role, content, ts })) }));
+        // Error bubbles are shown but never stored.
+        updateMemory(m => ({ ...m, aiChat: next.filter(x => !x.error).slice(-60).map(({ role, content, ts }) => ({ role, content, ts })) }));
         return next;
       });
     } catch (e) {
-      const errMsg = { role: 'assistant', content: `Something went wrong: ${e.message}. Try again.`, ts: Date.now() };
+      const errMsg = { role: 'assistant', content: `Something went wrong: ${e.message}. Try again.`, ts: Date.now(), error: true };
       setMessages(prev => [...prev.filter(m => !m.loading), errMsg]);
       showToast('AI Coach error: ' + e.message, 'error');
     }
     setLoading(false);
     inputRef.current?.focus();
   };
+
+  // Once the conversation is longer than one request can carry, the oldest messages stay on screen but are no longer sent.
+  const sentCount = messages.filter(m => !m.loading && !m.error).length;
+  const willTrim = dropped > 0 || sentCount > COACH_LIMITS.maxMessages - 3;
 
   const clearChat = () => {
     const init = [{ role: 'assistant', content: 'Chat cleared. What would you like to work on?', ts: Date.now() }];
@@ -163,6 +180,13 @@ export default function AICoach({ memory, form, updateMemory, showToast }) {
             {messages.map((msg, i) => <Bubble key={i} msg={msg} />)}
             <div ref={bottomRef} />
           </div>
+
+          {willTrim && (
+            <div role="note" style={{ padding: '6px 18px', fontSize: 11, color: 'var(--lp-text3)', borderTop: '1px solid var(--lp-bdr)' }}>
+              Only the most recent messages are sent to the AI. Earlier ones stay on this screen, but the coach no longer sees them.
+            </div>
+          )}
+          {sendError && <div role="alert" style={{ padding: '6px 18px', fontSize: 12, color: '#FF5A5A' }}>{sendError}</div>}
 
           {/* Input row */}
           <div style={{ padding: '12px 16px', borderTop: '1px solid var(--lp-bdr)', display: 'flex', gap: 8 }}>
