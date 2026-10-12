@@ -7,15 +7,16 @@ import { digestResume } from '../../lib/resumeDigest.js';
 import { OrbitSpinner } from '../../components/OrbitMark';
 import { arrayBufferToBase64 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
-import { printElement } from '../../lib/printElement.js';
-import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
+import { exportPdf, exportDocx, makeVersion } from './exportActions.js';
 import BuilderScorePanel from './components/BuilderScorePanel.jsx';
 import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
-import { demoFixProfile } from './demoFix.js';
-import { confirmExport } from '../../lib/exportGuard.js';
-import { builderDataToText } from './builderText.js';
+import { demoFixProfile, demoResetRequested } from './demoFix.js';
+import { stepForIssue, draftFor, isBulletIssue, quoteInResume } from './issueStep.js';
+import { Sparkles } from 'lucide-react';
+import TemplateGallery from './components/TemplateGallery.jsx';
+import { scoreBuilderData } from './builderText.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -36,6 +37,7 @@ function base64ToBlobUrl(b64) {
 const RB_TABS = [
   { id: 'parse',   label: 'Upload & Parse'  },
   { id: 'builder', label: 'Builder'         },
+  { id: 'templates', label: 'Templates'     },
   { id: 'history', label: 'Version History' },
 ];
 
@@ -785,12 +787,28 @@ export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(bui
 
 // builderStep from an issue is 1=Contact ... 5=Summary, the same order as BUILDER_STEPS (index = builderStep - 1). Anything else opens step 1.
 const stepIndexFor = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n - 1 : 0);
+// The step an issue is fixed in: where its quoted text is, or what its title says, and the number the AI wrote only when nothing else decides (issueStep.js).
+const stepNumberFor = (issue, data, aiStep) => stepForIssue(issue, data) ?? (Number.isInteger(aiStep) ? aiStep : null);
+const STEP_NAMES = { 1: 'Contact', 2: 'Experience', 3: 'Education', 4: 'Skills', 5: 'Summary' };
 
-function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user, focus, template, onTemplateChange, onBackToList }) {
+// The data the Builder starts from: what was restored, else the saved draft of this user, else what the parsed profile holds, else a sample.
+// Shared with the template gallery so both show the same resume.
+function initialBuilderData({ restoredData, draftKey, initialProfile }) {
+  if (restoredData) return restoredData;
+  try {
+    localStorage.removeItem(LEGACY_DRAFT_KEY);
+    const saved = localStorage.getItem(draftKey);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return mapProfileToData(initialProfile);
+}
+const builderDataIsSample = ({ restoredData, draftKey, initialProfile }) => { try { return !initialProfile && !restoredData && !localStorage.getItem(draftKey); } catch { return !initialProfile && !restoredData; } };
+
+function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user, focus, template, onTemplateChange, onBackToList, onOpenGallery }) {
   const draftKey = builderDraftKey(user?.id);
-  const [step, setStep] = useState(() => stepIndexFor(focus?.step));
+  const [step, setStep] = useState(() => stepIndexFor(focus?.issue ? stepNumberFor(focus.issue, initialBuilderData({ restoredData, draftKey, initialProfile }), focus.step) : focus?.step));
   const [fixing, setFixing] = useState(focus?.issue || null);
-  useEffect(() => { setStep(stepIndexFor(focus?.step)); setFixing(focus?.issue || null); }, [focus]);
+  useEffect(() => { setStep(stepIndexFor(focus?.issue ? stepNumberFor(focus.issue, data, focus.step) : focus?.step)); setFixing(focus?.issue || null); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
   // The template is held by the parent when it gives one, so it is kept when the user leaves the Builder and comes back (the Fix page shows the same one).
   const [localTemplate, setLocalTemplate] = useState('modern');
   const activeTemplate = template ?? localTemplate;
@@ -798,24 +816,23 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const [skillInput, setSkillInput] = useState('');
   const [previewScale, setPreviewScale] = useState(1);
   const containerRef = useRef(null);
-  const [data, setData] = useState(() => {
-    if (restoredData) return restoredData;
-    try {
-      localStorage.removeItem(LEGACY_DRAFT_KEY);
-      const saved = localStorage.getItem(draftKey);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return mapProfileToData(initialProfile);
-  });
+  const [data, setData] = useState(() => initialBuilderData({ restoredData, draftKey, initialProfile }));
   const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(draftKey));
 
-  // The Fix page opens when the user came from one issue whose quoted text is in the resume (the summary or a bullet). Any other issue keeps the step form.
   const issueList = initialProfile?.issues || [];
-  const canFixHere = (issue) => !!issue && ['one', 'many'].includes(fixTargets(data, issue).kind);
-  const [fixMode, setFixMode] = useState(() => canFixHere(focus?.issue));
-  useEffect(() => { setFixMode(canFixHere(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
   const appliedKey = builderAppliedKey(user?.id);
   const [fixRecords, setFixRecords] = useState(() => { try { return JSON.parse(localStorage.getItem(appliedKey) || '{}') || {}; } catch { return {}; } });
+  const keyOfIssueObject = (issue) => { const i = issue ? issueList.findIndex(x => x.title === issue.title && x.before === issue.before) : -1; return i >= 0 ? issueKey(issueList[i], i) : null; };
+  // The Fix page opens for an issue whose quoted text is in the resume (the summary or a bullet), and also for one that was already improved (its record
+  // says where), so it can be seen again, undone or improved again. Before, an improved issue could never be opened on that page again.
+  // Any other issue keeps the step form.
+  // A bullet issue whose sentence is not found is there too: the page asks the user to click the sentence (FixPage, "pick" issues).
+  const hasBullets = (data.experience || []).some(j => (j.bullets || []).some(b => String(b || '').trim()));
+  const canFixHere = (issue) => !!issue && (['one', 'many'].includes(fixTargets(data, issue).kind) || !!fixRecords[keyOfIssueObject(issue)] || (hasBullets && isBulletIssue(issue)));
+  const [fixMode, setFixMode] = useState(() => canFixHere(focus?.issue));
+  const [fixStartKey, setFixStartKey] = useState(() => keyOfIssueObject(focus?.issue));
+  useEffect(() => { setFixMode(canFixHere(focus?.issue)); setFixStartKey(keyOfIssueObject(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const anyFixable = issueList.some(canFixHere);
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
@@ -837,16 +854,20 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
     setStep(0);
   }, [restoredData]);
 
-  // Scale live preview to fit the panel width without horizontal overflow
+  // Scale the live preview to fit the width of its column, without horizontal overflow. The column is only on screen when the Fix page is not, so it is
+  // measured each time it appears (the Builder can be mounted behind the Fix page first), and watched only while it is there. A width that is not
+  // measured yet, or too small to mean anything, never gives a zero or negative scale (that left the preview blank): no scaling, or at least 0.3.
   useEffect(() => {
-    if (!containerRef.current) return;
-    const ro = new ResizeObserver(([e]) => {
-      const available = e.contentRect.width - 32;
-      setPreviewScale(available < 794 ? available / 794 : 1);
-    });
+    if (fixMode || !containerRef.current) return undefined;
+    const fit = (width) => {
+      const available = width - 32;
+      setPreviewScale(available > 0 ? Math.max(0.3, Math.min(1, available / 794)) : 1);
+    };
+    if (containerRef.current.clientWidth) fit(containerRef.current.clientWidth);
+    const ro = new ResizeObserver(([e]) => fit(e.contentRect.width));
     ro.observe(containerRef.current);
     return () => ro.disconnect();
-  }, []);
+  }, [fixMode]);
 
   const inp = {
     width: '100%', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)',
@@ -883,40 +904,20 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // Opens the print dialog; "Save as PDF" there gives a PDF whose text is real text (an ATS can read it).
   const handleDownloadPdf = async () => {
     if (!previewRef.current || !ActiveTemplate) return;
-    if (!confirmExport(builderDataToText(data))) return;
     setDownloading(true);
-    const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
-    const tplLabel = TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate;
-    try {
-      await printElement(previewRef.current, { title: `${name}_${tplLabel}` });
-    } finally {
-      setDownloading(false);
-    }
+    try { await exportPdf({ el: previewRef.current, data, templateLabel: TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate }); }
+    finally { setDownloading(false); }
   };
 
-  // Word file: plain single column, real headings and bullets, the same text as the templates.
   const handleDownloadDocx = async () => {
-    if (!confirmExport(builderDataToText(data))) return;
     setDownloadingDocx(true);
-    try {
-      const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
-      downloadBlob(await buildResumeDocx(data), `${name}.docx`);
-    } finally {
-      setDownloadingDocx(false);
-    }
+    try { await exportDocx(data); }
+    finally { setDownloadingDocx(false); }
   };
 
   const handleSave = () => {
     const tpl = TEMPLATES.find(t => t.id === activeTemplate);
-    const autoLabel = `Version ${(memory?.resumeVersions?.length || 0) + 1}`;
-    const version = {
-      date: new Date().toISOString(),
-      template: activeTemplate,
-      templateLabel: tpl?.label || activeTemplate,
-      label: versionLabel.trim() || autoLabel,
-      data: JSON.parse(JSON.stringify(data)),
-    };
-    onSaveVersion(version);
+    onSaveVersion(makeVersion({ data, templateId: activeTemplate, templateLabel: tpl?.label, label: versionLabel, count: memory?.resumeVersions?.length || 0 }));
     setVersionLabel('');
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -925,7 +926,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const ActiveTemplate = TEMPLATES.find(t => t.id === activeTemplate)?.component;
 
   const navBtn = (label, onClick, primary) => (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} data-primary={primary ? 'true' : undefined} style={{
       padding: '9px 20px', fontSize: 12, fontWeight: 800, borderRadius: 8, cursor: 'pointer',
       border: primary ? 'none' : '1px solid var(--lp-bdr)',
       background: primary ? 'var(--lp-teal)' : 'transparent',
@@ -933,18 +934,107 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
     }}>{label}</button>
   );
 
+  const quietBtn = { background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' };
+
+  // The reminder of the issue being fixed: in the step it belongs to, above the boxes it is for. On any other step it is one line that leads back.
+  const fixNumber = fixing ? stepNumberFor(fixing, data, fixing.builderStep) : null;
+  const fixDraft = fixing ? draftFor(fixing, data) : null;
+  const [askReplaceSummary, setAskReplaceSummary] = useState(false);
+  const [showWhyCard, setShowWhyCard] = useState(false);
+  const useSummaryDraft = () => { if (data.summary && data.summary.trim() && data.summary !== fixDraft.text) setAskReplaceSummary(true); else setSummary(fixDraft.text); };
+  const fixQuote = fixing ? quoteInResume(fixing, data) : null;   // shown only when it is really in the resume
+  const fixCard = fixing && fixNumber !== null && stepIndexFor(fixNumber) === step ? (
+    <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 20, padding: '18px 20px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)' }}>Fixing this issue</div>
+        <button type="button" onClick={() => setFixing(null)} style={{ ...quietBtn, border: 'none', textDecoration: 'underline', padding: '2px 4px' }}>Hide this reminder</button>
+      </div>
+      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, lineHeight: 1.3, color: 'var(--lp-text)' }}>{fixing.title}</h3>
+      {fixing.description && (
+        <div>
+          <button type="button" aria-expanded={showWhyCard} onClick={() => setShowWhyCard(v => !v)} style={{ ...quietBtn, border: 'none', padding: 0, textDecoration: 'underline' }}>Why this matters</button>
+          {showWhyCard && <p style={{ margin: '8px 0 0', fontSize: 13.5, lineHeight: 1.65, color: 'var(--lp-text2)' }}>{fixing.description}</p>}
+        </div>
+      )}
+      {fixQuote && (
+        <div>
+          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--lp-text3)', marginBottom: 4 }}>In your resume</div>
+          <div data-quote="before" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'var(--lp-bg3)', borderLeft: '3px solid var(--lp-bdr)', borderRadius: 4 }}>{fixQuote}</div>
+        </div>
+      )}
+      {fixDraft && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <span data-badge="ai" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: '#FFB84D', background: 'rgba(255,184,77,.12)', border: '1px solid rgba(255,184,77,.35)' }}>
+              <Sparkles size={12} aria-hidden="true" /> AI suggestion
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--lp-text3)' }}>Check every figure is true before you use it.</span>
+          </div>
+          <div data-quote="after" style={{ padding: '10px 14px', fontSize: 14, lineHeight: 1.6, color: 'var(--lp-text)', background: 'rgba(255,184,77,.07)', borderLeft: '3px solid #FFB84D', borderRadius: 6 }}>{fixDraft.text}</div>
+          {fixDraft.placeholders && fixDraft.replaced?.length > 0 && <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.55, color: '#FFB84D' }}>These figures are not in your resume: {fixDraft.replaced.join(', ')}. They are shown as [X]: put your real figure, or remove it.</div>}
+          {fixDraft.warnings.map((w, k) => <div key={k} style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#FFB84D' }}>{w}</div>)}
+        </div>
+      )}
+      {(fixDraft && fixNumber === 5) && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {!askReplaceSummary && (
+            <button type="button" onClick={useSummaryDraft} style={{ background: 'transparent', border: '1px solid var(--lp-text2)', color: 'var(--lp-text)', borderRadius: 8, padding: '7px 16px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+              {fixDraft.warnings.length ? 'Use suggestion — I confirm this is true' : 'Use suggestion'}
+            </button>
+          )}
+          {askReplaceSummary && (
+            <div role="alert" style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>
+              Replace your summary with this suggestion?
+              <span style={{ display: 'inline-flex', gap: 8, marginLeft: 10 }}>
+                <button type="button" onClick={() => { setSummary(fixDraft.text); setAskReplaceSummary(false); }} style={{ ...quietBtn }}>Replace</button>
+                <button type="button" onClick={() => setAskReplaceSummary(false)} style={{ ...quietBtn }}>Keep mine</button>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  ) : null;
+  const fixPointer = fixing && !fixCard && fixNumber !== null ? (
+    <div data-fixing-pointer style={{ marginBottom: 14, padding: '8px 12px', border: '1px solid var(--lp-bdr)', borderLeft: '4px solid var(--lp-teal)', borderRadius: 8, fontSize: 12.5, color: 'var(--lp-text2)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <span>Fixing: {fixing.title}</span>
+      <button type="button" onClick={() => setStep(stepIndexFor(fixNumber))} style={quietBtn}>Go to {STEP_NAMES[fixNumber]}</button>
+      <button type="button" onClick={() => setFixing(null)} style={{ ...quietBtn, marginLeft: 'auto' }}>Hide</button>
+    </div>
+  ) : null;
+
   const sectionBox = (content) => (
     <div style={{ background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: 16 }}>
       {content}
     </div>
   );
 
+  // The score and the suggestions are behind one Review button, so the right column is the resume.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const reviewScore = scoreBuilderData(data)?.score;
+  const suggestionCount = (initialProfile?.issues || []).length;
+  const reviewLabel = `Review${Number.isFinite(reviewScore) ? ` · ATS ${reviewScore}` : ''}${suggestionCount ? ` · ${suggestionCount} suggestion${suggestionCount > 1 ? 's' : ''}` : ''}`;
+
+  // While the Summary step is open, the summary in the preview is marked, so the box and the page are seen to belong together.
+  // (Only the summary and the bullets carry a mark in the templates; see data-fix-at in resumeTemplates.jsx.)
+  const lastMarked = useRef(null);
+  useEffect(() => {
+    const root = previewRef.current;
+    if (!root) return;
+    root.querySelectorAll('[data-fix-marked]').forEach(e => e.removeAttribute('data-fix-marked'));
+    if (step !== 4) { lastMarked.current = null; return; }
+    const el = root.querySelector('[data-fix-at="summary"]');
+    if (!el) return;
+    el.setAttribute('data-fix-marked', 'true');
+    if (lastMarked.current !== 'summary' && el.scrollIntoView) { lastMarked.current = 'summary'; el.scrollIntoView({ block: 'nearest' }); }
+  });
+
   if (fixMode) {
-    const idx = focus?.issue ? issueList.findIndex(i => i.title === focus.issue.title && i.before === focus.issue.before) : -1;
     const onFixChange = (newData, key, entry) => {
       edit(() => newData);
       setFixRecords(r => {
-        const next = { ...r, [key]: entry };
+        const next = { ...r };
+        if (entry === null) delete next[key]; else next[key] = entry;     // null: the change was undone
         try { localStorage.setItem(appliedKey, JSON.stringify(next)); } catch { /* storage unavailable: the record lives for this visit only */ }
         return next;
       });
@@ -953,11 +1043,12 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
       <FixPage
         data={data}
         issues={issueList}
-        startKey={idx >= 0 ? issueKey(issueList[idx], idx) : null}
+        startKey={fixStartKey}
         records={fixRecords}
         onChange={onFixChange}
         onBackToList={onBackToList}
         onOpenBuilder={() => { setFixMode(false); setFixing(null); }}
+        onChooseTemplate={onOpenGallery}
         template={TEMPLATES.find(t => t.id === activeTemplate) || TEMPLATES[0]}
       />
     );
@@ -976,15 +1067,6 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
           </div>
         )}
 
-        {fixing && (
-          <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--lp-bg3)', border: '1px solid var(--lp-teal)', borderRadius: 8, fontSize: 12, lineHeight: 1.55, color: 'var(--lp-text2)' }}>
-            <div style={{ fontWeight: 800, color: 'var(--lp-text)', marginBottom: 2 }}>Fixing: {fixing.title}</div>
-            {fixing.description && <div>{fixing.description}</div>}
-            {fixing.before && <div style={{ marginTop: 6 }}><strong>In your resume:</strong> {fixing.before}</div>}
-            {fixing.after && <div style={{ marginTop: 4 }}><strong>Suggestion (check every figure is true):</strong> {fixing.after}</div>}
-            <button type="button" onClick={() => setFixing(null)} style={{ marginTop: 8, background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer' }}>Done</button>
-          </div>
-        )}
 
         {/* Step progress bar */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
@@ -1001,6 +1083,14 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--lp-text)', marginBottom: 20 }}>
           {BUILDER_STEPS[step]}
         </div>
+        {anyFixable && (
+          <button type="button" onClick={() => { setFixStartKey(null); setFixMode(true); }}
+            style={{ alignSelf: 'flex-start', marginBottom: 14, background: 'transparent', border: 'none', color: 'var(--lp-text2)', padding: 0, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
+            Fix issues side by side →
+          </button>
+        )}
+        {fixCard}
+        {fixPointer}
 
         {/* ── Contact ── */}
         {step === 0 && (
@@ -1113,7 +1203,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         {step === 4 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.6 }}>2-3 sentences: years of experience, key skills, what you bring.</div>
-            <textarea style={{ ...inp, minHeight: 120, resize: 'vertical' }}
+            <textarea aria-label="Professional summary" style={{ ...inp, minHeight: 200, fontSize: 14, lineHeight: 1.6, resize: 'vertical' }}
               value={data.summary}
               onChange={e => setSummary(e.target.value)}
               placeholder="Data scientist with 7 years of experience in ML applied to real world problems…" />
@@ -1123,7 +1213,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         {/* ── Review ── */}
         {step === 5 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.6 }}>Pick a template from the right panel, then save your version.</div>
+            <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.6 }}>Happy with the text? Download your resume, or save this version. To see another layout, use Change template.</div>
             {sectionBox(<>
               <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Resume Summary</div>
               <div style={{ fontSize: 12.5, color: 'var(--lp-text)', lineHeight: 2 }}>
@@ -1146,14 +1236,14 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
               }}
             />
             <button onClick={handleSave} style={{
-              width: '100%', padding: '14px 0', fontSize: 14, fontWeight: 800, borderRadius: 10, cursor: 'pointer', border: 'none',
-              background: saved ? '#00E5A0' : 'var(--lp-teal)', color: '#000', transition: 'background .2s',
+              width: '100%', padding: '12px 0', fontSize: 13, fontWeight: 800, borderRadius: 10, cursor: 'pointer',
+              border: saved ? 'none' : '1px solid var(--lp-bdr)', background: saved ? '#00E5A0' : 'transparent', color: saved ? '#000' : 'var(--lp-text2)', transition: 'background .2s',
             }}>
               {saved ? '✓ Saved to history!' : 'Save Version'}
             </button>
-            <button onClick={handleDownloadPdf} disabled={downloading} style={{
-              width: '100%', padding: '12px 0', fontSize: 13, fontWeight: 800, borderRadius: 10, cursor: downloading ? 'not-allowed' : 'pointer',
-              border: '1px solid var(--lp-bdr)', background: 'transparent', color: 'var(--lp-teal)', transition: 'all .2s',
+            <button onClick={handleDownloadPdf} disabled={downloading} data-primary="true" style={{
+              width: '100%', padding: '14px 0', fontSize: 14, fontWeight: 800, borderRadius: 10, cursor: downloading ? 'not-allowed' : 'pointer',
+              border: 'none', background: downloading ? 'var(--lp-bg2)' : 'var(--lp-teal)', color: '#000', transition: 'all .2s',
             }}>
               {downloading ? 'Generating PDF…' : '⬇ Download PDF'}
             </button>
@@ -1193,45 +1283,32 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         </div>
       </div>
 
-      {/* ── RIGHT: template carousel + live preview ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Carousel */}
-        <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderBottom: '1px solid var(--lp-bdr)', overflowX: 'auto', scrollbarWidth: 'none', background: 'var(--lp-bg3)', flexShrink: 0 }}>
-          {TEMPLATES.map(t => (
-            <button key={t.id} onClick={() => setActiveTemplate(t.id)} style={{
-              padding: '5px 13px', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
-              transition: 'all .15s', borderLeft: `3px solid ${t.accent}`,
-              background: activeTemplate === t.id ? 'var(--lp-teal)' : 'transparent',
-              color: activeTemplate === t.id ? '#000' : 'var(--lp-text2)',
-              border: `1px solid ${activeTemplate === t.id ? 'var(--lp-teal)' : 'var(--lp-bdr)'}`,
-              borderLeftColor: t.accent, borderLeftWidth: 3,
-            }}>
-              {activeTemplate === t.id ? '✓ ' : ''}{t.label}
-            </button>
-          ))}
+      {/* ── RIGHT: the resume. A small toolbar, one Review button, and the live preview ── */}
+      <div className="atb-builder-right" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'sticky', top: 0, alignSelf: 'start', height: 'calc(100vh - 140px)', minHeight: 520 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: '8px 14px', borderBottom: '1px solid var(--lp-bdr)', background: 'var(--lp-bg3)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--lp-text2)' }}>Template: {TEMPLATES.find(t => t.id === activeTemplate)?.label}</span>
+            {onOpenGallery && <button type="button" onClick={onOpenGallery} style={quietBtn}>Change template</button>}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button type="button" onClick={handleDownloadPdf} disabled={downloading} style={quietBtn}>{downloading ? 'Generating PDF…' : '⬇ Download PDF'}</button>
+            <button type="button" onClick={handleDownloadDocx} disabled={downloadingDocx} style={quietBtn}>{downloadingDocx ? 'Generating Word file…' : '⬇ Download Word (.docx)'}</button>
+          </div>
         </div>
 
-        {/* Download button */}
         <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--lp-bdr)', background: 'var(--lp-bg3)', flexShrink: 0 }}>
-          <button onClick={handleDownloadPdf} disabled={downloading} style={{
-            width: '100%', padding: '8px 0', fontSize: 12, fontWeight: 800, borderRadius: 7, cursor: downloading ? 'not-allowed' : 'pointer',
-            border: 'none', background: downloading ? 'var(--lp-bg2)' : 'var(--lp-teal)', color: '#000', transition: 'background .2s',
-          }}>
-            {downloading ? 'Generating PDF…' : '⬇ Download PDF'}
-          </button>
-          <button onClick={handleDownloadDocx} disabled={downloadingDocx} style={{
-            width: '100%', padding: '6px 0', marginTop: 6, fontSize: 11, fontWeight: 700, borderRadius: 7, cursor: downloadingDocx ? 'not-allowed' : 'pointer',
-            border: '1px solid var(--lp-bdr)', background: 'transparent', color: 'var(--lp-text2)',
-          }}>
-            {downloadingDocx ? 'Generating Word file…' : '⬇ Download Word (.docx)'}
+          <button type="button" aria-expanded={reviewOpen} onClick={() => setReviewOpen(o => !o)}
+            style={{ ...quietBtn, width: '100%', textAlign: 'left', display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '8px 12px' }}>
+            <span>{reviewLabel}</span><span>{reviewOpen ? 'Close ▴' : 'Open ▾'}</span>
           </button>
         </div>
 
-        {/* ATS readiness of the draft, computed by code as the user edits */}
-        <div style={{ paddingTop: 10, flexShrink: 0 }}>
-          <BuilderScorePanel data={data} onGoToStep={(n) => setStep(stepIndexFor(n))} />
-          <BuilderIssuesPanel issues={initialProfile?.issues} storageKey={builderAppliedKey(user?.id)} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
-        </div>
+        {reviewOpen && (
+          <div style={{ position: 'absolute', top: 96, left: 0, right: 0, bottom: 0, zIndex: 5, overflowY: 'auto', background: 'var(--lp-bg2)', borderTop: '1px solid var(--lp-bdr)', paddingTop: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)' }}>
+            <BuilderScorePanel data={data} onGoToStep={(n) => setStep(stepIndexFor(n))} />
+            <BuilderIssuesPanel issues={initialProfile?.issues} storageKey={builderAppliedKey(user?.id)} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
+          </div>
+        )}
 
         {/* Live preview — A4 width (794px = 210mm @ 96dpi) */}
         <div ref={containerRef} style={{ flex: 1, overflow: 'auto', background: '#e0e0e0', padding: '16px' }}>
@@ -1261,6 +1338,8 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
   // Nothing may reach the account in this mode: no memory update, no resume text, and the draft is kept under its own key.
   const demo = demoFixProfile({ dev: import.meta.env.DEV, search: typeof window !== 'undefined' ? window.location.search : '' });
   const user = demo ? { ...signedInUser, id: 'demo-fix' } : signedInUser;
+  // ?demo=fix&reset=1 starts the demo again: its own draft and records are cleared (never the real ones), once, before anything reads them.
+  useState(() => { if (demo && demoResetRequested({ dev: import.meta.env.DEV, search: typeof window !== 'undefined' ? window.location.search : '' })) clearBuilderDraft('demo-fix'); return null; });
   const updateMemory = demo ? null : realUpdateMemory;
   const setGlobalResumeText = demo ? null : realSetGlobalResumeText;
   const globalResume = resumeContent(globalResumeRaw); // Resume Scan stores an object here, not a string
@@ -1321,7 +1400,8 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
     <div className="atb">
       {demo && (
         <div role="note" style={{ padding: '8px 24px', fontSize: 12, background: 'rgba(255,184,77,.12)', color: '#FFB84D', borderBottom: '1px solid var(--lp-bdr)' }}>
-          Demo data (development only): a synthetic resume and issues. Nothing here is saved to your account.
+          Demo data (development only): a synthetic resume and issues. Nothing here is saved to your account.{' '}
+          <a href={`${typeof window !== 'undefined' ? window.location.pathname : '/'}?tab=ats&demo=fix&reset=1`} style={{ color: 'inherit', fontWeight: 700 }}>Reset the demo</a>
         </div>
       )}
       {/* Page header + tab bar */}
@@ -1397,6 +1477,7 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
           template={template}
           onTemplateChange={setTemplate}
           onBackToList={() => { setBuilderFocus(null); setMainTab('parse'); }}
+          onOpenGallery={() => { setBuilderFocus(null); setMainTab('templates'); }}
         />
       )}
       {mainTab === 'builder' && entryMode === 'scratch' && (
@@ -1410,8 +1491,26 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
           template={template}
           onTemplateChange={setTemplate}
           onBackToList={() => { setBuilderFocus(null); setMainTab('parse'); }}
+          onOpenGallery={() => { setBuilderFocus(null); setMainTab('templates'); }}
         />
       )}
+      {mainTab === 'templates' && (() => {
+        const galleryProfile = demo || memory?.parseProfile || null;
+        const key = builderDraftKey(user?.id);
+        return (
+          <TemplateGallery
+            data={initialBuilderData({ restoredData, draftKey: key, initialProfile: galleryProfile })}
+            sample={builderDataIsSample({ restoredData, draftKey: key, initialProfile: galleryProfile })}
+            templates={TEMPLATES}
+            selectedId={template}
+            onSelect={setTemplate}
+            onBack={() => setMainTab('builder')}
+            onSaveVersion={handleSaveVersion}
+            versionsCount={memory?.resumeVersions?.length || 0}
+            onOpenHistory={() => setMainTab('history')}
+          />
+        );
+      })()}
       {mainTab === 'history' && (
         <VersionHistoryTab memory={memory} onRestore={handleRestore} />
       )}

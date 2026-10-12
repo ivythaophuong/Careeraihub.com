@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// The Fix page: one issue at a time, and one thing at a time inside it. First a few lines around the sentence and two choices; the edit box, the AI
-// draft and the whole resume appear only when asked for. See docs/architecture/plans/DESIGN-fix-page-flow.md.
+// The Fix page: your resume on the left with the sentences that can be improved, your new resume on the right, updated as you type, and one editor
+// below them. Choosing a template is not part of this screen. See docs/architecture/plans/DESIGN-fix-page-flow.md.
 import React from 'react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
@@ -8,7 +8,10 @@ import FixPage from './FixPage.jsx';
 import { TEMPLATES } from '../resumeTemplates.jsx';
 
 afterEach(cleanup);
+const setWidth = (w) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true, writable: true });
 beforeEach(() => {
+  localStorage.clear();
+  setWidth(1800);                      // wide: the page opens in Compare unless the test says otherwise
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -33,18 +36,21 @@ const TEMPLATE = { id: TEMPLATES[0].id, label: TEMPLATES[0].label, component: TE
 function setup(over = {}) {
   const props = {
     data: makeData(), issues: ISSUES, startKey: null, records: {},
-    onChange: vi.fn(), onBackToList: vi.fn(), onOpenBuilder: vi.fn(), template: TEMPLATE,
+    onChange: vi.fn(), onBackToList: vi.fn(), onOpenBuilder: vi.fn(), onChooseTemplate: vi.fn(), template: TEMPLATE,
     ...over,
   };
   const utils = render(<FixPage {...props} />);
   return { ...utils, props };
 }
+const left = () => screen.getByRole('region', { name: /^Your resume$/i });
+const right = () => screen.getByRole('region', { name: /^Your new resume$/i });
+const at = (pane, key) => pane.querySelector(`[data-fix-at="${key}"]`);
 const improve = () => fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
 const editBox = () => screen.getByRole('textbox', { name: /your text/i });
 const btn = (name) => screen.getByRole('button', { name });
 const keyOfIssue = (i) => `${i}:${ISSUES[i].title}:${ISSUES[i].before}`;
 
-describe('the first screen of an issue: a few lines and two choices', () => {
+describe('two resumes and one editor', () => {
   it('opens on the first issue that is not applied, counting only the issues that can be fixed here', () => {
     setup();
     expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();   // the third issue has no quoted text, so it is not on this page
@@ -57,66 +63,123 @@ describe('the first screen of an issue: a few lines and two choices', () => {
     expect(screen.getByText('Plain dashboard bullet')).toBeTruthy();
   });
 
-  it('shows the priority', () => {
+  it('shows the whole resume twice: yours on the left, the new one on the right, both in the chosen template', () => {
     setup();
-    expect(screen.getByText(/High/)).toBeTruthy();
+    for (const pane of [left(), right()]) {
+      expect(within(pane).getByText(/Jordan Lee/)).toBeTruthy();
+      expect(within(pane).getByText(/Analyst who builds weekly reports/)).toBeTruthy();
+      expect(pane.querySelector(`[data-template="${TEMPLATE.id}"]`)).toBeTruthy();
+    }
   });
 
-  it('shows the job, the sentence to fix, and the sentence next to it, and not the whole resume', () => {
+  it('has no template selector and does not name the template: choosing one is another screen', () => {
     setup();
-    expect(screen.getByText('Acme · Analyst · 2021 - 2023')).toBeTruthy();
-    expect(screen.getByText('Handled monthly reporting for the sales team')).toBeTruthy();
-    expect(screen.getByText('Built a dashboard for 6 managers')).toBeTruthy();
-    expect(screen.queryByText('Trained two new hires')).toBeNull();      // two lines away, so not in the excerpt
-    expect(screen.queryByText(/Analyst who builds weekly reports/)).toBeNull();
-    expect(screen.queryByText(/jordan.lee@example.com/)).toBeNull();
+    for (const t of TEMPLATES) expect(screen.queryByRole('button', { name: t.label })).toBeNull();
+    expect(screen.queryByText(/Template:/)).toBeNull();
   });
 
-  it('says which line is to be fixed in words, not only by colour', () => {
-    const { container } = setup();
-    const target = container.querySelector('[data-fix-target]');
-    expect(target.textContent).toContain('Handled monthly reporting for the sales team');
-    expect(within(target).getByText(/Fix this sentence/i)).toBeTruthy();
+  it('on the left, marks the sentence being fixed and the other sentences that can be improved, and nothing else', () => {
+    setup();
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-marked')).toBe(true);
+    expect(at(left(), 'b:0:1').hasAttribute('data-fix-open')).toBe(true);
+    expect(at(left(), 'b:0:2').hasAttribute('data-fix-open')).toBe(false);
+    expect(at(left(), 'b:0:2').hasAttribute('data-fix-marked')).toBe(false);
+    expect(at(left(), 'summary').hasAttribute('data-fix-open')).toBe(false);
   });
 
-  it('the reason is folded away until it is asked for', () => {
+  it('on the right, marks the same place so the change can be followed, and scrolls both into view', () => {
+    setup();
+    expect(at(right(), 'b:0:0').hasAttribute('data-fix-marked')).toBe(true);
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('says in words what the highlights mean, not only by colour', () => {
+    setup();
+    expect(within(left()).getByText(/highlighted sentences can be improved/i)).toBeTruthy();
+    expect(within(right()).getByText(/your changes appear here/i)).toBeTruthy();
+  });
+
+  it('the editor starts with the reason folded away and two choices', () => {
     setup();
     expect(screen.queryByText('Add numbers to your bullets.')).toBeNull();
     fireEvent.click(btn(/Why\?/));
     expect(screen.getByText('Add numbers to your bullets.')).toBeTruthy();
-  });
-
-  it('offers two choices and nothing else to decide: improve it, or leave it', () => {
-    setup();
     expect(btn(/Improve this sentence/i)).toBeTruthy();
     expect(btn(/Leave it for now/i)).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.queryByRole('region', { name: /AI draft/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Save & next/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Skip$/i })).toBeNull();     // one way to leave an issue, not two
-  });
-
-  it('has one primary action on this screen', () => {
-    setup();
+    expect(screen.queryByRole('button', { name: /^Skip$/i })).toBeNull();
     expect(screen.getAllByRole('button', { name: /Improve this sentence/i })).toHaveLength(1);
   });
 
-  it('has no template selector', () => {
+  it('shows the priority', () => {
     setup();
-    for (const t of TEMPLATES) expect(screen.queryByRole('button', { name: t.label })).toBeNull();
+    expect(screen.getByText(/· High$/)).toBeTruthy();
   });
 });
 
-describe('Improve this sentence: the edit box takes the place of the sentence', () => {
-  it('shows the edit box in the excerpt, filled with the user\'s own text and not the AI draft', () => {
-    const { container } = setup();
+describe('typing: the new resume follows, your resume does not', () => {
+  it('the edit box starts with the user\'s own text, not the AI draft', () => {
+    setup();
     improve();
     expect(editBox().value).toBe('Handled monthly reporting for the sales team');
-    expect(editBox().closest('[data-excerpt]')).toBeTruthy();
-    expect(container.querySelector('[data-excerpt]').textContent).toContain('Built a dashboard for 6 managers');
   });
 
-  it('the AI draft is folded away, and a warning on the fold says when it has figures the resume does not', () => {
+  it('shows what is typed in the new resume at once, leaves your resume as it was, and says it is not saved', () => {
+    const { props } = setup();
+    improve();
+    expect(screen.queryByText(/not saved yet/i)).toBeNull();
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
+    expect(at(right(), 'b:0:0').textContent).toContain('Cut monthly reporting time');
+    expect(at(left(), 'b:0:0').textContent).toContain('Handled monthly reporting for the sales team');
+    expect(screen.getByText(/not saved yet/i)).toBeTruthy();
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('choosing another sentence on the left', () => {
+  it('clicking another highlighted sentence opens its issue', () => {
+    setup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
+    expect(screen.getByText('Plain dashboard bullet')).toBeTruthy();
+  });
+
+  it('with an unsaved change it asks first, and Stay keeps the text', () => {
+    setup();
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Half written' } });
+    fireEvent.click(at(left(), 'b:0:1'));
+    expect(screen.getByText(/Open another sentence without saving/i)).toBeTruthy();
+    expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();
+    fireEvent.click(btn(/^Stay$/i));
+    expect(editBox().value).toBe('Half written');
+    fireEvent.click(at(left(), 'b:0:1'));
+    fireEvent.click(btn(/^Switch$/i));
+    expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
+  });
+
+  it('a sentence with no issue does nothing when clicked', () => {
+    setup();
+    fireEvent.click(at(left(), 'b:0:2'));
+    expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();
+  });
+
+  it('the highlighted sentences can be reached and opened from the keyboard', () => {
+    setup();
+    const other = at(left(), 'b:0:1');
+    expect(other.getAttribute('role')).toBe('button');
+    expect(other.getAttribute('tabindex')).toBe('0');
+    expect(other.getAttribute('aria-label')).toMatch(/Plain dashboard bullet/);
+    fireEvent.keyDown(other, { key: 'Enter' });
+    expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
+  });
+});
+
+describe('the AI draft', () => {
+  const openDraft = () => { improve(); fireEvent.click(btn(/Show AI draft/i)); };
+
+  it('is folded away, and the fold warns when the draft has figures the resume does not', () => {
     setup();
     improve();
     expect(screen.queryByRole('region', { name: /AI draft/i })).toBeNull();
@@ -136,46 +199,23 @@ describe('Improve this sentence: the edit box takes the place of the sentence', 
     expect(editBox()).toBeTruthy();
   });
 
-  it('shows what the user types as they type it, and says it is not saved', () => {
-    const { props } = setup();
-    improve();
-    expect(screen.queryByText(/not saved yet/i)).toBeNull();
-    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
-    expect(screen.getByText(/not saved yet/i)).toBeTruthy();
-    expect(props.onChange).not.toHaveBeenCalled();
-  });
-});
-
-describe('the AI draft, once asked for', () => {
-  const openDraft = () => { improve(); fireEvent.click(btn(/Show AI draft/i)); };
-
-  it('is labelled as an AI draft', () => {
-    setup();
-    openDraft();
-    expect(screen.getByRole('region', { name: /AI draft/i })).toBeTruthy();
-  });
-
-  it('a figure the resume does not contain is shown as [X] with a note, never as the AI wrote it', () => {
+  it('is labelled, shows a figure the resume does not contain as [X] with a note, and can be folded again', () => {
     setup();
     openDraft();
     const draft = screen.getByRole('region', { name: /AI draft/i });
     expect(draft.textContent).toContain('[X]');
     expect(draft.textContent).not.toContain('30%');
     expect(screen.getByText(/These figures are not in your resume: .*The draft shows/i).textContent).toMatch(/30%/);
-  });
-
-  it('can be folded again', () => {
-    setup();
-    openDraft();
     fireEvent.click(btn(/Hide AI draft/i));
     expect(screen.queryByRole('region', { name: /AI draft/i })).toBeNull();
   });
 
-  it('Use suggestion puts the draft in the edit box and saves nothing', () => {
+  it('Use suggestion puts the draft in the edit box, and shows it in the new resume, and saves nothing', () => {
     const { props } = setup();
     openDraft();
     fireEvent.click(btn(/Use suggestion/i));
     expect(editBox().value).toContain('[X]');
+    expect(at(right(), 'b:0:0').textContent).toContain('[X]');
     expect(props.onChange).not.toHaveBeenCalled();
   });
 
@@ -199,7 +239,7 @@ describe('the AI draft, once asked for', () => {
 });
 
 describe('Save & next', () => {
-  it('saves only that field, tells the page that holds the data, and goes to the next issue\'s first screen', () => {
+  it('saves only that field, tells the page that holds the data, marks the sentence as done on the left, and opens the next issue', () => {
     const { props } = setup();
     improve();
     fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
@@ -211,8 +251,10 @@ describe('Save & next', () => {
     expect(key).toBe(keyOfIssue(0));
     expect(entry.record.at).toEqual({ kind: 'bullet', exp: 0, bullet: 0 });
     expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
-    expect(screen.queryByRole('textbox')).toBeNull();     // the next issue starts on its first screen
-    expect(btn(/Improve this sentence/i)).toBeTruthy();
+    expect(screen.queryByRole('textbox')).toBeNull();      // the next issue starts on its first screen
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-done')).toBe(true);
+    expect(at(left(), 'b:0:0').textContent).toContain('Handled monthly reporting for the sales team');   // your resume is the one you started with
+    expect(at(right(), 'b:0:0').textContent).toContain('Cut monthly reporting time for the sales team');
   });
 
   it('refuses an empty text: nothing is saved and it says why', () => {
@@ -232,6 +274,7 @@ describe('Save & next', () => {
     fireEvent.click(btn(/Use suggestion/i));
     fireEvent.click(btn(/Save & next/i));
     expect(props.onChange.mock.calls[0][2].placeholders).toBe(true);
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-done')).toBe(false);   // not done: a blank is left
     improve();
     fireEvent.change(editBox(), { target: { value: 'Built a dashboard that the managers used each week' } });
     fireEvent.click(btn(/Save & next/i));
@@ -268,7 +311,7 @@ describe('leaving an issue, the end, and the way out', () => {
     expect(screen.getByText(/1 other issue/i)).toBeTruthy();
   });
 
-  it('Open the Builder and Back to list from the summary', () => {
+  it('the summary offers the Builder, the list, and choosing a template as a separate step', () => {
     const { props } = setup();
     fireEvent.click(btn(/Leave it for now/i));
     fireEvent.click(btn(/Leave it for now/i));
@@ -276,6 +319,15 @@ describe('leaving an issue, the end, and the way out', () => {
     expect(props.onOpenBuilder).toHaveBeenCalled();
     fireEvent.click(btn(/Back to list/i));
     expect(props.onBackToList).toHaveBeenCalled();
+    fireEvent.click(btn(/Choose a template/i));
+    expect(props.onChooseTemplate).toHaveBeenCalled();
+  });
+
+  it('the summary does not show the resumes any more', () => {
+    setup();
+    fireEvent.click(btn(/Leave it for now/i));
+    fireEvent.click(btn(/Leave it for now/i));
+    expect(screen.queryByRole('region', { name: /Your resume/i })).toBeNull();
   });
 
   it('Back to list with nothing typed leaves at once', () => {
@@ -314,51 +366,29 @@ describe('leaving an issue, the end, and the way out', () => {
   });
 });
 
-describe('the whole resume, only when asked for', () => {
-  it('is not on the page until View full resume is pressed', () => {
-    setup();
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByText(/Template:/)).toBeNull();
-  });
-
-  it('opens the resume in the chosen template with the sentence marked and scrolled into view, and closes again', () => {
-    const { container } = setup();
-    fireEvent.click(btn(/View full resume/i));
-    const dialog = screen.getByRole('dialog', { name: /your resume/i });
-    expect(within(dialog).getByText(/Jordan Lee/)).toBeTruthy();
-    expect(within(dialog).getByText(new RegExp(`Template: ${TEMPLATE.label}`))).toBeTruthy();
-    const marked = container.querySelectorAll('[data-fix-marked]');
-    expect(marked).toHaveLength(1);
-    expect(marked[0].getAttribute('data-fix-at')).toBe('b:0:0');
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole('button', { name: /Close/i }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('shows the typed text in the marked place, not yet saved', () => {
-    const { container, props } = setup();
-    improve();
-    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
-    fireEvent.click(btn(/View full resume/i));
-    expect(container.querySelector('[data-fix-at="b:0:0"]').textContent).toContain('Cut monthly reporting time');
-    expect(props.onChange).not.toHaveBeenCalled();
-  });
-});
-
 describe('edge states', () => {
-  it('the same text in several places: the user chooses first, and no excerpt is shown until then', () => {
+  it('the same text in several places: every place is highlighted, the user chooses one, and nothing is saved', () => {
     const issues = [{ severity: 'high', title: 'Plain verb', description: 'Say more.', before: 'Trained two new hires', after: 'Coached two new hires', builderStep: 2, module: null }];
     const { props } = setup({ issues });
     expect(screen.getByText(/2 places/i)).toBeTruthy();
+    expect(at(left(), 'b:0:2').hasAttribute('data-fix-open')).toBe(true);
+    expect(at(left(), 'b:2:0').hasAttribute('data-fix-open')).toBe(true);
     expect(screen.queryByRole('button', { name: /Improve this sentence/i })).toBeNull();
-    fireEvent.click(btn(/Beta/));
-    expect(screen.getByText('Beta · Lead · 2023 - now')).toBeTruthy();
+    fireEvent.click(at(left(), 'b:2:0'));                                  // choosing on the resume works as well as the buttons
+    expect(at(left(), 'b:2:0').hasAttribute('data-fix-marked')).toBe(true);
     improve();
     expect(editBox().value).toBe('Trained two new hires');
     expect(props.onChange).not.toHaveBeenCalled();
   });
 
-  it('a bullet the full resume does not draw says so and can still be edited', () => {
+  it('the places can also be chosen from the editor', () => {
+    const issues = [{ severity: 'high', title: 'Plain verb', description: 'Say more.', before: 'Trained two new hires', after: 'Coached two new hires', builderStep: 2, module: null }];
+    setup({ issues });
+    fireEvent.click(btn(/Beta/));
+    expect(at(left(), 'b:2:0').hasAttribute('data-fix-marked')).toBe(true);
+  });
+
+  it('a bullet that no template draws says so and can still be edited', () => {
     const issues = [{ severity: 'low', title: 'Odd line', description: 'x', before: 'Filed paperwork', after: '', builderStep: 2, module: null }];
     setup({ issues });
     expect(screen.getByText(/does not show it/i)).toBeTruthy();
@@ -366,10 +396,325 @@ describe('edge states', () => {
     expect(editBox().value).toBe('Filed paperwork');
   });
 
-  it('a summary sentence is shown alone', () => {
+  it('a sentence in the summary is marked in the summary', () => {
     const issues = [{ severity: 'medium', title: 'Generic summary', description: 'x', before: 'builds weekly reports', after: 'builds weekly sales reports', builderStep: 5, module: null }];
-    const { container } = setup({ issues });
-    expect(container.querySelector('[data-excerpt]').textContent).toContain('Analyst who builds weekly reports.');
-    expect(screen.queryByText(/Acme/)).toBeNull();
+    setup({ issues });
+    expect(at(left(), 'summary').hasAttribute('data-fix-marked')).toBe(true);
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Analyst who builds weekly sales reports.' } });
+    expect(at(right(), 'summary').textContent).toContain('weekly sales reports');
+  });
+});
+
+describe('a narrow screen', () => {
+  it('has two tabs, Your resume and New resume, so the two resumes are never stacked under a long editor', () => {
+    setup();
+    const tabs = screen.getByRole('tablist', { hidden: true });   // hidden by CSS on a wide screen, shown below 768px
+    const [a, b] = within(tabs).getAllByRole('tab', { hidden: true });
+    expect(a.textContent).toMatch(/Your resume/);
+    expect(b.textContent).toMatch(/New resume/);
+    expect(a.getAttribute('aria-selected')).toBe('true');
+    fireEvent.click(b);
+    expect(b.getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelector('[data-pane="new"]').getAttribute('data-active')).toBe('true');
+    expect(document.querySelector('[data-pane="original"]').getAttribute('data-active')).toBe('false');
+  });
+});
+
+describe('an issue that was already improved can be opened again', () => {
+  const ORIGINAL = 'Handled monthly reporting for the sales team';
+  const IMPROVED = 'Cut monthly reporting time for the sales team';
+  const improvedSetup = (over = {}) => {
+    const data = makeData(); data.experience[0].bullets[0] = IMPROVED;
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    return setup({ data, startKey: keyOfIssue(0), records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } }, ...over });
+  };
+
+  it('opens on that issue, not on the next one', () => {
+    improvedSetup();
+    expect(screen.getByText('No metrics in bullets')).toBeTruthy();
+    expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();
+  });
+
+  it('shows the sentence as it was on the left and as it is now on the right, so the change is seen', () => {
+    improvedSetup();
+    expect(at(left(), 'b:0:0').textContent).toContain(ORIGINAL);
+    expect(at(right(), 'b:0:0').textContent).toContain(IMPROVED);
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-marked')).toBe(true);
+  });
+
+  it('says it is already improved and offers Undo, Improve again and Leave it for now; not Improve this sentence', () => {
+    improvedSetup();
+    expect(screen.getByText(/already improved/i)).toBeTruthy();
+    expect(btn(/Undo this change/i)).toBeTruthy();
+    expect(btn(/Improve again/i)).toBeTruthy();
+    expect(btn(/Leave it for now/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Improve this sentence/i })).toBeNull();
+  });
+
+  it('Undo puts the original sentence back, tells the page that holds the data, and offers to improve it again', () => {
+    const { props } = improvedSetup();
+    fireEvent.click(btn(/Undo this change/i));
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(data).toEqual(makeData());
+    expect(key).toBe(keyOfIssue(0));
+    expect(entry).toBeNull();                                           // null: the record is removed
+    expect(at(right(), 'b:0:0').textContent).toContain(ORIGINAL);
+    expect(btn(/Improve this sentence/i)).toBeTruthy();
+    expect(screen.queryByText(/already improved/i)).toBeNull();
+  });
+
+  it('Improve again starts from the improved text, and saving it keeps the very first original, so Undo still goes back to it', () => {
+    const { props } = improvedSetup();
+    fireEvent.click(btn(/Improve again/i));
+    expect(editBox().value).toBe(IMPROVED);
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time by half for the sales team' } });
+    fireEvent.click(btn(/Save & next/i));
+    const entry = props.onChange.mock.calls[0][2];
+    expect(entry.record.original).toBe(ORIGINAL);
+    expect(entry.record.inserted).toBe('Cut monthly reporting time by half for the sales team');
+  });
+
+  it('a sentence changed after it was applied says so and cannot be undone automatically', () => {
+    const data = makeData(); data.experience[0].bullets[0] = 'My own wording afterwards';
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    setup({ data, startKey: keyOfIssue(0), records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } } });
+    expect(screen.getByText(/you changed this after applying it/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Undo this change/i })).toBeNull();
+    expect(btn(/Improve again/i)).toBeTruthy();
+  });
+
+  it('with no start issue it still opens on the first one that is not improved', () => {
+    const data = makeData(); data.experience[0].bullets[0] = IMPROVED;
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    setup({ data, records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } } });
+    expect(screen.getByText('Plain dashboard bullet')).toBeTruthy();
+  });
+});
+
+describe('a bullet issue whose sentence cannot be found: the user picks the sentence', () => {
+  const PICK = { severity: 'high', title: 'No quantifiable impact for many bullets', description: 'Several bullet points describe tasks without results.', before: 'Handled the monthly reporting for the whole sales team and finance', after: 'Cut monthly reporting time by 30% for the sales team', builderStep: 2, module: null };
+  const DATES = { severity: 'medium', title: 'Inconsistent date formatting', description: 'Dates are written in different ways.', before: 'June 2017 – November 2021', after: 'Jun 2017 – Nov 2021', builderStep: 2, module: null };
+  const pickSetup = (over = {}) => setup({ issues: [PICK], ...over });
+
+  it('is on the page, and says the exact sentence was not found and asks the user to click one', () => {
+    pickSetup();
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(screen.getByText(/could not find the exact sentence/i)).toBeTruthy();
+    expect(screen.getByText(/click the sentence you want to improve/i)).toBeTruthy();
+  });
+
+  it('highlights the bullets nearest to what the AI quoted, and lets every drawn bullet be chosen', () => {
+    pickSetup();
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-open')).toBe(true);
+    expect(at(left(), 'b:0:1').hasAttribute('data-fix-open')).toBe(false);
+    for (const k of ['b:0:0', 'b:0:1', 'b:0:2', 'b:2:0']) expect(at(left(), k).hasAttribute('data-fix-pickable'), k).toBe(true);
+    expect(at(left(), 'b:0:1').getAttribute('role')).toBe('button');
+  });
+
+  it('shows what the AI looked at as an example, with a figure the resume lacks as [X], and offers no Use suggestion', () => {
+    pickSetup();
+    const ex = screen.getByRole('region', { name: /AI example/i });
+    expect(ex.textContent).toContain('Handled the monthly reporting for the whole sales team and finance');
+    expect(ex.textContent).toContain('[X]');
+    expect(ex.textContent).not.toContain('30%');
+    expect(screen.queryByRole('button', { name: /use suggestion/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Improve this sentence/i })).toBeNull();
+  });
+
+  it('choosing a sentence marks it and offers Improve this sentence, with that sentence in the edit box', () => {
+    pickSetup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    expect(at(left(), 'b:0:1').hasAttribute('data-fix-marked')).toBe(true);
+    improve();
+    expect(editBox().value).toBe('Built a dashboard for 6 managers');
+    expect(screen.queryByRole('button', { name: /use suggestion/i })).toBeNull();
+  });
+
+  it('the example is folded under Show AI example once a sentence is chosen', () => {
+    pickSetup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    improve();
+    expect(screen.queryByRole('region', { name: /AI example/i })).toBeNull();
+    fireEvent.click(btn(/Show AI example/i));
+    expect(screen.getByRole('region', { name: /AI example/i })).toBeTruthy();
+  });
+
+  it('saves only the chosen bullet, counts it as applied, and Undo goes back to that bullet\'s own text', () => {
+    const { props } = pickSetup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Built a dashboard used by 6 managers every week' } });
+    fireEvent.click(btn(/Save & next/i));
+    const [data, , entry] = props.onChange.mock.calls[0];
+    const expected = makeData(); expected.experience[0].bullets[1] = 'Built a dashboard used by 6 managers every week';
+    expect(data).toEqual(expected);
+    expect(entry.record.original).toBe('Built a dashboard for 6 managers');
+    expect(screen.getByText(/1 applied/i)).toBeTruthy();
+  });
+
+  it('leaving it for now counts as open, not as changed by the user', () => {
+    pickSetup();
+    fireEvent.click(btn(/Leave it for now/i));
+    expect(screen.getByText(/1 open/i)).toBeTruthy();
+    expect(screen.getByText(/0 changed by you/i)).toBeTruthy();
+  });
+
+  it('choosing another sentence before typing switches at once; after typing it asks first', () => {
+    pickSetup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    fireEvent.click(at(left(), 'b:0:2'));
+    expect(at(left(), 'b:0:2').hasAttribute('data-fix-marked')).toBe(true);
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Half written' } });
+    fireEvent.click(at(left(), 'b:2:0'));
+    expect(screen.getByText(/Open another sentence without saving/i)).toBeTruthy();
+    fireEvent.click(btn(/^Switch$/i));
+    expect(at(left(), 'b:2:0').hasAttribute('data-fix-marked')).toBe(true);
+  });
+
+  it('when nothing is close, nothing is highlighted but every bullet can still be chosen', () => {
+    setup({ issues: [{ ...PICK, before: 'zzz qqq www completely different words here' }] });
+    expect(left().querySelector('[data-fix-open]')).toBeNull();
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-pickable')).toBe(true);
+  });
+
+  it('an issue that is not about bullets (dates) is not on this page and is counted as another issue', () => {
+    setup({ issues: [DATES] });
+    expect(screen.getByText(/1 other issue/i)).toBeTruthy();
+  });
+
+  it('an issue with no quote at all but about bullets is on the page too', () => {
+    setup({ issues: [{ ...PICK, before: '', after: '' }] });
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(left().querySelector('[data-fix-open]')).toBeNull();
+  });
+});
+
+describe('two views the user chooses between: Focus (one resume) and Compare (before and after)', () => {
+  const focusPane = () => screen.getByRole('region', { name: /^Your resume$/i });
+  const viewBtn = (name) => within(screen.getByRole('group', { name: /^View$/i })).getByRole('button', { name });
+  const openFocus = (over = {}) => { setWidth(1280); return setup(over); };
+
+  it('opens in Compare on a wide screen and in Focus on a laptop-sized one', () => {
+    setup();
+    expect(screen.getByRole('region', { name: /^Your new resume$/i })).toBeTruthy();
+    cleanup();
+    openFocus();
+    expect(screen.queryByRole('region', { name: /^Your new resume$/i })).toBeNull();
+    expect(focusPane()).toBeTruthy();
+  });
+
+  it('has a View control with the two choices, and says which one is on', () => {
+    openFocus();
+    expect(viewBtn(/^Focus$/).getAttribute('aria-pressed')).toBe('true');
+    expect(viewBtn(/^Compare$/).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('Focus shows ONE resume, with the sentences that can be improved in red and the one being fixed marked', () => {
+    openFocus();
+    const pane = focusPane();
+    expect(within(pane).getAllByText(/Jordan Lee/)).toHaveLength(1);
+    expect(at(pane, 'b:0:0').hasAttribute('data-fix-marked')).toBe(true);
+    expect(at(pane, 'b:0:1').hasAttribute('data-fix-open')).toBe(true);
+    expect(at(pane, 'b:0:2').hasAttribute('data-fix-open')).toBe(false);
+  });
+
+  it('in Focus what is typed shows in that one resume at once, and nothing is saved', () => {
+    const { props } = openFocus();
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
+    expect(at(focusPane(), 'b:0:0').textContent).toContain('Cut monthly reporting time');
+    expect(screen.getByText(/not saved yet/i)).toBeTruthy();
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+
+  it('in Focus a saved sentence is marked as done on the resume, and clicking another red sentence opens its issue', () => {
+    openFocus();
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
+    fireEvent.click(btn(/Save & next/i));
+    expect(at(focusPane(), 'b:0:0').hasAttribute('data-fix-done')).toBe(true);
+    expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
+  });
+
+  it('switching view keeps the issue and what was typed', () => {
+    openFocus({ startKey: keyOfIssue(1) });
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Half written' } });
+    fireEvent.click(viewBtn(/^Compare$/));
+    expect(screen.getByRole('region', { name: /^Your new resume$/i })).toBeTruthy();
+    expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
+    expect(editBox().value).toBe('Half written');
+    fireEvent.click(viewBtn(/^Focus$/));
+    expect(editBox().value).toBe('Half written');
+  });
+
+  it('remembers the choice for the next time, and ignores a stored value it does not know', () => {
+    openFocus();
+    fireEvent.click(viewBtn(/^Compare$/));
+    cleanup();
+    openFocus();                                   // a laptop-sized screen, but the user chose Compare before
+    expect(screen.getByRole('region', { name: /^Your new resume$/i })).toBeTruthy();
+    cleanup();
+    localStorage.setItem('careeraihub:fixpage:view', 'sideways');
+    openFocus();
+    expect(screen.queryByRole('region', { name: /^Your new resume$/i })).toBeNull();
+  });
+
+  it('the editor is part of the layout in both views, not pinned over the resume', () => {
+    openFocus();
+    expect(screen.getByRole('region', { name: /^Editor$/i }).style.position).not.toBe('sticky');
+    fireEvent.click(viewBtn(/^Compare$/));
+    expect(screen.getByRole('region', { name: /^Editor$/i }).style.position).not.toBe('sticky');
+  });
+
+  it('on a narrow screen Focus has two tabs, Edit and Resume', () => {
+    openFocus();
+    const tabs = screen.getByRole('tablist', { hidden: true });
+    const [a, b] = within(tabs).getAllByRole('tab', { hidden: true });
+    expect(a.textContent).toMatch(/Edit/);
+    expect(b.textContent).toMatch(/Resume/);
+  });
+
+  it('the view control is not offered on the last screen', () => {
+    openFocus();
+    fireEvent.click(btn(/Leave it for now/i));
+    fireEvent.click(btn(/Leave it for now/i));
+    expect(screen.queryByRole('group', { name: /^View$/i })).toBeNull();
+  });
+});
+
+describe('the box the user types in uses the room it has', () => {
+  const box = () => screen.getByRole('textbox', { name: /your text/i });
+
+  it('in Focus it is the main thing: it grows to fill the editor column, with a generous minimum, and is not fixed at a few lines', () => {
+    setWidth(1280);
+    setup();
+    improve();
+    expect(box().getAttribute('rows')).toBeNull();
+    expect(box().style.flex).toMatch(/^1/);
+    expect(parseInt(box().style.minHeight, 10)).toBeGreaterThanOrEqual(200);
+    expect(box().parentElement.style.flex).toMatch(/^1/);          // its label grows too, so there is no empty space under it
+  });
+
+  it('in Compare it is not fixed at a few lines either: it is as tall as its text, from a minimum, and can still be pulled taller', () => {
+    setup();
+    improve();
+    expect(box().getAttribute('rows')).toBeNull();
+    expect(box().hasAttribute('data-autosize')).toBe(true);
+    expect(parseInt(box().style.minHeight, 10)).toBeGreaterThanOrEqual(90);
+    expect(box().style.resize).toBe('vertical');
+  });
+
+  it('its height follows what is typed (up to a limit) in Compare', () => {
+    setup();
+    improve();
+    Object.defineProperty(box(), 'scrollHeight', { configurable: true, get: () => 180 });
+    fireEvent.change(box(), { target: { value: 'A long text '.repeat(40) } });
+    expect(box().style.height).toBe('180px');
+    Object.defineProperty(box(), 'scrollHeight', { configurable: true, get: () => 900 });
+    fireEvent.change(box(), { target: { value: 'A much longer text '.repeat(200) } });
+    expect(parseInt(box().style.height, 10)).toBeLessThanOrEqual(320);
   });
 });

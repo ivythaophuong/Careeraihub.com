@@ -1101,3 +1101,32 @@
     padding: 16px !important;
   }
 }
+
+/* Secondary text in the Builder: the app-wide --lp-text3 is about 2.5 to 1 on the dark backgrounds, below the 4.5 to 1 that WCAG AA asks for.
+   The Builder sets its own, for both themes; the rest of the app keeps its own. (atsBuilder.contrast.test.js checks the numbers.) */
+[data-theme="dark"] .atb {
+  --lp-text3: #8190B4;
+  /* Depth: the page is the darkest, the cards one step lighter and the inputs one more, so the layers can be told apart. */
+  --lp-bg2: #141A28;
+  --lp-bg3: #1A2133;
+  --lp-bdr: rgba(255, 255, 255, .09);
+  /* The colour that marks a sentence on the resume: not the pink of the main button. */
+  --atb-mark: #22D3EE;
+  --atb-mark-bg: rgba(34, 211, 238, .16);
+}
+[data-theme="light"] .atb {
+  --lp-text3: #556579;
+  --atb-mark: #0891B2;
+  --atb-mark-bg: rgba(8, 145, 178, .14);
+}
+
+@media (max-width: 768px) {
+  /* On a narrow screen the right column is not pinned: it follows the form. */
+  .atb-builder-right { position: static !important; height: auto !important; min-height: 0 !important; }
+}
+
+/* The part of the resume that goes with what is being edited (the summary while the Summary step is open). */
+.atb-builder-right [data-fix-marked] { outline: 2px solid var(--atb-mark); outline-offset: 3px; background: var(--atb-mark-bg); }
+
+/* A box being typed in gets a soft glow, so the page answers the typing. */
+.atb textarea:focus, .atb input:focus { box-shadow: 0 0 0 3px var(--lp-teal-dim); }

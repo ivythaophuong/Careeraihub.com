@@ -10,16 +10,23 @@ const nfc = (s) => String(s ?? '').normalize('NFC');
 
 // One regex for the quote that ignores differences with no meaning: spaces (incl. no-break), curly vs straight quotes, dash kinds,
 // zero-width marks. Words and numbers must match exactly.
+// The AI often shortens a quote with an ellipsis ("...", "…") at the start, the end or the middle. The mark is not in the resume, so it is not
+// matched: the parts around it must come in order inside one field (one bullet or the summary), and a full stop that ends the quote is optional.
+// A quote that is nothing but dots, or too short once they are gone, finds nothing (it would match almost anywhere).
+const MIN_QUOTE_CHARS = 6;
 function quotePattern(before) {
   const q = nfc(before).replace(INVISIBLE, '').trim();
-  if (!q) return null;
   const ch = (c) => {
     if (/['‘’‛]/.test(c)) return "['‘’‛]";
     if (/["“”‟]/.test(c)) return '["“”‟]';
     if (/[-‐‑–—]/.test(c)) return '[-‐‑–—]';
     return c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   };
-  return new RegExp(q.split(/\s+/).map(w => Array.from(w).map(ch).join('')).join('\\s+'));
+  const parts = q.split(/\s*(?:\.{3,}|…)\s*/).map(x => x.trim()).filter(Boolean);
+  if (parts.length) parts[parts.length - 1] = parts[parts.length - 1].replace(/[.,;:]+$/, '').trim();
+  const kept = parts.filter(Boolean);
+  if (!kept.length || kept.join('').length < MIN_QUOTE_CHARS) return null;
+  return new RegExp(kept.map(part => part.split(/\s+/).map(w => Array.from(w).map(ch).join('')).join('\\s+')).join('.*?'));
 }
 
 // Every editable text field, in a fixed order, with where it lives and a name the user can read.
@@ -62,10 +69,14 @@ export function applyIssue(data, issue, chosen) {
   const guarded = neutralizeInventedFigures(after, builderDataToText(data));
   const current = read(data, at);
   const match = current.match(quotePattern(issue.before));
-  const next = current.slice(0, match.index) + guarded.text + current.slice(match.index + match[0].length);
+  // A full stop that ends the quote is optional when matching, so it may still be in the resume after the match: when the replacement ends with a
+  // mark of its own, that mark is replaced too, and the sentence does not end with two.
+  let end = match.index + match[0].length;
+  if (/[.,;:]/.test(current[end] || '') && /[.,;:]$/.test(guarded.text)) end += 1;
+  const next = current.slice(0, match.index) + guarded.text + current.slice(end);
   return {
     data: write(data, at, next),
-    record: { at, inserted: guarded.text, original: match[0] },
+    record: { at, inserted: guarded.text, original: current.slice(match.index, end) },
     placeholders: guarded.changed,
     replaced: guarded.replaced,
   };

@@ -1,6 +1,6 @@
 // The logic behind the Fix page (no screen): where an issue's text is, what the draft would put there, saving one field, and the status of each issue.
 import { describe, it, expect } from 'vitest';
-import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, excerptFor } from './fixPage.js';
+import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, closestBullets } from './fixPage.js';
 import { undoApply } from './applyIssue.js';
 
 const base = () => ({
@@ -223,57 +223,44 @@ describe('fieldText and withFieldText: reading a field and previewing a typed te
   });
 });
 
-describe('excerptFor: the passage and its neighbours, so the page shows a few lines and not a whole resume', () => {
-  const d = () => {
-    const x = base();
-    x.experience[0].bullets = ['First', '', 'Second', 'Third', 'Fourth'];
-    return x;
-  };
-  const texts = (e) => e.lines.map(l => l.text);
+describe('closestBullets: the sentences nearest to a quote that is not in the resume', () => {
+  const d = () => ({
+    summary: 'Analyst who builds weekly reports.',
+    experience: [
+      { id: 1, company: 'Acme', title: 'Analyst', period: '2021 - 2023', bullets: ['Analyzed financial and operational data of target companies in 15+ M&A transactions using SQL', 'Built a dashboard for 6 managers', 'Trained two new hires'] },
+      { id: 2, company: 'Beta', title: 'Lead', period: '2023 - now', bullets: ['Analyzed operational data of target companies for the board'] },
+    ],
+  });
+  const quote = 'Analyzed financial and operational data of target companies in 15+ M&A deals';
 
-  it('a bullet: the job as a heading, the line before, the line itself marked, the line after', () => {
-    const e = excerptFor(d(), { kind: 'bullet', exp: 0, bullet: 3 });
-    expect(e.header).toBe('Acme · Analyst · 2021 - 2023');
-    expect(texts(e)).toEqual(['Second', 'Third', 'Fourth']);
-    expect(e.lines.map(l => l.target)).toEqual([false, true, false]);
-    expect(e.lines[1].at).toEqual({ kind: 'bullet', exp: 0, bullet: 3 });
+  it('lists the bullets that share most of the quote\'s words, best first, with a score from 0 to 1', () => {
+    const r = closestBullets(d(), { before: quote });
+    expect(r.map(x => x.at)).toEqual([{ kind: 'bullet', exp: 0, bullet: 0 }, { kind: 'bullet', exp: 1, bullet: 0 }]);
+    expect(r[0].score).toBeGreaterThan(r[1].score);
+    expect(r[0].score).toBeLessThanOrEqual(1);
   });
 
-  it('skips empty bullets when it looks for the neighbours', () => {
-    const e = excerptFor(d(), { kind: 'bullet', exp: 0, bullet: 2 });
-    expect(texts(e)).toEqual(['First', 'Second', 'Third']);
+  it('leaves out bullets that share less than half the words', () => {
+    const r = closestBullets(d(), { before: quote });
+    expect(r.some(x => x.at.bullet === 2)).toBe(false);
   });
 
-  it('the first and the last bullet have one neighbour', () => {
-    expect(texts(excerptFor(d(), { kind: 'bullet', exp: 0, bullet: 0 }))).toEqual(['First', 'Second']);
-    expect(texts(excerptFor(d(), { kind: 'bullet', exp: 0, bullet: 4 }))).toEqual(['Third', 'Fourth']);
+  it('gives nothing when there is no quote, or nothing is close', () => {
+    expect(closestBullets(d(), { before: '' })).toEqual([]);
+    expect(closestBullets(d(), { before: undefined })).toEqual([]);
+    expect(closestBullets(d(), { before: 'Completely unrelated text about gardening' })).toEqual([]);
   });
 
-  it('a lone bullet is shown alone', () => {
-    expect(texts(excerptFor(base(), { kind: 'bullet', exp: 2, bullet: 0 }))).toEqual(['Trained two new hires']);
+  it('never looks in the summary, and gives at most three', () => {
+    const x = d(); x.experience[0].bullets = ['alpha beta gamma delta', 'alpha beta gamma delta one', 'alpha beta gamma delta two', 'alpha beta gamma delta three', 'alpha beta gamma delta four'];
+    const r = closestBullets(x, { before: 'alpha beta gamma delta' });
+    expect(r).toHaveLength(3);
+    expect(closestBullets({ ...d(), summary: 'Analyzed financial and operational data of target companies' }, { before: 'summary only words nothing else' })).toEqual([]);
   });
 
-  it('never takes a neighbour from another job', () => {
-    const e = excerptFor(base(), { kind: 'bullet', exp: 1, bullet: 0 });
-    expect(texts(e)).toEqual(['Filed paperwork']);
-  });
-
-  it('a job with no company name still gets a heading made of what it has', () => {
-    expect(excerptFor(base(), { kind: 'bullet', exp: 1, bullet: 0 }).header).toBe('Intern · 2020');
-    const x = base(); x.experience[1] = { id: 2, company: '', title: '', period: '', bullets: ['Filed paperwork'] };
-    expect(excerptFor(x, { kind: 'bullet', exp: 1, bullet: 0 }).header).toBe('Job 2');
-  });
-
-  it('the summary is shown alone, with no job heading', () => {
-    const e = excerptFor(base(), { kind: 'summary' });
-    expect(e.header).toBeNull();
-    expect(e.lines).toEqual([{ at: { kind: 'summary' }, text: 'Analyst who builds weekly reports.', target: true }]);
-  });
-
-  it('a place that does not exist gives null, and the data is not changed', () => {
+  it('does not change the data', () => {
     const x = d(); const copy = JSON.stringify(x);
-    expect(excerptFor(x, { kind: 'bullet', exp: 9, bullet: 0 })).toBeNull();
-    expect(excerptFor(x, { kind: 'bullet', exp: 0, bullet: 9 })).toBeNull();
+    closestBullets(x, { before: quote });
     expect(JSON.stringify(x)).toBe(copy);
   });
 });

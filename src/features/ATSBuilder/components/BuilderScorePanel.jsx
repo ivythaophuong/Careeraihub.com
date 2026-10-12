@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { scoreBuilderData } from '../builderText.js';
 import { codeFindings } from '../codeFindings.js';
+import { describePart } from '../../../lib/describeScorePart.js';
 
-const LABELS = { completeness: 'Sections', measurable_impact: 'Numbers in bullets', chronology_health: 'Dates' };
+const LABELS = { completeness: 'Completeness', measurable_impact: 'Numbers in bullets', chronology_health: 'Date consistency' };
+const STEP_NAMES = { 1: 'Contact', 2: 'Experience', 3: 'Education', 4: 'Skills', 5: 'Summary' };
+const goLabel = (n) => `Go to ${STEP_NAMES[n] || 'this step'}`;
 const colorFor = (n) => (n >= 80 ? '#00E5A0' : n >= 60 ? '#FFB84D' : '#FF5A5A');
 
 // The ATS Readiness score of the draft being edited. Computed by code on every change (after a short pause), never by AI.
 export default function BuilderScorePanel({ data, debounceMs = 300, onGoToStep }) {
   const [score, setScore] = useState(() => scoreBuilderData(data));
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);   // closed until the user asks: the Builder already has a lot on it
 
   useEffect(() => {
     const id = setTimeout(() => setScore(scoreBuilderData(data)), debounceMs);
@@ -32,12 +35,23 @@ export default function BuilderScorePanel({ data, debounceMs = 300, onGoToStep }
             <div>Add your details and the score will appear here.</div>
           ) : (
             <>
-              {score.parts.map(p => (
-                <div key={p.id}>
-                  <strong style={{ color: 'var(--lp-text)' }}>{LABELS[p.id] || p.id}: {p.score}</strong>
-                  {p.evidence?.map((e, i) => <div key={i} style={{ lineHeight: 1.5 }}>{e}</div>)}
-                </div>
-              ))}
+              {score.parts.map(p => {
+                const d = describePart(p);
+                return (
+                  <div key={p.id}>
+                    <strong style={{ color: 'var(--lp-text)' }}>{LABELS[p.id] || p.id}{d.assessed ? `: ${p.score}` : ''}</strong>
+                    {d.items.length > 0 ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                        {d.items.map(it => (
+                          <span key={it.label} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, border: `1px solid ${it.ok ? 'rgba(0,229,160,.3)' : 'rgba(255,90,90,.35)'}`, color: it.ok ? '#00E5A0' : '#FF5A5A' }}>
+                            {it.ok ? '✓' : '✗'} {it.label}{it.ok ? '' : ' not found'}
+                          </span>
+                        ))}
+                      </div>
+                    ) : <div style={{ lineHeight: 1.5 }}>{d.text}</div>}
+                  </div>
+                );
+              })}
               {findings.length > 0 && (
                 <div>
                   <strong style={{ color: 'var(--lp-text)' }}>Found by the code checks:</strong>
@@ -45,7 +59,7 @@ export default function BuilderScorePanel({ data, debounceMs = 300, onGoToStep }
                     <div key={f.id} style={{ marginTop: 4, lineHeight: 1.5 }}>
                       <div style={{ fontWeight: 700, color: 'var(--lp-text)' }}>{f.title}</div>
                       <div>{f.description}</div>
-                      {onGoToStep && <button type="button" onClick={() => onGoToStep(f.builderStep)} style={{ marginTop: 3, background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Edit this step</button>}
+                      {onGoToStep && <button type="button" onClick={() => onGoToStep(f.builderStep)} style={{ marginTop: 3, background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{goLabel(f.builderStep)}</button>}
                     </div>
                   ))}
                 </div>
