@@ -15,6 +15,11 @@ describe('buildPrintDocument', () => {
     expect(html).toMatch(/\.resume-preview\.resume-preview\s*{[^}]*position:\s*static\s*!important/);
   });
 
+  it('removes letter-spacing in print: spaced capitals read back as "W O R K  E X P E R I E N C E", which an ATS does not recognise as a heading', () => {
+    const html = buildPrintDocument('<div class="resume-preview">x</div>', 't');
+    expect(html).toMatch(/\.print-root\s+\*[^{]*{[^}]*letter-spacing:\s*normal\s*!important/);
+  });
+
   it('escapes the title so a name cannot inject markup', () => {
     const html = buildPrintDocument('<p>x</p>', '</title><script>alert(1)</script>');
     expect(html).not.toContain('<script>alert(1)</script>');

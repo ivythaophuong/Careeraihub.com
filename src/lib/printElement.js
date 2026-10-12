@@ -13,7 +13,9 @@ export function buildPrintDocument(markup, title) {
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   /* The templates carry their own print rules (position: fixed), which would show only the first page. */
   .resume-preview.resume-preview { position: static !important; left: auto !important; top: auto !important; width: 100% !important; box-shadow: none !important; transform: none !important; }
-</style></head><body>${markup}</body></html>`;
+  /* Letter-spaced capitals are read back as "W O R K  E X P E R I E N C E", so the section headings and the name are not recognised. */
+  .print-root, .print-root * { letter-spacing: normal !important; }
+</style></head><body><div class="print-root">${markup}</div></body></html>`;
 }
 
 // Resolves true once the print dialog was opened, false when there was nothing to print.
