@@ -7,7 +7,7 @@ import { digestResume } from '../../lib/resumeDigest.js';
 import { OrbitSpinner } from '../../components/OrbitMark';
 import { arrayBufferToBase64 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
-import html2pdf from 'html2pdf.js';
+import { printElement } from '../../lib/printElement.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -859,32 +859,15 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const setSkills = text => edit(d => ({ ...d, skills: text.split('\n') }));
   const setSummary = v => edit(d => ({ ...d, summary: v }));
 
+  // Opens the print dialog; "Save as PDF" there gives a PDF whose text is real text (an ATS can read it).
   const handleDownloadPdf = async () => {
     if (!previewRef.current || !ActiveTemplate) return;
-    if (!previewRef.current.textContent?.trim()) return;
     setDownloading(true);
-    const el = previewRef.current;
-    const savedTransform = el.style.transform;
-    const savedTransformOrigin = el.style.transformOrigin;
-    el.style.transform = '';
-    el.style.transformOrigin = '';
     const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
     const tplLabel = TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate;
     try {
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename: `${name}_${tplLabel}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false, width: 794, windowWidth: 794 },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-        })
-        .from(el)
-        .save();
+      await printElement(previewRef.current, { title: `${name}_${tplLabel}` });
     } finally {
-      el.style.transform = savedTransform;
-      el.style.transformOrigin = savedTransformOrigin;
       setDownloading(false);
     }
   };

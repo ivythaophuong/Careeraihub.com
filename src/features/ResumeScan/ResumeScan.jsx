@@ -4,7 +4,7 @@ import { OrbitSpinner } from '../../components/OrbitMark';
 import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { TEMPLATES } from '../ATSBuilder/resumeTemplates.jsx';
-import html2pdf from 'html2pdf.js';
+import { printElement } from '../../lib/printElement.js';
 import { TEMPLATE_PARSE, JD_MAX_CHARS, missingSections } from '../../lib/templateParse';
 import mammoth from 'mammoth';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
@@ -316,17 +316,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
     const exportText = editorText || resumeCtx;
     const firstName = ((templateProfile?.name || exportText.split('\n').find(l => l.trim()) || 'resume')).replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30);
     try {
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename: `${firstName}_${tpl.label.replace(/\s+/g, '_')}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false, width: 794, windowWidth: 794 },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-        })
-        .from(pdfExportRef.current)
-        .save();
+      await printElement(pdfExportRef.current, { title: `${firstName}_${tpl.label.replace(/\s+/g, '_')}` });
       setPdfExported(true);
     } finally {
       setPdfDownloading(false);
@@ -358,7 +348,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
   /* ─── Hidden PDF render target — always mounted so ref is valid ─── */
   const pdfModal = (
     <div aria-hidden="true" style={{ position: 'fixed', left: -9999, top: 0, zIndex: -1, width: 794 }}>
-      {/* The element that is captured must carry NO position/offset style of its own: html2pdf copies it, and a copy at left:-9999 is an empty page (the blank PDF). */}
+      {/* The element that is printed must carry NO position/offset style of its own: its markup is copied into the print frame, and a copy at left:-9999 would print an empty page. */}
       <div ref={pdfExportRef} data-testid="pdf-export-target" style={{ width: 794 }}>
       {(() => {
         const tpl = TEMPLATES.find(t => t.id === selectedTpl) || TEMPLATES[0];
