@@ -68,10 +68,15 @@ Marked passage: an outline and the label "To fix", not colour alone.
 | Save fails (the browser blocks storage) | the text stays in the box, a retry is offered [the code today ignores a storage error: the change would live for this visit only] |
 | Skipped | stays Open in the list |
 | Last issue | the summary in section 5, never "all fixed" |
+| Found in the data but not drawn (a job with no company name) | no mark; the text above; the edit box works |
 | Another module needed | a card with a link to it |
 
 ## 8. What is not decided / not known
-- **How to mark and live-preview the passage inside the rendered resume** [UNKNOWN]. The resume is drawn by five React templates from `data`. The preview can be re-rendered from a copy of `data` with the edited text (pure, cheap). Marking the passage needs either template support or marking the rendered text after the render. **A short technical spike must confirm this before the design is final.** Fallback: no mark, the card shows "Company, bullet n" and the page scrolls to that section.
+- **Marking and live preview inside the rendered resume: spike done** (a temporary test over the five templates with synthetic data, deleted after the run). Measured [MEASURED]: in all five templates every bullet is drawn as its own element whose own text is exactly the bullet, and the summary as one element; a bullet that appears in two jobs is drawn twice; **a job with an empty company name is not drawn at all, with its bullets**; no template carries any marker today. Read in the code [VERIFIED]: each template does `experience.filter(j => j.company)` and `bullets.filter(b => b.trim())` **before** numbering, so the number the template has is not the position in `data`.
+  - Live preview: feasible. Render the template from a copy of `data` with the typed text in that field (the engine's `write` is pure).
+  - Marking, chosen approach: add an attribute `data-fix-at` (`summary`, or `b:<job>:<bullet>` with the **original** positions) to the summary and the bullet element in each of the five templates (about ten small, additive edits), and mark by that attribute on the Fix page only. The attribute does nothing outside the Fix page. Whether the PDF and Word exports are affected by an extra attribute has not been checked [UNKNOWN]; a test must show the exported output is unchanged.
+  - Not chosen: finding the text in the drawn page. It works for a text that appears once, but for a repeated text it can only go by order, and the hidden jobs and bullets above shift that order.
+  - New state: the locator finds a bullet that the preview does not draw (a job with no company name). The page must say "This bullet is in a job with no company name, so the preview does not show it" and still allow the edit.
 - Edit the whole bullet or only the quoted words: `applyIssue` replaces only the quoted passage inside the field. The edit box should hold the whole bullet with the quoted words marked, and a save would write that field. This needs a small new function; it is not in the engine today.
 - A pagination-based "Page 2" in the match list: not offered, the preview has no real pages [UNKNOWN].
 - A character counter: not shown unless a real limit exists [UNKNOWN].
@@ -97,5 +102,5 @@ Scores, scoring text, the AI call and its prompt, stored data, SQL, the template
 ## 11. Decisions for the product owner
 1. Accept the scope in section 4 (the Fix page only for issues found in the summary or a bullet).
 2. Accept the controls in section 5.
-3. Authorise the short spike in section 8 (mark and live preview) before any build.
+3. Approve the marking method in section 8 (a `data-fix-at` attribute in the five templates). The spike is done.
 4. Accept that saving with `[X]` left keeps the issue Open.
