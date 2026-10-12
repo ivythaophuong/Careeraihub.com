@@ -6,6 +6,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 vi.mock('../../lib/ai', () => ({ callLLM: vi.fn() }));
 vi.mock('html2pdf.js', () => ({ default: vi.fn() }));
 import ATSBuilder, { builderDraftKey, builderAppliedKey } from './ATSBuilder';
+import { TEMPLATES } from './resumeTemplates.jsx';
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -92,13 +93,13 @@ describe('saving from the Fix page', () => {
 });
 
 describe('the template', () => {
-  it('the template the user chose in the Builder is the one the Fix page shows, after a trip to the other tab', () => {
+  it('the template the user chose in the gallery is the one the Fix page draws, after a trip through the tabs', () => {
     render(<ATSBuilder {...base([issue()])} />);
-    fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
-    fireEvent.click(screen.getAllByRole('button', { name: /Bold/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^Templates$/ }));
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(TEMPLATES[4].label) }));
     fireEvent.click(screen.getByRole('button', { name: /Upload & Parse/ }));
     fireEvent.click(screen.getByText(/Fix in Builder/));
-    fireEvent.click(screen.getByRole('button', { name: /View full resume/i }));   // the template is named in the full resume view
-    expect(screen.getByText(/Template: Bold/)).toBeTruthy();
+    expect(document.querySelector(`[data-template="${TEMPLATES[4].id}"]`)).toBeTruthy();
+    expect(document.querySelector(`[data-template="${TEMPLATES[0].id}"]`)).toBeNull();
   });
 });

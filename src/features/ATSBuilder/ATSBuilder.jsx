@@ -14,6 +14,7 @@ import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
 import { demoFixProfile } from './demoFix.js';
+import TemplateGallery from './components/TemplateGallery.jsx';
 import { confirmExport } from '../../lib/exportGuard.js';
 import { builderDataToText } from './builderText.js';
 import './atsBuilder.css';
@@ -36,6 +37,7 @@ function base64ToBlobUrl(b64) {
 const RB_TABS = [
   { id: 'parse',   label: 'Upload & Parse'  },
   { id: 'builder', label: 'Builder'         },
+  { id: 'templates', label: 'Templates'     },
   { id: 'history', label: 'Version History' },
 ];
 
@@ -786,7 +788,20 @@ export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(bui
 // builderStep from an issue is 1=Contact ... 5=Summary, the same order as BUILDER_STEPS (index = builderStep - 1). Anything else opens step 1.
 const stepIndexFor = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n - 1 : 0);
 
-function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user, focus, template, onTemplateChange, onBackToList }) {
+// The data the Builder starts from: what was restored, else the saved draft of this user, else what the parsed profile holds, else a sample.
+// Shared with the template gallery so both show the same resume.
+function initialBuilderData({ restoredData, draftKey, initialProfile }) {
+  if (restoredData) return restoredData;
+  try {
+    localStorage.removeItem(LEGACY_DRAFT_KEY);
+    const saved = localStorage.getItem(draftKey);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return mapProfileToData(initialProfile);
+}
+const builderDataIsSample = ({ restoredData, draftKey, initialProfile }) => { try { return !initialProfile && !restoredData && !localStorage.getItem(draftKey); } catch { return !initialProfile && !restoredData; } };
+
+function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user, focus, template, onTemplateChange, onBackToList, onOpenGallery }) {
   const draftKey = builderDraftKey(user?.id);
   const [step, setStep] = useState(() => stepIndexFor(focus?.step));
   const [fixing, setFixing] = useState(focus?.issue || null);
@@ -798,15 +813,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const [skillInput, setSkillInput] = useState('');
   const [previewScale, setPreviewScale] = useState(1);
   const containerRef = useRef(null);
-  const [data, setData] = useState(() => {
-    if (restoredData) return restoredData;
-    try {
-      localStorage.removeItem(LEGACY_DRAFT_KEY);
-      const saved = localStorage.getItem(draftKey);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return mapProfileToData(initialProfile);
-  });
+  const [data, setData] = useState(() => initialBuilderData({ restoredData, draftKey, initialProfile }));
   const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(draftKey));
 
   // The Fix page opens when the user came from one issue whose quoted text is in the resume (the summary or a bullet). Any other issue keeps the step form.
@@ -958,6 +965,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         onChange={onFixChange}
         onBackToList={onBackToList}
         onOpenBuilder={() => { setFixMode(false); setFixing(null); }}
+        onChooseTemplate={onOpenGallery}
         template={TEMPLATES.find(t => t.id === activeTemplate) || TEMPLATES[0]}
       />
     );
@@ -1206,20 +1214,10 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
 
       {/* ── RIGHT: template carousel + live preview ── */}
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Carousel */}
-        <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderBottom: '1px solid var(--lp-bdr)', overflowX: 'auto', scrollbarWidth: 'none', background: 'var(--lp-bg3)', flexShrink: 0 }}>
-          {TEMPLATES.map(t => (
-            <button key={t.id} onClick={() => setActiveTemplate(t.id)} style={{
-              padding: '5px 13px', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
-              transition: 'all .15s', borderLeft: `3px solid ${t.accent}`,
-              background: activeTemplate === t.id ? 'var(--lp-teal)' : 'transparent',
-              color: activeTemplate === t.id ? '#000' : 'var(--lp-text2)',
-              border: `1px solid ${activeTemplate === t.id ? 'var(--lp-teal)' : 'var(--lp-bdr)'}`,
-              borderLeftColor: t.accent, borderLeftWidth: 3,
-            }}>
-              {activeTemplate === t.id ? '✓ ' : ''}{t.label}
-            </button>
-          ))}
+        {/* The template in use: choosing is its own screen (the Templates tab) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--lp-bdr)', background: 'var(--lp-bg3)', flexShrink: 0 }}>
+          <div style={{ fontSize: 12, color: 'var(--lp-text2)' }}>Template: {TEMPLATES.find(t => t.id === activeTemplate)?.label}</div>
+          {onOpenGallery && <button type="button" onClick={onOpenGallery} style={{ background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-teal)', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Change template</button>}
         </div>
 
         {/* Download button */}
@@ -1408,6 +1406,7 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
           template={template}
           onTemplateChange={setTemplate}
           onBackToList={() => { setBuilderFocus(null); setMainTab('parse'); }}
+          onOpenGallery={() => { setBuilderFocus(null); setMainTab('templates'); }}
         />
       )}
       {mainTab === 'builder' && entryMode === 'scratch' && (
@@ -1421,8 +1420,23 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
           template={template}
           onTemplateChange={setTemplate}
           onBackToList={() => { setBuilderFocus(null); setMainTab('parse'); }}
+          onOpenGallery={() => { setBuilderFocus(null); setMainTab('templates'); }}
         />
       )}
+      {mainTab === 'templates' && (() => {
+        const galleryProfile = demo || memory?.parseProfile || null;
+        const key = builderDraftKey(user?.id);
+        return (
+          <TemplateGallery
+            data={initialBuilderData({ restoredData, draftKey: key, initialProfile: galleryProfile })}
+            sample={builderDataIsSample({ restoredData, draftKey: key, initialProfile: galleryProfile })}
+            templates={TEMPLATES}
+            selectedId={template}
+            onSelect={setTemplate}
+            onBack={() => setMainTab('builder')}
+          />
+        );
+      })()}
       {mainTab === 'history' && (
         <VersionHistoryTab memory={memory} onRestore={handleRestore} />
       )}
