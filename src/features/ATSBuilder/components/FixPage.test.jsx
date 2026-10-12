@@ -684,3 +684,37 @@ describe('two views the user chooses between: Focus (one resume) and Compare (be
     expect(screen.queryByRole('group', { name: /^View$/i })).toBeNull();
   });
 });
+
+describe('the box the user types in uses the room it has', () => {
+  const box = () => screen.getByRole('textbox', { name: /your text/i });
+
+  it('in Focus it is the main thing: it grows to fill the editor column, with a generous minimum, and is not fixed at a few lines', () => {
+    setWidth(1280);
+    setup();
+    improve();
+    expect(box().getAttribute('rows')).toBeNull();
+    expect(box().style.flex).toMatch(/^1/);
+    expect(parseInt(box().style.minHeight, 10)).toBeGreaterThanOrEqual(200);
+    expect(box().parentElement.style.flex).toMatch(/^1/);          // its label grows too, so there is no empty space under it
+  });
+
+  it('in Compare it is not fixed at a few lines either: it is as tall as its text, from a minimum, and can still be pulled taller', () => {
+    setup();
+    improve();
+    expect(box().getAttribute('rows')).toBeNull();
+    expect(box().hasAttribute('data-autosize')).toBe(true);
+    expect(parseInt(box().style.minHeight, 10)).toBeGreaterThanOrEqual(90);
+    expect(box().style.resize).toBe('vertical');
+  });
+
+  it('its height follows what is typed (up to a limit) in Compare', () => {
+    setup();
+    improve();
+    Object.defineProperty(box(), 'scrollHeight', { configurable: true, get: () => 180 });
+    fireEvent.change(box(), { target: { value: 'A long text '.repeat(40) } });
+    expect(box().style.height).toBe('180px');
+    Object.defineProperty(box(), 'scrollHeight', { configurable: true, get: () => 900 });
+    fireEvent.change(box(), { target: { value: 'A much longer text '.repeat(200) } });
+    expect(parseInt(box().style.height, 10)).toBeLessThanOrEqual(320);
+  });
+});

@@ -169,6 +169,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const [askReplace, setAskReplace] = useState(false);
   const [askLeave, setAskLeave] = useState(false);
   const [pendingPick, setPendingPick] = useState(null);
+  const taRef = useRef(null);
   const [view, setViewState] = useState(initialView);
   const [pane, setPane] = useState(() => (initialView() === 'focus' ? 'editor' : 'original'));
   const setView = (v) => { setViewState(v); setPane(v === 'focus' ? 'editor' : 'original'); try { localStorage.setItem(VIEW_KEY, v); } catch { /* the choice lives for this visit only */ } };
@@ -179,6 +180,14 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     setImproving(false); setShowWhy(false); setShowDraft(false);
     setMsg(''); setAskReplace(false); setAskLeave(false); setPendingPick(null);
   };
+
+  // Compare: the box is as tall as its text, from 90 px up to 320 px, then it scrolls. (In Focus it fills the column.)
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el || view !== 'compare') return;
+    el.style.height = 'auto';
+    if (el.scrollHeight) el.style.height = `${Math.min(Math.max(el.scrollHeight, 90), 320)}px`;
+  });
 
   const current = pos === null ? null : list[pos];
   const statuses = statusesFor(work, recs);
@@ -371,10 +380,12 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           {place && !place.drawn && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.6 }}>This text is in a job with no company name, so the resume does not show it. You can still edit it here.</div>}
 
           {improving && (
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6, ...(view === 'focus' ? { flex: 1, minHeight: 240 } : {}) }}>
               <span style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--lp-text3)' }}>Your text</span>
-              <textarea aria-label="Your text" value={text} onChange={e => { setText(e.target.value); setMsg(''); }} rows={3}
-                style={{ width: '100%', boxSizing: 'border-box', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text)', borderRadius: 8, padding: '8px 12px', fontSize: 14, lineHeight: 1.5, fontFamily: 'var(--lp-ff)', resize: 'vertical' }} />
+              {/* The box is the main thing: in Focus it fills the column; in Compare it is as tall as its text (up to a limit) and can be pulled taller. */}
+              <textarea ref={taRef} data-autosize={view === 'compare' ? 'true' : undefined} aria-label="Your text" value={text} onChange={e => { setText(e.target.value); setMsg(''); }}
+                style={{ width: '100%', boxSizing: 'border-box', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text)', borderRadius: 8, padding: '10px 14px', fontSize: 14.5, lineHeight: 1.6, fontFamily: 'var(--lp-ff)', resize: 'vertical',
+                  ...(view === 'focus' ? { flex: 1, minHeight: 200 } : { minHeight: 90 }) }} />
             </label>
           )}
           {improving && dirty && <div style={{ fontSize: 12, color: 'var(--lp-text3)' }}>Not saved yet. Your original: {saved}</div>}
