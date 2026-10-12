@@ -9,6 +9,11 @@ import React from 'react';
 const ph = (v, fallback) => v || fallback;
 
 // ── Modern Professional ────────────────────────────────────────────────────────
+// What a template draws, each with its position in the Builder data. A job with no company name and an empty bullet are not drawn, so the
+// number a template counts while drawing is not the position in the data; the Fix page needs the position (data-fix-at).
+const shownJobs = (experience) => experience.map((job, ji) => ({ job, ji })).filter(({ job }) => job.company);
+const shownBullets = (job) => (job.bullets || []).map((b, bi) => ({ b, bi })).filter(({ b }) => b.trim());
+
 export function ModernTemplate({ contact = {}, summary = '', experience = [], education = [], skills = [], awards = [], extras = [] }) {
   const rule = { height: 1, background: '#111', margin: '16px 0 14px' };
   const ruleLight = { height: 1, background: '#ddd', margin: '14px 0' };
@@ -27,21 +32,21 @@ export function ModernTemplate({ contact = {}, summary = '', experience = [], ed
       {summary && (<>
         <div style={rule} />
         <div style={sectionTitle}>Professional Summary</div>
-        <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }}>{summary}</div>
+        <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }} data-fix-at="summary">{summary}</div>
       </>)}
 
       {experience.filter(j => j.company).length > 0 && (<>
         <div style={ruleLight} />
         <div style={sectionTitle}>Work Experience</div>
-        {experience.filter(j => j.company).map((job, i) => (
+        {shownJobs(experience).map(({ job, ji }, i) => (
           <div key={job.id ?? i} style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{job.company}</span>
               <span style={{ fontSize: 11, color: '#777' }}>{job.period}</span>
             </div>
             <div style={{ fontSize: 12, fontStyle: 'italic', color: '#444', marginTop: 2 }}>{job.title}</div>
-            {(job.bullets || []).filter(b => b.trim()).map((b, bi) => (
-              <div key={bi} style={{ fontSize: 11.5, color: '#333', lineHeight: 1.6, paddingLeft: 14, position: 'relative', marginTop: 4 }}>
+            {shownBullets(job).map(({ b, bi }) => (
+              <div key={bi} data-fix-at={`b:${ji}:${bi}`} style={{ fontSize: 11.5, color: '#333', lineHeight: 1.6, paddingLeft: 14, position: 'relative', marginTop: 4 }}>
                 <span style={{ position: 'absolute', left: 0 }}>•</span>{b}
               </div>
             ))}
@@ -146,21 +151,21 @@ export function CreativeTemplate({ contact = {}, summary = '', experience = [], 
         {summary && (
           <div style={{ marginBottom: 22 }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: accent, borderBottom: `2px solid ${accent}`, paddingBottom: 4, marginBottom: 10 }}>Professional Summary</div>
-            <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }}>{summary}</div>
+            <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }} data-fix-at="summary">{summary}</div>
           </div>
         )}
         {experience.filter(j => j.company).length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: accent, borderBottom: `2px solid ${accent}`, paddingBottom: 4, marginBottom: 12 }}>Work Experience</div>
-            {experience.filter(j => j.company).map((job, i) => (
+            {shownJobs(experience).map(({ job, ji }, i) => (
               <div key={job.id ?? i} style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#1e2235' }}>{job.company}</span>
                   <span style={{ fontSize: 10.5, color: accent, fontWeight: 600 }}>{job.period}</span>
                 </div>
                 <div style={{ fontSize: 11.5, color: '#555', marginTop: 2 }}>{job.title}</div>
-                {(job.bullets || []).filter(b => b.trim()).map((b, bi) => (
-                  <div key={bi} style={{ fontSize: 11.5, color: '#333', lineHeight: 1.6, paddingLeft: 14, position: 'relative', marginTop: 4 }}>
+                {shownBullets(job).map(({ b, bi }) => (
+                  <div key={bi} data-fix-at={`b:${ji}:${bi}`} style={{ fontSize: 11.5, color: '#333', lineHeight: 1.6, paddingLeft: 14, position: 'relative', marginTop: 4 }}>
                     <span style={{ position: 'absolute', left: 0, color: accent, fontSize: 8 }}>▸</span>{b}
                   </div>
                 ))}
@@ -207,21 +212,21 @@ export function TwoColumnTemplate({ contact = {}, summary = '', experience = [],
           {summary && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: accent, marginBottom: 8 }}>Summary</div>
-              <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }}>{summary}</div>
+              <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }} data-fix-at="summary">{summary}</div>
             </div>
           )}
           {experience.filter(j => j.company).length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: accent, marginBottom: 10 }}>Work Experience</div>
-              {experience.filter(j => j.company).map((job, i) => (
+              {shownJobs(experience).map(({ job, ji }, i) => (
                 <div key={job.id ?? i} style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{job.company}</span>
                     <span style={{ fontSize: 11, color: accent, fontWeight: 600 }}>{job.period}</span>
                   </div>
                   <div style={{ fontSize: 11.5, color: '#555' }}>{job.title}</div>
-                  {(job.bullets || []).filter(b => b.trim()).map((b, bi) => (
-                    <div key={bi} style={{ fontSize: 11.5, color: '#333', lineHeight: 1.6, paddingLeft: 14, position: 'relative', marginTop: 4 }}>
+                  {shownBullets(job).map(({ b, bi }) => (
+                    <div key={bi} data-fix-at={`b:${ji}:${bi}`} style={{ fontSize: 11.5, color: '#333', lineHeight: 1.6, paddingLeft: 14, position: 'relative', marginTop: 4 }}>
                       <span style={{ position: 'absolute', left: 0, color: accent }}>•</span>{b}
                     </div>
                   ))}
@@ -303,21 +308,21 @@ export function MinimalistTemplate({ contact = {}, summary = '', experience = []
       {summary && (
         <div style={{ marginBottom: 26 }}>
           <div style={sectionLabel}>Profile</div>
-          <div style={{ fontSize: 12, color: '#444', lineHeight: 1.8 }}>{summary}</div>
+          <div style={{ fontSize: 12, color: '#444', lineHeight: 1.8 }} data-fix-at="summary">{summary}</div>
         </div>
       )}
 
       {experience.filter(j => j.company).length > 0 && (
         <div style={{ marginBottom: 26 }}>
           <div style={sectionLabel}>Experience</div>
-          {experience.filter(j => j.company).map((job, i) => (
+          {shownJobs(experience).map(({ job, ji }, i) => (
             <div key={job.id ?? i} style={{ display: 'flex', gap: 18, marginBottom: 16 }}>
               <div style={{ width: 76, fontSize: 10.5, color: '#999', flexShrink: 0, paddingTop: 2, lineHeight: 1.4 }}>{job.period}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: '#111' }}>{job.company}</div>
                 <div style={{ fontSize: 11.5, color: '#666', marginTop: 1 }}>{job.title}</div>
-                {(job.bullets || []).filter(b => b.trim()).map((b, bi) => (
-                  <div key={bi} style={{ fontSize: 11.5, color: '#444', lineHeight: 1.7, paddingLeft: 12, position: 'relative', marginTop: 4 }}>
+                {shownBullets(job).map(({ b, bi }) => (
+                  <div key={bi} data-fix-at={`b:${ji}:${bi}`} style={{ fontSize: 11.5, color: '#444', lineHeight: 1.7, paddingLeft: 12, position: 'relative', marginTop: 4 }}>
                     <span style={{ position: 'absolute', left: 0, color: '#bbb', fontSize: 10 }}>—</span>{b}
                   </div>
                 ))}
@@ -400,21 +405,21 @@ export function BoldTemplate({ contact = {}, summary = '', experience = [], educ
         {summary && (
           <div style={{ marginBottom: 24 }}>
             <div style={sectionHead}>Summary</div>
-            <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }}>{summary}</div>
+            <div style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }} data-fix-at="summary">{summary}</div>
           </div>
         )}
         {experience.filter(j => j.company).length > 0 && (
           <div style={{ marginBottom: 24 }}>
             <div style={sectionHead}>Experience</div>
-            {experience.filter(j => j.company).map((job, i) => (
+            {shownJobs(experience).map(({ job, ji }, i) => (
               <div key={job.id ?? i} style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontSize: 14, fontWeight: 900, color: '#111' }}>{job.company}</span>
                   <span style={{ fontSize: 11, color: gold, fontWeight: 700 }}>{job.period}</span>
                 </div>
                 <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{job.title}</div>
-                {(job.bullets || []).filter(b => b.trim()).map((b, bi) => (
-                  <div key={bi} style={{ fontSize: 11.5, color: '#333', lineHeight: 1.6, paddingLeft: 16, position: 'relative', marginTop: 5 }}>
+                {shownBullets(job).map(({ b, bi }) => (
+                  <div key={bi} data-fix-at={`b:${ji}:${bi}`} style={{ fontSize: 11.5, color: '#333', lineHeight: 1.6, paddingLeft: 16, position: 'relative', marginTop: 5 }}>
                     <span style={{ position: 'absolute', left: 0, color: gold, fontSize: 7, top: 4 }}>▶</span>{b}
                   </div>
                 ))}
