@@ -13,6 +13,7 @@ import BuilderScorePanel from './components/BuilderScorePanel.jsx';
 import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
+import { demoFixProfile } from './demoFix.js';
 import { confirmExport } from '../../lib/exportGuard.js';
 import { builderDataToText } from './builderText.js';
 import './atsBuilder.css';
@@ -1255,7 +1256,13 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
 }
 
 // ── Main ATSBuilder ────────────────────────────────────────────────────────────
-const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveModule, resumeText: globalResumeRaw, setResumeText: setGlobalResumeText }) => {
+const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory, onProTrigger, form, setActiveModule, resumeText: globalResumeRaw, setResumeText: realSetGlobalResumeText }) => {
+  // ?demo=fix (development only, see demoFix.js): a synthetic profile with issues, so the Fix page can be tried where the AI call is blocked.
+  // Nothing may reach the account in this mode: no memory update, no resume text, and the draft is kept under its own key.
+  const demo = demoFixProfile({ dev: import.meta.env.DEV, search: typeof window !== 'undefined' ? window.location.search : '' });
+  const user = demo ? { ...signedInUser, id: 'demo-fix' } : signedInUser;
+  const updateMemory = demo ? null : realUpdateMemory;
+  const setGlobalResumeText = demo ? null : realSetGlobalResumeText;
   const globalResume = resumeContent(globalResumeRaw); // Resume Scan stores an object here, not a string
   const [mainTab, setMainTab] = useState('parse');
   const [entryMode, setEntryMode] = useState(null); // null=choose, 'scratch', 'existing'
@@ -1312,6 +1319,11 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="atb">
+      {demo && (
+        <div role="note" style={{ padding: '8px 24px', fontSize: 12, background: 'rgba(255,184,77,.12)', color: '#FFB84D', borderBottom: '1px solid var(--lp-bdr)' }}>
+          Demo data (development only): a synthetic resume and issues. Nothing here is saved to your account.
+        </div>
+      )}
       {/* Page header + tab bar */}
       <div style={{ padding: '16px 24px 0', borderBottom: '1px solid var(--lp-bdr)' }}>
         <div style={{ color: 'var(--lp-text)', fontWeight: 900, fontSize: 22 }}>Resume Builder</div>
@@ -1327,7 +1339,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
           user={user}
           memory={memory}
           resumeText={globalResume || resumeText}
-          initialProfile={memory?.parseProfile || null}
+          initialProfile={demo || memory?.parseProfile || null}
           onResumeExtracted={handleResumeExtracted}
           onPdfUploaded={handlePdfUploaded}
           onProfileParsed={handleProfileParsed}
@@ -1376,7 +1388,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
       {mainTab === 'builder' && entryMode === 'existing' && (
         <BuilderTab
           user={user}
-          initialProfile={memory?.parseProfile || null}
+          initialProfile={demo || memory?.parseProfile || null}
           memory={memory}
           focus={builderFocus}
           onSaveVersion={handleSaveVersion}
