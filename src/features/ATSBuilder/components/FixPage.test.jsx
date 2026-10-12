@@ -8,7 +8,10 @@ import FixPage from './FixPage.jsx';
 import { TEMPLATES } from '../resumeTemplates.jsx';
 
 afterEach(cleanup);
+const setWidth = (w) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true, writable: true });
 beforeEach(() => {
+  localStorage.clear();
+  setWidth(1800);                      // wide: the page opens in Compare unless the test says otherwise
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -585,5 +588,99 @@ describe('a bullet issue whose sentence cannot be found: the user picks the sent
     setup({ issues: [{ ...PICK, before: '', after: '' }] });
     expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
     expect(left().querySelector('[data-fix-open]')).toBeNull();
+  });
+});
+
+describe('two views the user chooses between: Focus (one resume) and Compare (before and after)', () => {
+  const focusPane = () => screen.getByRole('region', { name: /^Your resume$/i });
+  const viewBtn = (name) => within(screen.getByRole('group', { name: /^View$/i })).getByRole('button', { name });
+  const openFocus = (over = {}) => { setWidth(1280); return setup(over); };
+
+  it('opens in Compare on a wide screen and in Focus on a laptop-sized one', () => {
+    setup();
+    expect(screen.getByRole('region', { name: /^Your new resume$/i })).toBeTruthy();
+    cleanup();
+    openFocus();
+    expect(screen.queryByRole('region', { name: /^Your new resume$/i })).toBeNull();
+    expect(focusPane()).toBeTruthy();
+  });
+
+  it('has a View control with the two choices, and says which one is on', () => {
+    openFocus();
+    expect(viewBtn(/^Focus$/).getAttribute('aria-pressed')).toBe('true');
+    expect(viewBtn(/^Compare$/).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('Focus shows ONE resume, with the sentences that can be improved in red and the one being fixed marked', () => {
+    openFocus();
+    const pane = focusPane();
+    expect(within(pane).getAllByText(/Jordan Lee/)).toHaveLength(1);
+    expect(at(pane, 'b:0:0').hasAttribute('data-fix-marked')).toBe(true);
+    expect(at(pane, 'b:0:1').hasAttribute('data-fix-open')).toBe(true);
+    expect(at(pane, 'b:0:2').hasAttribute('data-fix-open')).toBe(false);
+  });
+
+  it('in Focus what is typed shows in that one resume at once, and nothing is saved', () => {
+    const { props } = openFocus();
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
+    expect(at(focusPane(), 'b:0:0').textContent).toContain('Cut monthly reporting time');
+    expect(screen.getByText(/not saved yet/i)).toBeTruthy();
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+
+  it('in Focus a saved sentence is marked as done on the resume, and clicking another red sentence opens its issue', () => {
+    openFocus();
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
+    fireEvent.click(btn(/Save & next/i));
+    expect(at(focusPane(), 'b:0:0').hasAttribute('data-fix-done')).toBe(true);
+    expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
+  });
+
+  it('switching view keeps the issue and what was typed', () => {
+    openFocus({ startKey: keyOfIssue(1) });
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Half written' } });
+    fireEvent.click(viewBtn(/^Compare$/));
+    expect(screen.getByRole('region', { name: /^Your new resume$/i })).toBeTruthy();
+    expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
+    expect(editBox().value).toBe('Half written');
+    fireEvent.click(viewBtn(/^Focus$/));
+    expect(editBox().value).toBe('Half written');
+  });
+
+  it('remembers the choice for the next time, and ignores a stored value it does not know', () => {
+    openFocus();
+    fireEvent.click(viewBtn(/^Compare$/));
+    cleanup();
+    openFocus();                                   // a laptop-sized screen, but the user chose Compare before
+    expect(screen.getByRole('region', { name: /^Your new resume$/i })).toBeTruthy();
+    cleanup();
+    localStorage.setItem('careeraihub:fixpage:view', 'sideways');
+    openFocus();
+    expect(screen.queryByRole('region', { name: /^Your new resume$/i })).toBeNull();
+  });
+
+  it('the editor is part of the layout in both views, not pinned over the resume', () => {
+    openFocus();
+    expect(screen.getByRole('region', { name: /^Editor$/i }).style.position).not.toBe('sticky');
+    fireEvent.click(viewBtn(/^Compare$/));
+    expect(screen.getByRole('region', { name: /^Editor$/i }).style.position).not.toBe('sticky');
+  });
+
+  it('on a narrow screen Focus has two tabs, Edit and Resume', () => {
+    openFocus();
+    const tabs = screen.getByRole('tablist', { hidden: true });
+    const [a, b] = within(tabs).getAllByRole('tab', { hidden: true });
+    expect(a.textContent).toMatch(/Edit/);
+    expect(b.textContent).toMatch(/Resume/);
+  });
+
+  it('the view control is not offered on the last screen', () => {
+    openFocus();
+    fireEvent.click(btn(/Leave it for now/i));
+    fireEvent.click(btn(/Leave it for now/i));
+    expect(screen.queryByRole('group', { name: /^View$/i })).toBeNull();
   });
 });

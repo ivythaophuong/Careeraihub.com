@@ -12,6 +12,13 @@ import { closestBullets, fixTargets, suggestionFor, saveFix, issueStatus, nextUn
 const SEV = { critical: '#FF5A5A', high: '#FFB84D', medium: 'var(--lp-text3)', low: 'var(--lp-text3)' };
 const label = (s) => (s ? s[0].toUpperCase() + s.slice(1) : '');
 const A4 = 794;
+// Two views, chosen by the user and remembered: Focus (one resume, larger, with the editor beside it) and Compare (your resume and the new one side by side).
+// Until the user chooses, a wide screen opens in Compare and a laptop-sized one in Focus, because two A4 pages side by side make the text small.
+const VIEW_KEY = 'careeraihub:fixpage:view';
+const initialView = () => {
+  try { const v = localStorage.getItem(VIEW_KEY); if (v === 'focus' || v === 'compare') return v; } catch { /* storage unavailable: use the width */ }
+  return typeof window !== 'undefined' && window.innerWidth >= 1700 ? 'compare' : 'focus';
+};
 const markKeyOf = (at) => (at.kind === 'summary' ? 'summary' : `b:${at.exp}:${at.bullet}`);
 
 const css = `
@@ -23,6 +30,7 @@ const css = `
 .atb-fixpage .atb-fix-tabs { display: none; }
 @media (max-width: 768px) {
   .atb-fixpage .atb-fix-tabs { display: flex; }
+  .atb-fixpage { height: auto !important; }
   .atb-fixpage .atb-fix-panes { grid-template-columns: 1fr !important; }
   .atb-fixpage .atb-fix-pane[data-active="false"] { display: none; }
 }`;
@@ -78,9 +86,9 @@ function ResumePane({ name, panel, hint, data, Template, templateId, marks, acti
   const key = (e) => { if (e.key === 'Enter' || e.key === ' ') { const el = e.target.closest?.('[data-fix-at]'); if (el && onPick) { e.preventDefault(); onPick(el.getAttribute('data-fix-at')); } } };
 
   return (
-    <section aria-label={name} className="atb-fix-pane" data-pane={panel} data-active={active ? 'true' : 'false'} style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+    <section aria-label={name} className="atb-fix-pane" data-pane={panel} data-active={active ? 'true' : 'false'} style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, height: '100%' }}>
       <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.5, padding: '0 4px 8px' }}>{hint}</div>
-      <div ref={boxRef} style={{ background: '#e0e0e0', padding: 16, overflow: 'auto', maxHeight: '62vh', borderRadius: 10 }}>
+      <div ref={boxRef} style={{ background: '#e0e0e0', padding: 16, overflow: 'auto', flex: 1, minHeight: 0, borderRadius: 10 }}>
         <div style={{ width: scale < 1 ? Math.round(A4 * scale) : A4, overflow: 'hidden', margin: '0 auto' }}>
           <div ref={previewRef} data-template={templateId} onClick={pick} onKeyDown={key}
             style={{ width: A4, transform: `scale(${scale})`, transformOrigin: 'top left', boxShadow: '0 4px 24px rgba(0,0,0,.2)' }}>
@@ -161,7 +169,9 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const [askReplace, setAskReplace] = useState(false);
   const [askLeave, setAskLeave] = useState(false);
   const [pendingPick, setPendingPick] = useState(null);
-  const [pane, setPane] = useState('original');
+  const [view, setViewState] = useState(initialView);
+  const [pane, setPane] = useState(() => (initialView() === 'focus' ? 'editor' : 'original'));
+  const setView = (v) => { setViewState(v); setPane(v === 'focus' ? 'editor' : 'original'); try { localStorage.setItem(VIEW_KEY, v); } catch { /* the choice lives for this visit only */ } };
 
   const go = (nextPos, d, chosen, r = recs) => {
     const a = chosen || placeFor(d, nextPos, r);
@@ -296,30 +306,10 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     );
   }
 
-  return (
-    <div className="atb-fixpage" style={{ maxWidth: 1240, margin: '0 auto', padding: '16px 20px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <style>{css}</style>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: SEV[current.issue.severity] || 'var(--lp-text3)' }}>
-          Issue {pos + 1} of {total} · {label(current.issue.severity) || 'Issue'}
-        </div>
-        <button type="button" style={link} onClick={back}>Back to list</button>
-      </div>
-
-      <div role="tablist" aria-label="Resumes" className="atb-fix-tabs" style={{ gap: 6 }}>
-        <button type="button" role="tab" aria-selected={pane === 'original'} style={btn(pane === 'original')} onClick={() => setPane('original')}>Your resume</button>
-        <button type="button" role="tab" aria-selected={pane === 'new'} style={btn(pane === 'new')} onClick={() => setPane('new')}>New resume</button>
-      </div>
-
-      <div className="atb-fix-panes" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <ResumePane name="Your resume" panel="original" active={pane === 'original'} hint="Highlighted sentences can be improved. Click one to work on it."
-          data={original} Template={Template} templateId={template?.id} marks={leftMarks} activeKey={activeKey} onPick={pick} pickable={isPick && !improving} />
-        <ResumePane name="Your new resume" panel="new" active={pane === 'new'} hint="Your changes appear here as you type."
-          data={shown} Template={Template} templateId={template?.id} marks={rightMarks} activeKey={activeKey} />
-      </div>
-
-      <div role="region" aria-label="Editor" style={{ position: 'sticky', bottom: 0, background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: '12px 12px 0 0', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 -6px 18px rgba(0,0,0,.25)' }}>
+  const editorStyle = { background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 12, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', overflowY: 'auto',
+    ...(view === 'compare' ? { flex: 'none', maxHeight: '42vh' } : { height: '100%' }) };
+  const editor = (
+      <div role="region" aria-label="Editor" style={editorStyle}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--lp-text)' }}>{current.issue.title}</div>
           <button type="button" style={link} aria-expanded={showWhy} onClick={() => setShowWhy(v => !v)}>Why?</button>
@@ -434,6 +424,56 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           </div>
         </>)}
       </div>
+  );
+
+  const toggle = (
+    <div role="group" aria-label="View" style={{ display: 'inline-flex', border: '1px solid var(--lp-bdr)', borderRadius: 8, overflow: 'hidden' }}>
+      {[['focus', 'Focus', 'One resume, larger text, with the editor beside it'], ['compare', 'Compare', 'Your resume and the new one, side by side']].map(([v, name, tip]) => (
+        <button key={v} type="button" title={tip} aria-pressed={view === v} onClick={() => setView(v)}
+          style={{ padding: '5px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', border: 'none', background: view === v ? 'var(--lp-teal)' : 'transparent', color: view === v ? '#000' : 'var(--lp-text2)' }}>{name}</button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="atb-fixpage" style={{ maxWidth: 1400, margin: '0 auto', padding: '16px 20px 8px', display: 'flex', flexDirection: 'column', gap: 12, height: 'calc(100vh - 150px)', minHeight: 560 }}>
+      <style>{css}</style>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: SEV[current.issue.severity] || 'var(--lp-text3)' }}>
+          Issue {pos + 1} of {total} · {label(current.issue.severity) || 'Issue'}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {toggle}
+          <button type="button" style={link} onClick={back}>Back to list</button>
+        </div>
+      </div>
+
+      <div role="tablist" aria-label="Resumes" className="atb-fix-tabs" style={{ gap: 6 }}>
+        {view === 'compare' ? (<>
+          <button type="button" role="tab" aria-selected={pane === 'original'} style={btn(pane === 'original')} onClick={() => setPane('original')}>Your resume</button>
+          <button type="button" role="tab" aria-selected={pane === 'new'} style={btn(pane === 'new')} onClick={() => setPane('new')}>New resume</button>
+        </>) : (<>
+          <button type="button" role="tab" aria-selected={pane === 'editor'} style={btn(pane === 'editor')} onClick={() => setPane('editor')}>Edit</button>
+          <button type="button" role="tab" aria-selected={pane === 'focus'} style={btn(pane === 'focus')} onClick={() => setPane('focus')}>Resume</button>
+        </>)}
+      </div>
+
+      {view === 'compare' ? (<>
+        <div className="atb-fix-panes" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flex: 1, minHeight: 0 }}>
+          <ResumePane name="Your resume" panel="original" active={pane === 'original'} hint="Highlighted sentences can be improved. Click one to work on it."
+            data={original} Template={Template} templateId={template?.id} marks={leftMarks} activeKey={activeKey} onPick={pick} pickable={isPick && !improving} />
+          <ResumePane name="Your new resume" panel="new" active={pane === 'new'} hint="Your changes appear here as you type."
+            data={shown} Template={Template} templateId={template?.id} marks={rightMarks} activeKey={activeKey} />
+        </div>
+        {editor}
+      </>) : (
+        <div className="atb-fix-panes" style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 2fr) 3fr', gap: 16, flex: 1, minHeight: 0 }}>
+          <div className="atb-fix-pane" data-pane="editor" data-active={pane === 'editor' ? 'true' : 'false'} style={{ minHeight: 0, minWidth: 0 }}>{editor}</div>
+          <ResumePane name="Your resume" panel="focus" active={pane === 'focus'} hint="Highlighted sentences can be improved. Click one to work on it. What you type appears here."
+            data={shown} Template={Template} templateId={template?.id} marks={leftMarks} activeKey={activeKey} onPick={pick} pickable={isPick && !improving} />
+        </div>
+      )}
     </div>
   );
 }
