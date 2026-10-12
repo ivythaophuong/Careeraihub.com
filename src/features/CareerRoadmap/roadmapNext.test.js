@@ -74,4 +74,16 @@ describe('nextActions: what to do next, from the user\'s real state only', () =>
       expect(text).not.toMatch(/week|day|month|offer|certificate|unlock/i);
     }
   });
+
+  it('calls the interview average an AI estimate', () => {
+    const r = nextActions({ ...base, sessionsCount: 2, readiness: 60, starCount: 3 });
+    expect(r.items[0].text).toMatch(/AI estimate/i);
+  });
+
+  it('when the practice score is not available (null), after the interview and skills gap steps it points to the Career Roadmap instead of inventing a number', () => {
+    const r = nextActions({ ...base, sessionsCount: 3, readiness: 80, starCount: 5, hasSkillsGap: true, trustScore: null });
+    expect(r.step).toBe(4);
+    expect(r.items.map(i => i.module)).toEqual(['roadmap']);
+    expect(JSON.stringify(r)).not.toMatch(/null|NaN|undefined/);
+  });
 });

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { sb } from '../lib/supabase';
+import { SESSIONS_KEPT, STAR_STORIES_KEPT } from '../lib/historyLimits';
 
 // Fields that must not be written to the JSON backup: large binaries and
 // browser-session-only handles (a blob: URL is meaningless after a reload).
@@ -61,10 +62,10 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
           fetch("user_memory", {}, { critical: true }),
           fetch("resume_scans", { order: "created_at.desc", limit: 20 }),
           fetch("applications", { order: "created_at.desc", limit: 50 }),
-          fetch("star_stories", { order: "created_at.desc", limit: 30 }),
+          fetch("star_stories", { order: "created_at.desc", limit: STAR_STORIES_KEPT }),
           fetch("cover_letters", { order: "created_at.desc", limit: 20 }),
           fetch("jd_analyses", { order: "created_at.desc", limit: 20 }),
-          fetch("mock_sessions", { order: "created_at.desc", limit: 20 }),
+          fetch("mock_sessions", { order: "created_at.desc", limit: SESSIONS_KEPT }),
           fetch("negotiation_practice", { order: "created_at.desc", limit: 20 }),
           fetch("insights", { order: "created_at.desc", limit: 10 })
         ]);

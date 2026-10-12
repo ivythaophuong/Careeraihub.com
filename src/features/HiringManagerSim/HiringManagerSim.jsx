@@ -10,6 +10,7 @@ import {
   normalizeEvaluation, findInventedInFeedback, summarize, buildSessionRecord, toSessionRow, verdictFor,
 } from './interview';
 import { splitFirstSentence } from './feedbackDetail';
+import { SESSIONS_KEPT } from '../../lib/historyLimits';
 
 const scoreColor = (s) => (s >= 75 ? C.green : s >= 60 ? C.gold : C.red);
 const label = { color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 };
@@ -136,7 +137,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           summary.avgScore = reply.avgScore;
           summary.verdict = verdictFor(reply.avgScore);
           const rec = buildSessionRecord({ personaId, role: role.trim(), results: finalResults, summary });
-          updateMemory?.(m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, 20) }));
+          updateMemory?.(m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, SESSIONS_KEPT) }));
           setSaved(true);
         } catch (e) {
           saveErr = e.message || 'Your session could not be saved.';
@@ -148,7 +149,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         // Second argument writes the mock_sessions row; the server-side trust-score trigger averages
         // avg_score from that table to compute interview_score, so it must be persisted, not only kept in memory.
         updateMemory?.(
-          m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, 20) }),
+          m => ({ mockSessions: [rec, ...(m.mockSessions || [])].slice(0, SESSIONS_KEPT) }),
           { table: 'mock_sessions', data: toSessionRow(rec) }
         );
         setSaved(true);
