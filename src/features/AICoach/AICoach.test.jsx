@@ -16,10 +16,16 @@ describe('AI Coach context: only what is true, and labelled', () => {
     expect(p).not.toMatch(/Singapore|Tech\b/);
   });
 
-  it('uses the market and industry the user did give', () => {
+  it('uses the market and industry the user did give, and says the market was selected by the user', () => {
     const p = prompt({}, { market: 'Southeast Asia', industry: 'Finance' });
-    expect(p).toContain('Market: Southeast Asia');
+    expect(p).toContain('Market: Southeast Asia (selected by the user)');
     expect(p).toContain('Industry: Finance');
+  });
+
+  it('does not present the product default market as the user\'s choice: the app starts on Singapore, so Singapore may not have been chosen', () => {
+    const p = prompt({}, { market: 'Singapore' });
+    expect(p).toContain('Market: Singapore (product default; the user may not have chosen it)');
+    expect(p).not.toContain('selected by the user');
   });
 
   it('does not state a resume ATS score: its only source has no live writer, so it cannot be verified', () => {

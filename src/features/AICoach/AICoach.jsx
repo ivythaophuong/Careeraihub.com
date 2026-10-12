@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { buildCoachRequest, COACH_LIMITS } from './coachRequest.js';
+import { marketSource } from '../../lib/marketSource.js';
 
 // What the coach honestly has: a short summary, not the user's documents.
 const GREETING = "Hi! I'm your AI Career Coach. I can see a short summary of your activity here (for example how many STAR stories you saved and your latest mock interview average), but not your resume text, your STAR stories or your interview answers.\n\nWhat would you like to work on today?";
@@ -16,12 +17,20 @@ const QUICK_PROMPTS = [
 // Free text the user typed is clipped before it goes into the context, so the context stays small whatever was typed.
 const clip = (s, n = 100) => { const t = String(s ?? ''); return t.length > n ? `${t.slice(0, n)}…` : t; };
 
+// The market, with where it came from: the app starts on Singapore, so Singapore alone is not proof the user chose it.
+function marketLine(value) {
+  const { source, market } = marketSource(clip(value));
+  if (source === 'none') return 'Market: not stated';
+  if (source === 'user_selected') return `Market: ${market} (selected by the user)`;
+  return `Market: ${market} (product default; the user may not have chosen it)`;
+}
+
 export function buildSystemPrompt(memory, form) {
   const lines = [
     `You are an expert AI career coach. You have a short summary of the user's profile (counts and a few labels), not their documents: you do not have the user's resume text, the text of their STAR stories or their interview answers. Do not claim to have seen them; if something you need is not below, ask the user.`,
     `Target role: ${clip(form?.role) || 'not specified'}`,
     `Level: ${clip(form?.level) || 'not stated'}`,
-    `Market: ${clip(form?.market) || 'not stated'}`,
+    marketLine(form?.market),
     `Industry: ${clip(form?.industry) || 'not stated'}`,
   ];
   if (memory.starBank?.length) {
