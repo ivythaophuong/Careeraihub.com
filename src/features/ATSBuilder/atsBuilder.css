@@ -1113,4 +1113,4 @@
 }
 
 /* The part of the resume that goes with what is being edited (the summary while the Summary step is open). */
-.atb-builder-right [data-fix-marked] { outline: 2px solid var(--lp-teal); outline-offset: 3px; background: rgba(236, 72, 153, .08); }
+.atb-builder-right [data-fix-marked] { outline: 2px solid var(--lp-teal); outline-offset: 3px; background: var(--lp-teal-b); }

@@ -22,7 +22,7 @@ const initialView = () => {
 const markKeyOf = (at) => (at.kind === 'summary' ? 'summary' : `b:${at.exp}:${at.bullet}`);
 
 const css = `
-.atb-fixpage [data-fix-marked] { outline: 2px solid var(--lp-teal, #2dd4bf); outline-offset: 3px; background: rgba(45, 212, 191, .14); }
+.atb-fixpage [data-fix-marked] { outline: 2px solid var(--lp-teal, #2dd4bf); outline-offset: 3px; background: var(--lp-teal-b, rgba(45, 212, 191, .25)); }   /* the theme's own accent, so the fill and the outline match */
 .atb-fixpage [data-fix-open] { outline: 2px dashed #FF6B6B; outline-offset: 3px; background: rgba(255, 107, 107, .12); cursor: pointer; }
 .atb-fixpage [data-fix-done] { outline: 2px solid #00E5A0; outline-offset: 3px; }
 .atb-fixpage [data-fix-pickable] { cursor: pointer; }
@@ -436,7 +436,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   );
 
   return (
-    <div className="atb-fixpage" style={{ maxWidth: 1400, margin: '0 auto', padding: '16px 20px 8px', display: 'flex', flexDirection: 'column', gap: 12, height: 'calc(100vh - 150px)', minHeight: 560 }}>
+    <div className="atb-fixpage" style={{ maxWidth: 1400, margin: '0 auto', padding: '16px 20px 8px', display: 'flex', flexDirection: 'column', gap: 12, height: 'calc(100vh - 215px)', minHeight: 520 }}>   {/* the top of the app (title, tabs) takes about 180 to 200 px; the editor must stay on screen */}
       <style>{css}</style>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
