@@ -7,8 +7,7 @@ import { digestResume } from '../../lib/resumeDigest.js';
 import { OrbitSpinner } from '../../components/OrbitMark';
 import { arrayBufferToBase64 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
-import { printElement } from '../../lib/printElement.js';
-import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
+import { exportPdf, exportDocx, makeVersion } from './exportActions.js';
 import BuilderScorePanel from './components/BuilderScorePanel.jsx';
 import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
@@ -17,8 +16,7 @@ import { demoFixProfile, demoResetRequested } from './demoFix.js';
 import { stepForIssue, draftFor, isBulletIssue, quoteInResume } from './issueStep.js';
 import { Sparkles } from 'lucide-react';
 import TemplateGallery from './components/TemplateGallery.jsx';
-import { confirmExport } from '../../lib/exportGuard.js';
-import { builderDataToText, scoreBuilderData } from './builderText.js';
+import { scoreBuilderData } from './builderText.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -906,40 +904,20 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // Opens the print dialog; "Save as PDF" there gives a PDF whose text is real text (an ATS can read it).
   const handleDownloadPdf = async () => {
     if (!previewRef.current || !ActiveTemplate) return;
-    if (!confirmExport(builderDataToText(data))) return;
     setDownloading(true);
-    const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
-    const tplLabel = TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate;
-    try {
-      await printElement(previewRef.current, { title: `${name}_${tplLabel}` });
-    } finally {
-      setDownloading(false);
-    }
+    try { await exportPdf({ el: previewRef.current, data, templateLabel: TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate }); }
+    finally { setDownloading(false); }
   };
 
-  // Word file: plain single column, real headings and bullets, the same text as the templates.
   const handleDownloadDocx = async () => {
-    if (!confirmExport(builderDataToText(data))) return;
     setDownloadingDocx(true);
-    try {
-      const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
-      downloadBlob(await buildResumeDocx(data), `${name}.docx`);
-    } finally {
-      setDownloadingDocx(false);
-    }
+    try { await exportDocx(data); }
+    finally { setDownloadingDocx(false); }
   };
 
   const handleSave = () => {
     const tpl = TEMPLATES.find(t => t.id === activeTemplate);
-    const autoLabel = `Version ${(memory?.resumeVersions?.length || 0) + 1}`;
-    const version = {
-      date: new Date().toISOString(),
-      template: activeTemplate,
-      templateLabel: tpl?.label || activeTemplate,
-      label: versionLabel.trim() || autoLabel,
-      data: JSON.parse(JSON.stringify(data)),
-    };
-    onSaveVersion(version);
+    onSaveVersion(makeVersion({ data, templateId: activeTemplate, templateLabel: tpl?.label, label: versionLabel, count: memory?.resumeVersions?.length || 0 }));
     setVersionLabel('');
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -1527,6 +1505,9 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
             selectedId={template}
             onSelect={setTemplate}
             onBack={() => setMainTab('builder')}
+            onSaveVersion={handleSaveVersion}
+            versionsCount={memory?.resumeVersions?.length || 0}
+            onOpenHistory={() => setMainTab('history')}
           />
         );
       })()}
