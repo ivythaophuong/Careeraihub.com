@@ -37,6 +37,8 @@ Nhãn: **[MEASURED]** đo trong lần chạy này · **[INFERENCE]** suy ra từ
 ## 4. Đối chiếu sơ bộ với Gemini [INFERENCE; mẫu rất nhỏ]
 Trên 6 câu chuyện mà Gemini có 2 đến 3 lượt, trung bình của Gemini **thấp hơn Groq khoảng 4 đến 16 điểm** (ví dụ s01: 17 và 31; s10: 20 và 35; s06: 79 và 83). Hai model đặt các câu chuyện yếu ở các mức khác nhau. Điều này cần được xác nhận với đủ lượt, nhưng gợi ý rằng **cùng một câu chuyện có thể nhận mức điểm khác nhau tùy model**.
 
+**Hai bên không đo cùng điều kiện** [MEASURED, bổ sung sau]: mã production đặt temperature 0,1 cho Gemini và không gửi giá trị nào cho Groq, nên lần đo Groq này dùng mặc định của nhà cung cấp. Ở Groq, đổi sang 0,1 làm trung bình một số câu dịch khoảng 5 điểm (xem `STAR-VARIANCE-TEMPERATURE-2026-10-12.md`). Vì vậy một phần chênh lệch ở trên có thể do temperature chứ không do model, và em không tách được phần nào do cái nào. Phép so sánh này chỉ là gợi ý để đo lại, không phải kết luận.
+
 ## 5. Điều có thể nói và điều không thể nói
 **Có thể nói** (cho model này, bộ này) [MEASURED]:
 - Thứ tự câu chuyện yếu đến mạnh khá ổn định.
