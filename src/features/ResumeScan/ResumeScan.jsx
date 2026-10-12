@@ -5,6 +5,7 @@ import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { TEMPLATES } from '../ATSBuilder/resumeTemplates.jsx';
 import { printElement } from '../../lib/printElement.js';
+import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
 import { TEMPLATE_PARSE, JD_MAX_CHARS, missingSections } from '../../lib/templateParse';
 import mammoth from 'mammoth';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
@@ -323,6 +324,13 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
     }
   };
 
+  // Word file from the same structured data as the templates. Offered only when that data matches the text as it is now and every section was captured; otherwise a section would be missing.
+  const handleExportDocx = async () => {
+    if (!templateProfile) return;
+    const base = (templateProfile.name || 'resume').replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30) || 'resume';
+    downloadBlob(await buildResumeDocx(profileToTemplateData(templateProfile)), `${base}.docx`);
+  };
+
   // Reset templateProfile when resume changes so export re-parses
   useEffect(() => { setTemplateProfile(null); templateSrcRef.current = ''; templateTriedRef.current = ''; }, [resumeCtx]);
 
@@ -337,6 +345,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
 
   // Sections the parsed template lost (they are in the text but not in the profile): show the full text rather than a resume without them.
   const lostSections = templateProfile ? missingSections(editorText || resumeCtx, templateProfile) : [];
+  const docxReady = !!templateProfile && !parsingTemplate && lostSections.length === 0 && templateSrcRef.current === (editorText || resumeCtx).trim();
 
   const canScan = !!jd.trim() && !!resumeCtx && jd.length <= JD_MAX_CHARS;
   const phase = loading ? 'scanning' : editMode ? 'edit' : result ? 'results' : 'input';
@@ -563,6 +572,15 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
             borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: (pdfDownloading || parsingTemplate) ? 'default' : 'pointer', whiteSpace: 'nowrap',
           }}>
             {pdfDownloading ? 'Generating…' : parsingTemplate ? 'Parsing…' : '⬇ Download PDF'}
+          </button>
+          <button type="button" onClick={handleExportDocx} disabled={!docxReady}
+            title={docxReady ? 'Plain Word file with real headings and bullets' : 'Available once the resume has been read into sections; use the PDF otherwise.'}
+            style={{
+              padding: '9px 14px', background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)',
+              borderRadius: 8, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap',
+              cursor: docxReady ? 'pointer' : 'default', opacity: docxReady ? 1 : 0.5,
+            }}>
+            ⬇ Word
           </button>
         </div>
 

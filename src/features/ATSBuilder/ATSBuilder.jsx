@@ -8,6 +8,7 @@ import { OrbitSpinner } from '../../components/OrbitMark';
 import { arrayBufferToBase64 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
 import { printElement } from '../../lib/printElement.js';
+import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -798,6 +799,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(draftKey));
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [versionLabel, setVersionLabel] = useState('');
   const previewRef = useRef(null);
 
@@ -869,6 +871,17 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
       await printElement(previewRef.current, { title: `${name}_${tplLabel}` });
     } finally {
       setDownloading(false);
+    }
+  };
+
+  // Word file: plain single column, real headings and bullets, the same text as the templates.
+  const handleDownloadDocx = async () => {
+    setDownloadingDocx(true);
+    try {
+      const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
+      downloadBlob(await buildResumeDocx(data), `${name}.docx`);
+    } finally {
+      setDownloadingDocx(false);
     }
   };
 
@@ -1099,6 +1112,12 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
             }}>
               {downloading ? 'Generating PDF…' : '⬇ Download PDF'}
             </button>
+            <button onClick={handleDownloadDocx} disabled={downloadingDocx} style={{
+              width: '100%', padding: '12px 0', fontSize: 13, fontWeight: 800, borderRadius: 10, cursor: downloadingDocx ? 'not-allowed' : 'pointer',
+              border: '1px solid var(--lp-bdr)', background: 'transparent', color: 'var(--lp-text2)', transition: 'all .2s',
+            }}>
+              {downloadingDocx ? 'Generating Word file…' : '⬇ Download Word (.docx)'}
+            </button>
             {setActiveModule && (
               <div style={{ marginTop: 8, padding: '12px 14px', background: 'var(--lp-bg3)', borderRadius: 10, border: '1px solid var(--lp-bdr)' }}>
                 <div style={{ fontSize: 10, color: 'var(--lp-text3)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>What's next?</div>
@@ -1154,6 +1173,12 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
             border: 'none', background: downloading ? 'var(--lp-bg2)' : 'var(--lp-teal)', color: '#000', transition: 'background .2s',
           }}>
             {downloading ? 'Generating PDF…' : '⬇ Download PDF'}
+          </button>
+          <button onClick={handleDownloadDocx} disabled={downloadingDocx} style={{
+            width: '100%', padding: '6px 0', marginTop: 6, fontSize: 11, fontWeight: 700, borderRadius: 7, cursor: downloadingDocx ? 'not-allowed' : 'pointer',
+            border: '1px solid var(--lp-bdr)', background: 'transparent', color: 'var(--lp-text2)',
+          }}>
+            {downloadingDocx ? 'Generating Word file…' : '⬇ Download Word (.docx)'}
           </button>
         </div>
 
