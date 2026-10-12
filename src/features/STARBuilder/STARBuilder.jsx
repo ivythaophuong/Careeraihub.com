@@ -20,6 +20,13 @@ const FIELDS = [
 const scoreColor = (s) => C[scoreColorKey(s)];
 const storyAsText = (r) => `${r.oneLiner}\n\n${SECTIONS.map(k => `${k[0].toUpperCase()}${k.slice(1)}: ${r.refined[k]}`).join('\n\n')}`;
 
+// A saved story is identified by its database row id. A story kept on screen from before the id was stored has none: it can only be
+// matched on its one-line summary and situation. (Entries loaded from the database carry user_id, and their id IS the row id.)
+const dbIdOf = (e) => e?.dbId ?? (e?.user_id && e?.id != null ? e.id : null);
+const situationOf = (e) => e?.situation ?? e?.original?.situation;
+const sameStory = (e, { dbId, oneLiner, situation }) =>
+  (dbId != null && dbIdOf(e) === dbId) || (!!oneLiner && e?.oneLiner === oneLiner && situationOf(e) === situation);
+
 export default function STARBuilder({ memory, updateMemory, setAuthModal, user, form, setActiveModule, onStudyPlan, showToast, embedded }) {
   const [story, setStory] = useState({ situation: '', task: '', action: '', result: '' });
   const [result, setResult] = useState(null);
@@ -30,6 +37,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [alreadySaved, setAlreadySaved] = useState(false); // the server already had this exact story
   const [copied, setCopied] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [openId, setOpenId] = useState(null);
@@ -41,7 +49,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
 
   const refine = async () => {
     if (short.length) { setErr(`Add a little more detail to: ${short.map(f => f.l).join(', ')} (at least ${MIN_FIELD_CHARS} characters each).`); return; }
-    setLoading(true); setResult(null); setReceipt(null); setErr(''); setSaved(false); setCopied('');
+    setLoading(true); setResult(null); setReceipt(null); setErr(''); setSaved(false); setAlreadySaved(false); setCopied('');
     const input = { ...story };
     try {
       let parsed;
@@ -72,12 +80,16 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
   const saveToBank = async () => {
     if (!result || saved || saving) return;
     let score = result.score;
+    let dbId = null;      // the database row id, when the server saved it
+    let duplicate = false; // the server already had this exact story and returned that row
     if (serverScoringOn()) {
       setSaving(true);
       // The server writes the star_stories row and its score; nothing score-related is sent from here.
       try {
         const reply = await saveStarOnServer(analysed, result, receipt);
         score = reply.score;
+        dbId = reply.id ?? null;
+        duplicate = !!reply.duplicate;
       } catch (e) {
         setErr(e.message || 'The story could not be saved. Please try again.');
         return;
@@ -86,7 +98,8 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
       }
     }
     const entry = {
-      id: Date.now(),
+      id: dbId ?? Date.now(),
+      dbId,
       date: new Date().toISOString(),
       score,
       oneLiner: result.oneLiner,
@@ -99,7 +112,20 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
     // the story (not for every draft). The score is the computed one, never a raw model number.
     const row = serverScoringOn() ? undefined
       : { table: 'star_stories', data: { one_liner: result.oneLiner, score: result.score, situation: analysed.situation, task: analysed.task, action: analysed.action, result: analysed.result, refined: result.refined } };
-    updateMemory?.(m => ({ starBank: [entry, ...(m.starBank || [])].slice(0, 30) }), row);
+    if (duplicate) {
+      // The database has one row for this story: the list on screen must not get a second copy. A copy already on screen only learns its row id;
+      // a story the screen does not have yet (older than the list kept) is added once.
+      const key = { dbId, oneLiner: result.oneLiner, situation: analysed.situation };
+      updateMemory?.(m => {
+        const list = m.starBank || [];
+        const i = list.findIndex(e => sameStory(e, key));
+        if (i < 0) return { starBank: [entry, ...list].slice(0, 30) };
+        return { starBank: list.map((e, j) => (j === i && dbIdOf(e) == null && dbId != null ? { ...e, dbId } : e)) };
+      });
+      setAlreadySaved(true);
+    } else {
+      updateMemory?.(m => ({ starBank: [entry, ...(m.starBank || [])].slice(0, 30) }), row);
+    }
     setSaved(true);
   };
 
@@ -109,9 +135,17 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
     setConfirmDelete(null);
     // Stories are also stored as rows (they feed the star score and are reloaded from there), so
     // remove the row too, otherwise the story would come back after a reload.
-    if (user?.id && entry?.oneLiner) {
-      sb.delete('star_stories', { user_id: `eq.${user.id}`, one_liner: `eq.${entry.oneLiner}` }, user.token)
-        .catch(() => showToast?.('The story was removed here, but its saved copy could not be deleted. It may reappear after a reload.', 'error'));
+    // By the row id when there is one, so a story that shares its one-line summary with another is never deleted by mistake. A story kept only on
+    // screen from before the id was stored can only be matched on its summary and situation.
+    if (user?.id && entry) {
+      const rowId = dbIdOf(entry);
+      const filter = rowId != null ? { user_id: `eq.${user.id}`, id: `eq.${rowId}` }
+        : entry.oneLiner ? { user_id: `eq.${user.id}`, one_liner: `eq.${entry.oneLiner}`, ...(situationOf(entry) ? { situation: `eq.${situationOf(entry)}` } : {}) }
+        : null;
+      if (filter) {
+        sb.delete('star_stories', filter, user.token)
+          .catch(() => showToast?.('The story was removed here, but its saved copy could not be deleted. It may reappear after a reload.', 'error'));
+      }
     }
   };
 
@@ -191,6 +225,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
                 <button onClick={saveToBank} disabled={saved} style={{ ...smallBtn, color: saved ? C.green : C.gold, borderColor: saved ? C.green : C.gold }}>{saved ? 'Saved ✓' : '💾 Save to Story Bank'}</button>
               </div>
             </div>
+            {alreadySaved && <div role="note" style={{ color: C.muted, fontSize: 11.5, marginBottom: 10 }}>This story was already saved, so nothing new was added to your bank.</div>}
             <div style={{ color: C.text, fontSize: 12, lineHeight: 1.7, background: C.surface, padding: 16, borderRadius: 8, fontStyle: "italic", borderLeft: `3px solid ${C.gold}` }}>"{result.oneLiner}"</div>
             <div className="grid-2" style={{ display: "grid", gap: 12, marginTop: 12 }}>
               {SECTIONS.map((k, i) => (
