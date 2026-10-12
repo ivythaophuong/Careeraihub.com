@@ -50,3 +50,54 @@ describe('Career Roadmap step 1 does not depend on a scan that nothing writes', 
     expect(container.textContent).not.toMatch(/ATS score/i);
   });
 });
+
+describe('Career Roadmap makes no promise it cannot back', () => {
+  const states = {
+    'new user': {},
+    'resume only': { resumeText: 'Jordan Lee\nExperience\nAnalyst' },
+    'interview practice': { resumeText: 'x'.repeat(30), mockSessions: [{ avgScore: 60 }], starBank: [{}, {}, {}] },
+    'ready, skills gap run': { resumeText: 'x'.repeat(30), mockSessions: [{ avgScore: 80 }], starBank: [{}, {}, {}, {}, {}], skillsGap: { result: {} } },
+  };
+  it.each(Object.entries(states))('%s: no estimated duration, no "offer timeline", no certificate, no "unlocked" claim', (_n, memory) => {
+    const { container } = render1({ memory });
+    const text = container.textContent;
+    expect(text).not.toMatch(/estimated offer|offer timeline|\best\. \d|\d+\s*[–-]\s*\d+\s*weeks?|at your current pace/i);
+    expect(text).not.toMatch(/certificate/i);
+    expect(text).not.toMatch(/unlocked/i);
+  });
+
+  it('step 3 does not claim the resume was updated or the gap closed: the step is "run the analysis"', () => {
+    const { container } = render1({ memory: { resumeText: 'x'.repeat(30), skillsGap: { result: {} } } });
+    expect(container.textContent).not.toMatch(/resume updated|gap closed|closed\b/i);
+    expect(container.textContent).toMatch(/Skills gap analysis run/i);
+  });
+});
+
+describe('Career Roadmap "what to do next"', () => {
+  it('shows one next action for a new user and it opens the Resume Builder', () => {
+    const setActiveModule = vi.fn();
+    render1({ memory: {}, setActiveModule });
+    const card = screen.getByRole('region', { name: /what to do next/i });
+    fireEvent.click(card.querySelector('button'));
+    expect(setActiveModule).toHaveBeenCalledWith('ats');
+  });
+
+  it('skills gap done but no interview practice: it recommends the interview, with the real STAR count', () => {
+    const setActiveModule = vi.fn();
+    render1({ memory: { resumeText: 'x'.repeat(30), skillsGap: { result: {} }, starBank: [{}, {}] }, setActiveModule });
+    const card = screen.getByRole('region', { name: /what to do next/i });
+    expect(card.textContent).toMatch(/no mock interview yet/i);
+    expect(card.textContent).toMatch(/2 of 5 STAR stories/i);
+    fireEvent.click(Array.from(card.querySelectorAll('button')).find(b => /mock interview/i.test(b.textContent)));
+    expect(setActiveModule).toHaveBeenCalledWith('simulate');
+  });
+
+  it('has no next-action card when every step is done', async () => {
+    const { sb } = await import('../../lib/supabase');
+    sb.select.mockResolvedValueOnce([{ trust_score: 70, is_visible: true }]);
+    const memory = { resumeText: 'x'.repeat(30), mockSessions: [{ avgScore: 80 }], starBank: [{}, {}, {}, {}, {}], skillsGap: { result: {} } };
+    const { findByText } = render(<CareerRoadmap memory={memory} form={{ role: 'Analyst' }} user={{ id: 'u1', token: 't' }} setActiveModule={vi.fn()} syncedAt={1} />);
+    await findByText(/5\/5 steps complete/);
+    expect(screen.queryByRole('region', { name: /what to do next/i })).toBeNull();
+  });
+});
