@@ -128,3 +128,12 @@ Ghi âm thật và chuyển giọng nói thành chữ (giai đoạn B, sau PR 5)
 ## 12. Tiêu chí hoàn thành của thiết kế này
 
 Chủ sản phẩm trả lời D1 đến D7 (hoặc chỉ định cái nào hoãn). Sau đó mới viết brief triển khai từng PR nhỏ, mỗi PR có test giao diện: không con số AI, đủ bốn trạng thái, nhãn beta, Tầng 0 không gọi mạng.
+
+## 13. Đã làm (2026-10-12): luyện lại và "more detail", chưa phụ thuộc cổng Tầng 0
+Phạm vi: chỉ phần **không cần** Structure Score, vì checklist Tầng 0 vẫn bị khóa bởi cổng ngôn ngữ (`ENABLED_LANGUAGES` rỗng) và D1 (mặc định không thử sớm). Đây **không** thay đổi cách chấm điểm.
+- **"More detail":** mỗi điểm phản hồi (What Worked, What Missed, Professional Tip) hiện câu đầu; phần còn lại nằm sau nút. "A Stronger Structure" ẩn cho đến khi người dùng bấm, để họ tự nghĩ trước. Không đổi prompt, không thêm lệnh gọi AI.
+- **Trả lời lại:** sau phản hồi có nút "Try this answer again": câu trả lời quay lại ô nhập để sửa, gửi lại để nhận phản hồi mới (Attempt 2, 3...). Trong lúc luyện lại không có Skip (sẽ ghi câu hỏi hai lần), có "Back to feedback".
+- **Điểm nào được tính [PROPOSAL, chờ chủ sản phẩm duyệt: D8]:** chỉ **lần thử đầu tiên** của mỗi câu được tính vào điểm phiên, lưu lịch sử, `mock_sessions` và vì thế vào đầu vào của trust score; các lần luyện lại hiện ở phần tổng kết dưới dạng "Practice retry" và không được lưu. Lý do: nếu lần cuối được tính, người dùng có thể thử đến khi được điểm cao và làm sai lệch điểm luyện tập. Đổi sang "lần tốt nhất" hay "lần cuối" là một quyết định sản phẩm.
+- **Chi phí [UNKNOWN]:** mỗi lần luyện lại là một lần gọi AI. Chưa đặt giới hạn số lần, vì không đặt con số khi chưa có dữ liệu sử dụng thật (ADR-012); chỉ có giới hạn tần suất sẵn có của server.
+- **Với server scoring:** chỉ biên nhận (receipt) của lần đầu được gửi để lưu; lần luyện lại không tạo mục lưu.
+- **Chưa làm:** checklist cấu trúc bằng code sau mỗi lần thử (đợi cổng ngôn ngữ và D1); hẹn giờ (D7); giọng nói.
