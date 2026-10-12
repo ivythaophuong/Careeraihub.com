@@ -41,7 +41,7 @@ describe('opening the Fix page', () => {
   });
 
   it('an issue whose text is not in the resume keeps the step flow and its reminder', () => {
-    openFix([issue({ before: 'Text that is not in the resume' })]);
+    openFix([issue({ title: 'Needs a closer look', description: 'Please review.', before: 'Text that is not in the resume' })]);   // not about bullets, so the page cannot place it
     expect(screen.getByText(/Step 2 of 6/)).toBeTruthy();
     expect(screen.getByRole('note', { name: /fixing/i })).toBeTruthy();
     expect(screen.queryByText(/Issue 1 of 1/)).toBeNull();
@@ -141,7 +141,7 @@ describe('a way in that does not depend on one issue', () => {
   });
 
   it('the button is not offered when no issue can be shown there', () => {
-    render(<ATSBuilder {...base([issue({ before: 'Text that is not in the resume' })])} />);
+    render(<ATSBuilder {...base([issue({ title: 'Needs a closer look', description: 'Please review.', before: 'Text that is not in the resume' })])} />);
     fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
     expect(screen.queryByRole('button', { name: /Fix issues side by side/i })).toBeNull();
   });
@@ -161,5 +161,31 @@ describe('an issue whose quote the AI shortened with an ellipsis', () => {
     openFix([issue({ before: 'Handled monthly reporting...' })]);
     expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
     expect(screen.queryByText(/Step \d of 6/)).toBeNull();
+  });
+});
+
+describe('a bullet issue whose sentence is not in the resume', () => {
+  it('opens the side-by-side page, asking the user to click the sentence', () => {
+    openFix([issue({ before: 'Handled the monthly reporting for the whole sales team', title: 'No quantifiable impact for many bullets' })]);
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(screen.getByText(/click the sentence you want to improve/i)).toBeTruthy();
+    expect(screen.queryByText(/Step \d of 6/)).toBeNull();
+  });
+
+  it('saving the chosen sentence writes the draft and keeps a record, so it can be undone from the page later', () => {
+    openFix([issue({ before: 'Handled the monthly reporting for the whole sales team', title: 'No quantifiable impact for many bullets' })]);
+    fireEvent.click(document.querySelector('[data-pane="original"] [data-fix-at="b:0:1"]'));
+    fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /your text/i }), { target: { value: 'Built a dashboard used by 6 managers every week' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+    const draft = JSON.parse(localStorage.getItem(builderDraftKey('u1')));
+    expect(draft.experience[0].bullets[1]).toBe('Built a dashboard used by 6 managers every week');
+    expect(Object.keys(JSON.parse(localStorage.getItem(builderAppliedKey('u1')))).length).toBe(1);
+  });
+
+  it('an issue about dates still goes to the step form', () => {
+    openFix([issue({ title: 'Inconsistent date formatting', before: 'June 2017 – November 2021', after: 'Jun 2017 – Nov 2021', builderStep: 2 })]);
+    expect(screen.getByText(/Step 2 of 6/)).toBeTruthy();
+    expect(screen.queryByText(/Issue \d of \d/)).toBeNull();
   });
 });

@@ -105,7 +105,7 @@ describe('one primary action per screen', () => {
 describe('buttons that say where they go', () => {
   it('the reminder is hidden with Hide this reminder, not Done', () => {
     render(<ATSBuilder {...base()} />);
-    fireEvent.click(screen.getAllByText(/Fix in Builder/)[0]);
+    fireEvent.click(screen.getAllByText(/Fix in Builder/)[1]);   // the skills issue: it has no sentence to pick, so it uses the step form and its reminder
     expect(screen.queryByRole('button', { name: /^Done$/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /hide this reminder/i }));
     expect(screen.queryByRole('note', { name: /fixing/i })).toBeNull();

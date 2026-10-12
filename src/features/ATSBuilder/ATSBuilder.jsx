@@ -14,7 +14,7 @@ import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
 import { demoFixProfile, demoResetRequested } from './demoFix.js';
-import { stepForIssue, draftFor } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue } from './issueStep.js';
 import TemplateGallery from './components/TemplateGallery.jsx';
 import { confirmExport } from '../../lib/exportGuard.js';
 import { builderDataToText, scoreBuilderData } from './builderText.js';
@@ -827,7 +827,9 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // The Fix page opens for an issue whose quoted text is in the resume (the summary or a bullet), and also for one that was already improved (its record
   // says where), so it can be seen again, undone or improved again. Before, an improved issue could never be opened on that page again.
   // Any other issue keeps the step form.
-  const canFixHere = (issue) => !!issue && (['one', 'many'].includes(fixTargets(data, issue).kind) || !!fixRecords[keyOfIssueObject(issue)]);
+  // A bullet issue whose sentence is not found is there too: the page asks the user to click the sentence (FixPage, "pick" issues).
+  const hasBullets = (data.experience || []).some(j => (j.bullets || []).some(b => String(b || '').trim()));
+  const canFixHere = (issue) => !!issue && (['one', 'many'].includes(fixTargets(data, issue).kind) || !!fixRecords[keyOfIssueObject(issue)] || (hasBullets && isBulletIssue(issue)));
   const [fixMode, setFixMode] = useState(() => canFixHere(focus?.issue));
   const [fixStartKey, setFixStartKey] = useState(() => keyOfIssueObject(focus?.issue));
   useEffect(() => { setFixMode(canFixHere(focus?.issue)); setFixStartKey(keyOfIssueObject(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps

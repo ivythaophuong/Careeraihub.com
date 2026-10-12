@@ -1,6 +1,6 @@
 // The logic behind the Fix page (no screen): where an issue's text is, what the draft would put there, saving one field, and the status of each issue.
 import { describe, it, expect } from 'vitest';
-import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText } from './fixPage.js';
+import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, closestBullets } from './fixPage.js';
 import { undoApply } from './applyIssue.js';
 
 const base = () => ({
@@ -220,5 +220,47 @@ describe('fieldText and withFieldText: reading a field and previewing a typed te
   });
   it('a place that does not exist gives the data back unchanged', () => {
     expect(withFieldText(base(), { kind: 'bullet', exp: 9, bullet: 0 }, 'x')).toEqual(base());
+  });
+});
+
+describe('closestBullets: the sentences nearest to a quote that is not in the resume', () => {
+  const d = () => ({
+    summary: 'Analyst who builds weekly reports.',
+    experience: [
+      { id: 1, company: 'Acme', title: 'Analyst', period: '2021 - 2023', bullets: ['Analyzed financial and operational data of target companies in 15+ M&A transactions using SQL', 'Built a dashboard for 6 managers', 'Trained two new hires'] },
+      { id: 2, company: 'Beta', title: 'Lead', period: '2023 - now', bullets: ['Analyzed operational data of target companies for the board'] },
+    ],
+  });
+  const quote = 'Analyzed financial and operational data of target companies in 15+ M&A deals';
+
+  it('lists the bullets that share most of the quote\'s words, best first, with a score from 0 to 1', () => {
+    const r = closestBullets(d(), { before: quote });
+    expect(r.map(x => x.at)).toEqual([{ kind: 'bullet', exp: 0, bullet: 0 }, { kind: 'bullet', exp: 1, bullet: 0 }]);
+    expect(r[0].score).toBeGreaterThan(r[1].score);
+    expect(r[0].score).toBeLessThanOrEqual(1);
+  });
+
+  it('leaves out bullets that share less than half the words', () => {
+    const r = closestBullets(d(), { before: quote });
+    expect(r.some(x => x.at.bullet === 2)).toBe(false);
+  });
+
+  it('gives nothing when there is no quote, or nothing is close', () => {
+    expect(closestBullets(d(), { before: '' })).toEqual([]);
+    expect(closestBullets(d(), { before: undefined })).toEqual([]);
+    expect(closestBullets(d(), { before: 'Completely unrelated text about gardening' })).toEqual([]);
+  });
+
+  it('never looks in the summary, and gives at most three', () => {
+    const x = d(); x.experience[0].bullets = ['alpha beta gamma delta', 'alpha beta gamma delta one', 'alpha beta gamma delta two', 'alpha beta gamma delta three', 'alpha beta gamma delta four'];
+    const r = closestBullets(x, { before: 'alpha beta gamma delta' });
+    expect(r).toHaveLength(3);
+    expect(closestBullets({ ...d(), summary: 'Analyzed financial and operational data of target companies' }, { before: 'summary only words nothing else' })).toEqual([]);
+  });
+
+  it('does not change the data', () => {
+    const x = d(); const copy = JSON.stringify(x);
+    closestBullets(x, { before: quote });
+    expect(JSON.stringify(x)).toBe(copy);
   });
 });

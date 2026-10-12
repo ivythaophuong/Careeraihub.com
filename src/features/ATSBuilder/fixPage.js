@@ -95,3 +95,21 @@ export function withFieldText(data, at, text) {
   if (rawField(data, at) === undefined || rawField(data, at) === null) return data;
   return writeField(data, at, String(text ?? ''));
 }
+
+// The bullets nearest to a quote that is not in the resume (the AI paraphrased it, or the user changed the sentence). Nothing here is a guess about
+// meaning: it counts the words the quote and the bullet share. A bullet is listed when it shares at least half of the quote's words, best first,
+// at most three; the user chooses, and the summary is never offered.
+const words = (text) => new Set((nfc(text).toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}'+&%$.-]*/gu) || []).map(w => w.replace(/[.-]+$/, '')).filter(Boolean));
+export function closestBullets(data, issue, { min = 0.5, max = 3 } = {}) {
+  const q = words(issue?.before);
+  if (!q.size) return [];
+  const out = [];
+  (data?.experience || []).forEach((job, exp) => (job.bullets || []).forEach((b, bullet) => {
+    const w = words(b);
+    if (!w.size) return;
+    let shared = 0; for (const x of q) if (w.has(x)) shared++;
+    const score = shared / q.size;
+    if (score >= min) out.push({ at: { kind: 'bullet', exp, bullet }, score });
+  }));
+  return out.sort((a, b) => b.score - a.score).slice(0, max);
+}

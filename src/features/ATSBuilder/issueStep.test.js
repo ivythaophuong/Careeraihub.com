@@ -1,6 +1,6 @@
 // Where an issue is fixed in the Builder, decided by code and not by the number the AI wrote. The AI's own step is only the last resort.
 import { describe, it, expect } from 'vitest';
-import { stepForIssue, draftFor } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue } from './issueStep.js';
 
 const data = () => ({
   contact: { name: 'Jordan Lee', email: 'jordan.lee@example.com', phone: '', linkedin: '', location: 'Singapore' },
@@ -82,5 +82,27 @@ describe('draftFor: the AI suggestion as it would be put in the form', () => {
     const d = data(); d.summary = 'Assisted with weekly reports';
     const x = draftFor(issue({ before: 'Assisted with weekly reports', after: 'Led weekly reports company-wide' }), d);
     expect(x.warnings.length).toBeGreaterThan(0);
+  });
+});
+
+describe('isBulletIssue: is the issue about the sentences under a job (so the user can pick the sentence)', () => {
+  it.each([
+    ['Overly long bullet points', true],
+    ['No quantifiable impact for many bullets', true],
+    ['Lack of quantifiable results', true],
+    ['Weak action verbs', true],
+    ['Responsibilities listed instead of achievements', true],
+    ['Inconsistent date formatting', false],
+    ['Missing professional summary', false],
+    ['Redundant skill keywords', false],
+    ['Missing location for education institutions', false],
+  ])('"%s" -> %s', (title, expected) => {
+    expect(isBulletIssue({ title, description: '' })).toBe(expected);
+  });
+
+  it('reads the description when the title says nothing, and a missing issue is not a bullet issue', () => {
+    expect(isBulletIssue({ title: 'Needs work', description: 'Several bullet points describe tasks, not results.' })).toBe(true);
+    expect(isBulletIssue({ title: 'Needs work', description: 'Please review.' })).toBe(false);
+    expect(isBulletIssue(null)).toBe(false);
   });
 });

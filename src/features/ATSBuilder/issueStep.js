@@ -39,3 +39,14 @@ export function draftFor(issue, data) {
   const warnings = claimWarnings({ before: issue.before || '', after, resumeText }).map(w => w.message);
   return { text: g.text, placeholders: g.changed, replaced: g.replaced, warnings };
 }
+
+// Is the issue about the sentences under a job, so that the user can pick the sentence it applies to on the side-by-side page?
+// (Dates, the summary, skills and education are not.) Words decide, as in stepForIssue: the title first, then the description.
+const BULLET_WORDS = /\b(bullets?|achievements?|accomplishments?|responsibilit\w*|quantif\w*|metrics?|measurable|impact|results?|action verbs?|verbs?)\b/i;
+export function isBulletIssue(issue) {
+  if (!issue) return false;
+  if (BULLET_WORDS.test(issue.title || '')) return true;
+  return !SECTION_WORDS_IN_TITLE(issue.title) && BULLET_WORDS.test(issue.description || '');
+}
+// A title that names some other section settles it: "Missing location for education institutions" is not about bullets whatever the description says.
+function SECTION_WORDS_IN_TITLE(title) { return named(title).length > 0; }

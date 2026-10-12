@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { undoApply } from '../applyIssue.js';
-import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText } from '../fixPage.js';
+import { isBulletIssue, draftFor } from '../issueStep.js';
+import { closestBullets, fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText } from '../fixPage.js';
 
 // The Fix page: your resume on the left, with the sentences that can be improved highlighted; your new resume on the right, which follows what you type;
 // and one editor below them. One issue at a time, and one thing at a time inside the editor: first two choices (improve it, or leave it), then the edit box,
@@ -17,6 +18,8 @@ const css = `
 .atb-fixpage [data-fix-marked] { outline: 2px solid var(--lp-teal, #2dd4bf); outline-offset: 3px; background: rgba(45, 212, 191, .14); }
 .atb-fixpage [data-fix-open] { outline: 2px dashed #FF6B6B; outline-offset: 3px; background: rgba(255, 107, 107, .12); cursor: pointer; }
 .atb-fixpage [data-fix-done] { outline: 2px solid #00E5A0; outline-offset: 3px; }
+.atb-fixpage [data-fix-pickable] { cursor: pointer; }
+.atb-fixpage [data-fix-pickable]:hover { outline: 2px dashed #FF6B6B; outline-offset: 3px; }
 .atb-fixpage .atb-fix-tabs { display: none; }
 @media (max-width: 768px) {
   .atb-fixpage .atb-fix-tabs { display: flex; }
@@ -32,7 +35,7 @@ const link = { background: 'none', border: 'none', padding: 0, cursor: 'pointer'
 
 // One resume, drawn in the template, scaled to its width. `marks` = [{ key, state: 'marked' | 'open' | 'done', label }], put on the elements the template
 // tags with data-fix-at. When `onPick` is given, a marked sentence can be clicked or opened from the keyboard.
-function ResumePane({ name, panel, hint, data, Template, templateId, marks, activeKey, onPick, active }) {
+function ResumePane({ name, panel, hint, data, Template, templateId, marks, activeKey, onPick, active, pickable = false }) {
   const boxRef = useRef(null);
   const previewRef = useRef(null);
   const lastScrolled = useRef(null);
@@ -49,8 +52,11 @@ function ResumePane({ name, panel, hint, data, Template, templateId, marks, acti
     const root = previewRef.current;
     if (!root) return;
     root.querySelectorAll('[data-fix-at]').forEach(el => {
-      ['data-fix-marked', 'data-fix-open', 'data-fix-done', 'role', 'tabindex', 'aria-label'].forEach(a => el.removeAttribute(a));
+      ['data-fix-marked', 'data-fix-open', 'data-fix-done', 'data-fix-pickable', 'role', 'tabindex', 'aria-label'].forEach(a => el.removeAttribute(a));
     });
+    if (pickable && onPick) {          // every sentence under a job can be chosen (the issue's own sentence was not found)
+      root.querySelectorAll('[data-fix-at^="b:"]').forEach(el => { el.setAttribute('data-fix-pickable', 'true'); el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0'); el.setAttribute('aria-label', 'Choose this sentence'); });
+    }
     for (const m of marks) {
       const el = root.querySelector(`[data-fix-at="${m.key}"]`);
       if (!el) continue;
@@ -105,22 +111,30 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   // The issues this page can place: found in the summary or a bullet (or already applied). Fixed when the page opens, so an issue does not
   // leave the list because its text has just been replaced.
   const [original] = useState(() => revertApplied(data, records));
+  // A bullet issue whose sentence cannot be found (the AI reworded it, or the user changed it) is on the page too, as a "pick" issue: the user clicks the
+  // sentence it applies to. Other issues whose sentence is not found (dates, skills, a missing summary) stay with the step form.
+  const hasBullets = (original.experience || []).some(j => (j.bullets || []).some(b => String(b || '').trim()));
   const [list] = useState(() => issues
-    .map((issue, i) => ({ issue, i, key: issueKey(issue, i) }))
-    .filter(it => records?.[it.key] || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
+    .map((issue, i) => {
+      const located = ['one', 'many'].includes(fixTargets(original, issue).kind);
+      const rec = !!records?.[issueKey(issue, i)];
+      return { issue, i, key: issueKey(issue, i), pick: !located && !rec && hasBullets && isBulletIssue(issue) };
+    })
+    .filter(it => records?.[it.key] || it.pick || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
 
   // Where each issue's sentence is in the resume as it was when the page opened: this is what the left resume highlights.
   const [seed] = useState(() => {
     const out = [];
     list.forEach((it, itemPos) => {
-      let ats = fixTargets(original, it.issue).places.map(p => p.at);
+      let ats = it.pick ? closestBullets(original, it.issue).map(c => c.at) : fixTargets(original, it.issue).places.map(p => p.at);   // for a pick issue: the nearest sentences
       if (!ats.length && records?.[it.key]?.record) ats = [records[it.key].record.at];   // improved and then edited: the place is known from the record
       ats.forEach(at => out.push({ key: markKeyOf(at), itemPos, at }));
     });
     return out;
   });
 
-  const statusesFor = (d, r) => list.map(it => issueStatus(d, it.issue, r[it.key]?.record ?? null));
+  // A pick issue nobody has acted on is open (it was never "changed by the user"); once it has a record it is read from the text like any other.
+  const statusesFor = (d, r) => list.map(it => (it.pick && !r[it.key]?.record ? 'open' : issueStatus(d, it.issue, r[it.key]?.record ?? null)));
 
   const startPos = () => {
     const statuses = statusesFor(data, records || {});
@@ -159,7 +173,9 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const current = pos === null ? null : list[pos];
   const statuses = statusesFor(work, recs);
   const improved = current ? ['applied', 'applied_edited'].includes(statuses[pos]) : false;   // this issue was improved earlier (this visit or before)
-  const targets = current && !improved ? fixTargets(work, current.issue) : { kind: 'one', places: [] };
+  const isPick = !!current && current.pick && !recs[current.key]?.record;
+  const targets = current && !improved ? (isPick ? { kind: 'pick', places: [] } : fixTargets(work, current.issue)) : { kind: 'one', places: [] };
+  const example = isPick ? draftFor(current.issue, work) : null;   // what the AI wrote about the sentence it looked at: shown, never applied
   const at = chosenAt;
   const place = at && targets ? targets.places.find(p => JSON.stringify(p.at) === JSON.stringify(at)) : null;
   const saved = at ? fieldText(work, at) : '';
@@ -178,16 +194,38 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     const done = ['applied', 'applied_edited'].includes(statuses[m.itemPos]);
     return { key: m.key, state: done ? 'done' : 'open', label: `${done ? 'Improved' : 'Fix'}: ${title}` };
   });
+  // a sentence the user chose for a pick issue is not one of the nearest, so it has no mark yet
+  if (activeKey && !leftMarks.some(m => m.key === activeKey) && current) leftMarks.push({ key: activeKey, state: 'marked', label: `Fixing: ${current.issue.title}` });
   const rightMarks = activeKey ? [{ key: activeKey, state: 'marked', label: '' }] : [];
 
   const openItem = (itemPos, chosen) => go(itemPos, work, chosen);
+  const parseKey = (key) => {
+    if (key === 'summary') return { kind: 'summary' };
+    const m = /^b:(\d+):(\d+)$/.exec(key);
+    return m ? { kind: 'bullet', exp: Number(m[1]), bullet: Number(m[2]) } : null;
+  };
   const pick = (key) => {
     const m = seed.find(x => x.key === key);
-    if (!m || ['applied', 'applied_edited'].includes(statuses[m.itemPos])) return;
-    const many = fixTargets(work, list[m.itemPos].issue).kind === 'many';
-    if (m.itemPos === pos && (!many || key === activeKey)) return;
-    if (dirty) { setPendingPick({ itemPos: m.itemPos, at: many ? m.at : undefined }); return; }
-    openItem(m.itemPos, many ? m.at : undefined);
+    const other = m && m.itemPos !== pos && !['applied', 'applied_edited'].includes(statuses[m.itemPos]);
+    if (other) {                                          // another issue's highlighted sentence: open that issue
+      const many = !list[m.itemPos].pick && fixTargets(work, list[m.itemPos].issue).kind === 'many';
+      if (dirty) { setPendingPick({ itemPos: m.itemPos, at: many ? m.at : undefined }); return; }
+      openItem(m.itemPos, many ? m.at : undefined);
+      return;
+    }
+    if (isPick) {                                         // this issue's sentence was not found: the clicked bullet is the one to improve
+      const a = parseKey(key);
+      if (!a || a.kind !== 'bullet' || key === activeKey) return;
+      if (dirty) { setPendingPick({ itemPos: pos, at: a }); return; }
+      openItem(pos, a);
+      return;
+    }
+    if (m && m.itemPos === pos) {                         // the same issue found in several places: choose one
+      const many = fixTargets(work, current.issue).kind === 'many';
+      if (!many || key === activeKey) return;
+      if (dirty) { setPendingPick({ itemPos: pos, at: m.at }); return; }
+      openItem(pos, m.at);
+    }
   };
 
   const Template = template?.component;
@@ -276,7 +314,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
 
       <div className="atb-fix-panes" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <ResumePane name="Your resume" panel="original" active={pane === 'original'} hint="Highlighted sentences can be improved. Click one to work on it."
-          data={original} Template={Template} templateId={template?.id} marks={leftMarks} activeKey={activeKey} onPick={pick} />
+          data={original} Template={Template} templateId={template?.id} marks={leftMarks} activeKey={activeKey} onPick={pick} pickable={isPick && !improving} />
         <ResumePane name="Your new resume" panel="new" active={pane === 'new'} hint="Your changes appear here as you type."
           data={shown} Template={Template} templateId={template?.id} marks={rightMarks} activeKey={activeKey} />
       </div>
@@ -307,12 +345,29 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           </div>
         )}
 
-        {!improved && targets.kind === 'none' && (<>
+        {isPick && !at && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>
+              We could not find the exact sentence the AI meant (it may have been reworded, or you changed it). Click the sentence you want to improve in your resume; the ones nearest to it are highlighted.
+            </div>
+            {example && (<>
+              <section aria-label="AI example" style={{ padding: '10px 12px', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 8 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--lp-text3)', marginBottom: 6 }}>AI example, for the sentence it looked at</div>
+                {current.issue.before && <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--lp-text3)', marginBottom: 4 }}>Before: {current.issue.before}</div>}
+                <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>Example: {example.text}</div>
+              </section>
+              {example.placeholders && example.replaced?.length > 0 && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.5 }}>These figures are not in your resume: {example.replaced.join(', ')}. The example shows [X] in their place.</div>}
+            </>)}
+            <div><button type="button" style={btn(false)} onClick={leave}>Leave it for now</button></div>
+          </div>
+        )}
+
+        {!improved && !isPick && targets.kind === 'none' && (<>
           <div style={{ fontSize: 13, color: '#FFB84D', lineHeight: 1.6 }}>Could not find that text in your resume any more. You can leave it, or edit the field in the Builder.</div>
           <div><button type="button" style={btn(false)} onClick={leave}>Leave it for now</button></div>
         </>)}
 
-        {!improved && targets.kind === 'many' && !at && (
+        {!improved && !isPick && targets.kind === 'many' && !at && (
           <div style={{ fontSize: 13, color: 'var(--lp-text2)', lineHeight: 1.6 }}>
             That text is in {targets.places.length} places, highlighted in your resume. Click one, or choose here:
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
@@ -335,6 +390,17 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           {improving && dirty && <div style={{ fontSize: 12, color: 'var(--lp-text3)' }}>Not saved yet. Your original: {saved}</div>}
           {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
 
+          {improving && isPick && example && (<>
+            <button type="button" style={{ ...link, alignSelf: 'flex-start' }} aria-expanded={showDraft} onClick={() => setShowDraft(v => !v)}>{showDraft ? 'Hide AI example' : 'Show AI example'}</button>
+            {showDraft && (<>
+              <section aria-label="AI example" style={{ padding: '10px 12px', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 8 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--lp-text3)', marginBottom: 6 }}>AI example, for a different sentence</div>
+                {current.issue.before && <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--lp-text3)', marginBottom: 4 }}>Before: {current.issue.before}</div>}
+                <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>Example: {example.text}</div>
+              </section>
+              {example.placeholders && example.replaced?.length > 0 && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.5 }}>These figures are not in your resume: {example.replaced.join(', ')}. The example shows [X] in their place.</div>}
+            </>)}
+          </>)}
           {improving && draft && (<>
             <button type="button" style={{ ...link, alignSelf: 'flex-start' }} aria-expanded={showDraft} onClick={() => setShowDraft(v => !v)}>
               {showDraft ? 'Hide AI draft' : 'Show AI draft'}{!showDraft && draft.placeholders ? ' ⚠ includes figures not in your resume' : ''}
