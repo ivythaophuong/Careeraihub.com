@@ -39,6 +39,12 @@ Kết quả chỉ nói về **độ ổn định**. Nó **không** chứng minh 
 - `--max-calls N` dừng sau N lượt trong phiên này, dùng khi nhà cung cấp có hạn mức theo ngày: chạy từng đợt, mỗi đợt `--resume` tệp trước.
 - Lần chạy đầu thực tế (Gemini, 50 lượt) thành công 18 lượt rồi hạn mức hết (25 lỗi 429, 7 lỗi 502); lần chạy tiếp ngay sau đó bị 429 từ lượt đầu. Giới hạn cụ thể của khóa (theo phút, theo ngày, theo token) **chưa biết**: xem trang hạn mức của nhà cung cấp.
 
+### Nhiệt độ (temperature)
+- Mã sản xuất (`supabase/functions/ai/providers.js`) đặt temperature **0,1 cho Gemini**; với Groq, OpenAI, Anthropic, OpenRouter và các nhà cung cấp tương thích khác **không gửi giá trị nào**, nên áp dụng mặc định của nhà cung cấp (giá trị đó **chưa biết** từ kho mã).
+- `--temperature T` (0 đến 2) làm công cụ **gửi giá trị T thay cho cấu hình của mã**. Đây chỉ là để đo: công cụ sửa yêu cầu trên đường tới nhà cung cấp, mã sản xuất không đổi. Mặc định không đặt gì và kết quả ghi "not_overridden".
+- Kết quả ghi temperature đã dùng. `--resume` **từ chối** nếu temperature khác tệp cũ, vì hai cấu hình không được trộn trong một phép đo. Một nhà cung cấp có thể không nhận temperature với một số model (model suy luận): khi đó lượt đo báo lỗi, chưa xác minh với từng model.
+- Hai lần đo ở hai temperature khác nhau là hai phép đo riêng; so sánh chúng chỉ nói về độ lệch của model đó ở hai cấu hình, không nói về model khác.
+
 ### Chạy tiếp từ một tệp kết quả cũ
 Nếu một lần chạy bị mất nhiều lượt (ví dụ vì giới hạn tần suất), chạy tiếp bằng `--resume <tệp>`: giữ nguyên các lượt đã thành công, chỉ chạy các cặp (câu chuyện, vòng) còn thiếu. Công cụ **từ chối** chạy tiếp nếu model hoặc prompt của bất kỳ câu chuyện nào khác tệp cũ, hoặc nếu mã chấm điểm đã đổi (khi tệp cũ có ghi mã băm). Nếu tệp cũ không ghi mã băm của mã chấm điểm thì ghi chú điều đó vào kết quả. Các lượt đo ở những thời điểm khác nhau vẫn là các quan sát độc lập của cùng một cấu hình, nhưng chênh lệch theo giờ hoặc theo ngày (nếu có) sẽ nằm lẫn trong độ biến thiên.
 

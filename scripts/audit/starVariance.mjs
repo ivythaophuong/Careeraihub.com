@@ -6,7 +6,7 @@
 //   read -s ANTHROPIC_API_KEY && export ANTHROPIC_API_KEY      # or GEMINI_API_KEY / OPENAI_API_KEY, ONE provider only
 //   export AI_MODEL=<the model you want to measure>             # optional; otherwise the code's default for that provider
 //   node scripts/audit/starVariance.mjs --runs 5
-// Options: --delay-ms N, --resume <file>, --max-calls N (stop after N reviews, for a daily quota), --stop-after-failures N (default 3), --out <file>, --stories <file>
+// Options: --delay-ms N, --resume <file>, --max-calls N (stop after N reviews, for a daily quota), --temperature T (0 to 2: send this temperature instead of the code's own setting; for measuring, production is not changed), --stop-after-failures N (default 3), --out <file>, --stories <file>
 import { createHash, randomBytes } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -37,9 +37,28 @@ const scoringCodeHash = () => {
 // nothing about the score, only that the provider was busy. A 422 (the answer was cut off or blocked) is NOT retried: that is a result about the answer.
 const RETRYABLE = new Set([429, 502]);
 
+// The temperature the production code sends is set in supabase/functions/ai/providers.js (Gemini 0.1; the other providers get none, so their default applies).
+// To measure whether another value changes the spread, this changes the request on its way to the provider; the production code is not touched.
+// A request it does not recognise is passed on unchanged.
+const TEMPERATURE_NOTE = "not overridden: the code's own setting applies (Gemini: 0.1; other providers: none is sent, so the provider default applies)";
+export function withTemperature(fetchImpl, temperature) {
+  if (typeof temperature !== 'number' || !Number.isFinite(temperature) || temperature < 0 || temperature > 2) throw new Error(`The temperature must be a number from 0 to 2 (got ${temperature}).`);
+  return (url, init) => {
+    if (typeof init?.body !== 'string') return fetchImpl(url, init);
+    let b;
+    try { b = JSON.parse(init.body); } catch { return fetchImpl(url, init); }
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return fetchImpl(url, init);
+    if (b.generationConfig && typeof b.generationConfig === 'object') b = { ...b, generationConfig: { ...b.generationConfig, temperature } };
+    else if (b.model && b.messages) b = { ...b, temperature };
+    else return fetchImpl(url, init);
+    return fetchImpl(url, { ...init, body: JSON.stringify(b) });
+  };
+}
+
 // previous: the object a former run wrote. Its successful observations are kept and only the missing (story, run) pairs are run, after checking that the
 // model and every prompt are the same (otherwise two different measurements would be mixed).
-export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, delayMs = 1500, retryWaitMs = [30000, 65000, 120000], previous = null, maxCalls = Infinity, stopAfterFailures = 3, shouldStop = () => false, onCheckpoint = () => {}, onProgress = () => {} }) {
+export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, delayMs = 1500, retryWaitMs = [30000, 65000, 120000], previous = null, maxCalls = Infinity, stopAfterFailures = 3, temperature = null, shouldStop = () => false, onCheckpoint = () => {}, onProgress = () => {} }) {
+  const sendTo = temperature === null ? fetchImpl : withTemperature(fetchImpl, temperature);
   const chain = providerChain(env);
   if (chain.length === 0) throw new Error('No provider key found in the environment. Set ONE of ANTHROPIC_API_KEY, GEMINI_API_KEY or OPENAI_API_KEY.');
   if (chain.length > 1) throw new Error(`More than one provider has a key (${chain.join(', ')}). A fallback could mix models inside one measurement: unset all but one and run again.`);
@@ -48,7 +67,7 @@ export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, d
   const runEnv = { ...env, SCORING_SIGNING_KEY: `local-variance-${randomBytes(8).toString('hex')}`, SUPABASE_URL: env.SUPABASE_URL || 'https://local.invalid', SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY || 'local' };
   const fetchWithLocalAuth = (url, init) => (String(url).includes('/auth/v1/user')
     ? Promise.resolve(new Response(JSON.stringify({ id: 'local-variance-run' }), { status: 200 }))
-    : fetchImpl(url, init));
+    : sendTo(url, init));
   const limiter = createRateLimiter({ max: 1_000_000 });
   // A wait that ends early when the run is asked to stop (Ctrl-C), so a long retry wait does not hold the terminal.
   const waitUnlessStopped = async (ms) => { const end = Date.now() + ms; while (Date.now() < end) { await sleep(Math.min(500, end - Date.now())); if (end - Date.now() > 1000 && shouldStop()) return; } };
@@ -62,6 +81,8 @@ export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, d
     if (pc.model && pc.model !== modelFor(runEnv, chain[0])) throw new Error(`Cannot resume: the earlier results used the model ${pc.model} and this run would use ${modelFor(runEnv, chain[0])}. Set AI_MODEL to the earlier model, or start a new measurement.`);
     for (const st of stories) if (pc.promptHashes?.[st.id] && pc.promptHashes[st.id] !== promptHashes[st.id]) throw new Error(`Cannot resume: the prompt for ${st.id} is not the one the earlier results used (the story or the scoring prompt changed).`);
     if (pc.scoringCodeHash && codeHash && pc.scoringCodeHash !== codeHash) throw new Error('Cannot resume: the scoring code changed since the earlier results.');
+    const earlierTemperature = pc.temperature?.mode === 'override' ? pc.temperature.value : null;   // results from before this option have no override
+    if (earlierTemperature !== temperature) throw new Error(`Cannot resume: the earlier results were measured ${earlierTemperature === null ? "with the code's own temperature" : `at temperature ${earlierTemperature}`} and this run uses ${temperature === null ? "the code's own temperature" : `temperature ${temperature}`}. Two settings must not be mixed in one measurement.`);
     if (!pc.scoringCodeHash) resumeNotes.push('The earlier results did not record a hash of the scoring code, so it is not proven that it is unchanged; the prompts and the model are the same.');
     kept = (previous.runs || []).filter((r) => r.ok);
   }
@@ -84,7 +105,7 @@ export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, d
       modelsSeen: [...new Set(results.map((x) => x.model).filter(Boolean))],
       fallbackUsed: results.some((x) => x.fallback),
       maxTokens: LIMITS.maxTokens,
-      temperature: 'not set by the code: the provider default applies',
+      temperature: temperature === null ? { mode: 'not_overridden', note: TEMPERATURE_NOTE } : { mode: 'override', value: temperature },
       codeVersion: gitHash(),
       nodeVersion: process.version,
       runsPerStory: runs,
@@ -149,6 +170,8 @@ export function formatReport(res, out) {
   const c = res.config;
   const lines = [];
   lines.push(`\nProvider ${c.provider}, model ${c.model}${c.fallbackUsed ? '  (a FALLBACK provider was used: results mix models)' : ''}; code ${String(c.codeVersion).slice(0, 10)}; ${res.summary.totalFailures} failed of ${res.summary.totalRuns}`);
+  if (c.temperature?.mode === 'override') lines.push(`Sampling: temperature ${c.temperature.value} (set by this tool).`);
+  else lines.push(`Sampling: ${typeof c.temperature === 'string' ? c.temperature : `temperature: the code's own setting applies (Gemini 0.1; for other providers none is sent, so their default applies)`}`);
   const retried = res.runs.filter((r) => r.retries > 0);
   if (retried.length) lines.push(`Calls that needed a retry (rate limit or a provider error): ${retried.length}, ${retried.reduce((n, r) => n + r.retries, 0)} retries in all.`);
   const failed = res.runs.filter((r) => !r.ok);
@@ -201,6 +224,7 @@ async function main() {
     env: process.env, stories: set.stories, runs, delayMs: Number(arg('delay-ms', 1500)), previous,
     maxCalls: arg('max-calls', null) === null ? Infinity : Number(arg('max-calls')),
     stopAfterFailures: Number(arg('stop-after-failures', 3)),
+    temperature: arg('temperature', null) === null ? null : Number(arg('temperature')),
     shouldStop: () => stopRequested,
     onCheckpoint: save,
     onProgress: (r, run, runs_, n) => process.stderr.write(`[run ${run}/${runs_}] ${r.storyId}: ${r.ok ? `overall ${r.overall}${r.retries ? ` (after ${r.retries} retries)` : ''}` : `FAILED after ${r.retries} retries: HTTP ${r.status}`}\n`),
