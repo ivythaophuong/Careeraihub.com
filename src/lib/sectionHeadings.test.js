@@ -147,3 +147,57 @@ SQL, Excel, Power BI, Python
     expect(items(cv('Technical Skills & Tools')).find((i) => i.label === 'Skills').ok).toBe(true);
   });
 });
+
+describe('compound skills headings and labels nested inside a job', () => {
+  it.each([
+    ['LANGUAGES AND SKILLS', 'skills'],
+    ['Skills & Languages', 'skills'],
+    ['Programming Languages', 'skills'],
+    ['Languages and Technical Skills', 'skills'],
+  ])('%s is read as the skills section', (heading, expected) => {
+    expect(classifyHeading(heading)?.canonical).toBe(expected);
+    expect(sectionOf(heading)).toBe(expected);
+  });
+
+  it('a plain "Languages" heading is still the languages section, and "Languages and Interests" is ambiguous, so not a heading', () => {
+    expect(sectionOf('Languages')).toBe('languages');
+    expect(classifyHeading('Languages and Interests')).toBeNull();
+  });
+
+  const cv = (nested) => `Alex Morgan
+alex@example.com
+
+Work Experience
+Northwind Advisory Singapore
+Associate Director, M&A, December 2021 - present
+- Led diligence on a USD 250M acquisition
+${nested}
+- Built the valuation model used by the deal team
+Harbor Capital Singapore
+Senior Associate, June 2017 - November 2021
+- Advised on 12 transactions
+Education
+BSc Finance, 2013
+LANGUAGES AND SKILLS
+Skills: Financial modelling, Valuation, Excel, Python
+`;
+  const read = (t) => { const f = extractResumeFacts(t); return { jobs: f.experiences.length, bullets: f.experiences.reduce((n, e) => n + e.bullets.length, 0), skills: f.skills.length }; };
+
+  it('a label like "Key projects:" inside a job stays in the job: no job or bullet is cut away', () => {
+    const withLabel = read(cv('Key projects:'));
+    const withoutLabel = read(cv('Notable work:'));
+    expect(withLabel).toEqual(withoutLabel);
+    expect(withLabel.jobs).toBe(2);
+    expect(withLabel.bullets).toBeGreaterThanOrEqual(3); // the extractor also counts the line under a job's date line; what matters is that the label changes nothing
+  });
+
+  it('the skills under "LANGUAGES AND SKILLS" are found', () => {
+    expect(read(cv('Key projects:')).skills).toBe(4);
+  });
+
+  it('a real projects heading is still a heading outside an experience section, and an exact "Projects" heading still splits', () => {
+    expect(sectionOf('Selected Projects')).toBe('projects');
+    const t = 'Work Experience\nAnalyst, Acme\nJan 2020 - Present\n- Built a report\nProjects\nPersonal site\n- Built a site\n';
+    expect(splitSections(t).map((s) => s.name)).toEqual(['header', 'work experience', 'projects']);
+  });
+});

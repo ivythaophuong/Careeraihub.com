@@ -42,7 +42,10 @@ export function splitSections(text) {
     else {
       // Fallback for other wordings of a heading (see sectionHeadings.js). Lines the exact table knows never get here.
       const c = classifyHeading(line);
-      if (c) sections.push({ name: c.canonical, body: [] });
+      // A label such as "Key projects:" INSIDE a job describes that job; it is not a new top-level section. Only the fallback classifier is held
+      // back this way: an exact "Projects" heading still starts a section.
+      const insideExperience = /experience|employment/.test(sections[sections.length - 1].name);
+      if (c && !(c.section === 'projects' && insideExperience)) sections.push({ name: c.canonical, body: [] });
       else sections[sections.length - 1].body.push(line);
     }
   }
