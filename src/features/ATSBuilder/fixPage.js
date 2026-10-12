@@ -1,0 +1,85 @@
+// The logic behind the Fix page (no screen): where an issue's quoted text is, what the AI draft would put in that field, saving what the user wrote
+// in one field, and the status of each issue. Pure functions over the Builder data. They reuse applyIssue.js (finding the quote, the figure guard that turns
+// a number the resume does not have into [X], undo by content) and claimGuard.js; nothing here calls AI or touches storage.
+import { locateAll, applyIssue, undoApply } from './applyIssue.js';
+import { claimWarnings } from '../../lib/claimGuard.js';
+import { countPlaceholders } from '../../lib/exportGuard.js';
+import { builderDataToText } from './builderText.js';
+
+const nfc = (s) => String(s ?? '').normalize('NFC');
+
+const rawField = (d, at) => (at?.kind === 'summary' ? d?.summary : d?.experience?.[at?.exp]?.bullets?.[at?.bullet]);
+const readField = (d, at) => nfc(rawField(d, at));
+const writeField = (d, at, text) => {
+  const c = JSON.parse(JSON.stringify(d));
+  if (at.kind === 'summary') c.summary = text;
+  else c.experience[at.exp].bullets[at.bullet] = text;
+  return c;
+};
+
+// The templates draw the summary when it has text, and a bullet only when it has text and its job has a company name.
+function isDrawn(data, at) {
+  if (at.kind === 'summary') return !!nfc(data.summary).trim();
+  return !!data.experience?.[at.exp]?.company && !!readField(data, at).trim();
+}
+
+// Where the issue's quoted text is. kind: 'no_before' (nothing quoted), 'none' (not found), 'one', 'many' (the user chooses; nothing is picked).
+// A place can be found in the data and not drawn in the preview (`drawn: false`).
+export function fixTargets(data, issue) {
+  const before = issue?.before;
+  if (!before || !String(before).trim()) return { kind: 'no_before', places: [] };
+  const places = locateAll(data, before).map(h => ({ at: h.at, label: h.label, text: h.text, drawn: isDrawn(data, h.at) }));
+  return { kind: places.length === 0 ? 'none' : places.length === 1 ? 'one' : 'many', places };
+}
+
+// What the whole field would read after the AI draft replaces the quoted words, as it would be saved: a figure the resume does not contain is [X].
+// `at` is needed when the quote is in several places. Returns { text, placeholders, replaced, warnings } or { error: 'empty_after' | 'not_found' }.
+export function suggestionFor(data, issue, at) {
+  const r = applyIssue(data, issue, at);
+  if (r.error) return { error: r.error };
+  const warnings = claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message);
+  return { text: readField(r.data, r.record.at), placeholders: r.placeholders, replaced: r.replaced, warnings };
+}
+
+// Saves what the user wrote as the whole text of one field. Everything else stays as it was. The record has the shape undoApply reads.
+// Returns { data, record, blanks } (blanks = how many [X] are left in the text) or { error: 'empty' | 'not_found' }.
+export function saveFix(data, at, text) {
+  const next = nfc(text).trim();
+  if (!next) return { error: 'empty' };
+  const original = rawField(data, at);
+  if (original === undefined || original === null) return { error: 'not_found' };
+  return { data: writeField(data, at, next), record: { at, inserted: next, original: String(original) }, blanks: countPlaceholders(next) };
+}
+
+// The status of an issue, read from the text as it is now (never "resolved"):
+//   'applied'         saved, and the saved text is still there
+//   'applied_edited'  saved, then the user changed it
+//   'needs_figure'    saved but a [X] blank is still in it: it stays open
+//   'changed'         nothing saved and the quoted text is gone
+//   'open'            nothing saved and the quoted text is still there (or there is no quoted text)
+export function issueStatus(data, issue, record) {
+  if (record) {
+    if (undoApply(data, record) === null) return 'applied_edited';
+    return countPlaceholders(readField(data, record.at)) > 0 ? 'needs_figure' : 'applied';
+  }
+  if (issue?.before && String(issue.before).trim() && locateAll(data, issue.before).length === 0) return 'changed';
+  return 'open';
+}
+
+const UNRESOLVED = new Set(['open', 'needs_figure', 'changed']);
+
+// The next issue after `from` that is not yet applied, or null at the end (then the summary is shown). A skipped issue stays unresolved.
+export const nextUnresolved = (statuses, from) => {
+  for (let i = from + 1; i < statuses.length; i++) if (UNRESOLVED.has(statuses[i])) return i;
+  return null;
+};
+export const firstUnresolved = (statuses) => {
+  const i = statuses.findIndex(s => UNRESOLVED.has(s));
+  return i === -1 ? null : i;
+};
+
+// Counts of what is, for the last screen. Nothing here says everything is fixed.
+export function summaryCounts(statuses) {
+  const n = (...k) => statuses.filter(s => k.includes(s)).length;
+  return { total: statuses.length, applied: n('applied'), open: n('open', 'needs_figure'), changedByYou: n('applied_edited', 'changed') };
+}
