@@ -19,7 +19,7 @@ Kết quả chỉ nói về **độ ổn định**. Nó **không** chứng minh 
 | Đầu ra mỗi lượt | Bốn điểm thành phần và điểm tổng theo công thức hiện tại |
 | Thống kê | Với từng câu chuyện và từng điểm (năm số): số lượt hợp lệ, trung bình, độ lệch chuẩn mẫu (n-1), nhỏ nhất, lớn nhất, khoảng (max trừ min) |
 | Phân tích | **Biến thiên cùng một câu chuyện giữa các lần chạy** tách khỏi **khác biệt giữa các câu chuyện**: độ lệch chuẩn gộp trong từng câu, độ lệch chuẩn của trung bình các câu, và tỉ lệ phần biến thiên là do chạy lại (mô tả, không phải hệ số tin cậy). Cộng với mức độ nhất quán thứ tự các câu chuyện giữa các lần chạy (tương quan hạng Spearman với thứ tự trung bình) |
-| Lượt lỗi | Được đếm riêng theo từng câu chuyện, **không bao giờ tính vào thống kê** |
+| Lượt lỗi | Được đếm riêng theo từng câu chuyện, **không bao giờ tính vào thống kê**. Lỗi giới hạn tần suất (429) và lỗi máy chủ của nhà cung cấp (502) được **thử lại sau một khoảng chờ** (30 giây, 65 giây, 120 giây); số lần thử lại và lý do lỗi thật được ghi lại. Lỗi 422 (câu trả lời bị cắt hoặc bị chặn) **không** được thử lại, vì đó là kết quả về câu trả lời |
 
 ## 3. Cách chạy (trên máy của chị, một bước một lúc)
 1. Vào đúng nhánh và thư mục: `cd ~/careeraihub`. Ghi lại nhánh/commit đang dùng (script tự ghi commit).
@@ -31,6 +31,9 @@ Kết quả chỉ nói về **độ ổn định**. Nó **không** chứng minh 
    - Kết quả đầy đủ ghi vào `~/star-variance/results-<thời gian>.json` (ngoài kho git). Không có khóa nào trong tệp (test kiểm tra).
 6. Báo lại cho tôi tên tệp. Tôi đọc tệp cục bộ trên cùng máy; tệp chỉ gồm câu chuyện tổng hợp, điểm và cấu hình.
 7. Xong thì có thể bỏ khóa khỏi phiên: `unset ANTHROPIC_API_KEY`.
+
+### Chạy tiếp từ một tệp kết quả cũ
+Nếu một lần chạy bị mất nhiều lượt (ví dụ vì giới hạn tần suất), chạy tiếp bằng `--resume <tệp>`: giữ nguyên các lượt đã thành công, chỉ chạy các cặp (câu chuyện, vòng) còn thiếu. Công cụ **từ chối** chạy tiếp nếu model hoặc prompt của bất kỳ câu chuyện nào khác tệp cũ, hoặc nếu mã chấm điểm đã đổi (khi tệp cũ có ghi mã băm). Nếu tệp cũ không ghi mã băm của mã chấm điểm thì ghi chú điều đó vào kết quả. Các lượt đo ở những thời điểm khác nhau vẫn là các quan sát độc lập của cùng một cấu hình, nhưng chênh lệch theo giờ hoặc theo ngày (nếu có) sẽ nằm lẫn trong độ biến thiên.
 
 ## 4. Cách đọc kết quả (không đặt ngưỡng trước)
 Chưa đặt ngưỡng "ổn định" hay "không ổn định" vì chưa có dữ liệu để biện minh cho một con số. Các so sánh đáng xem:

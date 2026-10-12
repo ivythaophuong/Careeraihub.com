@@ -22,7 +22,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 const gitHash = () => { try { return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return 'unknown'; } };
 
-export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, delayMs = 1500, onProgress = () => {} }) {
+// Files whose content decides what a review returns. Their hash tells whether two measurements used the same scoring code.
+const SCORING_FILES = ['../../supabase/functions/_shared/starScoring.js', '../../supabase/functions/score-star/handler.js', '../../supabase/functions/ai/providers.js'];
+const scoringCodeHash = () => {
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    return sha256(SCORING_FILES.map((f) => fs.readFileSync(path.join(here, f), 'utf8')).join('\n---\n'));
+  } catch { return null; }
+};
+
+// A call the provider could not serve right now (rate limit 429, or a server error that the handler reports as 502) is retried after a wait: it says
+// nothing about the score, only that the provider was busy. A 422 (the answer was cut off or blocked) is NOT retried: that is a result about the answer.
+const RETRYABLE = new Set([429, 502]);
+
+// previous: the object a former run wrote. Its successful observations are kept and only the missing (story, run) pairs are run, after checking that the
+// model and every prompt are the same (otherwise two different measurements would be mixed).
+export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, delayMs = 1500, retryWaitMs = [30000, 65000, 120000], previous = null, onProgress = () => {} }) {
   const chain = providerChain(env);
   if (chain.length === 0) throw new Error('No provider key found in the environment. Set ONE of ANTHROPIC_API_KEY, GEMINI_API_KEY or OPENAI_API_KEY.');
   if (chain.length > 1) throw new Error(`More than one provider has a key (${chain.join(', ')}). A fallback could mix models inside one measurement: unset all but one and run again.`);
@@ -34,28 +49,49 @@ export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, d
     : fetchImpl(url, init));
   const limiter = createRateLimiter({ max: 1_000_000 });
 
+  const promptHashes = Object.fromEntries(stories.map((st) => [st.id, sha256(buildStarPrompt(st.story, { role: '', level: '', industry: '' }))]));
+  const codeHash = scoringCodeHash();
+  const resumeNotes = [];
+  let kept = [];
+  if (previous) {
+    const pc = previous.config || {};
+    if (pc.model && pc.model !== modelFor(runEnv, chain[0])) throw new Error(`Cannot resume: the earlier results used the model ${pc.model} and this run would use ${modelFor(runEnv, chain[0])}. Set AI_MODEL to the earlier model, or start a new measurement.`);
+    for (const st of stories) if (pc.promptHashes?.[st.id] && pc.promptHashes[st.id] !== promptHashes[st.id]) throw new Error(`Cannot resume: the prompt for ${st.id} is not the one the earlier results used (the story or the scoring prompt changed).`);
+    if (pc.scoringCodeHash && codeHash && pc.scoringCodeHash !== codeHash) throw new Error('Cannot resume: the scoring code changed since the earlier results.');
+    if (!pc.scoringCodeHash) resumeNotes.push('The earlier results did not record a hash of the scoring code, so it is not proven that it is unchanged; the prompts and the model are the same.');
+    kept = (previous.runs || []).filter((r) => r.ok);
+  }
+  const have = new Set(kept.map((r) => `${r.storyId}#${r.run}`));
+
   // The handler writes one `[usage] {...}` line per provider attempt with the provider, model and token counts the provider reported: read them back.
   const usageEvents = [];
   const originalLog = console.log;
   console.log = (...a) => { const s = String(a[0] ?? ''); if (s.startsWith('[usage] ')) { try { usageEvents.push(JSON.parse(s.slice(8))); } catch { /* ignore */ } } else originalLog(...a); };
 
-  const results = [];
+  const results = [...kept];
   try {
     for (let r = 1; r <= runs; r++) {          // run-major: every story once, then again, so time of day does not line up with one story
-      for (const s of stories) {
+      for (const st of stories) {
+        if (have.has(`${st.id}#${r}`)) continue;
         const before = usageEvents.length;
-        const res = await handleRequest(new Request('https://local.invalid/functions/v1/score-star', {
-          method: 'POST', headers: { authorization: 'Bearer local', 'content-type': 'application/json' }, body: JSON.stringify({ action: 'review', story: s.story }),
-        }), { env: runEnv, fetchImpl: fetchWithLocalAuth, limiter });
-        const body = await res.json().catch(() => ({}));
+        let retries = 0, res, body;
+        for (;;) {
+          res = await handleRequest(new Request('https://local.invalid/functions/v1/score-star', {
+            method: 'POST', headers: { authorization: 'Bearer local', 'content-type': 'application/json' }, body: JSON.stringify({ action: 'review', story: st.story }),
+          }), { env: runEnv, fetchImpl: fetchWithLocalAuth, limiter });
+          body = await res.json().catch(() => ({}));
+          if ((res.status === 200 && body.result) || !RETRYABLE.has(res.status) || retries >= retryWaitMs.length) break;
+          await sleep(retryWaitMs[retries]);
+          retries++;
+        }
         const events = usageEvents.slice(before);
         const last = [...events].reverse().find((e) => e.outcome === 'success') || events[events.length - 1] || {};
-        const base = { storyId: s.id, run: r, attempts: events.length, fallback: events.some((e) => e.fallback), provider: last.provider ?? null, model: last.model ?? null };
+        const base = { storyId: st.id, run: r, attempts: events.length, retries, fallback: events.some((e) => e.fallback), provider: last.provider ?? null, model: last.model ?? null };
         if (res.status === 200 && body.result) {
           results.push({ ...base, ok: true, scores: body.result.scores, overall: body.result.score,
             usage: { input_tokens: last.input_tokens ?? null, output_tokens: last.output_tokens ?? null, thinking_tokens: last.thinking_tokens ?? null, duration_ms: last.duration_ms ?? null } });
         } else {
-          results.push({ ...base, ok: false, error: body?.error?.message || `HTTP ${res.status}`, status: res.status });
+          results.push({ ...base, ok: false, error: body?.error?.message || `HTTP ${res.status}`, status: res.status, errorKind: last.error_kind ?? null, httpStatus: last.http_status ?? null });
         }
         onProgress(results[results.length - 1], r, runs, stories.length);
         if (delayMs > 0) await sleep(delayMs);
@@ -64,6 +100,7 @@ export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, d
   } finally {
     console.log = originalLog;
   }
+  results.sort((a, b) => a.run - b.run || stories.findIndex((x) => x.id === a.storyId) - stories.findIndex((x) => x.id === b.storyId));
 
   const used = results.find((x) => x.model) || {};
   const config = {
@@ -79,7 +116,9 @@ export async function runVariance({ env, fetchImpl = fetch, stories, runs = 5, d
     runsPerStory: runs,
     storyCount: stories.length,
     delayMs,
-    promptHashes: Object.fromEntries(stories.map((s) => [s.id, sha256(buildStarPrompt(s.story, { role: '', level: '', industry: '' }))])),
+    promptHashes,
+    scoringCodeHash: codeHash,
+    resumedFrom: previous ? { runsKept: kept.length, earlierCodeVersion: previous.config?.codeVersion ?? null, notes: resumeNotes } : null,
   };
   return { config, runs: results, summary: summarize(results) };
 }
@@ -93,6 +132,15 @@ export function formatReport(res, out) {
   const c = res.config;
   const lines = [];
   lines.push(`\nProvider ${c.provider}, model ${c.model}${c.fallbackUsed ? '  (a FALLBACK provider was used: results mix models)' : ''}; code ${String(c.codeVersion).slice(0, 10)}; ${res.summary.totalFailures} failed of ${res.summary.totalRuns}`);
+  const retried = res.runs.filter((r) => r.retries > 0);
+  if (retried.length) lines.push(`Calls that needed a retry (rate limit or a provider error): ${retried.length}, ${retried.reduce((n, r) => n + r.retries, 0)} retries in all.`);
+  const failed = res.runs.filter((r) => !r.ok);
+  if (failed.length) {
+    const why = {};
+    for (const f of failed) { const k = `HTTP ${f.status}${f.errorKind ? ` (${f.errorKind})` : ''}`; why[k] = (why[k] || 0) + 1; }
+    lines.push(`Failures after retries: ${Object.entries(why).map(([k, n]) => `${k} x${n}`).join(', ')}. Failed calls are not scores and are left out of the numbers.`);
+  }
+  if (c.resumedFrom) lines.push(`Resumed: ${c.resumedFrom.runsKept} earlier successful reviews kept.${c.resumedFrom.notes?.length ? ' ' + c.resumedFrom.notes.join(' ') : ''}`);
   lines.push('\nstory                      n   mean    sd   min   max  range   (overall score)');
   for (const s of res.summary.stories) {
     const o = s.overall;
@@ -109,15 +157,17 @@ async function main() {
   const root = path.dirname(fileURLToPath(import.meta.url));
   const storiesPath = arg('stories', path.join(root, '../../tests/fixtures/star-variance/stories.json'));
   const set = JSON.parse(fs.readFileSync(storiesPath, 'utf8'));
+  const resumePath = arg('resume', null);
+  const previous = resumePath ? JSON.parse(fs.readFileSync(resumePath, 'utf8')) : null;
   const runs = Number(arg('runs', 5));
   const outDir = path.join(os.homedir(), 'star-variance');
   const out = arg('out', path.join(outDir, `results-${new Date().toISOString().replace(/[:.]/g, '-')}.json`));
   fs.mkdirSync(path.dirname(out), { recursive: true });
 
-  process.stderr.write(`Reviewing ${set.stories.length} synthetic stories x ${runs} runs = ${set.stories.length * runs} calls. Nothing is saved to any database.\n`);
+  process.stderr.write(`Reviewing ${set.stories.length} synthetic stories x ${runs} runs = ${set.stories.length * runs} reviews${previous ? ` (resuming: ${previous.runs.filter((r) => r.ok).length} already done)` : ''}. A rate limit is retried after a wait. Nothing is saved to any database.\n`);
   const res = await runVariance({
-    env: process.env, stories: set.stories, runs, delayMs: Number(arg('delay-ms', 1500)),
-    onProgress: (r, run, runs_, n) => process.stderr.write(`[run ${run}/${runs_}] ${r.storyId}: ${r.ok ? `overall ${r.overall}` : `FAILED ${r.error}`}\n`),
+    env: process.env, stories: set.stories, runs, delayMs: Number(arg('delay-ms', 1500)), previous,
+    onProgress: (r, run, runs_, n) => process.stderr.write(`[run ${run}/${runs_}] ${r.storyId}: ${r.ok ? `overall ${r.overall}${r.retries ? ` (after ${r.retries} retries)` : ''}` : `FAILED after ${r.retries} retries: HTTP ${r.status}`}\n`),
   });
   fs.writeFileSync(out, JSON.stringify(res, null, 1) + '\n');
 
