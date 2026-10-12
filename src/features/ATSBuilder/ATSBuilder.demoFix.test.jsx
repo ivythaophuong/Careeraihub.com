@@ -33,6 +33,7 @@ describe('?demo=fix', () => {
     const p = props();
     render(<ATSBuilder {...p} />);
     fireEvent.click(screen.getAllByText(/Fix in Builder/)[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
     fireEvent.change(screen.getByRole('textbox', { name: /your text/i }), { target: { value: 'Cut monthly reporting time for the sales team' } });
     fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
     expect(p.updateMemory).not.toHaveBeenCalled();
@@ -43,6 +44,7 @@ describe('?demo=fix', () => {
     window.history.pushState({}, '', '/?demo=fix');
     render(<ATSBuilder {...props()} />);
     fireEvent.click(screen.getAllByText(/Fix in Builder/)[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
     fireEvent.change(screen.getByRole('textbox', { name: /your text/i }), { target: { value: 'Cut monthly reporting time for the sales team' } });
     fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
     expect(localStorage.getItem(builderDraftKey('u1'))).toBeNull();

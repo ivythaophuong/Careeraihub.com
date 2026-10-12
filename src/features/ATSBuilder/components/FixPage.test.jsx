@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// The Fix page: one issue at a time, the resume as the main element, the place to fix marked, a card with the reason, the AI draft and an edit box,
-// and a preview of the typed text before it is saved. See docs/architecture/plans/DESIGN-fix-page-flow.md.
+// The Fix page: one issue at a time, and one thing at a time inside it. First a few lines around the sentence and two choices; the edit box, the AI
+// draft and the whole resume appear only when asked for. See docs/architecture/plans/DESIGN-fix-page-flow.md.
 import React from 'react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
@@ -33,17 +33,19 @@ const TEMPLATE = { id: TEMPLATES[0].id, label: TEMPLATES[0].label, component: TE
 function setup(over = {}) {
   const props = {
     data: makeData(), issues: ISSUES, startKey: null, records: {},
-    onChange: vi.fn(), onBackToList: vi.fn(), onOpenBuilder: vi.fn(), onOpenModule: vi.fn(), template: TEMPLATE,
+    onChange: vi.fn(), onBackToList: vi.fn(), onOpenBuilder: vi.fn(), template: TEMPLATE,
     ...over,
   };
   const utils = render(<FixPage {...props} />);
   return { ...utils, props };
 }
+const improve = () => fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
 const editBox = () => screen.getByRole('textbox', { name: /your text/i });
+const btn = (name) => screen.getByRole('button', { name });
 const keyOfIssue = (i) => `${i}:${ISSUES[i].title}:${ISSUES[i].before}`;
 
-describe('the page and the issue in it', () => {
-  it('opens on the first issue that is not applied and says where it is in the list, counting only the issues that can be fixed here', () => {
+describe('the first screen of an issue: a few lines and two choices', () => {
+  it('opens on the first issue that is not applied, counting only the issues that can be fixed here', () => {
     setup();
     expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();   // the third issue has no quoted text, so it is not on this page
     expect(screen.getByText('No metrics in bullets')).toBeTruthy();
@@ -55,105 +57,153 @@ describe('the page and the issue in it', () => {
     expect(screen.getByText('Plain dashboard bullet')).toBeTruthy();
   });
 
-  it('gives the reason as the issue says it, and the priority', () => {
+  it('shows the priority', () => {
     setup();
-    expect(screen.getByText('Add numbers to your bullets.')).toBeTruthy();
-    expect(screen.getByText(/high/i)).toBeTruthy();
+    expect(screen.getByText(/High/)).toBeTruthy();
   });
 
-  it('the edit box starts with the user\'s own text of that bullet, not the AI draft', () => {
+  it('shows the job, the sentence to fix, and the sentence next to it, and not the whole resume', () => {
     setup();
-    expect(editBox().value).toBe('Handled monthly reporting for the sales team');
+    expect(screen.getByText('Acme · Analyst · 2021 - 2023')).toBeTruthy();
+    expect(screen.getByText('Handled monthly reporting for the sales team')).toBeTruthy();
+    expect(screen.getByText('Built a dashboard for 6 managers')).toBeTruthy();
+    expect(screen.queryByText('Trained two new hires')).toBeNull();      // two lines away, so not in the excerpt
+    expect(screen.queryByText(/Analyst who builds weekly reports/)).toBeNull();
+    expect(screen.queryByText(/jordan.lee@example.com/)).toBeNull();
   });
 
-  it('shows the resume with the template name and no template selector', () => {
-    setup();
-    expect(screen.getByText(/Jordan Lee/)).toBeTruthy();
-    expect(screen.getByText(new RegExp(`Template: ${TEMPLATE.label}`))).toBeTruthy();
-    for (const t of TEMPLATES.slice(1)) expect(screen.queryByRole('button', { name: t.label })).toBeNull();
-  });
-
-  it('marks the place to fix in the resume and scrolls it into view', () => {
+  it('says which line is to be fixed in words, not only by colour', () => {
     const { container } = setup();
-    const marked = container.querySelectorAll('[data-fix-marked]');
-    expect(marked).toHaveLength(1);
-    expect(marked[0].getAttribute('data-fix-at')).toBe('b:0:0');
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
-    expect(screen.getByText(/the marked passage/i)).toBeTruthy();   // the card says what the mark is, so it does not depend on colour
+    const target = container.querySelector('[data-fix-target]');
+    expect(target.textContent).toContain('Handled monthly reporting for the sales team');
+    expect(within(target).getByText(/Fix this sentence/i)).toBeTruthy();
+  });
+
+  it('the reason is folded away until it is asked for', () => {
+    setup();
+    expect(screen.queryByText('Add numbers to your bullets.')).toBeNull();
+    fireEvent.click(btn(/Why\?/));
+    expect(screen.getByText('Add numbers to your bullets.')).toBeTruthy();
+  });
+
+  it('offers two choices and nothing else to decide: improve it, or leave it', () => {
+    setup();
+    expect(btn(/Improve this sentence/i)).toBeTruthy();
+    expect(btn(/Leave it for now/i)).toBeTruthy();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('region', { name: /AI draft/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Save & next/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Skip$/i })).toBeNull();     // one way to leave an issue, not two
+  });
+
+  it('has one primary action on this screen', () => {
+    setup();
+    expect(screen.getAllByRole('button', { name: /Improve this sentence/i })).toHaveLength(1);
+  });
+
+  it('has no template selector', () => {
+    setup();
+    for (const t of TEMPLATES) expect(screen.queryByRole('button', { name: t.label })).toBeNull();
   });
 });
 
-describe('the AI draft', () => {
+describe('Improve this sentence: the edit box takes the place of the sentence', () => {
+  it('shows the edit box in the excerpt, filled with the user\'s own text and not the AI draft', () => {
+    const { container } = setup();
+    improve();
+    expect(editBox().value).toBe('Handled monthly reporting for the sales team');
+    expect(editBox().closest('[data-excerpt]')).toBeTruthy();
+    expect(container.querySelector('[data-excerpt]').textContent).toContain('Built a dashboard for 6 managers');
+  });
+
+  it('the AI draft is folded away, and a warning on the fold says when it has figures the resume does not', () => {
+    setup();
+    improve();
+    expect(screen.queryByRole('region', { name: /AI draft/i })).toBeNull();
+    expect(btn(/Show AI draft/i).textContent).toMatch(/figures not in your resume/i);
+  });
+
+  it('no warning on the fold when the draft has no new figure', () => {
+    setup({ startKey: keyOfIssue(1) });
+    improve();
+    expect(btn(/Show AI draft/i).textContent).not.toMatch(/figures not in your resume/i);
+  });
+
+  it('with no draft there is no fold and the edit box stays', () => {
+    setup({ issues: [{ ...ISSUES[0], after: '' }] });
+    improve();
+    expect(screen.queryByRole('button', { name: /AI draft/i })).toBeNull();
+    expect(editBox()).toBeTruthy();
+  });
+
+  it('shows what the user types as they type it, and says it is not saved', () => {
+    const { props } = setup();
+    improve();
+    expect(screen.queryByText(/not saved yet/i)).toBeNull();
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
+    expect(screen.getByText(/not saved yet/i)).toBeTruthy();
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('the AI draft, once asked for', () => {
+  const openDraft = () => { improve(); fireEvent.click(btn(/Show AI draft/i)); };
+
   it('is labelled as an AI draft', () => {
     setup();
+    openDraft();
     expect(screen.getByRole('region', { name: /AI draft/i })).toBeTruthy();
   });
 
   it('a figure the resume does not contain is shown as [X] with a note, never as the AI wrote it', () => {
     setup();
+    openDraft();
     const draft = screen.getByRole('region', { name: /AI draft/i });
     expect(draft.textContent).toContain('[X]');
     expect(draft.textContent).not.toContain('30%');
-    expect(screen.getByText(/not in your resume/i).textContent).toMatch(/30%/);
+    expect(screen.getByText(/These figures are not in your resume: .*The draft shows/i).textContent).toMatch(/30%/);
   });
 
-  it('a draft with no new figure has no figure note', () => {
-    setup({ startKey: keyOfIssue(1) });
-    expect(screen.queryByText(/not in your resume/i)).toBeNull();
+  it('can be folded again', () => {
+    setup();
+    openDraft();
+    fireEvent.click(btn(/Hide AI draft/i));
+    expect(screen.queryByRole('region', { name: /AI draft/i })).toBeNull();
   });
 
   it('Use suggestion puts the draft in the edit box and saves nothing', () => {
     const { props } = setup();
-    fireEvent.click(screen.getByRole('button', { name: /Use suggestion/i }));
+    openDraft();
+    fireEvent.click(btn(/Use suggestion/i));
     expect(editBox().value).toContain('[X]');
     expect(props.onChange).not.toHaveBeenCalled();
   });
 
   it('Use suggestion asks before it replaces text the user typed', () => {
     setup();
+    openDraft();
     fireEvent.change(editBox(), { target: { value: 'My own words' } });
-    fireEvent.click(screen.getByRole('button', { name: /Use suggestion/i }));
+    fireEvent.click(btn(/Use suggestion/i));
     expect(screen.getByText(/Replace what you typed/i)).toBeTruthy();
     expect(editBox().value).toBe('My own words');
-    fireEvent.click(screen.getByRole('button', { name: /^Replace$/i }));
+    fireEvent.click(btn(/^Replace$/i));
     expect(editBox().value).toContain('[X]');
-  });
-
-  it('with no draft the draft block is not shown and the edit box stays', () => {
-    const issues = [{ ...ISSUES[0], after: '' }];
-    setup({ issues });
-    expect(screen.queryByRole('region', { name: /AI draft/i })).toBeNull();
-    expect(editBox()).toBeTruthy();
   });
 
   it('a claim warning is shown and the button carries the confirmation wording', () => {
     const data = makeData(); data.experience[0].bullets[0] = 'Assisted with weekly reports';
-    const issues = [{ severity: 'high', title: 'Weak verb', description: 'Use a stronger verb.', before: 'Assisted with weekly reports', after: 'Led weekly reports company-wide', builderStep: 2, module: null }];
-    setup({ data, issues });
-    expect(screen.getByRole('button', { name: /I confirm this is true/i })).toBeTruthy();
-  });
-});
-
-describe('the preview of the typed text', () => {
-  it('shows what the user types in the marked place before it is saved, and says it is not saved', () => {
-    const { container, props } = setup();
-    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
-    expect(container.querySelector('[data-fix-at="b:0:0"]').textContent).toContain('Cut monthly reporting time');
-    expect(screen.getByText(/Preview of your change, not saved/i)).toBeTruthy();
-    expect(props.onChange).not.toHaveBeenCalled();
-  });
-
-  it('says nothing about a preview while the text is unchanged', () => {
-    setup();
-    expect(screen.queryByText(/Preview of your change/i)).toBeNull();
+    setup({ data, issues: [{ severity: 'high', title: 'Weak verb', description: 'x', before: 'Assisted with weekly reports', after: 'Led weekly reports company-wide', builderStep: 2, module: null }] });
+    openDraft();
+    expect(btn(/I confirm this is true/i)).toBeTruthy();
   });
 });
 
 describe('Save & next', () => {
-  it('saves only that field, tells the page that holds the data, and moves to the next issue', () => {
+  it('saves only that field, tells the page that holds the data, and goes to the next issue\'s first screen', () => {
     const { props } = setup();
+    improve();
     fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+    fireEvent.click(btn(/Save & next/i));
     expect(props.onChange).toHaveBeenCalledTimes(1);
     const [data, key, entry] = props.onChange.mock.calls[0];
     const expected = makeData(); expected.experience[0].bullets[0] = 'Cut monthly reporting time for the sales team';
@@ -161,113 +211,91 @@ describe('Save & next', () => {
     expect(key).toBe(keyOfIssue(0));
     expect(entry.record.at).toEqual({ kind: 'bullet', exp: 0, bullet: 0 });
     expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
-    expect(editBox().value).toBe('Built a dashboard for 6 managers');
+    expect(screen.queryByRole('textbox')).toBeNull();     // the next issue starts on its first screen
+    expect(btn(/Improve this sentence/i)).toBeTruthy();
   });
 
   it('refuses an empty text: nothing is saved and it says why', () => {
     const { props } = setup();
+    improve();
     fireEvent.change(editBox(), { target: { value: '   ' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+    fireEvent.click(btn(/Save & next/i));
     expect(props.onChange).not.toHaveBeenCalled();
     expect(screen.getByText(/Write the text first/i)).toBeTruthy();
     expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();
   });
 
-  it('a [X] left in the text is saved but the issue stays open, and the page says so', () => {
+  it('a [X] left in the text is saved but the issue stays open', () => {
     const { props } = setup();
-    fireEvent.click(screen.getByRole('button', { name: /Use suggestion/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
-    expect(props.onChange).toHaveBeenCalledTimes(1);
+    improve();
+    fireEvent.click(btn(/Show AI draft/i));
+    fireEvent.click(btn(/Use suggestion/i));
+    fireEvent.click(btn(/Save & next/i));
     expect(props.onChange.mock.calls[0][2].placeholders).toBe(true);
-    // the second issue is saved without a blank, so the summary shows one applied and one still open
+    improve();
     fireEvent.change(editBox(), { target: { value: 'Built a dashboard that the managers used each week' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+    fireEvent.click(btn(/Save & next/i));
     expect(screen.getByText(/1 applied/i)).toBeTruthy();
     expect(screen.getByText(/1 open/i)).toBeTruthy();
   });
 });
 
-describe('Skip, the end and the way out', () => {
-  it('Skip moves on and saves nothing; skipping the last issue shows the summary', () => {
+describe('leaving an issue, the end, and the way out', () => {
+  it('Leave it for now moves on and saves nothing; leaving the last one shows the summary', () => {
     const { props } = setup();
-    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    fireEvent.click(btn(/Leave it for now/i));
     expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    fireEvent.click(btn(/Leave it for now/i));
     expect(props.onChange).not.toHaveBeenCalled();
     expect(screen.getByText(/2 open/i)).toBeTruthy();
   });
 
   it('the summary counts what is, and never says everything is fixed', () => {
     setup();
+    improve();
     fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    fireEvent.click(btn(/Save & next/i));
+    fireEvent.click(btn(/Leave it for now/i));
     expect(screen.getByText(/1 applied/i)).toBeTruthy();
     expect(screen.getByText(/1 open/i)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/fixed all|all fixed|all issues are fixed|resolved|optimi[sz]ed/i);
   });
 
-  it('the summary says how many issues are not covered here and where they are', () => {
+  it('the summary says how many issues are not covered here', () => {
     setup();
-    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    fireEvent.click(btn(/Leave it for now/i));
+    fireEvent.click(btn(/Leave it for now/i));
     expect(screen.getByText(/1 other issue/i)).toBeTruthy();
   });
 
   it('Open the Builder and Back to list from the summary', () => {
     const { props } = setup();
-    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Open the Builder/i }));
+    fireEvent.click(btn(/Leave it for now/i));
+    fireEvent.click(btn(/Leave it for now/i));
+    fireEvent.click(btn(/Open the Builder/i));
     expect(props.onOpenBuilder).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Back to list/i }));
+    fireEvent.click(btn(/Back to list/i));
     expect(props.onBackToList).toHaveBeenCalled();
   });
 
   it('Back to list with nothing typed leaves at once', () => {
     const { props } = setup();
-    fireEvent.click(screen.getByRole('button', { name: /Back to list/i }));
+    fireEvent.click(btn(/Back to list/i));
     expect(props.onBackToList).toHaveBeenCalled();
   });
 
   it('Back to list with an unsaved change asks first, and Stay keeps the text', () => {
     const { props } = setup();
+    improve();
     fireEvent.change(editBox(), { target: { value: 'Half written' } });
-    fireEvent.click(screen.getByRole('button', { name: /Back to list/i }));
+    fireEvent.click(btn(/Back to list/i));
     expect(props.onBackToList).not.toHaveBeenCalled();
     expect(screen.getByText(/Leave without saving/i)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /^Stay$/i }));
+    fireEvent.click(btn(/^Stay$/i));
     expect(editBox().value).toBe('Half written');
-    fireEvent.click(screen.getByRole('button', { name: /Back to list/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^Leave$/i }));
+    fireEvent.click(btn(/Back to list/i));
+    fireEvent.click(btn(/^Leave$/i));
     expect(props.onBackToList).toHaveBeenCalled();
-  });
-
-  it('there is one primary action: Save & next', () => {
-    setup();
-    expect(screen.getAllByRole('button', { name: /Save & next/i })).toHaveLength(1);
-  });
-});
-
-describe('edge states', () => {
-  it('the same text in several places: the user chooses first, nothing is marked or saved until then', () => {
-    const issues = [{ severity: 'high', title: 'Plain verb', description: 'Say more.', before: 'Trained two new hires', after: 'Coached two new hires', builderStep: 2, module: null }];
-    const { container, props } = setup({ issues });
-    expect(screen.getByText(/2 places/i)).toBeTruthy();
-    expect(screen.queryByRole('textbox', { name: /your text/i })).toBeNull();
-    expect(container.querySelectorAll('[data-fix-marked]')).toHaveLength(0);
-    fireEvent.click(screen.getByRole('button', { name: /Beta/ }));
-    expect(editBox().value).toBe('Trained two new hires');
-    expect(container.querySelector('[data-fix-marked]').getAttribute('data-fix-at')).toBe('b:2:0');
-    expect(props.onChange).not.toHaveBeenCalled();
-  });
-
-  it('a bullet that the preview does not draw says so and can still be edited', () => {
-    const issues = [{ severity: 'low', title: 'Odd line', description: 'x', before: 'Filed paperwork', after: '', builderStep: 2, module: null }];
-    const { container } = setup({ issues });
-    expect(screen.getByText(/does not show it/i)).toBeTruthy();
-    expect(container.querySelectorAll('[data-fix-marked]')).toHaveLength(0);
-    expect(editBox().value).toBe('Filed paperwork');
   });
 
   it('with no issue that can be fixed here it goes straight to the summary and says so', () => {
@@ -280,25 +308,68 @@ describe('edge states', () => {
     const data = makeData(); data.experience[0].bullets[0] = 'Cut monthly reporting time for the sales team';
     const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: 'Cut monthly reporting time for the sales team', original: 'Handled monthly reporting for the sales team' };
     setup({ data, records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } } });
-    // the first issue is applied, so the page opens on the second one
-    expect(screen.getByText('Plain dashboard bullet')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Skip/i }));
+    expect(screen.getByText('Plain dashboard bullet')).toBeTruthy();   // opens on the one that is not applied
+    fireEvent.click(btn(/Leave it for now/i));
     expect(screen.getByText(/1 applied/i)).toBeTruthy();
   });
 });
 
-describe('a narrow screen', () => {
-  it('has two tabs, Resume and Fix, so the resume is never under a long form', () => {
+describe('the whole resume, only when asked for', () => {
+  it('is not on the page until View full resume is pressed', () => {
     setup();
-    // the tabs are hidden by CSS on a wide screen and shown below 768px, so the test looks at hidden elements too
-    const tabs = screen.getByRole('tablist', { hidden: true });
-    const [resumeTab, fixTab] = within(tabs).getAllByRole('tab', { hidden: true });
-    expect(resumeTab.textContent).toMatch(/Resume/);
-    expect(fixTab.textContent).toMatch(/Fix/);
-    expect(fixTab.getAttribute('aria-selected')).toBe('true');
-    fireEvent.click(resumeTab);
-    expect(resumeTab.getAttribute('aria-selected')).toBe('true');
-    expect(document.querySelector('[data-pane="resume"]').getAttribute('data-active')).toBe('true');
-    expect(document.querySelector('[data-pane="fix"]').getAttribute('data-active')).toBe('false');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText(/Template:/)).toBeNull();
+  });
+
+  it('opens the resume in the chosen template with the sentence marked and scrolled into view, and closes again', () => {
+    const { container } = setup();
+    fireEvent.click(btn(/View full resume/i));
+    const dialog = screen.getByRole('dialog', { name: /your resume/i });
+    expect(within(dialog).getByText(/Jordan Lee/)).toBeTruthy();
+    expect(within(dialog).getByText(new RegExp(`Template: ${TEMPLATE.label}`))).toBeTruthy();
+    const marked = container.querySelectorAll('[data-fix-marked]');
+    expect(marked).toHaveLength(1);
+    expect(marked[0].getAttribute('data-fix-at')).toBe('b:0:0');
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: /Close/i }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('shows the typed text in the marked place, not yet saved', () => {
+    const { container, props } = setup();
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time for the sales team' } });
+    fireEvent.click(btn(/View full resume/i));
+    expect(container.querySelector('[data-fix-at="b:0:0"]').textContent).toContain('Cut monthly reporting time');
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('edge states', () => {
+  it('the same text in several places: the user chooses first, and no excerpt is shown until then', () => {
+    const issues = [{ severity: 'high', title: 'Plain verb', description: 'Say more.', before: 'Trained two new hires', after: 'Coached two new hires', builderStep: 2, module: null }];
+    const { props } = setup({ issues });
+    expect(screen.getByText(/2 places/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Improve this sentence/i })).toBeNull();
+    fireEvent.click(btn(/Beta/));
+    expect(screen.getByText('Beta · Lead · 2023 - now')).toBeTruthy();
+    improve();
+    expect(editBox().value).toBe('Trained two new hires');
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+
+  it('a bullet the full resume does not draw says so and can still be edited', () => {
+    const issues = [{ severity: 'low', title: 'Odd line', description: 'x', before: 'Filed paperwork', after: '', builderStep: 2, module: null }];
+    setup({ issues });
+    expect(screen.getByText(/does not show it/i)).toBeTruthy();
+    improve();
+    expect(editBox().value).toBe('Filed paperwork');
+  });
+
+  it('a summary sentence is shown alone', () => {
+    const issues = [{ severity: 'medium', title: 'Generic summary', description: 'x', before: 'builds weekly reports', after: 'builds weekly sales reports', builderStep: 5, module: null }];
+    const { container } = setup({ issues });
+    expect(container.querySelector('[data-excerpt]').textContent).toContain('Analyst who builds weekly reports.');
+    expect(screen.queryByText(/Acme/)).toBeNull();
   });
 });

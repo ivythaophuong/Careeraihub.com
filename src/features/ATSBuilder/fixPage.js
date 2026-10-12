@@ -95,3 +95,17 @@ export function withFieldText(data, at, text) {
   if (rawField(data, at) === undefined || rawField(data, at) === null) return data;
   return writeField(data, at, String(text ?? ''));
 }
+
+// The passage with just enough around it to read it in context: the job as a heading, the nearest non-empty bullet before and after in the same job,
+// and the passage itself marked as the target. The summary is shown alone. null when the place does not exist.
+export function excerptFor(data, at) {
+  if (rawField(data, at) === undefined || rawField(data, at) === null) return null;
+  if (at.kind === 'summary') return { header: null, lines: [{ at, text: readField(data, at), target: true }] };
+  const job = data.experience[at.exp];
+  const header = [job.company, job.title, job.period].filter(x => x && String(x).trim()).join(' · ') || `Job ${at.exp + 1}`;
+  const filled = (i) => !!nfc(job.bullets[i]).trim();
+  const line = (i, target) => ({ at: { kind: 'bullet', exp: at.exp, bullet: i }, text: nfc(job.bullets[i]), target });
+  let before = at.bullet - 1; while (before >= 0 && !filled(before)) before--;
+  let after = at.bullet + 1; while (after < job.bullets.length && !filled(after)) after++;
+  return { header, lines: [...(before >= 0 ? [line(before, false)] : []), line(at.bullet, true), ...(after < job.bullets.length ? [line(after, false)] : [])] };
+}

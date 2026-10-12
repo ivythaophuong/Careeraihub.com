@@ -33,6 +33,8 @@ describe('opening the Fix page', () => {
   it('Fix in Builder on an issue whose text is in the resume opens the Fix page, not the step form', () => {
     openFix();
     expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(screen.queryByRole('textbox')).toBeNull();   // the first screen has no edit box
+    fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
     expect(screen.getByRole('textbox', { name: /your text/i }).value).toBe('Handled monthly reporting for the sales team');
     expect(screen.queryByText(/Step \d of 6/)).toBeNull();
   });
@@ -60,6 +62,7 @@ describe('opening the Fix page', () => {
 describe('saving from the Fix page', () => {
   it('writes the text into the Builder draft and keeps a record the Suggestions panel can read', () => {
     openFix();
+    fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
     fireEvent.change(screen.getByRole('textbox', { name: /your text/i }), { target: { value: 'Cut monthly reporting time for the sales team' } });
     fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
     const draft = JSON.parse(localStorage.getItem(builderDraftKey('u1')));
@@ -71,6 +74,7 @@ describe('saving from the Fix page', () => {
 
   it('after Open the Builder the Suggestions panel shows that issue as Applied, and there is no Fixing reminder', () => {
     openFix();
+    fireEvent.click(screen.getByRole('button', { name: /Improve this sentence/i }));
     fireEvent.change(screen.getByRole('textbox', { name: /your text/i }), { target: { value: 'Cut monthly reporting time for the sales team' } });
     fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
     fireEvent.click(screen.getByRole('button', { name: /Open the Builder/i }));
@@ -94,6 +98,7 @@ describe('the template', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /Bold/ })[0]);
     fireEvent.click(screen.getByRole('button', { name: /Upload & Parse/ }));
     fireEvent.click(screen.getByText(/Fix in Builder/));
+    fireEvent.click(screen.getByRole('button', { name: /View full resume/i }));   // the template is named in the full resume view
     expect(screen.getByText(/Template: Bold/)).toBeTruthy();
   });
 });
