@@ -41,7 +41,7 @@ Cột phải của Builder, phía trên bản xem trước, gập được. Trê
 - Không lưu trạng thái Apply ngoài trình duyệt (như nháp hiện tại).
 
 ## 5. Rủi ro đã biết
-- Điểm của Builder tính trên văn bản dựng lại có thể lệch vài điểm so với điểm tính trên văn bản CV gốc (khác định dạng); panel hiện nhãn "nội dung đang sửa" và không so với điểm gốc. [UNKNOWN: độ lệch thực tế, sẽ đo trên CV tổng hợp ở commit 1.]
+- Điểm của Builder tính trên văn bản dựng lại có thể lệch vài điểm so với điểm tính trên văn bản CV gốc (khác định dạng); panel hiện nhãn "nội dung đang sửa" và không so với điểm gốc. [UNKNOWN: độ lệch thực tế chưa đo; commit 1 chỉ kiểm tra điểm ổn định và đổi khi sửa. Cần đo trên vài CV tổng hợp nhiều dạng trước khi nói điểm Builder và điểm quét "bằng nhau".]
 - `before` do AI trích có thể không khớp nguyên văn: khi đó Apply tắt (đã nêu ở 3.2).
 
 ## 6. Thứ tự làm
