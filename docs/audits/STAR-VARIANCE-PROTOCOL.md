@@ -32,6 +32,13 @@ Kết quả chỉ nói về **độ ổn định**. Nó **không** chứng minh 
 6. Báo lại cho tôi tên tệp. Tôi đọc tệp cục bộ trên cùng máy; tệp chỉ gồm câu chuyện tổng hợp, điểm và cấu hình.
 7. Xong thì có thể bỏ khóa khỏi phiên: `unset ANTHROPIC_API_KEY`.
 
+### Lưu liên tục, dừng sạch, và hạn mức của nhà cung cấp
+- Tệp kết quả được ghi **sau mỗi lượt review** (ghi vào tệp tạm rồi đổi tên, nên không bao giờ có nửa tệp). Ngắt giữa chừng hay mất mạng không làm mất dữ liệu.
+- **Ctrl-C một lần** dừng sạch sau lượt đang chạy (hai lần thì thoát ngay). Phần đã có được giữ.
+- **Tự dừng khi nhà cung cấp liên tục từ chối:** mặc định sau **3** lượt liên tiếp thất bại (sau khi đã thử lại), vì thường đó là hạn mức đã cạn và chờ thêm chỉ phí thời gian. `--stop-after-failures N` để đổi. Kết quả ghi rõ "STOPPED EARLY".
+- `--max-calls N` dừng sau N lượt trong phiên này, dùng khi nhà cung cấp có hạn mức theo ngày: chạy từng đợt, mỗi đợt `--resume` tệp trước.
+- Lần chạy đầu thực tế (Gemini, 50 lượt) thành công 18 lượt rồi hạn mức hết (25 lỗi 429, 7 lỗi 502); lần chạy tiếp ngay sau đó bị 429 từ lượt đầu. Giới hạn cụ thể của khóa (theo phút, theo ngày, theo token) **chưa biết**: xem trang hạn mức của nhà cung cấp.
+
 ### Chạy tiếp từ một tệp kết quả cũ
 Nếu một lần chạy bị mất nhiều lượt (ví dụ vì giới hạn tần suất), chạy tiếp bằng `--resume <tệp>`: giữ nguyên các lượt đã thành công, chỉ chạy các cặp (câu chuyện, vòng) còn thiếu. Công cụ **từ chối** chạy tiếp nếu model hoặc prompt của bất kỳ câu chuyện nào khác tệp cũ, hoặc nếu mã chấm điểm đã đổi (khi tệp cũ có ghi mã băm). Nếu tệp cũ không ghi mã băm của mã chấm điểm thì ghi chú điều đó vào kết quả. Các lượt đo ở những thời điểm khác nhau vẫn là các quan sát độc lập của cùng một cấu hình, nhưng chênh lệch theo giờ hoặc theo ngày (nếu có) sẽ nằm lẫn trong độ biến thiên.
 

@@ -179,3 +179,60 @@ describe('resuming from an earlier results file', () => {
     expect(again.runs).toHaveLength(2);
   });
 });
+
+describe('saving as it goes, and stopping when the provider has nothing left to give', () => {
+  const wait = { delayMs: 0, retryWaitMs: [0, 0, 0] };
+
+  it('reports the partial result after every review, so an interruption loses nothing', async () => {
+    const seen = [];
+    const res = await runVariance({ env: ENV, fetchImpl: stubFetch(() => 60), stories: two.stories, runs: 2, ...wait, onCheckpoint: (r) => seen.push(r.runs.length) });
+    expect(seen).toEqual([1, 2, 3, 4]);
+    expect(res.runs).toHaveLength(4);
+  });
+
+  it('stops after a number of failures in a row (quota gone) instead of waiting through every retry for every remaining review, and says so', async () => {
+    const fetchImpl = stubFetch(() => 60, { failCalls: Array.from({ length: 100 }, (_, i) => i + 1), failStatus: 429 });
+    const res = await runVariance({ env: ENV, fetchImpl, stories: two.stories, runs: 5, ...wait, stopAfterFailures: 2 });
+    expect(res.runs).toHaveLength(2);
+    expect(res.runs.every((r) => !r.ok)).toBe(true);
+    expect(fetchImpl.calls()).toBe(8); // 2 reviews x (1 try + 3 retries)
+    expect(res.config.stoppedEarly).toMatchObject({ reason: 'consecutive_failures', after: 2 });
+  });
+
+  it('a success resets the count of failures in a row', async () => {
+    // provider calls: 1-4 fail (review 1 gives up), 5 succeeds (review 2), 6-9 fail (review 3 gives up), 10-13 fail (review 4 gives up)
+    const fetchImpl = stubFetch(() => 60, { failCalls: [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13], failStatus: 429 });
+    const res = await runVariance({ env: ENV, fetchImpl, stories: two.stories, runs: 5, ...wait, stopAfterFailures: 2 });
+    expect(res.runs.map((r) => r.ok)).toEqual([false, true, false, false]);
+    expect(res.config.stoppedEarly.reason).toBe('consecutive_failures');
+  });
+
+  it('stops after the requested number of reviews (for a daily quota), and says so', async () => {
+    const res = await runVariance({ env: ENV, fetchImpl: stubFetch(() => 60), stories: two.stories, runs: 5, ...wait, maxCalls: 3 });
+    expect(res.runs).toHaveLength(3);
+    expect(res.config.stoppedEarly).toMatchObject({ reason: 'max_calls', after: 3 });
+  });
+
+  it('stops when asked to (Ctrl-C), after the review in progress, keeping what it has', async () => {
+    let n = 0;
+    const res = await runVariance({ env: ENV, fetchImpl: stubFetch(() => 60), stories: two.stories, runs: 5, ...wait, shouldStop: () => n++ >= 1 });
+    expect(res.runs).toHaveLength(1);
+    expect(res.config.stoppedEarly.reason).toBe('interrupted');
+  });
+
+  it('a stopped result can be resumed: only the missing reviews are run', async () => {
+    const first = await runVariance({ env: ENV, fetchImpl: stubFetch(() => 60), stories: two.stories, runs: 2, ...wait, maxCalls: 2 });
+    const fetchImpl = stubFetch(() => 60);
+    const done = await runVariance({ env: ENV, fetchImpl, stories: two.stories, runs: 2, ...wait, previous: first });
+    expect(fetchImpl.calls()).toBe(2);
+    expect(done.runs.filter((r) => r.ok)).toHaveLength(4);
+    expect(done.config.stoppedEarly).toBeNull();
+  });
+
+  it('the report says it stopped early and how to carry on', async () => {
+    const res = await runVariance({ env: ENV, fetchImpl: stubFetch(() => 60), stories: two.stories, runs: 5, ...wait, maxCalls: 2 });
+    const text = formatReport(res, '/tmp/x.json');
+    expect(text).toMatch(/stopped early/i);
+    expect(text).toMatch(/--resume/);
+  });
+});
