@@ -60,7 +60,8 @@ describe('runVariance (the real score-star handler, a stand-in provider)', () =>
     expect(res.config.promptHashes[two.stories[0].id]).toMatch(/^[0-9a-f]{64}$/);
     expect(res.config.promptHashes[two.stories[0].id]).not.toBe(res.config.promptHashes[two.stories[1].id]);
     expect(res.config.nodeVersion).toMatch(/^v\d+/);
-    expect(res.config.temperature).toMatch(/provider default/i);
+    expect(res.config.temperature.mode).toBe('not_overridden');
+    expect(res.config.temperature.note).toMatch(/provider default/i);
     expect(res.runs[0].usage).toMatchObject({ input_tokens: 700, output_tokens: 300 });
   });
 
