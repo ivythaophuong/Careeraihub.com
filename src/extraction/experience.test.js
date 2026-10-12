@@ -95,15 +95,15 @@ describe('extractExperiences', () => {
 
     it('a real achievement line before the next date line stays a bullet of the previous job', () => {
       const [a] = extractExperiences(
-        'Senior Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Built 3 dashboards\nManaged a budget of $2M\n' +
+        'Senior Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Built 3 dashboards.\nManaged a budget of $2M\n' +
         'Analyst, Beta Ltd\nJun 2017 – Dec 2019\n• Reduced errors by 25%'
       );
-      expect(bulletsOf(a)).toEqual(['Built 3 dashboards', 'Managed a budget of $2M']);
+      expect(bulletsOf(a)).toEqual(['Built 3 dashboards.', 'Managed a budget of $2M']);
     });
 
     it('a sentence that ends with a full stop is never taken as a header', () => {
       const [a] = extractExperiences(
-        'Senior Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Built 3 dashboards\nWorked as a data analyst on weekly reports.\n' +
+        'Senior Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Built 3 dashboards.\nWorked as a data analyst on weekly reports.\n' +
         'Analyst, Beta Ltd\nJun 2017 – Dec 2019\n• Reduced errors by 25%'
       );
       expect(bulletsOf(a)).toContain('Worked as a data analyst on weekly reports.');
@@ -147,9 +147,34 @@ describe('extractExperiences', () => {
       expect([b.title.value, b.company.value]).toEqual(['Analyst', 'Beta Ltd']);
     });
 
-    it('a new unmarked achievement (capital letter) is still its own bullet', () => {
-      const [a] = extractExperiences('Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Built 3 dashboards\nManaged a budget of $2M');
-      expect(bulletsOf(a)).toEqual(['Built 3 dashboards', 'Managed a budget of $2M']);
+    describe('a wrapped bullet is recognised by several signals, not by case alone', () => {
+      const one = (body) => bulletsOf(extractExperiences(`Analyst, Acme Corp\nJan 2020 – Mar 2023\n${body}`)[0]);
+
+      it('the second line starts with a number', () => {
+        expect(one('• Improved reporting accuracy by\n25% through automated validation\n• Built 3 dashboards'))
+          .toEqual(['Improved reporting accuracy by 25% through automated validation', 'Built 3 dashboards']);
+      });
+      it('the second line starts with a capital, inside a list whose bullets have markers', () => {
+        expect(one('• Improved reporting accuracy\nThrough automated validation, reduced manual review\n• Built 3 dashboards'))
+          .toEqual(['Improved reporting accuracy Through automated validation, reduced manual review', 'Built 3 dashboards']);
+      });
+      it('the first line ends in a word that cannot end a sentence (by, and, of, the...) or a comma', () => {
+        expect(one('Cut costs across the\nOperations division by 12%\nBuilt 3 dashboards.'))
+          .toEqual(['Cut costs across the Operations division by 12%', 'Built 3 dashboards.']);
+        expect(one('• Reduced errors, saved time,\nImproved morale\n• Built 3 dashboards'))
+          .toEqual(['Reduced errors, saved time, Improved morale', 'Built 3 dashboards']);
+      });
+      it('after a finished sentence a capital starts a new bullet, even without a marker', () => {
+        expect(one('• Built 3 dashboards.\nManaged a budget of $2M'))
+          .toEqual(['Built 3 dashboards.', 'Managed a budget of $2M']);
+      });
+      it('with no markers at all, two complete lines stay two bullets', () => {
+        expect(one('Cut report time by 30% across 4 teams\nBuilt 3 dashboards used by 6 managers'))
+          .toEqual(['Cut report time by 30% across 4 teams', 'Built 3 dashboards used by 6 managers']);
+      });
+      it('a marker always starts a new bullet', () => {
+        expect(one('• Improved reporting accuracy by\n• 25% fewer errors')).toEqual(['Improved reporting accuracy by', '25% fewer errors']);
+      });
     });
 
     it('a ranges written "to Present" gives the title and company, not date words', () => {
