@@ -20,7 +20,7 @@ const firstVerbAt = (text, level) => words(text).find(w => levelOf(w) === level)
 const SCOPE = ['company-wide', 'organization-wide', 'organisation-wide', 'enterprise', 'global', 'globally', 'worldwide', 'nationwide', 'cross-functional',
   'executive', 'executives', 'c-suite', 'board', 'stakeholder', 'stakeholders', 'strategic', 'strategy', 'decision', 'decisions', 'budget', 'budgets', 'p&l'];
 
-const OUTCOME = /^(improv\w*|increas\w*|reduc\w*|sav(?:e|ed|es|ing|ings)|grow\w*|boost\w*|generat\w*|accelerat\w*|streamlin\w*|cut|lower\w*|enhanc\w*|optimi[sz]\w*)$/;
+const OUTCOME = /^(grew|grown|gain(?:ed|s)?|doubled|tripled|improv\w*|increas\w*|reduc\w*|sav(?:e|ed|es|ing|ings)|grow\w*|boost\w*|generat\w*|accelerat\w*|streamlin\w*|cut|lower\w*|enhanc\w*|optimi[sz]\w*)$/;
 
 // Capitalised words (not at the start of a sentence), acronyms and names with a dot or digit, e.g. Tableau, AWS, Node.js.
 function namedTerms(text) {

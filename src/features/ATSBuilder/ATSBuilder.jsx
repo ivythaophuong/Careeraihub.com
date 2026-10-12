@@ -393,7 +393,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           const scoreLabel = !hasScore ? 'Not enough readable content to score' : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
           const circumference = 2 * Math.PI * 28;
           // focus = { step, issue } when the user came from one issue, so the builder opens at that issue's step and keeps it on screen.
-          const goToBuilder = (focus) => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(focus); };
+          const goToBuilder = (focus) => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }, { keepDraft: true }); if (onGoToBuilder) onGoToBuilder(focus); };
 
           return (
             <>
@@ -1240,8 +1240,10 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
   };
 
   // Called by UploadAndParseTab when parse succeeds — persist profile so re-login shows cards without re-parsing
-  const handleProfileParsed = (parsedProfile) => {
-    clearBuilderDraft(user?.id); // a newly parsed resume must win over an older saved draft
+  const handleProfileParsed = (parsedProfile, opts) => {
+    // A newly parsed resume must win over an older saved draft. Going back to the Builder with the SAME profile ("Fix in Builder") is not a new
+    // parse: it must not wipe the user's edits or the record of the suggestions they applied.
+    if (!opts?.keepDraft) clearBuilderDraft(user?.id);
     if (updateMemory) updateMemory(m => ({ ...m, parseProfile: parsedProfile }));
   };
 

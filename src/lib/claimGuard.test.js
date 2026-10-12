@@ -62,6 +62,10 @@ describe('claimWarnings', () => {
     expect(types('Cut costs by 12%', 'Reduced costs by 12% through vendor renegotiation')).not.toContain('result');
   });
 
+  it('knows irregular outcome verbs such as grew', () => {
+    expect(types('Prepared reports', 'Cut report time by 20%', 'Jordan\n- Grew revenue by 20%\n- Prepared reports')).not.toContain('result');
+  });
+
   it('ignores a capitalised first word and ordinary sentence words', () => {
     expect(types('Prepared reports', 'Produced weekly reports for the team')).toEqual([]);
   });

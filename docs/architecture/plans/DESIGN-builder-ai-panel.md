@@ -1,6 +1,6 @@
 # Thiết kế: Panel gợi ý trong Resume Builder (điểm sống + nút Apply)
 
-Trạng thái: **DESIGN. Code làm theo 3 commit nhỏ ở mục 6; mỗi commit có test.** Viết 2026-10-12 cho chủ sản phẩm (Ivy). Thuật ngữ kỹ thuật giữ tiếng Anh.
+Trạng thái: **ĐÃ LÀM trên nhánh `feat/builder-ai-panel` (mục 7 ghi những gì đã làm sau đợt đánh giá và những gì còn mở).** Viết 2026-10-12 cho chủ sản phẩm (Ivy). Thuật ngữ kỹ thuật giữ tiếng Anh.
 Nhãn: **[CODE]** đọc trong mã · **[PROPOSAL]** đề xuất, chủ sản phẩm có thể đổi · **[UNKNOWN]**.
 
 ## 1. Mục tiêu (theo mô tả của chủ sản phẩm)
@@ -49,3 +49,22 @@ Cột phải của Builder, phía trên bản xem trước, gập được. Trê
 1. `builderDataToText` + panel điểm sống (+ test điểm đổi khi sửa).
 2. Thẻ vấn đề + Apply/Undo + chốt chặn số (+ test các nhánh: khớp 1, 0, nhiều chỗ, số lạ).
 3. Mục từ code (3.3).
+
+## 7. Sau đợt đánh giá (2026-10-12): đã làm và còn mở
+Đã làm (mỗi mục có test viết trước):
+- **Đo điểm Builder so với điểm tải lên** trên 7 CV tổng hợp: 6/7 trùng, 1/7 lệch do bộ đọc file (mục 5). Panel ghi hai con số có thể lệch và điểm không dự đoán một ATS cụ thể.
+- **Apply an toàn hơn:** so khớp bỏ qua khác biệt không có nghĩa (khoảng trắng đặc biệt, ngoặc kép cong, loại gạch ngang, ký tự zero-width); nhiều chỗ thì người dùng chọn; thay đúng đoạn trích, giữ phần còn lại của bullet.
+- **Undo theo nội dung, không theo vị trí:** thêm/đổi chỗ/xóa công việc không làm Undo trỏ nhầm; từ chối khi đoạn đã bị sửa hoặc xuất hiện hai chỗ.
+- **Trạng thái thẻ từ văn bản hiện tại:** Applied / Applied, then edited by you / Open / Changed by you. Không bao giờ ghi "Resolved".
+- **Bản ghi Apply lưu cùng bản nháp** (và xóa cùng bản nháp), chịu được khi trình duyệt chặn lưu trữ.
+- **`claimGuard`:** cảnh báo khi gợi ý nâng vai trò lên led/owned, thêm từ phạm vi, nêu tên công cụ/tổ chức chưa có trong CV, hoặc khẳng định kết quả mà CV không nêu. Hiện trước khi Apply; nút thành "Apply — I confirm this is true"; cảnh báo ở lại cho đến khi Undo.
+- **Sửa lỗi có sẵn:** bấm "Fix in Builder" lần nữa trước đây xóa bản nháp đã sửa; nay chỉ phân tích mới mới xóa.
+- **Test nghiệm thu qua component thật** (`ATSBuilder.suggestions.test.jsx`): điểm tăng khi Apply, chỉ đúng bullet đích đổi, khóa Apply khi không có câu gốc, số lạ thành [X], xác nhận khi nâng vai trò, chuyển bước rồi quay lại, tải lại, sửa tay sau Apply.
+
+Còn mở (chưa làm, chưa bằng chứng):
+- Chưa thử trên giao diện thật bằng người; chưa thử trên CV thật nhiều kinh nghiệm, nhiều bullet giống nhau, ngày thiếu.
+- `claimGuard` là danh sách từ tiếng Anh: bỏ sót cách diễn đạt không có trong danh sách, và có thể cảnh báo thừa. Chưa đo tỉ lệ thừa/thiếu trên dữ liệu thật.
+- Chưa dùng `claimGuard` ở STAR, Cover Letter, Interview, Salary.
+- Lỗi bộ đọc "Title, Company" đứng riêng bị tính là bullet: cần PR riêng (có test `it.fails`).
+- Bấm "Fix in Builder" khi đã có bản nháp: kỹ năng sửa ở màn phân tích không ghi đè bản nháp nữa (hành vi mới, cần chủ sản phẩm xác nhận).
+- Chưa hỏi lại khi tải PDF/Word mà còn `[X]`.
