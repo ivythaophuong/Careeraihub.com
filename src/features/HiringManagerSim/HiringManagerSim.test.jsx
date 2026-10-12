@@ -114,6 +114,8 @@ describe('answering', () => {
     expect(screen.getByText('Clear structure.')).toBeTruthy();
     expect(screen.getByText('No measurable result.')).toBeTruthy();
     expect(screen.getByText('Tip for 72')).toBeTruthy();
+    expect(screen.queryByText('• State the result')).toBeNull(); // hidden until asked, so the user tries first
+    fireEvent.click(screen.getByRole('button', { name: /show a stronger structure/i }));
     expect(screen.getByText('• State the result')).toBeTruthy();
     const evalPrompt = callLLM.mock.calls[1][0][0].content;
     expect(evalPrompt).toContain('Interview question number 1');

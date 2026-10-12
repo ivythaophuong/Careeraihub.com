@@ -113,3 +113,42 @@ describe('score-interview: save', () => {
     expect(JSON.stringify(await res.json())).not.toContain('service-secret');
   });
 });
+
+describe('score-interview: one score per question in a saved session', () => {
+  // The browser only sends the first attempt of each question, but the server cannot rely on that: it must not accept several graded
+  // answers to the SAME question in one session (a user could otherwise send five receipts of one question, or the best of several tries).
+  const answerB = 'I led the same checkout migration, but this time I named the metric: failed payments fell by a third in two months.';
+  const gradedWith = async (score, answer, q = Q) => {
+    const res = await call({ action: 'evaluate', personaId: 'startup', question: q, answer }, { fetchImpl: makeFetch({ score }) });
+    const data = await res.json();
+    return { question: q, answer, score: data.feedback.score, ts: data.receipt.ts, sig: data.receipt.sig };
+  };
+
+  it('refuses two graded answers to the same question, even with different answers and scores', async () => {
+    const first = await gradedWith(55, A);
+    const better = await gradedWith(90, answerB);
+    const fetchImpl = makeFetch();
+    const res = await call(saveBody([first, better]), { fetchImpl });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toMatch(/same question/i);
+    expect(fetchImpl.inserts).toHaveLength(0);
+  });
+
+  it('treats the same question written with different case, spacing or end punctuation as the same question', async () => {
+    const first = await gradedWith(55, A, Q);
+    const again = await gradedWith(90, answerB, `  ${Q.toUpperCase().replace(/\.$/, '')}  `);
+    expect((await call(saveBody([first, again]))).status).toBe(400);
+  });
+
+  it('still saves a normal session of different questions, and averages the signed scores', async () => {
+    const items = [
+      await gradedWith(60, A, 'Tell me about a time you led a project under pressure.'),
+      await gradedWith(80, A, 'Describe a disagreement with a teammate and how you resolved it.'),
+    ];
+    const fetchImpl = makeFetch();
+    const res = await call(saveBody(items), { fetchImpl });
+    expect(res.status).toBe(200);
+    expect((await res.json()).avgScore).toBe(70);
+    expect(fetchImpl.inserts[0].avg_score).toBe(70);
+  });
+});

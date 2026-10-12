@@ -6,6 +6,8 @@
 //
 // Each receipt is an HMAC over (user id, time, persona, question, answer, score). 'save' checks every receipt and computes the
 // average itself from the signed scores, so a changed score, answer or user, or a made-up item, is refused.
+// One score per question: a session with two graded answers to the same question is refused. The server still cannot know which attempt was the
+// FIRST (no session or ledger table yet), so "first attempt counts" is enforced by the browser; see docs/architecture/plans/DESIGN-mock-interview-tier0.md §13.
 // Known limits: the questions come from the `ai` function and are not signed (a user can practise on questions of their own choosing);
 // a valid session can be saved again (capped at 10 sessions per user per 24 hours) because mock_sessions has no column to remember it.
 import { callWithFallback, providerChain, ProviderError } from '../ai/providers.js';
@@ -30,6 +32,8 @@ const defaultLimiter = createRateLimiter({ max: LIMITS.rateMax });
 
 const canonical = (uid, ts, personaId, question, answer, score) => JSON.stringify([uid, ts, personaId, question, answer, score]);
 const text = (v) => (typeof v === 'string' ? v.trim() : '');
+// The same question however it is spaced, cased or punctuated at the end.
+const questionKey = (q) => q.toLowerCase().replace(/\s+/g, ' ').replace(/[\s.?!]+$/, '');
 
 async function evaluate(body, user, env, fetchImpl, cors, now) {
   const personaId = body.personaId;
@@ -70,6 +74,7 @@ async function save(body, user, env, fetchImpl, cors, now) {
   if (!env.SUPABASE_SERVICE_ROLE_KEY || !env.SUPABASE_URL) { console.error('[score-interview] Service role key missing.'); return fail(500, 'Scoring service is not configured.', cors); }
 
   const seen = new Set();
+  const seenQuestions = new Set();
   let sum = 0;
   for (const it of items) {
     const question = text(it?.question), answer = text(it?.answer);
@@ -81,6 +86,10 @@ async function save(body, user, env, fetchImpl, cors, now) {
     if (!sameText(expected, it.sig)) return fail(403, 'This score was not produced by the server. Please redo the session.', cors);
     if (seen.has(it.sig)) return fail(400, 'The same answer cannot be counted twice.', cors);
     seen.add(it.sig);
+    // One score per question: several graded answers to one question (retries, or the best of several tries) are never all counted.
+    const qk = questionKey(question);
+    if (seenQuestions.has(qk)) return fail(400, 'The same question cannot be counted twice in one session.', cors);
+    seenQuestions.add(qk);
     sum += it.score;
   }
   const avgScore = Math.round(sum / items.length);

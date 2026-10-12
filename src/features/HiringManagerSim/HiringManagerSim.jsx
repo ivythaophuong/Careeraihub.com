@@ -9,10 +9,37 @@ import {
   PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildQuestionsPrompt, normalizeQuestions, buildEvaluationPrompt,
   normalizeEvaluation, findInventedInFeedback, summarize, buildSessionRecord, toSessionRow, verdictFor,
 } from './interview';
+import { splitFirstSentence } from './feedbackDetail';
 
 const scoreColor = (s) => (s >= 75 ? C.green : s >= 60 ? C.gold : C.red);
 const label = { color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 };
 const ghostBtn = { background: "transparent", border: `1px solid ${C.border}`, color: C.muted, borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" };
+
+// One feedback point: the first sentence, and the rest behind a button, so the user thinks about it before reading more.
+function Detail({ text }) {
+  const { head, more } = splitFirstSentence(text);
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ color: C.text, fontSize: 13, lineHeight: 1.6 }}>
+      {head}
+      {more && !open && <> <button type="button" onClick={() => setOpen(true)} aria-expanded="false" style={{ ...ghostBtn, padding: '2px 8px', fontSize: 11, marginLeft: 4 }}>More detail</button></>}
+      {more && open && <> {more}</>}
+    </div>
+  );
+}
+
+// The outline of a stronger answer is almost the answer itself, so it stays hidden until the user asks.
+function Outline({ items }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <div style={{ color: C.gold, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>A Stronger Structure For Your Answer</div>
+      {open
+        ? items.map((b, i) => <div key={i} style={{ color: C.text, fontSize: 12, marginBottom: 4 }}>• {b}</div>)
+        : <button type="button" onClick={() => setOpen(true)} aria-expanded="false" style={ghostBtn}>Show a stronger structure</button>}
+    </div>
+  );
+}
 
 export default function HiringManagerSim({ resumeText, form, memory, updateMemory, setAuthModal, setActiveModule }) {
   const [phase, setPhase] = useState('select'); // select | interview | summary
@@ -28,6 +55,8 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [attempt, setAttempt] = useState(1); // 1 = first try at this question; more = practice retries
+  const [lastShown, setLastShown] = useState(null); // { fb, warnings } of the newest attempt, to go back to
 
   const resume = pickResumeSource({ memory, resumeText });
   const persona = personaId ? PERSONAS[personaId] : null;
@@ -42,7 +71,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
   const reset = () => {
     setPhase('select'); setPersonaId(null); setQuestions([]); setIdx(0); setResults([]); setAnswer('');
-    setCurrent(null); setWarnings([]); setErr(''); setSaved(false); setConfirmExit(false);
+    setCurrent(null); setWarnings([]); setErr(''); setSaved(false); setConfirmExit(false); setAttempt(1); setLastShown(null);
   };
 
   const start = async (id) => {
@@ -52,7 +81,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     try {
       const raw = await callLLMFor('mock_questions', resume)([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
       setQuestions(normalizeQuestions(extractJSON(raw)));
-      setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false);
+      setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false); setAttempt(1); setLastShown(null);
       setPhase('interview');
     } catch (e) {
       fail(e, 'Create a free account or sign in to start a mock interview.', 'Could not start the interview. Please try again.');
@@ -75,9 +104,16 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         const raw = await callLLMFor('mock_evaluate_legacy', resume)([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume }) }], 1800);
         fb = normalizeEvaluation(extractJSON(raw));
       }
+      const found = findInventedInFeedback({ question: q.question, answer }, fb);
       setCurrent(fb);
-      setWarnings(findInventedInFeedback({ question: q.question, answer }, fb));
-      setResults(r => [...r, { question: q.question, focus: q.focus, answer, ...fb, receipt }]);
+      setWarnings(found);
+      setLastShown({ fb, warnings: found });
+      if (attempt === 1) {
+        setResults(r => [...r, { question: q.question, focus: q.focus, answer, ...fb, receipt }]);
+      } else {
+        // A retry is practice: it is kept next to the first attempt, which is the only one that is scored and saved.
+        setResults(r => r.map((x, i) => (i === r.length - 1 ? { ...x, retries: [...(x.retries || []), { answer, score: fb.score }] } : x)));
+      }
     } catch (e) {
       // The typed answer stays in the box so the user can simply retry.
       fail(e, 'Create a free account or sign in to get feedback.', 'Could not evaluate your answer. Please try again.');
@@ -124,10 +160,16 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
   const advance = (finalResults) => {
     if (idx + 1 < questions.length) {
-      setIdx(idx + 1); setAnswer(''); setCurrent(null); setWarnings([]); setErr('');
+      setIdx(idx + 1); setAnswer(''); setCurrent(null); setWarnings([]); setErr(''); setAttempt(1); setLastShown(null);
     } else {
       finish(finalResults);
     }
+  };
+
+  const tryAgain = () => { if (busy) return; setAttempt(a => a + 1); setCurrent(null); setWarnings([]); setErr(''); };
+  const backToFeedback = () => {
+    if (busy || !lastShown) return;
+    setAttempt(a => Math.max(1, a - 1)); setCurrent(lastShown.fb); setWarnings(lastShown.warnings); setErr('');
   };
 
   const skip = () => {
@@ -221,6 +263,8 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           </Card>
         )}
 
+        {results.some(r => r.retries?.length) && <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.6 }}>Only the first attempt counts toward your score and history. Practice attempts are AI estimates for your own learning; they are kept for this visit only and are not saved.</div>}
+
         {s.priorities.length > 0 && (
           <Card style={{ border: `1px solid ${C.accent}44` }}>
             <div style={{ color: C.accent, fontWeight: 900, fontSize: 13, marginBottom: 10 }}>🎯 Practise These First</div>
@@ -237,6 +281,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
                 <div style={{ flex: 1 }}>
                   <div style={{ color: C.text, fontSize: 12, lineHeight: 1.5 }}>{r.question}</div>
                   {!r.skipped && r.tip && <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Tip: {r.tip}</div>}
+                  {!r.skipped && r.retries?.length > 0 && (() => { const last = r.retries[r.retries.length - 1].score; return <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Latest practice attempt: {last}% (first attempt: {r.score}%){last > r.score ? ' · scored higher' : ''}</div>; })()}
                 </div>
               </div>
             </div>
@@ -255,6 +300,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   // ── Interview ───────────────────────────────────────────────────────────────
   const answeredCount = results.filter(r => !r.skipped).length;
   const isLast = idx + 1 === questions.length;
+  const firstScore = results[results.length - 1]?.score; // the first attempt of the question on screen
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -292,13 +338,15 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             maxLength={MAX_ANSWER_CHARS}
             disabled={!!busy}
             onChange={e => { setAnswer(e.target.value); setErr(''); }}
-            placeholder="Type your answer here. A STAR structure (Situation, Task, Action, Result) works well for behavioural questions..."
+            placeholder={attempt > 1 ? 'Improve your answer, then ask for feedback again.' : 'Type your answer here. A STAR structure (Situation, Task, Action, Result) works well for behavioural questions...'}
             style={{ width: "100%", minHeight: 140, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: 16, fontSize: 13, outline: "none", lineHeight: 1.7, fontFamily: "inherit", resize: "vertical" }}
           />
           {err && <div role="alert" style={{ color: C.red, fontSize: 12 }}>⚠️ {err}</div>}
           <div style={{ display: "flex", gap: 12 }}>
             <Btn onClick={submit} disabled={!!busy} color={pColor} dark style={{ flex: 1 }}>{busy === 'feedback' ? 'Evaluating…' : '🧠 Get AI Feedback'}</Btn>
-            <Btn onClick={skip} disabled={!!busy} color={C.border} style={{ padding: "11px 20px" }}>Skip →</Btn>
+            {attempt === 1
+              ? <Btn onClick={skip} disabled={!!busy} color={C.border} style={{ padding: "11px 20px" }}>Skip →</Btn>
+              : <Btn onClick={backToFeedback} disabled={!!busy} color={C.border} style={{ padding: "11px 20px" }}>Back to feedback</Btn>}
           </div>
           {busy === 'feedback' && <Card><Spinner label={`Evaluating as ${persona.label}...`} /></Card>}
         </>
@@ -307,20 +355,25 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       {current && (
         <>
           <Card style={{ border: `1px solid ${scoreColor(current.score)}44` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ color: scoreColor(current.score), fontWeight: 900, fontSize: 20 }}>{current.verdict}</div>
-              <div style={{ color: scoreColor(current.score), fontSize: 24, fontWeight: 900 }} aria-label="Answer score">{current.score}%</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: attempt > 1 ? 8 : 20 }}>
+              <div style={{ color: scoreColor(current.score), fontWeight: 900, fontSize: 20 }}>{current.verdict}{attempt > 1 && <span style={{ color: C.muted, fontSize: 12, fontWeight: 700, marginLeft: 8 }}>Practice attempt {attempt}</span>}</div>
+              <div style={{ textAlign: "right" }}>
+                {attempt > 1 && <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Practice score (not counted)</div>}
+                <div style={{ color: scoreColor(current.score), fontSize: attempt > 1 ? 18 : 24, fontWeight: 900 }} aria-label="Answer score">{current.score}%</div>
+              </div>
             </div>
+            {attempt > 1 && Number.isFinite(firstScore) && (
+              <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>
+                First attempt (the one that counts): {firstScore}%. {current.score > firstScore
+                  ? 'This attempt scored higher than your first. That is one AI estimate, not proof that your skill changed.'
+                  : 'This attempt did not score higher than your first.'}
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {current.worked && <div><div style={{ color: C.green, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>What Worked</div><div style={{ color: C.text, fontSize: 13, lineHeight: 1.6 }}>{current.worked}</div></div>}
-              {current.missed && <div><div style={{ color: C.red, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>What Missed</div><div style={{ color: C.text, fontSize: 13, lineHeight: 1.6 }}>{current.missed}</div></div>}
-              {current.tip && <div style={{ background: C.surface, padding: 12, borderRadius: 8, borderLeft: `3px solid ${C.accent}` }}><div style={{ color: C.accent, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>Professional Tip</div><div style={{ color: C.text, fontSize: 13, lineHeight: 1.6 }}>{current.tip}</div></div>}
-              {current.betterAnswerOutline.length > 0 && (
-                <div>
-                  <div style={{ color: C.gold, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>A Stronger Structure For Your Answer</div>
-                  {current.betterAnswerOutline.map((b, i) => <div key={i} style={{ color: C.text, fontSize: 12, marginBottom: 4 }}>• {b}</div>)}
-                </div>
-              )}
+              {current.worked && <div><div style={{ color: C.green, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>What Worked</div><Detail text={current.worked} /></div>}
+              {current.missed && <div><div style={{ color: C.red, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>What Missed</div><Detail text={current.missed} /></div>}
+              {current.tip && <div style={{ background: C.surface, padding: 12, borderRadius: 8, borderLeft: `3px solid ${C.accent}` }}><div style={{ color: C.accent, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>Professional Tip</div><Detail text={current.tip} /></div>}
+              {current.betterAnswerOutline.length > 0 && <Outline items={current.betterAnswerOutline} />}
             </div>
           </Card>
           {warnings.length > 0 && (
@@ -329,7 +382,11 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
               <div style={{ color: C.text, fontSize: 12, lineHeight: 1.6 }}>The suggestions mention figures you did not give: <strong>{warnings.join(', ')}</strong>. Only use numbers you can back up in a real interview.</div>
             </Card>
           )}
-          <Btn onClick={() => advance(results)} color={pColor} dark style={{ width: "100%" }}>{isLast ? 'See Results →' : 'Next Question →'}</Btn>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Btn onClick={tryAgain} disabled={!!busy} color={C.border} style={{ padding: "11px 20px" }}>Try this answer again</Btn>
+            <Btn onClick={() => advance(results)} color={pColor} dark style={{ flex: 1 }}>{isLast ? 'See Results →' : 'Next Question →'}</Btn>
+          </div>
+          {attempt === 1 && <div style={{ color: C.muted, fontSize: 11 }}>Retrying is practice: only your first attempt counts toward your score and history, and practice attempts are not saved.</div>}
         </>
       )}
     </div>
