@@ -5,6 +5,9 @@
 import { describe, it, expect } from 'vitest';
 import { computeDeterministicScore } from './computeDeterministicScore';
 import { validateScoreResult } from '../contracts/scoreResult';
+import { extractResumeFacts } from '../extraction/resumeFacts';
+import { validateFacts } from '../validation/validateFacts';
+import { scoreResume } from './resumeScore';
 
 const HEAD = 'Jordan Lee\njordan@example.com | +1 555 0100\n\n';
 const EXP = 'Experience\nAnalyst, Acme Corp\nJan 2020 – Mar 2023\n• Cut report time by 30%\n\n';
@@ -104,6 +107,103 @@ describe('contract and version', () => {
   it.fails('results carry version 2.0.0', () => {
     expect(run(HEAD + EXP + EDU + SKILLS).version).toBe('2.0.0');
   });
-  it.todo('the checklist and the Builder read signals, not evidence strings (describeScorePart.js, codeFindings.js)');
-  it.todo('every signal unknown: the part is null and so is the overall score, not 0');
+});
+
+// ── Decisions of 2026-10-12 (C1-C5) and the review: scope of an assessment, partial extraction, URL at-signs, a date is not proof ──
+const SPLIT_EMAIL = 'jordan@\nexample.com';
+const ODD_WORK = 'Career Odyssey\nAnalyst, Acme Corp\nJan 2020 – Mar 2023\n• Cut report time by 30%\n\n';
+const ODD_SKILLS = 'Toolbox Matters\nSQL, Excel, Python\n';
+const AMBIGUOUS_NAME = 'Senior Product Analyst\nJordan Lee\nAlex Kim\n';
+const ALL_UNKNOWN = AMBIGUOUS_NAME + SPLIT_EMAIL + '\n\n' + ODD_WORK + ODD_SKILLS;
+const ONE_ASSESSED = AMBIGUOUS_NAME + 'jordan@example.com\n\n' + ODD_WORK + ODD_SKILLS;
+
+describe('C5: no fixed threshold, but the scope of the assessment is always stated', () => {
+  it.fails('every signal unknown: completeness is null and so is the overall score (not 0), and all four are listed as not assessed', () => {
+    const r = run(ALL_UNKNOWN);
+    expect(r.parts.find((p) => p.id === 'completeness').score).toBeNull();
+    expect(r.score).toBeNull();
+    expect(r.assessment).toMatchObject({ assessed: 0, total: 4 });
+    expect(r.assessment.not_assessed.map((n) => n.signal).sort()).toEqual(['email', 'experience_or_education', 'name', 'skills']);
+  });
+  it.fails('only one signal assessed (email present): the formula gives 100, and the result says 1 of 4, with the other three named', () => {
+    const r = run(ONE_ASSESSED);
+    expect(signal(ONE_ASSESSED, 'email')).toMatchObject({ state: 'present' });
+    expect(r.parts.find((p) => p.id === 'completeness').score).toBe(100);
+    expect(r.assessment).toMatchObject({ assessed: 1, total: 4 });
+    expect(r.assessment.not_assessed).toHaveLength(3);
+  });
+  it('one signal is enough to compute a score: there is no 2-of-4 cut-off (true today, must stay true)', () => {
+    expect(run(ONE_ASSESSED).score).not.toBeNull();
+  });
+});
+
+describe('partial extraction is judged signal by signal', () => {
+  const partial = () => {
+    const facts = extractResumeFacts(HEAD + EXP + EDU + SKILLS);
+    facts.extraction = { status: 'partial', notes: ['internal: one section could not be read'] };
+    facts.skills = []; // the part that was not read
+    return scoreResume(facts, validateFacts(facts));
+  };
+  it.fails('name and email that have valid evidence stay present; only the unread skills become unknown (extraction_incomplete)', () => {
+    const signals = Object.fromEntries(partial().parts.find((p) => p.id === 'completeness').signals.map((s) => [s.id, s]));
+    expect(signals.name.state).toBe('present');
+    expect(signals.email.state).toBe('present');
+    expect(signals.experience_or_education.state).toBe('present');
+    expect(signals.skills).toMatchObject({ state: 'unknown', reason: 'extraction_incomplete' });
+  });
+  it.fails('present and missing never carry an extraction reason', () => {
+    for (const sg of partial().parts.find((p) => p.id === 'completeness').signals) {
+      if (sg.state !== 'unknown') expect(sg.reason).toBeNull();
+    }
+  });
+});
+
+describe('an @ that is not an email address', () => {
+  it.fails('an @ in a URL or an account name does not make the email present, nor unknown: it is missing, and the ignored @ are counted', () => {
+    const t = 'Jordan Lee\nhttps://medium.com/@jordan\n@jordan_lee\n+1 555 0100\n\n' + EXP + EDU + SKILLS;
+    expect(signal(t, 'email')).toMatchObject({ state: 'missing', reason: null, evidence: { ignored_at_signs: 2 } });
+  });
+  it.fails('a real email next to a URL with an @ is still read', () => {
+    const t = 'Jordan Lee\nhttps://medium.com/@jordan\njordan@example.com\n\n' + EXP + EDU + SKILLS;
+    expect(signal(t, 'email')).toMatchObject({ state: 'present' });
+  });
+});
+
+describe('a date line is a sign to investigate, not proof of experience', () => {
+  it.fails('a dated certification with no experience or education entry: unknown (dates_without_section), not present and not missing', () => {
+    const t = HEAD + 'Certifications\nGoogle Data Analytics, Jan 2020 – Mar 2023\n\n' + SKILLS;
+    expect(signal(t, 'experience_or_education')).toMatchObject({ state: 'unknown', reason: 'dates_without_section' });
+  });
+});
+
+describe('one source of truth: the assessment is derived from the signals', () => {
+  const TEXTS = [HEAD + EXP + EDU + SKILLS, 'Jordan Lee\n+1 555 0100\n\n' + EXP + EDU + SKILLS, HEAD + EXP + EDU + ODD_SKILLS,
+    HEAD + ODD_WORK + SKILLS, 'Jordan Lee\n' + SPLIT_EMAIL + '\n\n' + EXP + EDU + SKILLS, ONE_ASSESSED, ALL_UNKNOWN];
+  it.fails('for every sample, not_assessed is exactly the unknown signals and assessed + not_assessed = total', () => {
+    for (const t of TEXTS) {
+      const r = run(t);
+      const signals = r.parts.find((p) => p.id === 'completeness').signals;
+      const unknown = signals.filter((x) => x.state === 'unknown').map((x) => ({ part: 'completeness', signal: x.id, reason: x.reason }));
+      expect(r.assessment.not_assessed).toEqual(unknown);
+      expect(r.assessment.assessed + r.assessment.not_assessed.length).toBe(r.assessment.total);
+      expect(r.assessment.total).toBe(signals.length);
+    }
+  });
+  it.fails('the validator rejects an assessment that disagrees with the signals, and a reason code outside the closed list', () => {
+    const r = JSON.parse(JSON.stringify(run(ONE_ASSESSED)));
+    expect(validateScoreResult(r).ok).toBe(true);
+    const bad = JSON.parse(JSON.stringify(r)); bad.assessment.not_assessed.pop();
+    expect(validateScoreResult(bad).ok).toBe(false);
+    const bad2 = JSON.parse(JSON.stringify(r)); bad2.parts.find((p) => p.id === 'completeness').signals.find((x) => x.state === 'unknown').reason = 'made_up_code';
+    expect(validateScoreResult(bad2).ok).toBe(false);
+  });
+});
+
+describe('every reader of the score uses the same contract (written when the UI changes)', () => {
+  it.todo('describeScorePart.js: "not found" only for missing, "not read" for unknown; no regex on evidence strings');
+  it.todo('codeFindings.js: only a missing signal says "add ..."; an unknown signal says "check ..."; it never tells the user to add something that may already be there');
+  it.todo('BuilderScorePanel.jsx: states the scope next to the number ("Based on n of 4 checks"); no raw Completeness evidence strings');
+  it.todo('ATSBuilder.jsx upload screen: the "ATS readiness" tile, the score ring and the Score Breakdown chips state the scope; no "Strong Resume" / "Score below 80" wording when assessed < total');
+  it.todo('changing the human-readable evidence text does not break any of the above');
+  it.todo('ATSBuilder.gate3/gate4 and readerParity expectations are updated on purpose, each change explained');
 });
