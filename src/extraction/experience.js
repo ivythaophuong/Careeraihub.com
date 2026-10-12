@@ -46,6 +46,9 @@ function classifyHeaderLines(lines, source) {
 // achievement starts with a capital. A brand such as "eBay" or "iRobot" starts in lower case too and is not a continuation.
 const startsLowercase = (line) => /^\p{Ll}/u.test(line.trim()) && !/^\p{Ll}+\p{Lu}/u.test(line.trim());
 
+// A line that cannot be the end of a sentence: it stops on a comma, a dash, or a word that always needs a next word. The next line continues it.
+const DANGLING = /(?:[,;:/&-]|\b(?:by|and|or|of|to|in|on|for|with|the|a|an|as|at|from|into|using|via|across|through|than|that|which|while|per|over|under|between|among|including|its|their|our))$/i;
+
 // "Title | Company" and "Company | Title" on one line: the first two parts become the two header lines.
 const splitPipes = (line) => (line.includes('|') ? line.split(/\s*\|\s*/).map(t => t.trim()).filter(Boolean).slice(0, 2) : [line]);
 
@@ -123,17 +126,23 @@ export function extractExperiences(sectionText, source = 'experiences') {
     }
     const { title, company } = classifyHeaderLines(headerLines.slice(-2), entrySource);
 
+    // A line without a marker continues the bullet above when that bullet is unfinished (no sentence end) and one of these holds: the line
+    // starts in lower case, the bullet above stops on a word that needs a next word, or the bullets of this job carry markers (so an
+    // unmarked line is far more likely a wrapped line than a new bullet). A marker always starts a new bullet. No single signal decides.
     const bullets = [];
+    let lastMarked = false;
     for (let j = bulletsStart; j < nextBoundary; j++) {
+      const marked = isBulletLine(lines[j]);
       const text = lines[j].replace(BULLET_RE, '').trim();
       if (!text) continue;
       const last = bullets[bullets.length - 1];
-      if (last && !isBulletLine(lines[j]) && startsLowercase(text) && !/[.!?]$/.test(last.value)) {
+      if (last && !marked && !/[.!?]$/.test(last.value) && (startsLowercase(text) || DANGLING.test(last.value) || lastMarked)) {
         last.value = `${last.value} ${text}`; // the same bullet, wrapped onto a second line
         last.evidence = `${last.evidence}\n${lines[j]}`;
         continue;
       }
       bullets.push(fact(text, `${entrySource}.bullets[${bullets.length}]`, lines[j], 0.8, 'structure'));
+      lastMarked = marked;
     }
 
     entries.push({
