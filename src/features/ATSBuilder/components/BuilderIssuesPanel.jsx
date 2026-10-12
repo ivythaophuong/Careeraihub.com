@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { locateAll, applyIssue, undoApply } from '../applyIssue.js';
 import { claimWarnings } from '../../../lib/claimGuard.js';
 import { builderDataToText } from '../builderText.js';
+import { issueKey } from '../fixPage.js';
 
 const SEV = { critical: '#FF5A5A', high: '#FFB84D', medium: 'var(--lp-text3)' };
 const btn = { background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' };
 
-const keyOf = (issue, i) => `${i}:${issue.title || ''}:${issue.before || ''}`;
+const keyOf = issueKey;   // shared with the Fix page, which keeps its records under the same keys
 const loadRecords = (storageKey) => {
   if (!storageKey) return {};
   try { return JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch { return {}; }
