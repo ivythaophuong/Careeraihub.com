@@ -10,6 +10,7 @@ import { TEMPLATES } from './resumeTemplates.jsx';
 import { printElement } from '../../lib/printElement.js';
 import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
 import BuilderScorePanel from './components/BuilderScorePanel.jsx';
+import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -1184,7 +1185,10 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         </div>
 
         {/* ATS readiness of the draft, computed by code as the user edits */}
-        <div style={{ paddingTop: 10, flexShrink: 0 }}><BuilderScorePanel data={data} /></div>
+        <div style={{ paddingTop: 10, flexShrink: 0 }}>
+          <BuilderScorePanel data={data} />
+          <BuilderIssuesPanel issues={initialProfile?.issues} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
+        </div>
 
         {/* Live preview — A4 width (794px = 210mm @ 96dpi) */}
         <div ref={containerRef} style={{ flex: 1, overflow: 'auto', background: '#e0e0e0', padding: '16px' }}>
