@@ -58,6 +58,7 @@ Cột phải của Builder, phía trên bản xem trước, gập được. Trê
 - **Trạng thái thẻ từ văn bản hiện tại:** Applied / Applied, then edited by you / Open / Changed by you. Không bao giờ ghi "Resolved".
 - **Bản ghi Apply lưu cùng bản nháp** (và xóa cùng bản nháp), chịu được khi trình duyệt chặn lưu trữ.
 - **`claimGuard`:** cảnh báo khi gợi ý nâng vai trò lên led/owned, thêm từ phạm vi, nêu tên công cụ/tổ chức chưa có trong CV, hoặc khẳng định kết quả mà CV không nêu. Hiện trước khi Apply; nút thành "Apply — I confirm this is true"; cảnh báo ở lại cho đến khi Undo.
+- **Hỏi lại khi xuất còn `[X]`:** PDF và Word, ở Builder và ResumeScan, hỏi một lần và nói còn bao nhiêu chỗ trống (`exportGuard.js`). Người dùng vẫn có thể xuất nếu chọn tiếp tục.
 - **Sửa lỗi có sẵn:** bấm "Fix in Builder" lần nữa trước đây xóa bản nháp đã sửa; nay chỉ phân tích mới mới xóa.
 - **Test nghiệm thu qua component thật** (`ATSBuilder.suggestions.test.jsx`): điểm tăng khi Apply, chỉ đúng bullet đích đổi, khóa Apply khi không có câu gốc, số lạ thành [X], xác nhận khi nâng vai trò, chuyển bước rồi quay lại, tải lại, sửa tay sau Apply.
 
@@ -67,4 +68,3 @@ Còn mở (chưa làm, chưa bằng chứng):
 - Chưa dùng `claimGuard` ở STAR, Cover Letter, Interview, Salary.
 - Lỗi bộ đọc "Title, Company" đứng riêng bị tính là bullet: cần PR riêng (có test `it.fails`).
 - Bấm "Fix in Builder" khi đã có bản nháp: kỹ năng sửa ở màn phân tích không ghi đè bản nháp nữa (hành vi mới, cần chủ sản phẩm xác nhận).
-- Chưa hỏi lại khi tải PDF/Word mà còn `[X]`.

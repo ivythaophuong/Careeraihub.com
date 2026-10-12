@@ -129,4 +129,31 @@ describe('Builder suggestions, through the real component', () => {
     expect(bulletTexts()).toContain('Cut monthly reporting time by 20%');
     expect(card('No metric in reporting bullet').textContent).toMatch(/Applied/);
   });
+
+  describe('export with a blank left', () => {
+    const applyInvented = () => { openExperience(); fireEvent.click(btn(card('Invented figure'), /apply/i)); };
+
+    it('asks before the Word file is made when a [X] is still in the resume, and does not export if the user says no', async () => {
+      const docx = await import('../../lib/docxExport.js');
+      const make = vi.spyOn(docx, 'buildResumeDocx');
+      const confirm = vi.fn(() => false); vi.stubGlobal('confirm', confirm);
+      render(<ATSBuilder {...props()} />);
+      applyInvented();
+      fireEvent.click(screen.getAllByText(/Download Word/)[0]);
+      await new Promise(r => setTimeout(r, 20));
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(confirm.mock.calls[0][0]).toMatch(/\[X\]/);
+      expect(make).not.toHaveBeenCalled();
+      make.mockRestore();
+    });
+
+    it('does not ask when the resume has no blank', async () => {
+      const confirm = vi.fn(() => true); vi.stubGlobal('confirm', confirm);
+      render(<ATSBuilder {...props()} />);
+      openExperience();
+      fireEvent.click(screen.getAllByText(/Download Word/)[0]);
+      await new Promise(r => setTimeout(r, 20));
+      expect(confirm).not.toHaveBeenCalled();
+    });
+  });
 });

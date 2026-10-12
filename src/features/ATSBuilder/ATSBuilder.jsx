@@ -11,6 +11,8 @@ import { printElement } from '../../lib/printElement.js';
 import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
 import BuilderScorePanel from './components/BuilderScorePanel.jsx';
 import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
+import { confirmExport } from '../../lib/exportGuard.js';
+import { builderDataToText } from './builderText.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -867,6 +869,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // Opens the print dialog; "Save as PDF" there gives a PDF whose text is real text (an ATS can read it).
   const handleDownloadPdf = async () => {
     if (!previewRef.current || !ActiveTemplate) return;
+    if (!confirmExport(builderDataToText(data))) return;
     setDownloading(true);
     const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
     const tplLabel = TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate;
@@ -879,6 +882,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
 
   // Word file: plain single column, real headings and bullets, the same text as the templates.
   const handleDownloadDocx = async () => {
+    if (!confirmExport(builderDataToText(data))) return;
     setDownloadingDocx(true);
     try {
       const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
