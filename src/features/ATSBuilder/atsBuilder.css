@@ -1101,3 +1101,13 @@
     padding: 16px !important;
   }
 }
+
+/* Secondary text in the Builder: the app-wide --lp-text3 is about 2.5 to 1 on the dark backgrounds, below the 4.5 to 1 that WCAG AA asks for.
+   The Builder sets its own, for both themes; the rest of the app keeps its own. (atsBuilder.contrast.test.js checks the numbers.) */
+[data-theme="dark"] .atb { --lp-text3: #8190B4; }
+[data-theme="light"] .atb { --lp-text3: #556579; }
+
+@media (max-width: 768px) {
+  /* On a narrow screen the right column is not pinned: it follows the form. */
+  .atb-builder-right { position: static !important; height: auto !important; min-height: 0 !important; }
+}

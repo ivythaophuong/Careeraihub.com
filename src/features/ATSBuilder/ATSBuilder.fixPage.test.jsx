@@ -81,6 +81,7 @@ describe('saving from the Fix page', () => {
     fireEvent.click(screen.getByRole('button', { name: /Open the Builder/i }));
     expect(screen.getByText(/Step \d of 6/)).toBeTruthy();
     expect(screen.queryByRole('note', { name: /fixing/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Review/ }));
     expect(screen.getByText('Applied')).toBeTruthy();
   });
 

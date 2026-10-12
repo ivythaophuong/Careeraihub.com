@@ -16,7 +16,7 @@ import { fixTargets, issueKey } from './fixPage.js';
 import { demoFixProfile } from './demoFix.js';
 import TemplateGallery from './components/TemplateGallery.jsx';
 import { confirmExport } from '../../lib/exportGuard.js';
-import { builderDataToText } from './builderText.js';
+import { builderDataToText, scoreBuilderData } from './builderText.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -932,7 +932,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const ActiveTemplate = TEMPLATES.find(t => t.id === activeTemplate)?.component;
 
   const navBtn = (label, onClick, primary) => (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} data-primary={primary ? 'true' : undefined} style={{
       padding: '9px 20px', fontSize: 12, fontWeight: 800, borderRadius: 8, cursor: 'pointer',
       border: primary ? 'none' : '1px solid var(--lp-bdr)',
       background: primary ? 'var(--lp-teal)' : 'transparent',
@@ -940,11 +940,19 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
     }}>{label}</button>
   );
 
+  const quietBtn = { background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' };
+
   const sectionBox = (content) => (
     <div style={{ background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: 16 }}>
       {content}
     </div>
   );
+
+  // The score and the suggestions are behind one Review button, so the right column is the resume.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const reviewScore = scoreBuilderData(data)?.score;
+  const suggestionCount = (initialProfile?.issues || []).length;
+  const reviewLabel = `Review${Number.isFinite(reviewScore) ? ` · ATS ${reviewScore}` : ''}${suggestionCount ? ` · ${suggestionCount} suggestion${suggestionCount > 1 ? 's' : ''}` : ''}`;
 
   if (fixMode) {
     const idx = focus?.issue ? issueList.findIndex(i => i.title === focus.issue.title && i.before === focus.issue.before) : -1;
@@ -1001,7 +1009,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
                 <div data-quote="after" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'rgba(255,184,77,.08)', borderLeft: '3px solid #FFB84D', borderRadius: 4 }}>{fixing.after}</div>
               </div>
             )}
-            <button type="button" onClick={() => setFixing(null)} style={{ alignSelf: 'flex-start', background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Done</button>
+            <button type="button" onClick={() => setFixing(null)} style={{ alignSelf: 'flex-start', background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Hide this reminder</button>
           </div>
         )}
 
@@ -1142,7 +1150,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         {/* ── Review ── */}
         {step === 5 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.6 }}>Pick a template from the right panel, then save your version.</div>
+            <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.6 }}>Happy with the text? Download your resume, or save this version. To see another layout, use Change template.</div>
             {sectionBox(<>
               <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Resume Summary</div>
               <div style={{ fontSize: 12.5, color: 'var(--lp-text)', lineHeight: 2 }}>
@@ -1165,14 +1173,14 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
               }}
             />
             <button onClick={handleSave} style={{
-              width: '100%', padding: '14px 0', fontSize: 14, fontWeight: 800, borderRadius: 10, cursor: 'pointer', border: 'none',
-              background: saved ? '#00E5A0' : 'var(--lp-teal)', color: '#000', transition: 'background .2s',
+              width: '100%', padding: '12px 0', fontSize: 13, fontWeight: 800, borderRadius: 10, cursor: 'pointer',
+              border: saved ? 'none' : '1px solid var(--lp-bdr)', background: saved ? '#00E5A0' : 'transparent', color: saved ? '#000' : 'var(--lp-text2)', transition: 'background .2s',
             }}>
               {saved ? '✓ Saved to history!' : 'Save Version'}
             </button>
-            <button onClick={handleDownloadPdf} disabled={downloading} style={{
-              width: '100%', padding: '12px 0', fontSize: 13, fontWeight: 800, borderRadius: 10, cursor: downloading ? 'not-allowed' : 'pointer',
-              border: '1px solid var(--lp-bdr)', background: 'transparent', color: 'var(--lp-teal)', transition: 'all .2s',
+            <button onClick={handleDownloadPdf} disabled={downloading} data-primary="true" style={{
+              width: '100%', padding: '14px 0', fontSize: 14, fontWeight: 800, borderRadius: 10, cursor: downloading ? 'not-allowed' : 'pointer',
+              border: 'none', background: downloading ? 'var(--lp-bg2)' : 'var(--lp-teal)', color: '#000', transition: 'all .2s',
             }}>
               {downloading ? 'Generating PDF…' : '⬇ Download PDF'}
             </button>
@@ -1212,35 +1220,32 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         </div>
       </div>
 
-      {/* ── RIGHT: template carousel + live preview ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* The template in use: choosing is its own screen (the Templates tab) */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--lp-bdr)', background: 'var(--lp-bg3)', flexShrink: 0 }}>
-          <div style={{ fontSize: 12, color: 'var(--lp-text2)' }}>Template: {TEMPLATES.find(t => t.id === activeTemplate)?.label}</div>
-          {onOpenGallery && <button type="button" onClick={onOpenGallery} style={{ background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-teal)', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Change template</button>}
+      {/* ── RIGHT: the resume. A small toolbar, one Review button, and the live preview ── */}
+      <div className="atb-builder-right" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'sticky', top: 0, alignSelf: 'start', height: 'calc(100vh - 140px)', minHeight: 520 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: '8px 14px', borderBottom: '1px solid var(--lp-bdr)', background: 'var(--lp-bg3)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--lp-text2)' }}>Template: {TEMPLATES.find(t => t.id === activeTemplate)?.label}</span>
+            {onOpenGallery && <button type="button" onClick={onOpenGallery} style={quietBtn}>Change template</button>}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button type="button" onClick={handleDownloadPdf} disabled={downloading} style={quietBtn}>{downloading ? 'Generating PDF…' : '⬇ Download PDF'}</button>
+            <button type="button" onClick={handleDownloadDocx} disabled={downloadingDocx} style={quietBtn}>{downloadingDocx ? 'Generating Word file…' : '⬇ Download Word (.docx)'}</button>
+          </div>
         </div>
 
-        {/* Download button */}
         <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--lp-bdr)', background: 'var(--lp-bg3)', flexShrink: 0 }}>
-          <button onClick={handleDownloadPdf} disabled={downloading} style={{
-            width: '100%', padding: '8px 0', fontSize: 12, fontWeight: 800, borderRadius: 7, cursor: downloading ? 'not-allowed' : 'pointer',
-            border: 'none', background: downloading ? 'var(--lp-bg2)' : 'var(--lp-teal)', color: '#000', transition: 'background .2s',
-          }}>
-            {downloading ? 'Generating PDF…' : '⬇ Download PDF'}
-          </button>
-          <button onClick={handleDownloadDocx} disabled={downloadingDocx} style={{
-            width: '100%', padding: '6px 0', marginTop: 6, fontSize: 11, fontWeight: 700, borderRadius: 7, cursor: downloadingDocx ? 'not-allowed' : 'pointer',
-            border: '1px solid var(--lp-bdr)', background: 'transparent', color: 'var(--lp-text2)',
-          }}>
-            {downloadingDocx ? 'Generating Word file…' : '⬇ Download Word (.docx)'}
+          <button type="button" aria-expanded={reviewOpen} onClick={() => setReviewOpen(o => !o)}
+            style={{ ...quietBtn, width: '100%', textAlign: 'left', display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '8px 12px' }}>
+            <span>{reviewLabel}</span><span>{reviewOpen ? 'Close ▴' : 'Open ▾'}</span>
           </button>
         </div>
 
-        {/* ATS readiness of the draft, computed by code as the user edits */}
-        <div style={{ paddingTop: 10, flexShrink: 0 }}>
-          <BuilderScorePanel data={data} onGoToStep={(n) => setStep(stepIndexFor(n))} />
-          <BuilderIssuesPanel issues={initialProfile?.issues} storageKey={builderAppliedKey(user?.id)} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
-        </div>
+        {reviewOpen && (
+          <div style={{ position: 'absolute', top: 96, left: 0, right: 0, bottom: 0, zIndex: 5, overflowY: 'auto', background: 'var(--lp-bg2)', borderTop: '1px solid var(--lp-bdr)', paddingTop: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)' }}>
+            <BuilderScorePanel data={data} onGoToStep={(n) => setStep(stepIndexFor(n))} />
+            <BuilderIssuesPanel issues={initialProfile?.issues} storageKey={builderAppliedKey(user?.id)} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
+          </div>
+        )}
 
         {/* Live preview — A4 width (794px = 210mm @ 96dpi) */}
         <div ref={containerRef} style={{ flex: 1, overflow: 'auto', background: '#e0e0e0', padding: '16px' }}>

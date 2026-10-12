@@ -44,7 +44,7 @@ describe('Fix in Builder', () => {
   it('the user can dismiss the reminder', () => {
     render(<ATSBuilder {...base([issue()])} />);
     fireEvent.click(screen.getByText(/Fix in Builder/));
-    fireEvent.click(screen.getByRole('button', { name: /done|dismiss/i }));
+    fireEvent.click(screen.getByRole('button', { name: /hide this reminder/i }));
     expect(screen.queryByRole('note', { name: /fixing/i })).toBeNull();
   });
 

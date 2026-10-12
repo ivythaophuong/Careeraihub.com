@@ -62,12 +62,12 @@ describe('BuilderIssuesPanel', () => {
     expect(latest.data.experience[0].bullets[0]).toBe('Something else');
   });
 
-  it('offers only "Edit this step" when the quote is not in the resume, and jumps to that step', () => {
+  it('offers only a "Go to <step>" button when the quote is not in the resume, and jumps to that step', () => {
     const onGoToStep = vi.fn();
     render(<Harness onGoToStep={onGoToStep} />);
     const c = card('No LinkedIn');
     expect(within(c, /^apply/i)).toBeUndefined();
-    fireEvent.click(within(c, /edit this step/i));
+    fireEvent.click(within(c, /go to (contact|experience|education|skills|summary)/i));
     expect(onGoToStep).toHaveBeenCalledWith(1);
   });
 

@@ -7,7 +7,10 @@ import { issueKey } from '../fixPage.js';
 const SEV = { critical: '#FF5A5A', high: '#FFB84D', medium: 'var(--lp-text3)' };
 const btn = { background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' };
 
-const keyOf = issueKey;   // shared with the Fix page, which keeps its records under the same keys
+const keyOf = issueKey;
+const STEP_NAMES = { 1: 'Contact', 2: 'Experience', 3: 'Education', 4: 'Skills', 5: 'Summary' };
+const goLabel = (n) => `Go to ${STEP_NAMES[n] || 'this step'}`;
+   // shared with the Fix page, which keeps its records under the same keys
 const loadRecords = (storageKey) => {
   if (!storageKey) return {};
   try { return JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch { return {}; }
@@ -83,7 +86,7 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
                   <button key={JSON.stringify(h.at)} type="button" style={btn} onClick={() => apply(issue, k, h.at)}>{warnings.length ? `${h.label} — I confirm this is true` : h.label}</button>
                 ))}
                 {canUndo && <button type="button" style={btn} onClick={() => undo(k)}>Undo</button>}
-                {canJump && <button type="button" style={btn} onClick={() => onGoToStep(issue.builderStep)}>Edit this step</button>}
+                {canJump && <button type="button" style={btn} onClick={() => onGoToStep(issue.builderStep)}>{goLabel(issue.builderStep)}</button>}
               </div>
             </div>
           );
