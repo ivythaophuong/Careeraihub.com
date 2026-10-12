@@ -15,7 +15,7 @@ One-page control board. ✅ verified in source or tests · ⚠️ partial · �
 | Resume digest and truncation notice | ✅ | `resumeDigest.test.js` | Low |
 | Keyword match decided by code | ✅ | `checkKeywords` + tests | Low |
 | Invented numbers in AI rewrites | ⚠️ only where the guard is imported (ATS fixes, interview) | `factGuard.js`, `numberGuard.js` | High elsewhere (STAR, Salary, Cover Letter, ATS Builder: no import found) |
-| Semantic inflation (ownership, scope) | 🔴 | stated in `numberGuard`/`factGuard` header comments | High |
+| Semantic inflation (ownership, scope) | ⚠️ warning only, Builder suggestion cards only (not STAR, Cover Letter, Interview, Salary) | `claimGuard.js` + `claimGuard.test.js` (word lists: role level assisted/did/led, scope words, names not in the resume, outcome claims); shown before Apply with a confirm button | High elsewhere; inside the Builder a word list cannot know what is true and misses claims it does not list |
 | AI JSON schema validation | 🔴 only `extractJSON` | `ai.jsx` | Medium |
 | Silent failure when AI JSON is unparsable in JD Match | 🔴 no error shown (`if (!parsed.error) {…}` with no else) | `ResumeScan.jsx` ~L482 | Medium |
 | Score integrity (trust/ats/interview/star columns) | ✅ locked by DB trigger/policy per docs | `docs/database/README.md` | Low |

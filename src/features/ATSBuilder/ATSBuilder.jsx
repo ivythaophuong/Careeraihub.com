@@ -9,6 +9,10 @@ import { arrayBufferToBase64 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
 import { printElement } from '../../lib/printElement.js';
 import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
+import BuilderScorePanel from './components/BuilderScorePanel.jsx';
+import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
+import { confirmExport } from '../../lib/exportGuard.js';
+import { builderDataToText } from './builderText.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -391,7 +395,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           const scoreLabel = !hasScore ? 'Not enough readable content to score' : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
           const circumference = 2 * Math.PI * 28;
           // focus = { step, issue } when the user came from one issue, so the builder opens at that issue's step and keeps it on screen.
-          const goToBuilder = (focus) => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }); if (onGoToBuilder) onGoToBuilder(focus); };
+          const goToBuilder = (focus) => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }, { keepDraft: true }); if (onGoToBuilder) onGoToBuilder(focus); };
 
           return (
             <>
@@ -773,7 +777,8 @@ function mapProfileToData(profile) {
 const DRAFT_PREFIX = 'careerai_builder_draft';
 const LEGACY_DRAFT_KEY = 'careerai_builder_draft';
 export const builderDraftKey = (userId) => `${DRAFT_PREFIX}:${userId || 'guest'}`;
-export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(builderDraftKey(userId)); } catch {} };
+export const builderAppliedKey = (userId) => `${builderDraftKey(userId)}:applied`;
+export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(builderDraftKey(userId)); localStorage.removeItem(builderAppliedKey(userId)); } catch {} };
 
 // builderStep from an issue is 1=Contact ... 5=Summary, the same order as BUILDER_STEPS (index = builderStep - 1). Anything else opens step 1.
 const stepIndexFor = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n - 1 : 0);
@@ -864,6 +869,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // Opens the print dialog; "Save as PDF" there gives a PDF whose text is real text (an ATS can read it).
   const handleDownloadPdf = async () => {
     if (!previewRef.current || !ActiveTemplate) return;
+    if (!confirmExport(builderDataToText(data))) return;
     setDownloading(true);
     const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
     const tplLabel = TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate;
@@ -876,6 +882,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
 
   // Word file: plain single column, real headings and bullets, the same text as the templates.
   const handleDownloadDocx = async () => {
+    if (!confirmExport(builderDataToText(data))) return;
     setDownloadingDocx(true);
     try {
       const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
@@ -1182,6 +1189,12 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
           </button>
         </div>
 
+        {/* ATS readiness of the draft, computed by code as the user edits */}
+        <div style={{ paddingTop: 10, flexShrink: 0 }}>
+          <BuilderScorePanel data={data} onGoToStep={(n) => setStep(stepIndexFor(n))} />
+          <BuilderIssuesPanel issues={initialProfile?.issues} storageKey={builderAppliedKey(user?.id)} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
+        </div>
+
         {/* Live preview — A4 width (794px = 210mm @ 96dpi) */}
         <div ref={containerRef} style={{ flex: 1, overflow: 'auto', background: '#e0e0e0', padding: '16px' }}>
           <div style={{ fontSize: 9, color: '#999', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center', marginBottom: 10 }}>
@@ -1231,8 +1244,10 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
   };
 
   // Called by UploadAndParseTab when parse succeeds — persist profile so re-login shows cards without re-parsing
-  const handleProfileParsed = (parsedProfile) => {
-    clearBuilderDraft(user?.id); // a newly parsed resume must win over an older saved draft
+  const handleProfileParsed = (parsedProfile, opts) => {
+    // A newly parsed resume must win over an older saved draft. Going back to the Builder with the SAME profile ("Fix in Builder") is not a new
+    // parse: it must not wipe the user's edits or the record of the suggestions they applied.
+    if (!opts?.keepDraft) clearBuilderDraft(user?.id);
     if (updateMemory) updateMemory(m => ({ ...m, parseProfile: parsedProfile }));
   };
 

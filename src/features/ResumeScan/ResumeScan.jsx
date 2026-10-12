@@ -6,6 +6,7 @@ import { callLLMFor } from '../../lib/aiFeature.js';
 import { TEMPLATES } from '../ATSBuilder/resumeTemplates.jsx';
 import { printElement } from '../../lib/printElement.js';
 import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
+import { confirmExport } from '../../lib/exportGuard.js';
 import { TEMPLATE_PARSE, JD_MAX_CHARS, missingSections } from '../../lib/templateParse';
 import mammoth from 'mammoth';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
@@ -308,6 +309,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
 
   const handleExportPdf = async () => {
     if (!pdfExportRef.current) return;
+    if (!confirmExport(editorText || resumeCtx)) return;
     setPdfDownloading(true);
     // The template must show the text as it is NOW (fixes applied, edits made), not the text it was first built from.
     const current = (editorText || resumeCtx).trim();
@@ -327,6 +329,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
   // Word file from the same structured data as the templates. Offered only when that data matches the text as it is now and every section was captured; otherwise a section would be missing.
   const handleExportDocx = async () => {
     if (!templateProfile) return;
+    if (!confirmExport(editorText || resumeCtx)) return;
     const base = (templateProfile.name || 'resume').replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30) || 'resume';
     downloadBlob(await buildResumeDocx(profileToTemplateData(templateProfile)), `${base}.docx`);
   };
