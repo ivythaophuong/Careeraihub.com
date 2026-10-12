@@ -977,12 +977,23 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         )}
 
         {fixing && (
-          <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--lp-bg3)', border: '1px solid var(--lp-teal)', borderRadius: 8, fontSize: 12, lineHeight: 1.55, color: 'var(--lp-text2)' }}>
-            <div style={{ fontWeight: 800, color: 'var(--lp-text)', marginBottom: 2 }}>Fixing: {fixing.title}</div>
-            {fixing.description && <div>{fixing.description}</div>}
-            {fixing.before && <div style={{ marginTop: 6 }}><strong>In your resume:</strong> {fixing.before}</div>}
-            {fixing.after && <div style={{ marginTop: 4 }}><strong>Suggestion (check every figure is true):</strong> {fixing.after}</div>}
-            <button type="button" onClick={() => setFixing(null)} style={{ marginTop: 8, background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer' }}>Done</button>
+          <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderLeft: '4px solid var(--lp-teal)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-teal)' }}>Fixing this issue</div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, lineHeight: 1.3, color: 'var(--lp-text)' }}>{fixing.title}</h3>
+            {fixing.description && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>{fixing.description}</p>}
+            {fixing.before && (
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--lp-text3)', marginBottom: 4 }}>In your resume</div>
+                <div data-quote="before" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'var(--lp-bg3)', borderLeft: '3px solid var(--lp-bdr)', borderRadius: 4 }}>{fixing.before}</div>
+              </div>
+            )}
+            {fixing.after && (
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: '#FFB84D', marginBottom: 4 }}>AI suggestion · check every figure is true before you use it</div>
+                <div data-quote="after" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'rgba(255,184,77,.08)', borderLeft: '3px solid #FFB84D', borderRadius: 4 }}>{fixing.after}</div>
+              </div>
+            )}
+            <button type="button" onClick={() => setFixing(null)} style={{ alignSelf: 'flex-start', background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Done</button>
           </div>
         )}
 
