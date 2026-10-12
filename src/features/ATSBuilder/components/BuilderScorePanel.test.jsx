@@ -77,7 +77,7 @@ describe('BuilderScorePanel', () => {
     render(<BuilderScorePanel data={d} debounceMs={0} onGoToStep={onGoToStep} />);
     openPanel();
     expect(screen.getByText('Add an email address')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /edit this step/i }));
+    fireEvent.click(screen.getByRole('button', { name: /go to (contact|experience|education|skills|summary)/i }));
     expect(onGoToStep).toHaveBeenCalledWith(1);
   });
 

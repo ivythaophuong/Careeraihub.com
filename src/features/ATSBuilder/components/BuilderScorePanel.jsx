@@ -4,6 +4,8 @@ import { codeFindings } from '../codeFindings.js';
 import { describePart } from '../../../lib/describeScorePart.js';
 
 const LABELS = { completeness: 'Completeness', measurable_impact: 'Numbers in bullets', chronology_health: 'Date consistency' };
+const STEP_NAMES = { 1: 'Contact', 2: 'Experience', 3: 'Education', 4: 'Skills', 5: 'Summary' };
+const goLabel = (n) => `Go to ${STEP_NAMES[n] || 'this step'}`;
 const colorFor = (n) => (n >= 80 ? '#00E5A0' : n >= 60 ? '#FFB84D' : '#FF5A5A');
 
 // The ATS Readiness score of the draft being edited. Computed by code on every change (after a short pause), never by AI.
@@ -57,7 +59,7 @@ export default function BuilderScorePanel({ data, debounceMs = 300, onGoToStep }
                     <div key={f.id} style={{ marginTop: 4, lineHeight: 1.5 }}>
                       <div style={{ fontWeight: 700, color: 'var(--lp-text)' }}>{f.title}</div>
                       <div>{f.description}</div>
-                      {onGoToStep && <button type="button" onClick={() => onGoToStep(f.builderStep)} style={{ marginTop: 3, background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Edit this step</button>}
+                      {onGoToStep && <button type="button" onClick={() => onGoToStep(f.builderStep)} style={{ marginTop: 3, background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{goLabel(f.builderStep)}</button>}
                     </div>
                   ))}
                 </div>

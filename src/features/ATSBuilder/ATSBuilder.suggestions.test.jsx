@@ -22,7 +22,8 @@ const ISSUES = [
 ];
 const props = (issues = ISSUES) => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: profile(issues) }, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn(), resumeText: GOOD });
 
-const openBuilder = () => { fireEvent.click(screen.getByText(/Fix These Issues in Builder/)); };
+// the score and the suggestions are behind the Review button, so the helper opens it
+const openBuilder = () => { fireEvent.click(screen.getByText(/Fix These Issues in Builder/)); fireEvent.click(screen.getByRole('button', { name: /^Review/ })); };
 // The bullets are on step 2 (Experience).
 const openExperience = () => { openBuilder(); fireEvent.click(screen.getByText('Next →')); expect(screen.getByText(/Step 2 of 6/)).toBeTruthy(); };
 const card = (title) => screen.getByText(title).closest('[data-issue]');
@@ -61,7 +62,7 @@ describe('Builder suggestions, through the real component', () => {
     render(<ATSBuilder {...props()} />);
     openBuilder();
     expect(btn(card('Quote not in resume'), /apply/i)).toBeUndefined();
-    expect(btn(card('Quote not in resume'), /edit this step/i)).toBeTruthy();
+    expect(btn(card('Quote not in resume'), /go to (contact|experience|education|skills|summary)/i)).toBeTruthy();
   });
 
   it('an invented figure becomes [X] and is flagged; it is not shown as fact', () => {
@@ -127,6 +128,7 @@ describe('Builder suggestions, through the real component', () => {
     fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
     fireEvent.click(screen.getByText('Next →'));
     expect(bulletTexts()).toContain('Cut monthly reporting time by 20%');
+    fireEvent.click(screen.getByRole('button', { name: /^Review/ }));   // a new visit to the Builder starts with Review closed
     expect(card('No metric in reporting bullet').textContent).toMatch(/Applied/);
   });
 

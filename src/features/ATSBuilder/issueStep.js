@@ -1,0 +1,52 @@
+// Where an issue is fixed in the Builder, decided by code. The step number the AI writes with an issue is often wrong (a "missing summary" issue
+// arrived with step 2, Experience), so it is only the last resort. In order: where the quoted sentence is in the resume, then what the title says,
+// then what the description says, then the AI's number. Words decide only when they name exactly one section; two sections is a tie and is not guessed.
+// Steps: 1 Contact, 2 Experience, 3 Education, 4 Skills, 5 Summary.
+import { locateAll } from './applyIssue.js';
+import { neutralizeInventedFigures } from '../../lib/factGuard.js';
+import { claimWarnings } from '../../lib/claimGuard.js';
+import { builderDataToText } from './builderText.js';
+
+const SECTIONS = [
+  [5, /\b(summary|objective|profile statement)\b/i],
+  [4, /\bskills?\b|\bkeywords?\b/i],
+  [3, /\b(education|degree|university|school|gpa|graduat\w*)\b/i],
+  [1, /\b(contact|e-?mail|phone|linkedin|address|location)\b/i],
+  [2, /\b(experience|bullets?|roles?|job titles?|responsibilit\w*|achievement\w*|metrics?|quantif\w*|dates?|verbs?|work history)\b/i],
+];
+const named = (text) => SECTIONS.filter(([, re]) => re.test(text || '')).map(([n]) => n);
+const validStep = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n : null);
+
+export function stepForIssue(issue, data) {
+  if (!issue) return null;
+  if (issue.before && String(issue.before).trim()) {
+    const kinds = new Set(locateAll(data, issue.before).map(p => p.at.kind));
+    if (kinds.size === 1) return kinds.has('summary') ? 5 : 2;
+  }
+  const inTitle = named(issue.title);
+  if (inTitle.length === 1) return inTitle[0];
+  if (inTitle.length === 0) { const inText = named(issue.description); if (inText.length === 1) return inText[0]; }
+  return validStep(issue.builderStep);
+}
+
+// The AI's suggestion as it would be put in the form: a figure the resume does not contain becomes [X], and the claim warnings are kept.
+// null when the issue has no suggestion.
+export function draftFor(issue, data) {
+  const after = String(issue?.after ?? '').trim();
+  if (!after) return null;
+  const resumeText = builderDataToText(data);
+  const g = neutralizeInventedFigures(after, resumeText);
+  const warnings = claimWarnings({ before: issue.before || '', after, resumeText }).map(w => w.message);
+  return { text: g.text, placeholders: g.changed, replaced: g.replaced, warnings };
+}
+
+// Is the issue about the sentences under a job, so that the user can pick the sentence it applies to on the side-by-side page?
+// (Dates, the summary, skills and education are not.) Words decide, as in stepForIssue: the title first, then the description.
+const BULLET_WORDS = /\b(bullets?|achievements?|accomplishments?|responsibilit\w*|quantif\w*|metrics?|measurable|impact|results?|action verbs?|verbs?)\b/i;
+export function isBulletIssue(issue) {
+  if (!issue) return false;
+  if (BULLET_WORDS.test(issue.title || '')) return true;
+  return !SECTION_WORDS_IN_TITLE(issue.title) && BULLET_WORDS.test(issue.description || '');
+}
+// A title that names some other section settles it: "Missing location for education institutions" is not about bullets whatever the description says.
+function SECTION_WORDS_IN_TITLE(title) { return named(title).length > 0; }

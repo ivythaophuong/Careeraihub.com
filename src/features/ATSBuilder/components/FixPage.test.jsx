@@ -417,3 +417,173 @@ describe('a narrow screen', () => {
     expect(document.querySelector('[data-pane="original"]').getAttribute('data-active')).toBe('false');
   });
 });
+
+describe('an issue that was already improved can be opened again', () => {
+  const ORIGINAL = 'Handled monthly reporting for the sales team';
+  const IMPROVED = 'Cut monthly reporting time for the sales team';
+  const improvedSetup = (over = {}) => {
+    const data = makeData(); data.experience[0].bullets[0] = IMPROVED;
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    return setup({ data, startKey: keyOfIssue(0), records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } }, ...over });
+  };
+
+  it('opens on that issue, not on the next one', () => {
+    improvedSetup();
+    expect(screen.getByText('No metrics in bullets')).toBeTruthy();
+    expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();
+  });
+
+  it('shows the sentence as it was on the left and as it is now on the right, so the change is seen', () => {
+    improvedSetup();
+    expect(at(left(), 'b:0:0').textContent).toContain(ORIGINAL);
+    expect(at(right(), 'b:0:0').textContent).toContain(IMPROVED);
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-marked')).toBe(true);
+  });
+
+  it('says it is already improved and offers Undo, Improve again and Leave it for now; not Improve this sentence', () => {
+    improvedSetup();
+    expect(screen.getByText(/already improved/i)).toBeTruthy();
+    expect(btn(/Undo this change/i)).toBeTruthy();
+    expect(btn(/Improve again/i)).toBeTruthy();
+    expect(btn(/Leave it for now/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Improve this sentence/i })).toBeNull();
+  });
+
+  it('Undo puts the original sentence back, tells the page that holds the data, and offers to improve it again', () => {
+    const { props } = improvedSetup();
+    fireEvent.click(btn(/Undo this change/i));
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(data).toEqual(makeData());
+    expect(key).toBe(keyOfIssue(0));
+    expect(entry).toBeNull();                                           // null: the record is removed
+    expect(at(right(), 'b:0:0').textContent).toContain(ORIGINAL);
+    expect(btn(/Improve this sentence/i)).toBeTruthy();
+    expect(screen.queryByText(/already improved/i)).toBeNull();
+  });
+
+  it('Improve again starts from the improved text, and saving it keeps the very first original, so Undo still goes back to it', () => {
+    const { props } = improvedSetup();
+    fireEvent.click(btn(/Improve again/i));
+    expect(editBox().value).toBe(IMPROVED);
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time by half for the sales team' } });
+    fireEvent.click(btn(/Save & next/i));
+    const entry = props.onChange.mock.calls[0][2];
+    expect(entry.record.original).toBe(ORIGINAL);
+    expect(entry.record.inserted).toBe('Cut monthly reporting time by half for the sales team');
+  });
+
+  it('a sentence changed after it was applied says so and cannot be undone automatically', () => {
+    const data = makeData(); data.experience[0].bullets[0] = 'My own wording afterwards';
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    setup({ data, startKey: keyOfIssue(0), records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } } });
+    expect(screen.getByText(/you changed this after applying it/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Undo this change/i })).toBeNull();
+    expect(btn(/Improve again/i)).toBeTruthy();
+  });
+
+  it('with no start issue it still opens on the first one that is not improved', () => {
+    const data = makeData(); data.experience[0].bullets[0] = IMPROVED;
+    const record = { at: { kind: 'bullet', exp: 0, bullet: 0 }, inserted: IMPROVED, original: ORIGINAL };
+    setup({ data, records: { [keyOfIssue(0)]: { record, placeholders: false, warnings: [] } } });
+    expect(screen.getByText('Plain dashboard bullet')).toBeTruthy();
+  });
+});
+
+describe('a bullet issue whose sentence cannot be found: the user picks the sentence', () => {
+  const PICK = { severity: 'high', title: 'No quantifiable impact for many bullets', description: 'Several bullet points describe tasks without results.', before: 'Handled the monthly reporting for the whole sales team and finance', after: 'Cut monthly reporting time by 30% for the sales team', builderStep: 2, module: null };
+  const DATES = { severity: 'medium', title: 'Inconsistent date formatting', description: 'Dates are written in different ways.', before: 'June 2017 – November 2021', after: 'Jun 2017 – Nov 2021', builderStep: 2, module: null };
+  const pickSetup = (over = {}) => setup({ issues: [PICK], ...over });
+
+  it('is on the page, and says the exact sentence was not found and asks the user to click one', () => {
+    pickSetup();
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(screen.getByText(/could not find the exact sentence/i)).toBeTruthy();
+    expect(screen.getByText(/click the sentence you want to improve/i)).toBeTruthy();
+  });
+
+  it('highlights the bullets nearest to what the AI quoted, and lets every drawn bullet be chosen', () => {
+    pickSetup();
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-open')).toBe(true);
+    expect(at(left(), 'b:0:1').hasAttribute('data-fix-open')).toBe(false);
+    for (const k of ['b:0:0', 'b:0:1', 'b:0:2', 'b:2:0']) expect(at(left(), k).hasAttribute('data-fix-pickable'), k).toBe(true);
+    expect(at(left(), 'b:0:1').getAttribute('role')).toBe('button');
+  });
+
+  it('shows what the AI looked at as an example, with a figure the resume lacks as [X], and offers no Use suggestion', () => {
+    pickSetup();
+    const ex = screen.getByRole('region', { name: /AI example/i });
+    expect(ex.textContent).toContain('Handled the monthly reporting for the whole sales team and finance');
+    expect(ex.textContent).toContain('[X]');
+    expect(ex.textContent).not.toContain('30%');
+    expect(screen.queryByRole('button', { name: /use suggestion/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Improve this sentence/i })).toBeNull();
+  });
+
+  it('choosing a sentence marks it and offers Improve this sentence, with that sentence in the edit box', () => {
+    pickSetup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    expect(at(left(), 'b:0:1').hasAttribute('data-fix-marked')).toBe(true);
+    improve();
+    expect(editBox().value).toBe('Built a dashboard for 6 managers');
+    expect(screen.queryByRole('button', { name: /use suggestion/i })).toBeNull();
+  });
+
+  it('the example is folded under Show AI example once a sentence is chosen', () => {
+    pickSetup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    improve();
+    expect(screen.queryByRole('region', { name: /AI example/i })).toBeNull();
+    fireEvent.click(btn(/Show AI example/i));
+    expect(screen.getByRole('region', { name: /AI example/i })).toBeTruthy();
+  });
+
+  it('saves only the chosen bullet, counts it as applied, and Undo goes back to that bullet\'s own text', () => {
+    const { props } = pickSetup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Built a dashboard used by 6 managers every week' } });
+    fireEvent.click(btn(/Save & next/i));
+    const [data, , entry] = props.onChange.mock.calls[0];
+    const expected = makeData(); expected.experience[0].bullets[1] = 'Built a dashboard used by 6 managers every week';
+    expect(data).toEqual(expected);
+    expect(entry.record.original).toBe('Built a dashboard for 6 managers');
+    expect(screen.getByText(/1 applied/i)).toBeTruthy();
+  });
+
+  it('leaving it for now counts as open, not as changed by the user', () => {
+    pickSetup();
+    fireEvent.click(btn(/Leave it for now/i));
+    expect(screen.getByText(/1 open/i)).toBeTruthy();
+    expect(screen.getByText(/0 changed by you/i)).toBeTruthy();
+  });
+
+  it('choosing another sentence before typing switches at once; after typing it asks first', () => {
+    pickSetup();
+    fireEvent.click(at(left(), 'b:0:1'));
+    fireEvent.click(at(left(), 'b:0:2'));
+    expect(at(left(), 'b:0:2').hasAttribute('data-fix-marked')).toBe(true);
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Half written' } });
+    fireEvent.click(at(left(), 'b:2:0'));
+    expect(screen.getByText(/Open another sentence without saving/i)).toBeTruthy();
+    fireEvent.click(btn(/^Switch$/i));
+    expect(at(left(), 'b:2:0').hasAttribute('data-fix-marked')).toBe(true);
+  });
+
+  it('when nothing is close, nothing is highlighted but every bullet can still be chosen', () => {
+    setup({ issues: [{ ...PICK, before: 'zzz qqq www completely different words here' }] });
+    expect(left().querySelector('[data-fix-open]')).toBeNull();
+    expect(at(left(), 'b:0:0').hasAttribute('data-fix-pickable')).toBe(true);
+  });
+
+  it('an issue that is not about bullets (dates) is not on this page and is counted as another issue', () => {
+    setup({ issues: [DATES] });
+    expect(screen.getByText(/1 other issue/i)).toBeTruthy();
+  });
+
+  it('an issue with no quote at all but about bullets is on the page too', () => {
+    setup({ issues: [{ ...PICK, before: '', after: '' }] });
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(left().querySelector('[data-fix-open]')).toBeNull();
+  });
+});

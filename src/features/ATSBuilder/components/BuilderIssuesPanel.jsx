@@ -3,11 +3,15 @@ import { locateAll, applyIssue, undoApply } from '../applyIssue.js';
 import { claimWarnings } from '../../../lib/claimGuard.js';
 import { builderDataToText } from '../builderText.js';
 import { issueKey } from '../fixPage.js';
+import { stepForIssue } from '../issueStep.js';
 
 const SEV = { critical: '#FF5A5A', high: '#FFB84D', medium: 'var(--lp-text3)' };
 const btn = { background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' };
 
-const keyOf = issueKey;   // shared with the Fix page, which keeps its records under the same keys
+const keyOf = issueKey;
+const STEP_NAMES = { 1: 'Contact', 2: 'Experience', 3: 'Education', 4: 'Skills', 5: 'Summary' };
+const goLabel = (n) => `Go to ${STEP_NAMES[n] || 'this step'}`;
+   // shared with the Fix page, which keeps its records under the same keys
 const loadRecords = (storageKey) => {
   if (!storageKey) return {};
   try { return JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch { return {}; }
@@ -65,7 +69,8 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
           const warnings = rec ? (rec.warnings || []) : (hits.length && issue.after
             ? claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message) : []);
           const applyLabel = warnings.length ? 'Apply — I confirm this is true' : 'Apply';
-          const canJump = !rec && Number.isInteger(issue.builderStep) && hits.length !== 1;
+          const target = stepForIssue(issue, data);   // decided by the resume and the words of the issue; the AI's number only when they do not decide
+          const canJump = !rec && target !== null && hits.length !== 1;
           return (
             <div key={k} data-issue={i} style={{ borderLeft: `3px solid ${SEV[issue.severity] || SEV.medium}`, paddingLeft: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ fontWeight: 700, color: 'var(--lp-text)' }}>{issue.title}</div>
@@ -83,7 +88,7 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
                   <button key={JSON.stringify(h.at)} type="button" style={btn} onClick={() => apply(issue, k, h.at)}>{warnings.length ? `${h.label} — I confirm this is true` : h.label}</button>
                 ))}
                 {canUndo && <button type="button" style={btn} onClick={() => undo(k)}>Undo</button>}
-                {canJump && <button type="button" style={btn} onClick={() => onGoToStep(issue.builderStep)}>Edit this step</button>}
+                {canJump && <button type="button" style={btn} onClick={() => onGoToStep(target)}>{goLabel(target)}</button>}
               </div>
             </div>
           );
