@@ -48,7 +48,7 @@ describe('opening the Fix page', () => {
   });
 
   it('an issue with no quoted text keeps the step flow', () => {
-    openFix([issue({ before: '', after: '', builderStep: 4 })]);
+    openFix([issue({ title: 'Needs a closer look', description: 'Please review.', before: '', after: '', builderStep: 4 })]);
     expect(screen.getByText(/Step 4 of 6/)).toBeTruthy();
   });
 

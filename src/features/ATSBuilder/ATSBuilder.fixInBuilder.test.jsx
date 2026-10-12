@@ -26,8 +26,8 @@ describe('Fix in Builder', () => {
     expect(screen.getByText(/Step 2 of 6/)).toBeTruthy();
   });
 
-  it.each([[1, 'Step 1 of 6'], [3, 'Step 3 of 6'], [4, 'Step 4 of 6'], [5, 'Step 5 of 6']])('step %i opens %s', (n, label) => {
-    render(<ATSBuilder {...base([issue({ builderStep: n })])} />);
+  it.each([[1, 'Step 1 of 6'], [3, 'Step 3 of 6'], [4, 'Step 4 of 6'], [5, 'Step 5 of 6']])('when nothing else decides, the AI step %i opens %s', (n, label) => {
+    render(<ATSBuilder {...base([issue({ title: 'Needs a closer look', description: 'Please review.', builderStep: n })])} />);
     fireEvent.click(screen.getByText(/Fix in Builder/));
     expect(screen.getByText(label)).toBeTruthy();
   });
@@ -62,9 +62,9 @@ describe('Fix in Builder', () => {
     expect(within(note).getByRole('heading', { name: /No metrics in bullets/ })).toBeTruthy();
     const inResume = note.querySelector('[data-quote="before"]');
     expect(inResume.textContent).toBe('Handled monthly reporting');
-    expect(within(note).getByText(/In your resume/i)).toBeTruthy();
+    expect(within(note).getByText(/^In your resume$/i)).toBeTruthy();
     const suggestion = note.querySelector('[data-quote="after"]');
-    expect(suggestion.textContent).toBe('Cut reporting time by 30%');
+    expect(suggestion.textContent).toBe('Cut reporting time by [X]%');   // a figure the resume does not contain is shown as [X]
     expect(within(note).getByText(/AI suggestion/i).textContent).toMatch(/check every figure is true/i);
   });
 });

@@ -14,6 +14,7 @@ import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
 import { demoFixProfile } from './demoFix.js';
+import { stepForIssue, draftFor } from './issueStep.js';
 import TemplateGallery from './components/TemplateGallery.jsx';
 import { confirmExport } from '../../lib/exportGuard.js';
 import { builderDataToText, scoreBuilderData } from './builderText.js';
@@ -787,6 +788,9 @@ export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(bui
 
 // builderStep from an issue is 1=Contact ... 5=Summary, the same order as BUILDER_STEPS (index = builderStep - 1). Anything else opens step 1.
 const stepIndexFor = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n - 1 : 0);
+// The step an issue is fixed in: where its quoted text is, or what its title says, and the number the AI wrote only when nothing else decides (issueStep.js).
+const stepNumberFor = (issue, data, aiStep) => stepForIssue(issue, data) ?? (Number.isInteger(aiStep) ? aiStep : null);
+const STEP_NAMES = { 1: 'Contact', 2: 'Experience', 3: 'Education', 4: 'Skills', 5: 'Summary' };
 
 // The data the Builder starts from: what was restored, else the saved draft of this user, else what the parsed profile holds, else a sample.
 // Shared with the template gallery so both show the same resume.
@@ -803,9 +807,9 @@ const builderDataIsSample = ({ restoredData, draftKey, initialProfile }) => { tr
 
 function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user, focus, template, onTemplateChange, onBackToList, onOpenGallery }) {
   const draftKey = builderDraftKey(user?.id);
-  const [step, setStep] = useState(() => stepIndexFor(focus?.step));
+  const [step, setStep] = useState(() => stepIndexFor(focus?.issue ? stepNumberFor(focus.issue, initialBuilderData({ restoredData, draftKey, initialProfile }), focus.step) : focus?.step));
   const [fixing, setFixing] = useState(focus?.issue || null);
-  useEffect(() => { setStep(stepIndexFor(focus?.step)); setFixing(focus?.issue || null); }, [focus]);
+  useEffect(() => { setStep(stepIndexFor(focus?.issue ? stepNumberFor(focus.issue, data, focus.step) : focus?.step)); setFixing(focus?.issue || null); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
   // The template is held by the parent when it gives one, so it is kept when the user leaves the Builder and comes back (the Fix page shows the same one).
   const [localTemplate, setLocalTemplate] = useState('modern');
   const activeTemplate = template ?? localTemplate;
@@ -942,6 +946,57 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
 
   const quietBtn = { background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '4px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' };
 
+  // The reminder of the issue being fixed: in the step it belongs to, above the boxes it is for. On any other step it is one line that leads back.
+  const fixNumber = fixing ? stepNumberFor(fixing, data, fixing.builderStep) : null;
+  const fixDraft = fixing ? draftFor(fixing, data) : null;
+  const [askReplaceSummary, setAskReplaceSummary] = useState(false);
+  const useSummaryDraft = () => { if (data.summary && data.summary.trim() && data.summary !== fixDraft.text) setAskReplaceSummary(true); else setSummary(fixDraft.text); };
+  const fixCard = fixing && fixNumber !== null && stepIndexFor(fixNumber) === step ? (
+    <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderLeft: '4px solid var(--lp-teal)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-teal)' }}>Fixing this issue</div>
+      <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, lineHeight: 1.3, color: 'var(--lp-text)' }}>{fixing.title}</h3>
+      {fixing.description && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>{fixing.description}</p>}
+      {fixing.before && (
+        <div>
+          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--lp-text3)', marginBottom: 4 }}>In your resume</div>
+          <div data-quote="before" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'var(--lp-bg3)', borderLeft: '3px solid var(--lp-bdr)', borderRadius: 4 }}>{fixing.before}</div>
+        </div>
+      )}
+      {fixDraft && (
+        <div>
+          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: '#FFB84D', marginBottom: 4 }}>AI suggestion · check every figure is true before you use it</div>
+          <div data-quote="after" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'rgba(255,184,77,.08)', borderLeft: '3px solid #FFB84D', borderRadius: 4 }}>{fixDraft.text}</div>
+          {fixDraft.placeholders && fixDraft.replaced?.length > 0 && <div style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.5, color: '#FFB84D' }}>These figures are not in your resume: {fixDraft.replaced.join(', ')}. They are shown as [X]: put your real figure, or remove it.</div>}
+          {fixDraft.warnings.map((w, k) => <div key={k} style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, color: '#FFB84D' }}>{w}</div>)}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        {fixDraft && fixNumber === 5 && !askReplaceSummary && (
+          <button type="button" onClick={useSummaryDraft} style={{ background: 'transparent', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 6, padding: '5px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+            {fixDraft.warnings.length ? 'Use suggestion — I confirm this is true' : 'Use suggestion'}
+          </button>
+        )}
+        {askReplaceSummary && (
+          <div role="alert" style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>
+            Replace your summary with this suggestion?
+            <span style={{ display: 'inline-flex', gap: 8, marginLeft: 10 }}>
+              <button type="button" onClick={() => { setSummary(fixDraft.text); setAskReplaceSummary(false); }} style={{ ...quietBtn }}>Replace</button>
+              <button type="button" onClick={() => setAskReplaceSummary(false)} style={{ ...quietBtn }}>Keep mine</button>
+            </span>
+          </div>
+        )}
+        <button type="button" onClick={() => setFixing(null)} style={{ ...quietBtn, marginLeft: 'auto' }}>Hide this reminder</button>
+      </div>
+    </div>
+  ) : null;
+  const fixPointer = fixing && !fixCard && fixNumber !== null ? (
+    <div data-fixing-pointer style={{ marginBottom: 14, padding: '8px 12px', border: '1px solid var(--lp-bdr)', borderLeft: '4px solid var(--lp-teal)', borderRadius: 8, fontSize: 12.5, color: 'var(--lp-text2)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <span>Fixing: {fixing.title}</span>
+      <button type="button" onClick={() => setStep(stepIndexFor(fixNumber))} style={quietBtn}>Go to {STEP_NAMES[fixNumber]}</button>
+      <button type="button" onClick={() => setFixing(null)} style={{ ...quietBtn, marginLeft: 'auto' }}>Hide</button>
+    </div>
+  ) : null;
+
   const sectionBox = (content) => (
     <div style={{ background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: 16 }}>
       {content}
@@ -953,6 +1008,20 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const reviewScore = scoreBuilderData(data)?.score;
   const suggestionCount = (initialProfile?.issues || []).length;
   const reviewLabel = `Review${Number.isFinite(reviewScore) ? ` · ATS ${reviewScore}` : ''}${suggestionCount ? ` · ${suggestionCount} suggestion${suggestionCount > 1 ? 's' : ''}` : ''}`;
+
+  // While the Summary step is open, the summary in the preview is marked, so the box and the page are seen to belong together.
+  // (Only the summary and the bullets carry a mark in the templates; see data-fix-at in resumeTemplates.jsx.)
+  const lastMarked = useRef(null);
+  useEffect(() => {
+    const root = previewRef.current;
+    if (!root) return;
+    root.querySelectorAll('[data-fix-marked]').forEach(e => e.removeAttribute('data-fix-marked'));
+    if (step !== 4) { lastMarked.current = null; return; }
+    const el = root.querySelector('[data-fix-at="summary"]');
+    if (!el) return;
+    el.setAttribute('data-fix-marked', 'true');
+    if (lastMarked.current !== 'summary' && el.scrollIntoView) { lastMarked.current = 'summary'; el.scrollIntoView({ block: 'nearest' }); }
+  });
 
   if (fixMode) {
     const idx = focus?.issue ? issueList.findIndex(i => i.title === focus.issue.title && i.before === focus.issue.before) : -1;
@@ -992,26 +1061,6 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
           </div>
         )}
 
-        {fixing && (
-          <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderLeft: '4px solid var(--lp-teal)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-teal)' }}>Fixing this issue</div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, lineHeight: 1.3, color: 'var(--lp-text)' }}>{fixing.title}</h3>
-            {fixing.description && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>{fixing.description}</p>}
-            {fixing.before && (
-              <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--lp-text3)', marginBottom: 4 }}>In your resume</div>
-                <div data-quote="before" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'var(--lp-bg3)', borderLeft: '3px solid var(--lp-bdr)', borderRadius: 4 }}>{fixing.before}</div>
-              </div>
-            )}
-            {fixing.after && (
-              <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: '#FFB84D', marginBottom: 4 }}>AI suggestion · check every figure is true before you use it</div>
-                <div data-quote="after" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'rgba(255,184,77,.08)', borderLeft: '3px solid #FFB84D', borderRadius: 4 }}>{fixing.after}</div>
-              </div>
-            )}
-            <button type="button" onClick={() => setFixing(null)} style={{ alignSelf: 'flex-start', background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)', borderRadius: 6, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Hide this reminder</button>
-          </div>
-        )}
 
         {/* Step progress bar */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
@@ -1028,6 +1077,8 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--lp-text)', marginBottom: 20 }}>
           {BUILDER_STEPS[step]}
         </div>
+        {fixCard}
+        {fixPointer}
 
         {/* ── Contact ── */}
         {step === 0 && (
@@ -1140,7 +1191,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         {step === 4 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.6 }}>2-3 sentences: years of experience, key skills, what you bring.</div>
-            <textarea style={{ ...inp, minHeight: 120, resize: 'vertical' }}
+            <textarea aria-label="Professional summary" style={{ ...inp, minHeight: 120, resize: 'vertical' }}
               value={data.summary}
               onChange={e => setSummary(e.target.value)}
               placeholder="Data scientist with 7 years of experience in ML applied to real world problems…" />

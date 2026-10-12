@@ -1111,3 +1111,6 @@
   /* On a narrow screen the right column is not pinned: it follows the form. */
   .atb-builder-right { position: static !important; height: auto !important; min-height: 0 !important; }
 }
+
+/* The part of the resume that goes with what is being edited (the summary while the Summary step is open). */
+.atb-builder-right [data-fix-marked] { outline: 2px solid var(--lp-teal); outline-offset: 3px; background: rgba(236, 72, 153, .08); }
