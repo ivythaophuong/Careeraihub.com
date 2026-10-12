@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { buildCoachRequest, COACH_LIMITS } from './coachRequest.js';
+import { marketSource } from '../../lib/marketSource.js';
+
+// What the coach honestly has: a short summary, not the user's documents.
+const GREETING = "Hi! I'm your AI Career Coach. I can see a short summary of your activity here (for example how many STAR stories you saved and your latest mock interview average), but not your resume text, your STAR stories or your interview answers.\n\nWhat would you like to work on today?";
 
 const QUICK_PROMPTS = [
   { label: '💡 What should I focus on this week?',             text: 'What should I focus on this week to make the most progress?' },
   { label: '🧠 How do I answer the biggest weakness question?', text: 'How do I answer the "biggest weakness" interview question?' },
-  { label: '📊 Why is my ATS score low?',                      text: 'Why might my ATS score be low and how do I fix it?' },
+  { label: '📊 Why do resumes get filtered out early?',        text: 'What are the most common reasons a resume is filtered out before a person reads it, and how do I avoid them?' },
   { label: '🤝 How do I negotiate salary without an offer yet?',text: 'How do I negotiate salary before I have a formal offer?' },
   { label: '🎯 Should I apply broadly or target fewer roles?',  text: 'Should I apply to many roles broadly or target fewer, highly-tailored applications?' },
 ];
@@ -13,24 +17,32 @@ const QUICK_PROMPTS = [
 // Free text the user typed is clipped before it goes into the context, so the context stays small whatever was typed.
 const clip = (s, n = 100) => { const t = String(s ?? ''); return t.length > n ? `${t.slice(0, n)}…` : t; };
 
+// The market, with where it came from: the app starts on Singapore, so Singapore alone is not proof the user chose it.
+function marketLine(value) {
+  const { source, market } = marketSource(clip(value));
+  if (source === 'none') return 'Market: not stated';
+  if (source === 'user_selected') return `Market: ${market} (selected by the user)`;
+  return `Market: ${market} (product default; the user may not have chosen it)`;
+}
+
 export function buildSystemPrompt(memory, form) {
   const lines = [
-    `You are an expert AI career coach. You have full context on the user's profile.`,
+    `You are an expert AI career coach. You have a short summary of the user's profile (counts and a few labels), not their documents: you do not have the user's resume text, the text of their STAR stories or their interview answers. Do not claim to have seen them; if something you need is not below, ask the user.`,
     `Target role: ${clip(form?.role) || 'not specified'}`,
     `Level: ${clip(form?.level) || 'not stated'}`,
-    `Market: ${clip(form?.market) || 'Singapore'}`,
-    `Industry: ${clip(form?.industry) || 'Tech'}`,
+    marketLine(form?.market),
+    `Industry: ${clip(form?.industry) || 'not stated'}`,
   ];
-  if (memory.scanHistory?.length) {
-    const latest = memory.scanHistory[0];
-    lines.push(Number.isFinite(latest?.score) ? `Latest resume ATS score: ${latest.score}/100` : 'Latest resume scan has no score recorded');
-  }
   if (memory.starBank?.length) {
-    lines.push(`STAR bank: ${memory.starBank?.length} stories saved`);
-    lines.push(`Best STAR: "${clip(memory.starBank?.[0]?.bankAs || memory.starBank?.[0]?.oneLiner, 80)}"`);
+    lines.push(`STAR stories saved: ${memory.starBank.length}`);
+    // The list is newest first, so the first entry is the most recent story, not the best one.
+    lines.push(`Most recent STAR story: "${clip(memory.starBank[0]?.bankAs || memory.starBank[0]?.oneLiner, 80)}"`);
   }
   if (memory.mockSessions?.length) {
-    lines.push(`Interview sessions: ${memory.mockSessions?.length} completed, latest score ${memory.mockSessions[0]?.avgScore ?? '—'}/100`);
+    const latest = memory.mockSessions[0]?.avgScore;
+    lines.push(`Mock interviews completed: ${memory.mockSessions.length}; ${Number.isFinite(latest)
+      ? `latest session average ${latest}/100 (an AI estimate, based on the first attempt at each question; not a verified assessment)`
+      : 'the latest session has no scored answer'}`);
   }
   if (memory.jdAnalyses?.length) {
     lines.push(`JDs analyzed: ${memory.jdAnalyses.length} · recent roles: ${memory.jdAnalyses.slice(0, 3).map(j => clip(j.roleTitle, 80) || 'Role').join(', ')}`);
@@ -47,7 +59,7 @@ export function buildSystemPrompt(memory, form) {
     lines.push(`Salary negotiation practice sessions: ${memory.negotiationPractice}`);
   }
   lines.push('');
-  lines.push('Give concise, actionable advice grounded in the user\'s actual data. Be direct — no generic platitudes. Reference their specific scores and history when relevant. Keep responses under 200 words unless a detailed breakdown is genuinely needed.');
+  lines.push('Give concise, actionable advice grounded in what is listed above. Be direct — no generic platitudes. Reference their specific numbers when relevant, and say when a number is an AI estimate. Keep responses under 200 words unless a detailed breakdown is genuinely needed.');
   return lines.join('\n');
 }
 
@@ -87,7 +99,7 @@ export default function AICoach({ memory, form, updateMemory, showToast }) {
   const [messages, setMessages] = useState(
     storedHistory.length > 0
       ? storedHistory
-      : [{ role: 'assistant', content: `Hi! I'm your AI Career Coach. I have full context on your profile — your resume scans, STAR bank, interview sessions, and goals.\n\nWhat would you like to work on today?`, ts: Date.now() }]
+      : [{ role: 'assistant', content: GREETING, ts: Date.now() }]
   );
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -234,12 +246,11 @@ export default function AICoach({ memory, form, updateMemory, showToast }) {
 
           {/* AI context summary */}
           <div style={{ background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: '14px 16px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--lp-text3)', fontFamily: 'var(--lp-ffm)', marginBottom: 10 }}>AI context loaded</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--lp-text3)', fontFamily: 'var(--lp-ffm)', marginBottom: 10 }}>What the coach can see</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {[
-                { label: `Resume scans (${memory.scanHistory?.length ?? 0})`,      ok: (memory.scanHistory?.length ?? 0) > 0 },
                 { label: `STAR stories (${memory.starBank?.length ?? 0})`,          ok: (memory.starBank?.length ?? 0) > 0 },
-                { label: `Interview sessions (${memory.mockSessions?.length ?? 0})`,ok: (memory.mockSessions?.length ?? 0) > 0 },
+                { label: `Mock interviews (${memory.mockSessions?.length ?? 0})`,    ok: (memory.mockSessions?.length ?? 0) > 0 },
                 { label: `JDs analyzed (${memory.jdAnalyses?.length ?? 0})`,        ok: (memory.jdAnalyses?.length ?? 0) > 0 },
                 { label: `Skills gap analysis`,                                      ok: !!memory.skillsGap?.result },
                 { label: `Cover letters (${memory.coverLetters?.length ?? 0})`,     ok: (memory.coverLetters?.length ?? 0) > 0 },
@@ -250,6 +261,9 @@ export default function AICoach({ memory, form, updateMemory, showToast }) {
                   <span style={{ color: item.ok ? 'var(--lp-text)' : 'var(--lp-text2)' }}>{item.label}</span>
                 </div>
               ))}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 11, color: 'var(--lp-text3)', lineHeight: 1.5 }}>
+              Not shared with the coach: your resume text, the text of your STAR stories and your interview answers.
             </div>
           </div>
         </div>

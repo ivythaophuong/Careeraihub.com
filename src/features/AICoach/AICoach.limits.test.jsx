@@ -117,3 +117,30 @@ describe('a failure from the provider', () => {
     expect(sent.map((m) => m.content)).toContain('Please help with my resume');
   });
 });
+
+describe('what the screen tells the user the coach knows', () => {
+  it('the greeting does not claim "full context" or resume scans, and says what the coach can and cannot see', () => {
+    mount({});
+    const text = document.body.textContent;
+    expect(text).not.toMatch(/full context/i);
+    expect(text).not.toMatch(/resume scans/i);
+    expect(text).toMatch(/short summary/i);
+    expect(text).toMatch(/not your resume text/i);
+  });
+
+  it('no quick prompt asks about the ATS score, which the coach cannot explain', () => {
+    mount({});
+    const buttons = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(buttons.some((t) => /ATS score/i.test(t))).toBe(false);
+  });
+
+  it('the side panel lists only live sources, and says what is NOT shared with the coach', () => {
+    mount({ starBank: [{}], mockSessions: [{ avgScore: 70 }] });
+    const text = document.body.textContent;
+    expect(text).toMatch(/What the coach can see/);
+    expect(text).not.toMatch(/AI context loaded/);
+    expect(text).not.toMatch(/Resume scans/);
+    expect(text).toMatch(/Not shared with the coach/i);
+    expect(text).toMatch(/STAR stories \(1\)/);
+  });
+});
