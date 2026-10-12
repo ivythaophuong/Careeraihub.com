@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { locateAll, applyIssue, undoApply } from '../applyIssue.js';
+import { claimWarnings } from '../../../lib/claimGuard.js';
+import { builderDataToText } from '../builderText.js';
 
 const SEV = { critical: '#FF5A5A', high: '#FFB84D', medium: 'var(--lp-text3)' };
 const btn = { background: 'none', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 7, padding: '4px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' };
@@ -29,8 +31,10 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
   const apply = (issue, k, chosen) => {
     const r = applyIssue(data, issue, chosen);
     if (r.error) { setNotes(n => ({ ...n, [k]: 'Could not find that text in your resume any more.' })); return; }
+    // Warnings are judged against the resume as it was BEFORE the change, then kept with the record until Undo.
+    const warnings = claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message);
     onChange(r.data);
-    remember(k, { record: r.record, placeholders: r.placeholders });
+    remember(k, { record: r.record, placeholders: r.placeholders, warnings });
     setNotes(n => ({ ...n, [k]: '' }));
   };
   const undo = (k) => {
@@ -57,6 +61,9 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
           const status = rec ? (canUndo ? 'Applied' : 'Applied, then edited by you')
             : quoteGone ? 'Changed by you: check it still applies'
             : 'Open';
+          const warnings = rec ? (rec.warnings || []) : (hits.length && issue.after
+            ? claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message) : []);
+          const applyLabel = warnings.length ? 'Apply — I confirm this is true' : 'Apply';
           const canJump = !rec && Number.isInteger(issue.builderStep) && hits.length !== 1;
           return (
             <div key={k} data-issue={i} style={{ borderLeft: `3px solid ${SEV[issue.severity] || SEV.medium}`, paddingLeft: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -65,13 +72,14 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
               <div style={{ lineHeight: 1.5 }}>{issue.description}</div>
               {issue.before && <div><strong>Now:</strong> <span>{issue.before}</span></div>}
               {issue.after && <div><strong>Suggested:</strong> <span>{issue.after}</span></div>}
+              {warnings.map((m, j) => <div key={j} style={{ color: '#FFB84D', lineHeight: 1.5 }}>{m}</div>)}
               {rec?.placeholders && <div style={{ color: '#FFB84D' }}>Replace [X] with your real figure, or remove it.</div>}
               {notes[k] && <div style={{ color: '#FFB84D' }}>{notes[k]}</div>}
               {hits.length > 1 && <div style={{ lineHeight: 1.5 }}>That text is in {hits.length} places. Choose where to apply it:</div>}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {hits.length === 1 && <button type="button" style={btn} onClick={() => apply(issue, k)}>Apply</button>}
+                {hits.length === 1 && <button type="button" style={btn} onClick={() => apply(issue, k)}>{applyLabel}</button>}
                 {hits.length > 1 && hits.map(h => (
-                  <button key={JSON.stringify(h.at)} type="button" style={btn} onClick={() => apply(issue, k, h.at)}>{h.label}</button>
+                  <button key={JSON.stringify(h.at)} type="button" style={btn} onClick={() => apply(issue, k, h.at)}>{warnings.length ? `${h.label} — I confirm this is true` : h.label}</button>
                 ))}
                 {canUndo && <button type="button" style={btn} onClick={() => undo(k)}>Undo</button>}
                 {canJump && <button type="button" style={btn} onClick={() => onGoToStep(issue.builderStep)}>Edit this step</button>}

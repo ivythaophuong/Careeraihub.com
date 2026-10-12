@@ -129,4 +129,33 @@ describe('BuilderIssuesPanel', () => {
     expect(screen.getByText('Weak summary')).toBeTruthy();
     spy.mockRestore();
   });
+
+  describe('claims beyond figures', () => {
+    const risky = [{ severity: 'high', title: 'Weak bullet', description: 'Vague.', before: 'Assisted with campaign reporting', after: 'Led marketing analytics, driving strategic campaign decisions', builderStep: 2 }];
+    const start = () => ({ ...initial(), experience: [{ id: 1, company: 'Acme', title: 'A', period: '2020 - 2023', bullets: ['Assisted with campaign reporting'] }] });
+
+    it('warns before Apply when the suggestion raises the role or adds scope, and asks for confirmation on the button', () => {
+      render(<Harness onGoToStep={() => {}} list={risky} start={start} />);
+      const c = card('Weak bullet');
+      expect(c.textContent).toMatch(/assisted/i);
+      expect(c.textContent).toMatch(/keep it only if/i);
+      expect(within(c, /^apply$/i)).toBeUndefined();
+      expect(within(c, /i confirm this is true/i)).toBeTruthy();
+    });
+
+    it('keeps showing the warnings after Apply, until Undo', () => {
+      render(<Harness onGoToStep={() => {}} list={risky} start={start} />);
+      fireEvent.click(within(card('Weak bullet'), /i confirm this is true/i));
+      expect(latest.data.experience[0].bullets[0]).toContain('Led marketing analytics');
+      expect(card('Weak bullet').textContent).toMatch(/keep it only if/i);
+      fireEvent.click(within(card('Weak bullet'), /undo/i));
+      expect(latest.data.experience[0].bullets[0]).toBe('Assisted with campaign reporting');
+    });
+
+    it('a plain rewrite has no warning and the normal Apply button', () => {
+      render(<Harness onGoToStep={() => {}} />);
+      expect(card('Passive bullet').textContent).not.toMatch(/keep it only if/i);
+      expect(within(card('Passive bullet'), /^apply$/i)).toBeTruthy();
+    });
+  });
 });
