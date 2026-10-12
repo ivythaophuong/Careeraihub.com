@@ -91,3 +91,24 @@ describe('extractContact still returns the name from the header', () => {
     expect(extractContact('Jordan Lee | Senior Product Analyst\njordan.lee@example.com').name.value).toBe('Jordan Lee');
   });
 });
+
+describe('a location line before the name is skipped, like a contact line', () => {
+  it.each([
+    ['a city and country with a note in brackets', '+65 5555 0100\nHo Chi Minh City, Vietnam (Open to relocation)\njordan.lee@example.com\nJordan Lee\nSenior Product Analyst'],
+    ['a city and a two-letter state', 'jordan.lee@example.com\nAustin, TX\nJordan Lee\nSenior Product Analyst'],
+  ])('%s', (_label, text) => {
+    expect(name(text).value).toBe('Jordan Lee');
+  });
+
+  it('the location line is not itself taken as the name', () => {
+    expect(name('Ho Chi Minh City, Vietnam (Open to relocation)\nSenior Product Analyst').value).toBeNull();
+    expect(name('Austin, TX\njordan.lee@example.com').value).toBeNull();
+  });
+
+  it('forms that can be a person (Surname, Given name) or a bare "City, Country" are still not read as location or name', () => {
+    expect(name('Lee, Jordan\nSenior Product Analyst').value).toBeNull();
+    expect(name('Lee, Jordan A.\nSenior Product Analyst').value).toBeNull();
+    expect(name('Lee, Maria Elena\nSenior Product Analyst').value).toBeNull();
+    expect(name('Austin, Texas\nJordan Lee').value).toBeNull();
+  });
+});

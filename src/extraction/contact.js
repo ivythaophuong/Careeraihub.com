@@ -76,6 +76,7 @@ const bare = (w) => w.replace(/[.,]/g, '').toLowerCase();
 
 // What a header line says about the name, using only its FIRST segment (a name leads; what follows a separator is a title, a city or contact info).
 //   { kind: 'contact' }   the first segment is contact information
+//   { kind: 'location' }  a place ("City, Country (note)", "City, TX"): skipped like contact information
 //   { kind: 'name', value, label }
 //   { kind: 'title' }     name-shaped words that are a job title
 //   { kind: 'other' }     not name-shaped
@@ -88,7 +89,15 @@ function readLine(line) {
   // "Jordan A. Lee, MBA": after the first comma only degrees may follow; otherwise the comma form is not read ("Lee, Jordan" stays unknown).
   if (first.includes(',')) {
     const [head, ...rest] = first.split(',').map((x) => x.trim());
-    if (!rest.every((r) => r.split(/\s+/).every((w) => DEGREE_WORDS.has(bare(w))))) return { kind: 'other' };
+    if (!rest.every((r) => r.split(/\s+/).every((w) => DEGREE_WORDS.has(bare(w))))) {
+      // "Ho Chi Minh City, Vietnam (Open to relocation)" and "Austin, TX" are places, not a name and not noise: skipped like contact info.
+      // Only the two forms that cannot be a person are read this way (a note in brackets, a two-letter state). "Lee, Jordan" and
+      // "Austin, Texas" look the same as each other, so they stay unknown.
+      const tail = rest.join(',').trim();
+      const placeHead = /^\p{Lu}[\p{L}.'-]*(?:\s+\p{Lu}?[\p{L}.'-]+)*$/u.test(head);
+      if (placeHead && (/\(.+\)/.test(tail) || /^\p{Lu}{2}$/u.test(tail))) return { kind: 'location' };
+      return { kind: 'other' };
+    }
     first = head;
   }
   const words = first.split(/\s+/).filter(Boolean);
@@ -109,7 +118,7 @@ export function extractName(headerText, source = 'contact.name') {
   let skipped = 0, sawTitle = false;
   for (let i = 0; i < read.length; i++) {
     const r = read[i];
-    if (r.kind === 'contact') { skipped++; continue; }
+    if (r.kind === 'contact' || r.kind === 'location') { skipped++; continue; }
     if (r.kind === 'title') { sawTitle = true; skipped++; continue; }
     if (r.kind === 'other') return empty(source);
     // r.kind === 'name'. Below the first line a single word is not enough ("Singapore"), so two words are required there.
