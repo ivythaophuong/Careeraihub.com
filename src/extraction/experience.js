@@ -42,6 +42,23 @@ function classifyHeaderLines(lines, source) {
   return { title: emptyFact(`${source}.title`), company: emptyFact(`${source}.company`) };
 }
 
+// A line that reads as the title/company of a job rather than as content: short, no sentence ending, no figures, and either
+// title-shaped, company-shaped, or "X, Y" / "X at Y" / "X — Y" with a title word in it.
+const isHeaderShaped = (line) => {
+  const t = line.trim();
+  if (!t || isBulletLine(t) || t.length > 70 || /[.!?]$/.test(t) || /[\d%$]/.test(t) || t.split(/\s+/).length > 8) return false;
+  return TITLE_WORDS.test(t) || looksLikeCompany(t);
+};
+
+// The header lines (at most 2) that sit directly before a job's date line. The existing header logic below already reads them as that
+// job's title/company, so the previous job must not also count them as its own bullets. The line right after the previous date is never
+// taken (it can be that job's own company line), so a job always keeps at least that line.
+function headerRunBefore(lines, dateIdx, floor) {
+  let start = dateIdx;
+  while (start - 1 > floor + 1 && dateIdx - (start - 1) <= 2 && isHeaderShaped(lines[start - 1])) start--;
+  return start;
+}
+
 // sectionText is the body of the "experience" section (from splitSections). An entry starts at a line
 // that contains a date range (the strongest, most reliable signal a resume line is an entry's header);
 // the 1-2 non-bullet lines immediately before it (since P1 often tabs the date onto the SAME line as the
@@ -60,7 +77,7 @@ export function extractExperiences(sectionText, source = 'experiences') {
   for (let k = 0; k < dateLineIdx.length; k++) {
     const i = dateLineIdx[k];
     const prevBoundary = k > 0 ? dateLineIdx[k - 1] + 1 : 0;
-    const nextBoundary = k + 1 < dateLineIdx.length ? dateLineIdx[k + 1] : lines.length;
+    const nextBoundary = k + 1 < dateLineIdx.length ? headerRunBefore(lines, dateLineIdx[k + 1], i) : lines.length;
     const entrySource = `${source}[${entries.length}]`;
 
     // Header candidates: non-bullet lines around the date line, on EITHER side (title/company land
