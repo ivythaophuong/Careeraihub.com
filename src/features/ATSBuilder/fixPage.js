@@ -83,3 +83,15 @@ export function summaryCounts(statuses) {
   const n = (...k) => statuses.filter(s => k.includes(s)).length;
   return { total: statuses.length, applied: n('applied'), open: n('open', 'needs_figure'), changedByYou: n('applied_edited', 'changed') };
 }
+
+// The key a record is kept under in the Suggestions panel (BuilderIssuesPanel), so the Fix page and the panel share their records.
+export const issueKey = (issue, i) => `${i}:${issue?.title || ''}:${issue?.before || ''}`;
+
+// The text of one field now ('' when the place does not exist).
+export const fieldText = (data, at) => readField(data, at);
+
+// A copy of the data with one field replaced, to preview a typed text before it is saved. A place that does not exist gives the data back as it was.
+export function withFieldText(data, at, text) {
+  if (rawField(data, at) === undefined || rawField(data, at) === null) return data;
+  return writeField(data, at, String(text ?? ''));
+}

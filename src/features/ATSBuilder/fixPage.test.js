@@ -1,6 +1,6 @@
 // The logic behind the Fix page (no screen): where an issue's text is, what the draft would put there, saving one field, and the status of each issue.
 import { describe, it, expect } from 'vitest';
-import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts } from './fixPage.js';
+import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText } from './fixPage.js';
 import { undoApply } from './applyIssue.js';
 
 const base = () => ({
@@ -193,5 +193,32 @@ describe('summaryCounts: counts of what is, never "all fixed"', () => {
   it('has no field that says everything is fixed or resolved', () => {
     expect(Object.keys(summaryCounts(['applied']))).not.toContain('resolved');
     expect(Object.keys(summaryCounts(['applied']))).not.toContain('allFixed');
+  });
+});
+
+describe('issueKey: the same key the Suggestions panel keeps its records under', () => {
+  it('is the position, the title and the quoted text', () => {
+    expect(issueKey({ title: 'No metrics', before: 'Handled monthly reporting' }, 2)).toBe('2:No metrics:Handled monthly reporting');
+    expect(issueKey({}, 0)).toBe('0::');
+  });
+});
+
+describe('fieldText and withFieldText: reading a field and previewing a typed text without saving it', () => {
+  const at = { kind: 'bullet', exp: 0, bullet: 1 };
+  it('reads the summary and a bullet; a place that does not exist reads as empty', () => {
+    expect(fieldText(base(), { kind: 'summary' })).toBe('Analyst who builds weekly reports.');
+    expect(fieldText(base(), at)).toBe('Built a dashboard for 6 managers');
+    expect(fieldText(base(), { kind: 'bullet', exp: 9, bullet: 0 })).toBe('');
+  });
+  it('returns a copy with that field replaced, the rest unchanged, and leaves the input alone', () => {
+    const d = base(); const copy = JSON.stringify(d);
+    const p = withFieldText(d, at, 'Typed but not saved');
+    expect(p.experience[0].bullets[1]).toBe('Typed but not saved');
+    expect(p.experience[0].bullets[0]).toBe(d.experience[0].bullets[0]);
+    expect(p.summary).toBe(d.summary);
+    expect(JSON.stringify(d)).toBe(copy);
+  });
+  it('a place that does not exist gives the data back unchanged', () => {
+    expect(withFieldText(base(), { kind: 'bullet', exp: 9, bullet: 0 }, 'x')).toEqual(base());
   });
 });

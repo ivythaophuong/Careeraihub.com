@@ -11,6 +11,8 @@ import { printElement } from '../../lib/printElement.js';
 import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
 import BuilderScorePanel from './components/BuilderScorePanel.jsx';
 import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
+import FixPage from './components/FixPage.jsx';
+import { fixTargets, issueKey } from './fixPage.js';
 import { confirmExport } from '../../lib/exportGuard.js';
 import { builderDataToText } from './builderText.js';
 import './atsBuilder.css';
@@ -783,12 +785,15 @@ export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(bui
 // builderStep from an issue is 1=Contact ... 5=Summary, the same order as BUILDER_STEPS (index = builderStep - 1). Anything else opens step 1.
 const stepIndexFor = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n - 1 : 0);
 
-function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user, focus }) {
+function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setActiveModule, user, focus, template, onTemplateChange, onBackToList }) {
   const draftKey = builderDraftKey(user?.id);
   const [step, setStep] = useState(() => stepIndexFor(focus?.step));
   const [fixing, setFixing] = useState(focus?.issue || null);
   useEffect(() => { setStep(stepIndexFor(focus?.step)); setFixing(focus?.issue || null); }, [focus]);
-  const [activeTemplate, setActiveTemplate] = useState('modern');
+  // The template is held by the parent when it gives one, so it is kept when the user leaves the Builder and comes back (the Fix page shows the same one).
+  const [localTemplate, setLocalTemplate] = useState('modern');
+  const activeTemplate = template ?? localTemplate;
+  const setActiveTemplate = onTemplateChange ?? setLocalTemplate;
   const [skillInput, setSkillInput] = useState('');
   const [previewScale, setPreviewScale] = useState(1);
   const containerRef = useRef(null);
@@ -802,6 +807,14 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
     return mapProfileToData(initialProfile);
   });
   const [isSample, setIsSample] = useState(!initialProfile && !restoredData && !localStorage.getItem(draftKey));
+
+  // The Fix page opens when the user came from one issue whose quoted text is in the resume (the summary or a bullet). Any other issue keeps the step form.
+  const issueList = initialProfile?.issues || [];
+  const canFixHere = (issue) => !!issue && ['one', 'many'].includes(fixTargets(data, issue).kind);
+  const [fixMode, setFixMode] = useState(() => canFixHere(focus?.issue));
+  useEffect(() => { setFixMode(canFixHere(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const appliedKey = builderAppliedKey(user?.id);
+  const [fixRecords, setFixRecords] = useState(() => { try { return JSON.parse(localStorage.getItem(appliedKey) || '{}') || {}; } catch { return {}; } });
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
@@ -924,6 +937,30 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
       {content}
     </div>
   );
+
+  if (fixMode) {
+    const idx = focus?.issue ? issueList.findIndex(i => i.title === focus.issue.title && i.before === focus.issue.before) : -1;
+    const onFixChange = (newData, key, entry) => {
+      edit(() => newData);
+      setFixRecords(r => {
+        const next = { ...r, [key]: entry };
+        try { localStorage.setItem(appliedKey, JSON.stringify(next)); } catch { /* storage unavailable: the record lives for this visit only */ }
+        return next;
+      });
+    };
+    return (
+      <FixPage
+        data={data}
+        issues={issueList}
+        startKey={idx >= 0 ? issueKey(issueList[idx], idx) : null}
+        records={fixRecords}
+        onChange={onFixChange}
+        onBackToList={onBackToList}
+        onOpenBuilder={() => { setFixMode(false); setFixing(null); }}
+        template={TEMPLATES.find(t => t.id === activeTemplate) || TEMPLATES[0]}
+      />
+    );
+  }
 
   return (
     <div className="atb-builder-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 640 }}>
@@ -1223,6 +1260,7 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
   const [mainTab, setMainTab] = useState('parse');
   const [entryMode, setEntryMode] = useState(null); // null=choose, 'scratch', 'existing'
   const [builderFocus, setBuilderFocus] = useState(null); // { step, issue } when the builder was opened from one issue
+  const [template, setTemplate] = useState('modern');   // the chosen template, kept when the user moves between the Builder and the Fix page
 
   // Resume data
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -1344,6 +1382,9 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
           onSaveVersion={handleSaveVersion}
           restoredData={restoredData}
           setActiveModule={setActiveModule}
+          template={template}
+          onTemplateChange={setTemplate}
+          onBackToList={() => { setBuilderFocus(null); setMainTab('parse'); }}
         />
       )}
       {mainTab === 'builder' && entryMode === 'scratch' && (
@@ -1354,6 +1395,9 @@ const ATSBuilder = ({ user, memory, updateMemory, onProTrigger, form, setActiveM
           onSaveVersion={handleSaveVersion}
           restoredData={null}
           setActiveModule={setActiveModule}
+          template={template}
+          onTemplateChange={setTemplate}
+          onBackToList={() => { setBuilderFocus(null); setMainTab('parse'); }}
         />
       )}
       {mainTab === 'history' && (
