@@ -79,7 +79,7 @@ describe('trying an answer again', () => {
     answerWith(ANSWER_2);
     fireEvent.click(screen.getByText(/Get AI Feedback/));
     await waitFor(() => expect(scoreShown()).toBe('78%'));
-    expect(screen.getByText(/attempt 2/i)).toBeTruthy();
+    expect(screen.getByText(/practice attempt 2/i)).toBeTruthy();
     expect(callLLM.mock.calls.filter(c => !c[0][0].content.includes('Write 5 interview questions')).length).toBe(2);
   });
 
@@ -110,7 +110,7 @@ describe('trying an answer again', () => {
     retry(); answerWith(ANSWER_2); fireEvent.click(screen.getByText(/Get AI Feedback/)); await waitFor(() => expect(scoreShown()).toBe('66%'));
     retry(); answerWith(ANSWER_2 + ' I also trained the support team.'); fireEvent.click(screen.getByText(/Get AI Feedback/));
     await waitFor(() => expect(scoreShown()).toBe('72%'));
-    expect(screen.getByText(/attempt 3/i)).toBeTruthy();
+    expect(screen.getByText(/practice attempt 3/i)).toBeTruthy();
   });
 
   it('after a retry, moving on still goes to question 2', async () => {
@@ -132,8 +132,8 @@ describe('the score that counts is the first attempt', () => {
     const [, row] = p.updateMemory.mock.calls[0];
     expect(row.data.avg_score).toBe(61);
     expect(screen.getByLabelText('Average score').textContent).toBe('61%');
-    expect(screen.getByText(/practice retry: 88%/i)).toBeTruthy();
-    expect(screen.getByText(/first attempt counts/i)).toBeTruthy();
+    expect(screen.getByText(/latest practice attempt: 88% \(first attempt: 61%\)/i)).toBeTruthy();
+    expect(screen.getByText(/only the first attempt counts/i)).toBeTruthy();
   });
 
   it('with server scoring, only the first attempt of each question is sent to be saved', async () => {
@@ -150,5 +150,42 @@ describe('the score that counts is the first attempt', () => {
     const items = saveInterviewOnServer.mock.calls[0][2];
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ score: 61, sig: 'first' });
+  });
+});
+
+describe('how a practice score is shown (it is not an official score)', () => {
+  it('on a retry the official first score stays visible, the new score is labelled practice, and a higher score is not read as proof of skill', async () => {
+    ai([LONG(61), LONG(78)]); setup(); await start(); answerWith(ANSWER); await submit();
+    retry(); answerWith(ANSWER_2); fireEvent.click(screen.getByText(/Get AI Feedback/)); await waitFor(() => expect(scoreShown()).toBe('78%'));
+    expect(screen.getByText(/practice score/i)).toBeTruthy();
+    expect(screen.getByText(/first attempt \(the one that counts\): 61%/i)).toBeTruthy();
+    expect(screen.getByText(/scored higher than your first/i)).toBeTruthy();
+    expect(screen.getByText(/not proof/i)).toBeTruthy();
+  });
+
+  it('does not say it scored higher when it did not', async () => {
+    ai([LONG(70), LONG(64)]); setup(); await start(); answerWith(ANSWER); await submit();
+    retry(); answerWith(ANSWER_2); fireEvent.click(screen.getByText(/Get AI Feedback/)); await waitFor(() => expect(scoreShown()).toBe('64%'));
+    expect(screen.queryByText(/scored higher/i)).toBeNull();
+    expect(screen.queryByText(/improved/i)).toBeNull();
+    expect(screen.getByText(/did not score higher than your first/i)).toBeTruthy();
+  });
+
+  it('the summary keeps the official average prominent and shows the practice attempt as secondary, saying it is not saved', async () => {
+    ai([LONG(61), LONG(88)]); setup(); await start(); answerWith(ANSWER); await submit();
+    retry(); answerWith(ANSWER_2); fireEvent.click(screen.getByText(/Get AI Feedback/)); await waitFor(() => expect(scoreShown()).toBe('88%'));
+    fireEvent.click(screen.getByText(/Finish & see results/));
+    await screen.findByText(/Interview Results/);
+    expect(screen.getByLabelText('Average score').textContent).toBe('61%');
+    expect(screen.getByText(/not saved/i)).toBeTruthy();
+    expect(screen.getByText(/ai estimates/i)).toBeTruthy();
+    expect(screen.getByText(/scored higher/i)).toBeTruthy();
+  });
+
+  it('an unscored first-attempt-only session shows no practice wording at all', async () => {
+    ai([LONG(61)]); setup(); await start(); answerWith(ANSWER); await submit();
+    fireEvent.click(screen.getByText(/Finish & see results/));
+    await screen.findByText(/Interview Results/);
+    expect(screen.queryByText(/practice/i)).toBeNull();
   });
 });

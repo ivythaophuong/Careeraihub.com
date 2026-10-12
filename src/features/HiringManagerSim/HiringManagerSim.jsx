@@ -263,7 +263,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           </Card>
         )}
 
-        {results.some(r => r.retries?.length) && <div style={{ color: C.muted, fontSize: 11 }}>The first attempt counts toward your score and history; retries are practice.</div>}
+        {results.some(r => r.retries?.length) && <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.6 }}>Only the first attempt counts toward your score and history. Practice attempts are AI estimates for your own learning; they are kept for this visit only and are not saved.</div>}
 
         {s.priorities.length > 0 && (
           <Card style={{ border: `1px solid ${C.accent}44` }}>
@@ -281,7 +281,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
                 <div style={{ flex: 1 }}>
                   <div style={{ color: C.text, fontSize: 12, lineHeight: 1.5 }}>{r.question}</div>
                   {!r.skipped && r.tip && <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Tip: {r.tip}</div>}
-                  {!r.skipped && r.retries?.length > 0 && <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Practice retry: {r.retries[r.retries.length - 1].score}% ({r.retries.length} {r.retries.length === 1 ? 'retry' : 'retries'})</div>}
+                  {!r.skipped && r.retries?.length > 0 && (() => { const last = r.retries[r.retries.length - 1].score; return <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>Latest practice attempt: {last}% (first attempt: {r.score}%){last > r.score ? ' · scored higher' : ''}</div>; })()}
                 </div>
               </div>
             </div>
@@ -300,6 +300,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   // ── Interview ───────────────────────────────────────────────────────────────
   const answeredCount = results.filter(r => !r.skipped).length;
   const isLast = idx + 1 === questions.length;
+  const firstScore = results[results.length - 1]?.score; // the first attempt of the question on screen
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -354,10 +355,20 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       {current && (
         <>
           <Card style={{ border: `1px solid ${scoreColor(current.score)}44` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ color: scoreColor(current.score), fontWeight: 900, fontSize: 20 }}>{current.verdict}{attempt > 1 && <span style={{ color: C.muted, fontSize: 12, fontWeight: 700, marginLeft: 8 }}>Attempt {attempt}</span>}</div>
-              <div style={{ color: scoreColor(current.score), fontSize: 24, fontWeight: 900 }} aria-label="Answer score">{current.score}%</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: attempt > 1 ? 8 : 20 }}>
+              <div style={{ color: scoreColor(current.score), fontWeight: 900, fontSize: 20 }}>{current.verdict}{attempt > 1 && <span style={{ color: C.muted, fontSize: 12, fontWeight: 700, marginLeft: 8 }}>Practice attempt {attempt}</span>}</div>
+              <div style={{ textAlign: "right" }}>
+                {attempt > 1 && <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Practice score (not counted)</div>}
+                <div style={{ color: scoreColor(current.score), fontSize: attempt > 1 ? 18 : 24, fontWeight: 900 }} aria-label="Answer score">{current.score}%</div>
+              </div>
             </div>
+            {attempt > 1 && Number.isFinite(firstScore) && (
+              <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, marginBottom: 14 }}>
+                First attempt (the one that counts): {firstScore}%. {current.score > firstScore
+                  ? 'This attempt scored higher than your first. That is one AI estimate, not proof that your skill changed.'
+                  : 'This attempt did not score higher than your first.'}
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {current.worked && <div><div style={{ color: C.green, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>What Worked</div><Detail text={current.worked} /></div>}
               {current.missed && <div><div style={{ color: C.red, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>What Missed</div><Detail text={current.missed} /></div>}
@@ -375,7 +386,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             <Btn onClick={tryAgain} disabled={!!busy} color={C.border} style={{ padding: "11px 20px" }}>Try this answer again</Btn>
             <Btn onClick={() => advance(results)} color={pColor} dark style={{ flex: 1 }}>{isLast ? 'See Results →' : 'Next Question →'}</Btn>
           </div>
-          {attempt === 1 && <div style={{ color: C.muted, fontSize: 11 }}>Retrying is practice: only your first attempt counts toward your score and history.</div>}
+          {attempt === 1 && <div style={{ color: C.muted, fontSize: 11 }}>Retrying is practice: only your first attempt counts toward your score and history, and practice attempts are not saved.</div>}
         </>
       )}
     </div>
