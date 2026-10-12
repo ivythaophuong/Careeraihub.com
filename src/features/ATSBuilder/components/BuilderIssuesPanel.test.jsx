@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import BuilderIssuesPanel from './BuilderIssuesPanel.jsx';
 
@@ -18,15 +18,16 @@ const issues = [
 
 // The panel works on the data its parent holds, like the Builder does.
 let latest;
-function Harness({ onGoToStep }) {
-  const [data, setData] = useState(initial);
+function Harness({ onGoToStep, storageKey, start, list = issues }) {
+  const [data, setData] = useState(start || initial);
   latest = { data, setData };
-  return <BuilderIssuesPanel issues={issues} data={data} onChange={setData} onGoToStep={onGoToStep} />;
+  return <BuilderIssuesPanel issues={list} data={data} onChange={setData} onGoToStep={onGoToStep} storageKey={storageKey} />;
 }
 const card = (title) => screen.getByText(title).closest('[data-issue]');
 const within = (el, name) => Array.from(el.querySelectorAll('button')).find(b => name.test(b.textContent));
 
 describe('BuilderIssuesPanel', () => {
+  beforeEach(() => { try { localStorage.clear(); } catch {} });
   afterEach(cleanup);
 
   it('lists every issue with its before and after', () => {
@@ -52,14 +53,12 @@ describe('BuilderIssuesPanel', () => {
     expect(latest.data).toEqual(initial());
   });
 
-  it('says so when the inserted text was edited and cannot be undone', () => {
+  it('when the user edits the inserted text, the card says so and offers no Undo that could damage the edit', () => {
     render(<Harness onGoToStep={() => {}} />);
     fireEvent.click(within(card('Passive bullet'), /^apply/i));
-    fireEvent.click(within(card('Passive bullet'), /undo/i)); // restores
-    fireEvent.click(within(card('Passive bullet'), /^apply/i));
     React.act(() => latest.setData(d => ({ ...d, experience: [{ ...d.experience[0], bullets: ['Something else', 'Cut costs by 12%'] }] })));
-    fireEvent.click(within(card('Passive bullet'), /undo/i));
-    expect(screen.getByText(/edited that text/i)).toBeTruthy();
+    expect(within(card('Passive bullet'), /undo/i)).toBeUndefined();
+    expect(card('Passive bullet').textContent).toMatch(/applied, then edited/i);
     expect(latest.data.experience[0].bullets[0]).toBe('Something else');
   });
 
@@ -85,5 +84,49 @@ describe('BuilderIssuesPanel', () => {
   it('renders nothing when there are no issues', () => {
     const { container } = render(<BuilderIssuesPanel issues={[]} data={initial()} onChange={() => {}} onGoToStep={() => {}} />);
     expect(container.textContent).toBe('');
+  });
+
+  it('marks an issue "Changed by you" when its quote is no longer in the resume and it was not applied here; never "Resolved"', () => {
+    render(<Harness onGoToStep={() => {}} start={() => ({ ...initial(), summary: 'Analyst who likes data.' })} />);
+    expect(card('Weak summary').textContent).toMatch(/changed by you/i);
+    expect(screen.queryByText(/resolved/i)).toBeNull();
+  });
+
+  it('shows Open for an issue whose quote is still there', () => {
+    render(<Harness onGoToStep={() => {}} />);
+    expect(Array.from(card('Weak summary').querySelectorAll('div')).some(d => d.textContent === 'Open')).toBe(true);
+  });
+
+  it('when the quote is in several places the user chooses where, and nothing changes until then', () => {
+    const dup = () => ({ ...initial(), experience: [
+      { id: 1, company: 'Acme', title: 'A', period: '2020 - 2023', bullets: ['Responsible for weekly reports'] },
+      { id: 2, company: 'Beta', title: 'B', period: '2017 - 2020', bullets: ['Responsible for weekly reports'] },
+    ] });
+    render(<Harness onGoToStep={() => {}} start={dup} />);
+    const c = card('Passive bullet');
+    expect(within(c, /^apply$/i)).toBeUndefined();
+    expect(c.textContent).toMatch(/2 places/i);
+    expect(latest.data).toEqual(dup());
+    fireEvent.click(within(c, /beta/i));
+    expect(latest.data.experience[1].bullets[0]).toBe('Produced weekly reports');
+    expect(latest.data.experience[0].bullets[0]).toBe('Responsible for weekly reports');
+  });
+
+  it('keeps Applied and Undo after the page is reloaded (records are saved with the draft)', () => {
+    const first = render(<Harness onGoToStep={() => {}} storageKey="t:applied" />);
+    fireEvent.click(within(card('Passive bullet'), /^apply/i));
+    const dataAfter = latest.data;
+    first.unmount();
+    render(<Harness onGoToStep={() => {}} storageKey="t:applied" start={() => dataAfter} />);
+    expect(card('Passive bullet').textContent).toMatch(/applied/i);
+    fireEvent.click(within(card('Passive bullet'), /undo/i));
+    expect(latest.data).toEqual(initial());
+  });
+
+  it('works when browser storage is unavailable', () => {
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    render(<Harness onGoToStep={() => {}} storageKey="t:blocked" />);
+    expect(screen.getByText('Weak summary')).toBeTruthy();
+    spy.mockRestore();
   });
 });

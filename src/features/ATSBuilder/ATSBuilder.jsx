@@ -775,7 +775,8 @@ function mapProfileToData(profile) {
 const DRAFT_PREFIX = 'careerai_builder_draft';
 const LEGACY_DRAFT_KEY = 'careerai_builder_draft';
 export const builderDraftKey = (userId) => `${DRAFT_PREFIX}:${userId || 'guest'}`;
-export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(builderDraftKey(userId)); } catch {} };
+export const builderAppliedKey = (userId) => `${builderDraftKey(userId)}:applied`;
+export const clearBuilderDraft = (userId) => { try { localStorage.removeItem(builderDraftKey(userId)); localStorage.removeItem(builderAppliedKey(userId)); } catch {} };
 
 // builderStep from an issue is 1=Contact ... 5=Summary, the same order as BUILDER_STEPS (index = builderStep - 1). Anything else opens step 1.
 const stepIndexFor = (n) => (Number.isInteger(n) && n >= 1 && n <= 5 ? n - 1 : 0);
@@ -1187,7 +1188,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         {/* ATS readiness of the draft, computed by code as the user edits */}
         <div style={{ paddingTop: 10, flexShrink: 0 }}>
           <BuilderScorePanel data={data} onGoToStep={(n) => setStep(stepIndexFor(n))} />
-          <BuilderIssuesPanel issues={initialProfile?.issues} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
+          <BuilderIssuesPanel issues={initialProfile?.issues} storageKey={builderAppliedKey(user?.id)} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
         </div>
 
         {/* Live preview — A4 width (794px = 210mm @ 96dpi) */}
