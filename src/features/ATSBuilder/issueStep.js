@@ -50,3 +50,9 @@ export function isBulletIssue(issue) {
 }
 // A title that names some other section settles it: "Missing location for education institutions" is not about bullets whatever the description says.
 function SECTION_WORDS_IN_TITLE(title) { return named(title).length > 0; }
+
+// The AI's quote, only when it really is in the resume (the summary or a bullet; an ellipsis is allowed). Otherwise null: a fragment stitched from the
+// header and a heading ("JORDAN LEE, CFA ... WORKING EXPERIENCE") is not text of the resume and must not be shown as "In your resume".
+export function quoteInResume(issue, data) {
+  return issue?.before && String(issue.before).trim() && locateAll(data, issue.before).length > 0 ? issue.before : null;
+}

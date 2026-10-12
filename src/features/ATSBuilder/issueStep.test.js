@@ -1,6 +1,6 @@
 // Where an issue is fixed in the Builder, decided by code and not by the number the AI wrote. The AI's own step is only the last resort.
 import { describe, it, expect } from 'vitest';
-import { stepForIssue, draftFor, isBulletIssue } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue, quoteInResume } from './issueStep.js';
 
 const data = () => ({
   contact: { name: 'Jordan Lee', email: 'jordan.lee@example.com', phone: '', linkedin: '', location: 'Singapore' },
@@ -104,5 +104,20 @@ describe('isBulletIssue: is the issue about the sentences under a job (so the us
     expect(isBulletIssue({ title: 'Needs work', description: 'Several bullet points describe tasks, not results.' })).toBe(true);
     expect(isBulletIssue({ title: 'Needs work', description: 'Please review.' })).toBe(false);
     expect(isBulletIssue(null)).toBe(false);
+  });
+});
+
+describe('quoteInResume: show the AI\'s quote only when it really is in the resume', () => {
+  it('gives the quote when its sentence is in the resume (an ellipsis is allowed)', () => {
+    expect(quoteInResume(issue({ before: 'Handled monthly reporting' }), data())).toBe('Handled monthly reporting');
+    expect(quoteInResume(issue({ before: 'Handled monthly...' }), data())).toBe('Handled monthly...');
+  });
+  it('gives nothing when it is not there, such as a stitched-together fragment of the header', () => {
+    expect(quoteInResume(issue({ before: 'JORDAN LEE, CFA ... WORKING EXPERIENCE' }), data())).toBeNull();
+    expect(quoteInResume(issue({ before: 'Something never written' }), data())).toBeNull();
+  });
+  it('gives nothing when there is no quote', () => {
+    expect(quoteInResume(issue({ before: '' }), data())).toBeNull();
+    expect(quoteInResume(null, data())).toBeNull();
   });
 });

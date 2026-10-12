@@ -14,7 +14,8 @@ import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
 import { demoFixProfile, demoResetRequested } from './demoFix.js';
-import { stepForIssue, draftFor, isBulletIssue } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue, quoteInResume } from './issueStep.js';
+import { Sparkles } from 'lucide-react';
 import TemplateGallery from './components/TemplateGallery.jsx';
 import { confirmExport } from '../../lib/exportGuard.js';
 import { builderDataToText, scoreBuilderData } from './builderText.js';
@@ -961,43 +962,59 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const fixNumber = fixing ? stepNumberFor(fixing, data, fixing.builderStep) : null;
   const fixDraft = fixing ? draftFor(fixing, data) : null;
   const [askReplaceSummary, setAskReplaceSummary] = useState(false);
+  const [showWhyCard, setShowWhyCard] = useState(false);
   const useSummaryDraft = () => { if (data.summary && data.summary.trim() && data.summary !== fixDraft.text) setAskReplaceSummary(true); else setSummary(fixDraft.text); };
+  const fixQuote = fixing ? quoteInResume(fixing, data) : null;   // shown only when it is really in the resume
   const fixCard = fixing && fixNumber !== null && stepIndexFor(fixNumber) === step ? (
-    <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderLeft: '4px solid var(--lp-teal)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-teal)' }}>Fixing this issue</div>
-      <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, lineHeight: 1.3, color: 'var(--lp-text)' }}>{fixing.title}</h3>
-      {fixing.description && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>{fixing.description}</p>}
-      {fixing.before && (
+    <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 20, padding: '18px 20px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)' }}>Fixing this issue</div>
+        <button type="button" onClick={() => setFixing(null)} style={{ ...quietBtn, border: 'none', textDecoration: 'underline', padding: '2px 4px' }}>Hide this reminder</button>
+      </div>
+      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, lineHeight: 1.3, color: 'var(--lp-text)' }}>{fixing.title}</h3>
+      {fixing.description && (
+        <div>
+          <button type="button" aria-expanded={showWhyCard} onClick={() => setShowWhyCard(v => !v)} style={{ ...quietBtn, border: 'none', padding: 0, textDecoration: 'underline' }}>Why this matters</button>
+          {showWhyCard && <p style={{ margin: '8px 0 0', fontSize: 13.5, lineHeight: 1.65, color: 'var(--lp-text2)' }}>{fixing.description}</p>}
+        </div>
+      )}
+      {fixQuote && (
         <div>
           <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--lp-text3)', marginBottom: 4 }}>In your resume</div>
-          <div data-quote="before" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'var(--lp-bg3)', borderLeft: '3px solid var(--lp-bdr)', borderRadius: 4 }}>{fixing.before}</div>
+          <div data-quote="before" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'var(--lp-bg3)', borderLeft: '3px solid var(--lp-bdr)', borderRadius: 4 }}>{fixQuote}</div>
         </div>
       )}
       {fixDraft && (
         <div>
-          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: '#FFB84D', marginBottom: 4 }}>AI suggestion · check every figure is true before you use it</div>
-          <div data-quote="after" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'rgba(255,184,77,.08)', borderLeft: '3px solid #FFB84D', borderRadius: 4 }}>{fixDraft.text}</div>
-          {fixDraft.placeholders && fixDraft.replaced?.length > 0 && <div style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.5, color: '#FFB84D' }}>These figures are not in your resume: {fixDraft.replaced.join(', ')}. They are shown as [X]: put your real figure, or remove it.</div>}
-          {fixDraft.warnings.map((w, k) => <div key={k} style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, color: '#FFB84D' }}>{w}</div>)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <span data-badge="ai" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: '#FFB84D', background: 'rgba(255,184,77,.12)', border: '1px solid rgba(255,184,77,.35)' }}>
+              <Sparkles size={12} aria-hidden="true" /> AI suggestion
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--lp-text3)' }}>Check every figure is true before you use it.</span>
+          </div>
+          <div data-quote="after" style={{ padding: '10px 14px', fontSize: 14, lineHeight: 1.6, color: 'var(--lp-text)', background: 'rgba(255,184,77,.07)', borderLeft: '3px solid #FFB84D', borderRadius: 6 }}>{fixDraft.text}</div>
+          {fixDraft.placeholders && fixDraft.replaced?.length > 0 && <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.55, color: '#FFB84D' }}>These figures are not in your resume: {fixDraft.replaced.join(', ')}. They are shown as [X]: put your real figure, or remove it.</div>}
+          {fixDraft.warnings.map((w, k) => <div key={k} style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#FFB84D' }}>{w}</div>)}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        {fixDraft && fixNumber === 5 && !askReplaceSummary && (
-          <button type="button" onClick={useSummaryDraft} style={{ background: 'transparent', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 6, padding: '5px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-            {fixDraft.warnings.length ? 'Use suggestion — I confirm this is true' : 'Use suggestion'}
-          </button>
-        )}
-        {askReplaceSummary && (
-          <div role="alert" style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>
-            Replace your summary with this suggestion?
-            <span style={{ display: 'inline-flex', gap: 8, marginLeft: 10 }}>
-              <button type="button" onClick={() => { setSummary(fixDraft.text); setAskReplaceSummary(false); }} style={{ ...quietBtn }}>Replace</button>
-              <button type="button" onClick={() => setAskReplaceSummary(false)} style={{ ...quietBtn }}>Keep mine</button>
-            </span>
-          </div>
-        )}
-        <button type="button" onClick={() => setFixing(null)} style={{ ...quietBtn, marginLeft: 'auto' }}>Hide this reminder</button>
-      </div>
+      {(fixDraft && fixNumber === 5) && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {!askReplaceSummary && (
+            <button type="button" onClick={useSummaryDraft} style={{ background: 'transparent', border: '1px solid var(--lp-text2)', color: 'var(--lp-text)', borderRadius: 8, padding: '7px 16px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+              {fixDraft.warnings.length ? 'Use suggestion — I confirm this is true' : 'Use suggestion'}
+            </button>
+          )}
+          {askReplaceSummary && (
+            <div role="alert" style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>
+              Replace your summary with this suggestion?
+              <span style={{ display: 'inline-flex', gap: 8, marginLeft: 10 }}>
+                <button type="button" onClick={() => { setSummary(fixDraft.text); setAskReplaceSummary(false); }} style={{ ...quietBtn }}>Replace</button>
+                <button type="button" onClick={() => setAskReplaceSummary(false)} style={{ ...quietBtn }}>Keep mine</button>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   ) : null;
   const fixPointer = fixing && !fixCard && fixNumber !== null ? (
@@ -1090,7 +1107,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         </div>
         {anyFixable && (
           <button type="button" onClick={() => { setFixStartKey(null); setFixMode(true); }}
-            style={{ alignSelf: 'flex-start', marginBottom: 14, background: 'transparent', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+            style={{ alignSelf: 'flex-start', marginBottom: 14, background: 'transparent', border: 'none', color: 'var(--lp-text2)', padding: 0, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
             Fix issues side by side →
           </button>
         )}
@@ -1208,7 +1225,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         {step === 4 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.6 }}>2-3 sentences: years of experience, key skills, what you bring.</div>
-            <textarea aria-label="Professional summary" style={{ ...inp, minHeight: 120, resize: 'vertical' }}
+            <textarea aria-label="Professional summary" style={{ ...inp, minHeight: 200, fontSize: 14, lineHeight: 1.6, resize: 'vertical' }}
               value={data.summary}
               onChange={e => setSummary(e.target.value)}
               placeholder="Data scientist with 7 years of experience in ML applied to real world problems…" />

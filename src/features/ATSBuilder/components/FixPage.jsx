@@ -22,7 +22,7 @@ const initialView = () => {
 const markKeyOf = (at) => (at.kind === 'summary' ? 'summary' : `b:${at.exp}:${at.bullet}`);
 
 const css = `
-.atb-fixpage [data-fix-marked] { outline: 2px solid var(--lp-teal, #2dd4bf); outline-offset: 3px; background: var(--lp-teal-b, rgba(45, 212, 191, .25)); }   /* the theme's own accent, so the fill and the outline match */
+.atb-fixpage [data-fix-marked] { outline: 2px solid var(--atb-mark, #22D3EE); outline-offset: 3px; background: var(--atb-mark-bg, rgba(34, 211, 238, .16)); }   /* the Builder's mark colour: not the pink of the main button */
 .atb-fixpage [data-fix-open] { outline: 2px dashed #FF6B6B; outline-offset: 3px; background: rgba(255, 107, 107, .12); cursor: pointer; }
 .atb-fixpage [data-fix-done] { outline: 2px solid #00E5A0; outline-offset: 3px; }
 .atb-fixpage [data-fix-pickable] { cursor: pointer; }
