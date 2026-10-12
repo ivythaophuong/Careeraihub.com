@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // "Fix in Builder" must take the user to the builder step where the issue is fixed, and keep the issue on screen while they fix it.
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 
 afterEach(cleanup);
 vi.mock('../../lib/ai', () => ({ callLLM: vi.fn() }));
@@ -53,5 +53,18 @@ describe('Fix in Builder', () => {
     fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
     expect(screen.getByText(/Step 1 of 6/)).toBeTruthy();
     expect(screen.queryByRole('note', { name: /fixing/i })).toBeNull();
+  });
+
+  it('tells the parts apart: the issue as a heading, what is in the resume, and the AI suggestion with its warning, each labelled', () => {
+    render(<ATSBuilder {...base([issue()])} />);
+    fireEvent.click(screen.getByText(/Fix in Builder/));
+    const note = screen.getByRole('note', { name: /fixing/i });
+    expect(within(note).getByRole('heading', { name: /No metrics in bullets/ })).toBeTruthy();
+    const inResume = note.querySelector('[data-quote="before"]');
+    expect(inResume.textContent).toBe('Handled monthly reporting');
+    expect(within(note).getByText(/In your resume/i)).toBeTruthy();
+    const suggestion = note.querySelector('[data-quote="after"]');
+    expect(suggestion.textContent).toBe('Cut reporting time by 30%');
+    expect(within(note).getByText(/AI suggestion/i).textContent).toMatch(/check every figure is true/i);
   });
 });

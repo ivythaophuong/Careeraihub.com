@@ -1,6 +1,6 @@
 // The logic behind the Fix page (no screen): where an issue's text is, what the draft would put there, saving one field, and the status of each issue.
 import { describe, it, expect } from 'vitest';
-import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, excerptFor } from './fixPage.js';
+import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText } from './fixPage.js';
 import { undoApply } from './applyIssue.js';
 
 const base = () => ({
@@ -220,60 +220,5 @@ describe('fieldText and withFieldText: reading a field and previewing a typed te
   });
   it('a place that does not exist gives the data back unchanged', () => {
     expect(withFieldText(base(), { kind: 'bullet', exp: 9, bullet: 0 }, 'x')).toEqual(base());
-  });
-});
-
-describe('excerptFor: the passage and its neighbours, so the page shows a few lines and not a whole resume', () => {
-  const d = () => {
-    const x = base();
-    x.experience[0].bullets = ['First', '', 'Second', 'Third', 'Fourth'];
-    return x;
-  };
-  const texts = (e) => e.lines.map(l => l.text);
-
-  it('a bullet: the job as a heading, the line before, the line itself marked, the line after', () => {
-    const e = excerptFor(d(), { kind: 'bullet', exp: 0, bullet: 3 });
-    expect(e.header).toBe('Acme · Analyst · 2021 - 2023');
-    expect(texts(e)).toEqual(['Second', 'Third', 'Fourth']);
-    expect(e.lines.map(l => l.target)).toEqual([false, true, false]);
-    expect(e.lines[1].at).toEqual({ kind: 'bullet', exp: 0, bullet: 3 });
-  });
-
-  it('skips empty bullets when it looks for the neighbours', () => {
-    const e = excerptFor(d(), { kind: 'bullet', exp: 0, bullet: 2 });
-    expect(texts(e)).toEqual(['First', 'Second', 'Third']);
-  });
-
-  it('the first and the last bullet have one neighbour', () => {
-    expect(texts(excerptFor(d(), { kind: 'bullet', exp: 0, bullet: 0 }))).toEqual(['First', 'Second']);
-    expect(texts(excerptFor(d(), { kind: 'bullet', exp: 0, bullet: 4 }))).toEqual(['Third', 'Fourth']);
-  });
-
-  it('a lone bullet is shown alone', () => {
-    expect(texts(excerptFor(base(), { kind: 'bullet', exp: 2, bullet: 0 }))).toEqual(['Trained two new hires']);
-  });
-
-  it('never takes a neighbour from another job', () => {
-    const e = excerptFor(base(), { kind: 'bullet', exp: 1, bullet: 0 });
-    expect(texts(e)).toEqual(['Filed paperwork']);
-  });
-
-  it('a job with no company name still gets a heading made of what it has', () => {
-    expect(excerptFor(base(), { kind: 'bullet', exp: 1, bullet: 0 }).header).toBe('Intern · 2020');
-    const x = base(); x.experience[1] = { id: 2, company: '', title: '', period: '', bullets: ['Filed paperwork'] };
-    expect(excerptFor(x, { kind: 'bullet', exp: 1, bullet: 0 }).header).toBe('Job 2');
-  });
-
-  it('the summary is shown alone, with no job heading', () => {
-    const e = excerptFor(base(), { kind: 'summary' });
-    expect(e.header).toBeNull();
-    expect(e.lines).toEqual([{ at: { kind: 'summary' }, text: 'Analyst who builds weekly reports.', target: true }]);
-  });
-
-  it('a place that does not exist gives null, and the data is not changed', () => {
-    const x = d(); const copy = JSON.stringify(x);
-    expect(excerptFor(x, { kind: 'bullet', exp: 9, bullet: 0 })).toBeNull();
-    expect(excerptFor(x, { kind: 'bullet', exp: 0, bullet: 9 })).toBeNull();
-    expect(JSON.stringify(x)).toBe(copy);
   });
 });
