@@ -9,7 +9,7 @@ Nhãn: **[CODE]** đọc trong mã · **[REPRODUCED]** tái hiện bằng test (
 3. AI trả: **điểm 0–100 cho từng phần**, bản viết lại từng phần, một câu tóm tắt, 3–5 nhận xét, 0–4 câu hỏi thiếu chi tiết, 1–4 chủ đề năng lực.
 4. **Mã** làm tròn và kẹp điểm từng phần, rồi tính **điểm tổng = trung bình có trọng số** 0.15 Situation, 0.15 Task, 0.40 Action, 0.30 Result. Server ký một biên nhận HMAC trên (người dùng, thời gian, câu chuyện, điểm từng phần, bản viết lại, câu tóm tắt).
 5. **Save:** người dùng bấm lưu; server kiểm biên nhận, **tính lại điểm tổng từ điểm từng phần đã ký**, chống trùng (cùng `one_liner` và `situation` thì trả lại hàng cũ), tối đa 30 lần lưu mỗi 24 giờ, rồi chèn hàng `star_stories` bằng service role.
-6. Trigger cơ sở dữ liệu tính lại `candidate_trust_profiles`. Trong script staging: `star_score` = **trung bình điểm của 5 câu chuyện mới nhất**; `trust_score` = 0.40 ATS + 0.35 phỏng vấn + 0.25 STAR [STAGING; phần thân hàm trên production chưa đọc: UNKNOWN, nhưng README ghi nhận kết quả khớp: một câu chuyện cho `star_score` 31, `trust_score` 8].
+6. Trigger cơ sở dữ liệu tính lại `candidate_trust_profiles`. Trong script staging: `star_score` = **trung bình điểm của 5 câu chuyện mới nhất**; `trust_score` = 0.40 ATS + 0.35 phỏng vấn + 0.25 STAR; **thiếu dữ liệu = 0**, không phải "chưa có điểm" [DB: hàm production được đọc ngày 2026-10-09 và 2026-10-11, ghi trong `docs/audits/TRUST-SCORE-TRACE.md`; ban đầu báo cáo này ghi nguồn đó là UNKNOWN, đã sửa]; README ghi nhận kết quả khớp: một câu chuyện cho `star_score` 31, `trust_score` 8.
 7. Bộ nhớ trên màn hình giữ 30 câu chuyện mới nhất.
 
 ## 2. Cái gì do mã, cái gì do AI
@@ -52,9 +52,11 @@ Nhãn: **[CODE]** đọc trong mã · **[REPRODUCED]** tái hiện bằng test (
 
 ## 5. Giới hạn của audit này
 - **Không chạy mô hình.** Không đo được độ biến thiên của điểm (F1), không hiệu chỉnh gì. Cần khóa mô hình và bộ câu chuyện tổng hợp (xem mục 6, P5).
-- Không đọc thân hàm trigger trên production (chỉ bản staging và README).
+- Thân hàm trigger trên production không được đọc lại trong audit này; công thức lấy từ `TRUST-SCORE-TRACE.md` (đọc từ production 2026-10-09 và 2026-10-11).
 - `WeaknessRadar` chưa đọc kỹ; cờ đường nhà tuyển dụng chưa xác định.
 - Lúc viết, hai test đặc tả (F3, F4) là `it.fails`; xem cập nhật ở mục 4.
+
+Thiết kế D-S1 (định danh câu chuyện, điều được tính, lịch sử, phụ thuộc ADR-013): `docs/architecture/plans/DESIGN-star-review-identity.md`.
 
 ## 6. Đề xuất [PROPOSAL; chưa làm gì]
 | # | Đề xuất | Kiểm chứng |
