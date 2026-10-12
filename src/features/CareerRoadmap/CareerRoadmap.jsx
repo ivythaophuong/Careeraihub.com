@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { sb } from '../../lib/supabase';
+import { nextActions } from './roadmapNext';
 
 function SectionLabel({ children }) {
   return <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--lp-text3)', fontFamily: 'var(--lp-ffm)', marginBottom: 10 }}>{children}</div>;
@@ -95,7 +96,11 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
 
 
   const targetRole = form?.role || 'Senior role';
-  const estimatedDays = stepsCompleted >= 4 ? '2–4 weeks' : stepsCompleted >= 3 ? '4–8 weeks' : stepsCompleted >= 2 ? '6–12 weeks' : stepsCompleted >= 1 ? '8–16 weeks' : '10–20 weeks';
+  const sessions = memory.mockSessions || [];
+  const next = nextActions({
+    hasResume, sessionsCount: sessions.length, readiness: Number.isFinite(sessions[0]?.avgScore) ? sessions[0].avgScore : null,
+    starCount, hasSkillsGap, trustScore, trustVisible,
+  });
 
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1100, margin: '0 auto', fontFamily: 'var(--lp-ff)', color: 'var(--lp-text)' }}>
@@ -107,7 +112,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
             <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', background: 'linear-gradient(90deg,rgba(236,72,153,.18),rgba(245,158,11,.12))', color: '#8B7CF6', border: '1px solid rgba(139,124,246,.22)', borderRadius: 20, padding: '2px 8px', fontFamily: 'var(--lp-ffm)' }}>New</span>
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>
-            Your personalised path to {targetRole} · {stepsCompleted}/5 steps complete · est. {estimatedDays}
+            Your personalised path to {targetRole} · {stepsCompleted}/5 steps complete
           </div>
         </div>
       </div>
@@ -117,7 +122,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
         Your goal: <strong style={{ color: 'var(--lp-text)' }}>{targetRole}</strong>
         {form?.market ? ` in ${form.market}` : ''}. You're <strong style={{ color: '#EC4899' }}>{progressPct}%</strong> of the way there.
         {stepsCompleted < 5 && (
-          <> The next unlock: <strong style={{ color: '#F5B340' }}>{!s1Done ? 'add your resume' : !s2Done ? 'clear 75+ interview readiness with 5+ STAR stories' : !s3Done ? 'run skills gap analysis' : !s4Done ? 'raise your practice score to 65+ with interview and STAR practice' : 'activate TrustMatch visibility'}</strong>. Estimated offer timeline: {estimatedDays} at current pace.</>
+          <> Next: <strong style={{ color: '#F5B340' }}>{next.items.length ? next.items[0].cta.replace(/ →$/, '') : 'keep going'}</strong>.</>
         )}
         {stepsCompleted === 5 && <> All 5 steps complete — you're fully prepared. Activate TrustMatch to start receiving recruiter matches.</>}
       </AiBubble>
@@ -147,8 +152,8 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
             isLast={false} />
 
           <RoadmapStep num={3} state={stepState(s3Done, s2Done)}
-            title="Skills gap closed · OKRs & domain signals added"
-            desc={s3Done ? 'Skills gap analyzed — resume updated with market keywords.' : 'Run skills gap analysis to identify missing keywords, then fix your resume and cover letters.'}
+            title="Run a skills gap analysis"
+            desc={s3Done ? 'Skills gap analysis run. You can open it again from Skills Gap.' : 'See where your resume and your target role differ, then decide what to change.'}
             cta={!s3Done ? 'Analyze gaps →' : null}
             onCta={() => setActiveModule('skillsgap')}
             isLast={false} />
@@ -161,8 +166,8 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
             isLast={false} />
 
           <RoadmapStep num={5} state={stepState(s5Done, s4Done)}
-            title="TrustMatch active · salary negotiation unlocked"
-            desc={s5Done ? 'Profile visible to recruiters. Salary negotiation module active.' : 'Activate recruiter matching and practice salary negotiation with AI roleplay.'}
+            title="TrustMatch active"
+            desc={s5Done ? 'Your profile is visible to recruiters.' : 'Turn on TrustMatch to make your profile visible to recruiters.'}
             cta={!s5Done ? 'Activate now →' : null}
             onCta={() => setActiveModule('trustmatch')}
             isLast={true} />
@@ -193,14 +198,21 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
             <MilestoneRow done={s5Done}           label="TrustMatch activated"   current={s5Done ? 1 : 0} target={1} />
           </div>
 
-          {/* Upgrade nudge if not complete */}
-          {stepsCompleted < 5 && (
-            <div style={{ background: 'linear-gradient(90deg,rgba(236,72,153,.06),rgba(139,124,246,.06))', border: '1px solid rgba(236,72,153,.13)', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 18 }}>🗺️</span>
-              <div style={{ fontSize: 12, color: 'var(--lp-text2)', flex: 1, lineHeight: 1.5 }}>
-                <strong style={{ color: 'var(--lp-text)' }}>Estimated offer timeline: {estimatedDays}</strong> at your current pace. Complete all 5 steps to unlock your Readiness Certificate.
+          {/* What to do next: from the real state, no time estimate */}
+          {!next.allDone && next.items.length > 0 && (
+            <section aria-label="What to do next" style={{ background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: '16px 18px' }}>
+              <SectionLabel>What to do next</SectionLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {next.items.map(item => (
+                  <div key={item.module} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 12.5, color: 'var(--lp-text2)', lineHeight: 1.55, flex: 1, minWidth: 180 }}>{item.text}</div>
+                    {setActiveModule && (
+                      <button onClick={() => setActiveModule(item.module)} style={{ fontSize: 11, background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--lp-ff)', fontWeight: 700 }}>{item.cta}</button>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>
