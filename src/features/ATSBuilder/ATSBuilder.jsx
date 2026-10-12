@@ -1186,7 +1186,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
 
         {/* ATS readiness of the draft, computed by code as the user edits */}
         <div style={{ paddingTop: 10, flexShrink: 0 }}>
-          <BuilderScorePanel data={data} />
+          <BuilderScorePanel data={data} onGoToStep={(n) => setStep(stepIndexFor(n))} />
           <BuilderIssuesPanel issues={initialProfile?.issues} data={data} onChange={(d) => edit(() => d)} onGoToStep={(n) => setStep(stepIndexFor(n))} />
         </div>
 

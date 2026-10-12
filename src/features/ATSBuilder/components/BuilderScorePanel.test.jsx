@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { vi } from 'vitest';
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import BuilderScorePanel from './BuilderScorePanel.jsx';
 
 const data = (bullets) => ({
@@ -34,5 +35,19 @@ describe('BuilderScorePanel', () => {
   it('explains that advice from the AI may not change the number', () => {
     render(<BuilderScorePanel data={data(['Cut time by 30%'])} debounceMs={0} />);
     expect(screen.getByText(/only these three checks/i)).toBeTruthy();
+  });
+
+  it('lists what the code checks found, with a button to the step that fixes it', () => {
+    const d = data(['Cut time by 30% across 4 teams']); d.contact.email = '';
+    const onGoToStep = vi.fn();
+    render(<BuilderScorePanel data={d} debounceMs={0} onGoToStep={onGoToStep} />);
+    expect(screen.getByText('Add an email address')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /edit this step/i }));
+    expect(onGoToStep).toHaveBeenCalledWith(1);
+  });
+
+  it('shows no to-fix list when every check passes', () => {
+    render(<BuilderScorePanel data={data(['Cut time by 30% across 4 teams'])} debounceMs={0} onGoToStep={() => {}} />);
+    expect(screen.queryByText(/found by the code checks/i)).toBeNull();
   });
 });
