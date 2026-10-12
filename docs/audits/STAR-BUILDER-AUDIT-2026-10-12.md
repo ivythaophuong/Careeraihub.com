@@ -1,7 +1,7 @@
 # Audit: STAR Builder (nguồn điểm, công thức, nơi lưu, nơi dùng)
 
 Trạng thái: **chỉ đọc và kiểm chứng. Không đổi hành vi nào của STAR Builder, không đổi công thức điểm, không SQL.** Viết 2026-10-12 cho chủ sản phẩm (Ivy). Thuật ngữ kỹ thuật giữ tiếng Anh.
-Nhãn: **[CODE]** đọc trong mã · **[REPRODUCED]** tái hiện bằng test (`src/features/STARBuilder/STARBuilder.audit.test.jsx`) · **[STAGING]** đọc trong script bản sao staging, không phải mã production · **[UNKNOWN]**.
+Nhãn: **[CODE]** đọc trong mã · **[REPRODUCED]** tái hiện bằng test (ban đầu `STARBuilder.audit.test.jsx`, nay là `STARBuilder.integrity.test.jsx`) · **[STAGING]** đọc trong script bản sao staging, không phải mã production · **[UNKNOWN]**.
 
 ## 1. Luồng dữ liệu [CODE]
 1. Người dùng điền bốn ô Situation, Task, Action, Result (mỗi ô 15 đến 2000 ký tự).
@@ -48,11 +48,13 @@ Nhãn: **[CODE]** đọc trong mã · **[REPRODUCED]** tái hiện bằng test (
 | F9 | Đường `star_review_legacy` (khi tắt server scoring) ghi hàng `star_stories` từ trình duyệt kèm điểm do client gửi. Production đã thu hồi quyền INSERT của trình duyệt (bước S4), nên đường này không lưu được vào cơ sở dữ liệu | `STARBuilder.jsx`, ghi nhận trong `docs/database/README.md` | Thấp (chỉ khi cờ tắt) |
 | F10 | Trường `bankAs` được Dashboard và Coach đọc nhưng không bao giờ được ghi cho câu chuyện mới (chỉ còn ở dữ liệu cũ) | `STARBuilder.jsx` | Thấp |
 
+**Cập nhật sau khi viết:** F3 (lưu trùng làm số đếm tăng giả) và F4 (xóa nhầm câu chuyện cùng câu tóm tắt) đã được sửa ở PR riêng (P1): `STARBuilder.integrity.test.jsx` thay cho hai ca `it.fails`. Các phát hiện còn lại chưa đổi.
+
 ## 5. Giới hạn của audit này
 - **Không chạy mô hình.** Không đo được độ biến thiên của điểm (F1), không hiệu chỉnh gì. Cần khóa mô hình và bộ câu chuyện tổng hợp (xem mục 6, P5).
 - Không đọc thân hàm trigger trên production (chỉ bản staging và README).
 - `WeaknessRadar` chưa đọc kỹ; cờ đường nhà tuyển dụng chưa xác định.
-- Hai test đặc tả trong `STARBuilder.audit.test.jsx` là `it.fails` (hành vi cần có, chưa đạt).
+- Lúc viết, hai test đặc tả (F3, F4) là `it.fails`; xem cập nhật ở mục 4.
 
 ## 6. Đề xuất [PROPOSAL; chưa làm gì]
 | # | Đề xuất | Kiểm chứng |
