@@ -50,7 +50,7 @@ export function parseDate(token, source = 'date') {
 // A dash followed by whitespace is a range separator in a resume; a bare hyphen inside one date token
 // ("03-2020") must not be mistaken for one, so ranges are only split on a dash with space on both sides,
 // or an en/em dash with or without spaces (restoreSoftHyphens in P1 produces "... - ..." with spaces).
-const RANGE_SPLIT = /\s+[-–—]\s+|[–—]/;
+const RANGE_SPLIT = /\s+[-–—]\s+|[–—]|\s+(?:to|until|till|through|thru)\s+/i;
 
 // Parses "Jan 2020 - Mar 2024", "2021 – Present", a single date (end left empty, requiresInterpretation),
 // or nothing found. Returns { start: Fact, end: Fact }.
@@ -68,7 +68,7 @@ export function parseDateRange(text, source = 'dates') {
 // Finds the first date-range-shaped run in a line of text (e.g. a tab-separated trailing date on an
 // experience line) and returns { range: {start,end}, matchedText } or null if nothing looks like a date.
 const DATE_TOKEN_SRC = `${MONTH_YEAR_RE.source}|(?:(?:tháng|thang)\\s*)?(?:\\d{1,2}[/.-])?\\d{4}|present|current|now|hiện tại|hiện nay|đến nay|nay`;
-const SCAN_RE = new RegExp(`((?:${DATE_TOKEN_SRC})\\s*[-–—]\\s*(?:${DATE_TOKEN_SRC}))|((?<!\\d)(?:19|20)\\d{2}(?!\\d))`, 'iu');
+const SCAN_RE = new RegExp(`((?:${DATE_TOKEN_SRC})\\s*(?:[-–—]|\\b(?:to|until|till|through|thru)\\b)\\s*(?:${DATE_TOKEN_SRC}))|((?<!\\d)(?:19|20)\\d{2}(?!\\d))`, 'iu');
 export function findDateRangeInLine(line, source = 'dates') {
   const m = SCAN_RE.exec(String(line || ''));
   if (!m) return null;

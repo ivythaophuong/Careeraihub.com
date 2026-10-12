@@ -121,4 +121,50 @@ describe('extractExperiences', () => {
       expect(es.map(bulletsOf)).toEqual([['A1', 'A2'], ['B1'], ['C1']]);
     });
   });
+
+  describe('other common layouts', () => {
+    const bulletsOf = (e) => e.bullets.map(b => b.value);
+
+    it('"Title | Company | dates" on one line (pipes)', () => {
+      const [a, b] = extractExperiences('Senior Analyst | Acme Corp | Jan 2020 – Mar 2023\n• Built 3 dashboards\nAnalyst | Beta Ltd | Jun 2017 – Dec 2019\n• Reduced errors by 25%');
+      expect([a.title.value, a.company.value]).toEqual(['Senior Analyst', 'Acme Corp']);
+      expect([b.title.value, b.company.value]).toEqual(['Analyst', 'Beta Ltd']);
+    });
+
+    it('"Company | Title | dates" (other order)', () => {
+      const [a] = extractExperiences('Acme Corp | Senior Analyst | Jan 2020 – Mar 2023\n• Built 3 dashboards');
+      expect([a.title.value, a.company.value]).toEqual(['Senior Analyst', 'Acme Corp']);
+    });
+
+    it('a bullet that wraps onto a second line is one bullet, not two', () => {
+      const [a] = extractExperiences('Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Cut report time by 30% across four regional teams by redesigning the\nweekly intake process\n• Built 3 dashboards');
+      expect(bulletsOf(a)).toEqual(['Cut report time by 30% across four regional teams by redesigning the weekly intake process', 'Built 3 dashboards']);
+    });
+
+    it('a wrapped line does not leak into the next job\'s title and company', () => {
+      const [a, b] = extractExperiences('Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Cut report time by 30% across four regional teams by redesigning the\nweekly intake process\nAnalyst, Beta Ltd\nJun 2017 – Dec 2019\n• Reduced errors by 25%');
+      expect(bulletsOf(a)).toHaveLength(1);
+      expect([b.title.value, b.company.value]).toEqual(['Analyst', 'Beta Ltd']);
+    });
+
+    it('a new unmarked achievement (capital letter) is still its own bullet', () => {
+      const [a] = extractExperiences('Analyst, Acme Corp\nJan 2020 – Mar 2023\n• Built 3 dashboards\nManaged a budget of $2M');
+      expect(bulletsOf(a)).toEqual(['Built 3 dashboards', 'Managed a budget of $2M']);
+    });
+
+    it('a ranges written "to Present" gives the title and company, not date words', () => {
+      const [a] = extractExperiences('Analyst, Acme Corp\nJanuary 2020 to Present\n• Built 3 dashboards');
+      expect([a.title.value, a.company.value]).toEqual(['Analyst', 'Acme Corp']);
+      expect(a.end.normalized_value).toBe('present');
+    });
+
+    it('a job whose header sits before its date, after a plain-text achievement of the previous job (no bullet glyphs, as in many PDFs)', () => {
+      const [a, b] = extractExperiences(
+        'Senior Analyst, Acme Corp\nJan 2020 – Mar 2023\nCut report time by 30% across 4 teams\nBuilt 3 dashboards used by 6 managers\n' +
+        'Analyst, Beta Ltd\nJun 2017 – Dec 2019\nReduced errors by 25%'
+      );
+      expect(bulletsOf(a)).toEqual(['Cut report time by 30% across 4 teams', 'Built 3 dashboards used by 6 managers']);
+      expect([b.title.value, b.company.value]).toEqual(['Analyst', 'Beta Ltd']);
+    });
+  });
 });

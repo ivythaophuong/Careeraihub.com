@@ -42,6 +42,13 @@ function classifyHeaderLines(lines, source) {
   return { title: emptyFact(`${source}.title`), company: emptyFact(`${source}.company`) };
 }
 
+// A line that continues the line above it (a bullet wrapped by the page width): it starts in lower case. A header or a new
+// achievement starts with a capital. A brand such as "eBay" or "iRobot" starts in lower case too and is not a continuation.
+const startsLowercase = (line) => /^\p{Ll}/u.test(line.trim()) && !/^\p{Ll}+\p{Lu}/u.test(line.trim());
+
+// "Title | Company" and "Company | Title" on one line: the first two parts become the two header lines.
+const splitPipes = (line) => (line.includes('|') ? line.split(/\s*\|\s*/).map(t => t.trim()).filter(Boolean).slice(0, 2) : [line]);
+
 // A line that reads as the title/company of a job rather than as content: short, no sentence ending, no figures, and either
 // title-shaped, company-shaped, or "X, Y" / "X at Y" / "X — Y" with a title word in it.
 const isHeaderShaped = (line) => {
@@ -105,17 +112,28 @@ export function extractExperiences(sectionText, source = 'experiences') {
       bulletsStart = looksHeaderish ? i + 2 : i + 1;
     }
 
+    // Header lines before the date: when header-shaped lines sit right before it, those are the header, not the previous job's last content line.
+    const runStart = k > 0 ? headerRunBefore(lines, i, dateLineIdx[k - 1]) : i;
+    const headerFrom = runStart < i ? runStart : prevBoundary;
     const headerLines = [];
-    for (let j = prevBoundary; j < bulletsStart; j++) {
-      if (j === i) { if (dateLineClean) headerLines.push(dateLineClean); }
-      else if (!isBulletLine(lines[j])) headerLines.push(lines[j]);
+    for (let j = headerFrom; j < bulletsStart; j++) {
+      if (j === i) { if (dateLineClean) headerLines.push(...splitPipes(dateLineClean)); }
+      // A wrapped line of the previous job's last bullet is not a header line.
+      else if (!isBulletLine(lines[j]) && !(j < i && startsLowercase(lines[j]))) headerLines.push(...splitPipes(lines[j]));
     }
     const { title, company } = classifyHeaderLines(headerLines.slice(-2), entrySource);
 
     const bullets = [];
     for (let j = bulletsStart; j < nextBoundary; j++) {
       const text = lines[j].replace(BULLET_RE, '').trim();
-      if (text) bullets.push(fact(text, `${entrySource}.bullets[${bullets.length}]`, lines[j], 0.8, 'structure'));
+      if (!text) continue;
+      const last = bullets[bullets.length - 1];
+      if (last && !isBulletLine(lines[j]) && startsLowercase(text) && !/[.!?]$/.test(last.value)) {
+        last.value = `${last.value} ${text}`; // the same bullet, wrapped onto a second line
+        last.evidence = `${last.evidence}\n${lines[j]}`;
+        continue;
+      }
+      bullets.push(fact(text, `${entrySource}.bullets[${bullets.length}]`, lines[j], 0.8, 'structure'));
     }
 
     entries.push({

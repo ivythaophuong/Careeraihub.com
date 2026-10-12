@@ -94,3 +94,27 @@ describe('Vietnamese date forms', () => {
     expect(parseDate('Nayla').normalized_value).toBeNull();
   });
 });
+
+describe('ranges written with a word instead of a dash', () => {
+  it.each([
+    ['January 2020 to Present', '2020-01', 'present'],
+    ['Jun 2017 until Dec 2019', '2017-06', '2019-12'],
+    ['Jan 2020 through Mar 2023', '2020-01', '2023-03'],
+    ['2018 to 2021', '2018', '2021'],
+  ])('%s', (text, start, end) => {
+    const r = parseDateRange(text);
+    expect(r.start.normalized_value).toBe(start);
+    expect(r.end.normalized_value).toBe(end);
+  });
+
+  it('is found inside a line, and the whole range is what gets removed from the header', () => {
+    const f = findDateRangeInLine('Analyst, Acme Corp  January 2020 to Present');
+    expect(f.matchedText).toBe('January 2020 to Present');
+    expect(f.range.end.normalized_value).toBe('present');
+  });
+
+  it('does not read ordinary sentences with "to" as a date range', () => {
+    expect(findDateRangeInLine('Reported to the CFO since 2020')?.matchedText).toBe('2020');
+    expect(findDateRangeInLine('Moved from 2019 to improve reporting')?.range.end.normalized_value ?? null).toBeNull();
+  });
+});
