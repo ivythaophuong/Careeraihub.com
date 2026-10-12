@@ -9,6 +9,7 @@ import { GetReadyTabStrip } from '../Landing/LandingPage';
 import '../../styles/featurePage.css';
 import { copyToClipboard } from '../CoverLetterGen/coverLetter';
 import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, findInventedNumbers } from './star';
+import { STAR_STORIES_KEPT } from '../../lib/historyLimits';
 
 const fc = [C.accent, C.gold, C.purple, C.green];
 const FIELDS = [
@@ -119,12 +120,12 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
       updateMemory?.(m => {
         const list = m.starBank || [];
         const i = list.findIndex(e => sameStory(e, key));
-        if (i < 0) return { starBank: [entry, ...list].slice(0, 30) };
+        if (i < 0) return { starBank: [entry, ...list].slice(0, STAR_STORIES_KEPT) };
         return { starBank: list.map((e, j) => (j === i && dbIdOf(e) == null && dbId != null ? { ...e, dbId } : e)) };
       });
       setAlreadySaved(true);
     } else {
-      updateMemory?.(m => ({ starBank: [entry, ...(m.starBank || [])].slice(0, 30) }), row);
+      updateMemory?.(m => ({ starBank: [entry, ...(m.starBank || [])].slice(0, STAR_STORIES_KEPT) }), row);
     }
     setSaved(true);
   };

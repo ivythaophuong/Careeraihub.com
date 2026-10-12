@@ -11,6 +11,9 @@ vi.mock('../WeaknessRadar/WeaknessRadar', () => ({ default: () => <div>STUB-WEAK
 vi.mock('../ReadinessScore/ReadinessScore', () => ({ default: () => <div>STUB-READINESS</div> }));
 vi.mock('../MemoryDashboard/MemoryDashboard', () => ({ default: () => <div>STUB-MEMORY</div> }));
 import InterviewCoach from './InterviewCoach';
+import { SESSIONS_KEPT, STAR_STORIES_KEPT } from '../../lib/historyLimits';
+import { MODULES } from '../../styles/theme';
+import { nextActions } from '../CareerRoadmap/roadmapNext';
 
 afterEach(cleanup);
 const mount = (memory = {}, setActiveModule = vi.fn()) => { render(<InterviewCoach memory={memory} setActiveModule={setActiveModule} />); return setActiveModule; };
@@ -63,12 +66,33 @@ describe('the count cards', () => {
     expect(document.querySelector('[data-count="questions-answered"]').textContent).toBe('5');
   });
 
-  it('say when the user last practised, from the newest session, or that there is none', () => {
-    mount({ mockSessions: [session(1, { date: '2026-10-05T09:00:00.000Z' })] });
-    expect(document.querySelector('[data-count="last-practised"]').textContent).toMatch(/2026/);
+  it('say when the last MOCK INTERVIEW was, from the newest session, or that there is none (STAR work is not counted in this date)', () => {
+    mount({ mockSessions: [session(1, { date: '2026-10-05T09:00:00.000Z' })], starBank: [{ date: '2026-12-01T00:00:00.000Z' }] });
+    const card = document.querySelector('[data-count="last-mock-interview"]');
+    expect(card.textContent).toMatch(/2026/);
+    expect(card.parentElement.textContent).toMatch(/Last mock interview/);
+    expect(document.body.textContent).not.toMatch(/Last practised/);
     cleanup();
     mount({});
-    expect(document.querySelector('[data-count="last-practised"]').textContent).toMatch(/No session yet/i);
+    expect(document.querySelector('[data-count="last-mock-interview"]').textContent).toMatch(/No mock interview yet/i);
+  });
+
+  it('the history the app keeps is capped, so a count at the cap is shown as "N+" with a note: it is not the true total', () => {
+    expect(SESSIONS_KEPT).toBe(20);
+    expect(STAR_STORIES_KEPT).toBe(30);
+    mount({ mockSessions: Array.from({ length: SESSIONS_KEPT }, (_, i) => session(i)), starBank: Array(STAR_STORIES_KEPT).fill({}) });
+    expect(document.querySelector('[data-count="mock-interviews"]').textContent).toBe(`${SESSIONS_KEPT}+`);
+    expect(document.querySelector('[data-count="star-stories"]').textContent).toBe(`${STAR_STORIES_KEPT}+`);
+    expect(document.querySelector('[data-count="questions-answered"]').textContent).toBe(`${SESSIONS_KEPT * 5}+`);
+    expect(document.body.textContent).toMatch(new RegExp(`most recent ${SESSIONS_KEPT}`, 'i'));
+    expect(document.body.textContent).toMatch(new RegExp(`most recent ${STAR_STORIES_KEPT}`, 'i'));
+  });
+
+  it('just under the cap the count is exact and has no note', () => {
+    mount({ mockSessions: Array.from({ length: SESSIONS_KEPT - 1 }, (_, i) => session(i)), starBank: Array(STAR_STORIES_KEPT - 1).fill({}) });
+    expect(document.querySelector('[data-count="mock-interviews"]').textContent).toBe(String(SESSIONS_KEPT - 1));
+    expect(document.querySelector('[data-count="star-stories"]').textContent).toBe(String(STAR_STORIES_KEPT - 1));
+    expect(document.body.textContent).not.toMatch(/most recent \d+/i);
   });
 
   it('do not use the stored scan result: it has no live writer', () => {
@@ -111,6 +135,27 @@ describe('What to do next', () => {
     const card = screen.getByRole('region', { name: /what to do next/i });
     fireEvent.click(Array.from(card.querySelectorAll('button')).find((b) => /roadmap/i.test(b.textContent)));
     expect(setActiveModule).toHaveBeenCalledWith('roadmap');
+  });
+});
+
+describe('every button goes to a place that exists', () => {
+  const STATES_FOR_NEXT = [
+    { hasResume: false }, { hasResume: true, sessionsCount: 0, readiness: null, starCount: 0 },
+    { hasResume: true, sessionsCount: 2, readiness: 50, starCount: 9 }, { hasResume: true, sessionsCount: 2, readiness: 90, starCount: 9 },
+    { hasResume: true, sessionsCount: 2, readiness: 90, starCount: 9, hasSkillsGap: true },
+  ].map((s) => ({ hasSkillsGap: false, trustScore: null, trustVisible: false, ...s }));
+
+  it('each module nextActions can name is a tab of this screen or a module in the sidebar', () => {
+    const tabModules = new Set(['simulate', 'star']);
+    const known = new Set(MODULES.map((m) => m.id));
+    for (const st of STATES_FOR_NEXT) for (const it of nextActions(st).items) expect(tabModules.has(it.module) || known.has(it.module), it.module).toBe(true);
+  });
+
+  it('the skills gap button opens the Skills Gap module', () => {
+    const setActiveModule = mount({ resumeText: 'x'.repeat(40), mockSessions: [session(1, { avgScore: 90 })], starBank: Array(5).fill({}) });
+    const card = screen.getByRole('region', { name: /what to do next/i });
+    fireEvent.click(Array.from(card.querySelectorAll('button')).find((b) => /skills gap/i.test(b.textContent)));
+    expect(setActiveModule).toHaveBeenCalledWith('skillsgap');
   });
 });
 

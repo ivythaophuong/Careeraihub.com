@@ -5,6 +5,7 @@ import WeaknessRadar from '../WeaknessRadar/WeaknessRadar';
 import ReadinessScore from '../ReadinessScore/ReadinessScore';
 import MemoryDashboard from '../MemoryDashboard/MemoryDashboard';
 import { nextActions } from '../CareerRoadmap/roadmapNext';
+import { SESSIONS_KEPT, STAR_STORIES_KEPT } from '../../lib/historyLimits';
 
 const TABS = [
   { id: 'dashboard',  label: 'Overview' },
@@ -45,7 +46,10 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
   const stories = memory?.starBank || [];
   const questionsAnswered = sessions.reduce((n, s) => n + (Number.isFinite(s?.questionsCount) ? s.questionsCount : 0), 0);
   const last = sessions[0]?.date ? new Date(sessions[0].date) : null;
-  const lastText = last && !Number.isNaN(last.getTime()) ? last.toLocaleDateString() : 'No session yet';
+  const lastText = last && !Number.isNaN(last.getTime()) ? last.toLocaleDateString() : 'No mock interview yet';
+  // The app keeps only the newest rows (src/lib/historyLimits.js): at the cap a count is "at least", not the true total, and says so.
+  const sessionsCapped = sessions.length >= SESSIONS_KEPT;
+  const storiesCapped = stories.length >= STAR_STORIES_KEPT;
 
   const next = nextActions({
     hasResume: !!memory?.resumeText,
@@ -59,10 +63,10 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
   const go = (module) => (TAB_FOR_MODULE[module] ? onNavigate?.(TAB_FOR_MODULE[module]) : setActiveModule?.(module));
 
   const cards = [
-    { key: 'mock-interviews', label: 'Mock interviews completed', value: String(sessions.length) },
-    { key: 'questions-answered', label: 'Questions answered', value: String(questionsAnswered) },
-    { key: 'star-stories', label: 'STAR stories saved', value: String(stories.length) },
-    { key: 'last-practised', label: 'Last practised', value: lastText },
+    { key: 'mock-interviews', label: 'Mock interviews completed', value: `${sessions.length}${sessionsCapped ? '+' : ''}`, note: sessionsCapped ? `Counts your most recent ${SESSIONS_KEPT}` : null },
+    { key: 'questions-answered', label: 'Questions answered', value: `${questionsAnswered}${sessionsCapped ? '+' : ''}`, note: sessionsCapped ? `In your most recent ${SESSIONS_KEPT} mock interviews` : null },
+    { key: 'star-stories', label: 'STAR stories saved', value: `${stories.length}${storiesCapped ? '+' : ''}`, note: storiesCapped ? `Counts your most recent ${STAR_STORIES_KEPT}` : null },
+    { key: 'last-mock-interview', label: 'Last mock interview', value: lastText, note: null },
   ];
 
   return (
@@ -76,8 +80,9 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
         {cards.map((c) => (
           <div key={c.key} style={countStyle}>
-            <div data-count={c.key} style={{ color: 'var(--lp-text)', fontSize: c.key === 'last-practised' ? 16 : 24, fontWeight: 900, lineHeight: 1.2, marginBottom: 6 }}>{c.value}</div>
+            <div data-count={c.key} style={{ color: 'var(--lp-text)', fontSize: c.key === 'last-mock-interview' ? 16 : 24, fontWeight: 900, lineHeight: 1.2, marginBottom: 6 }}>{c.value}</div>
             <div style={{ color: 'var(--lp-text2)', fontSize: 12, fontWeight: 600 }}>{c.label}</div>
+            {c.note && <div style={{ color: 'var(--lp-text3)', fontSize: 10.5, marginTop: 4 }}>{c.note}</div>}
           </div>
         ))}
       </div>
