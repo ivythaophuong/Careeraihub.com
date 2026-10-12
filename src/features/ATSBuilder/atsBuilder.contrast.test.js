@@ -34,3 +34,33 @@ describe('secondary text in the Builder', () => {
     expect(lum(c)).toBeLessThanOrEqual(lum(token(landing, '--lp-text2')));
   });
 });
+
+describe('the Builder\'s own surfaces (dark theme): enough depth, and the text still readable on them', () => {
+  const block = (sel) => (css.match(new RegExp(`${sel}\\s*\\{([^}]*)\\}`)) || [])[1] || '';
+  const dark = block('\\[data-theme="dark"\\] \\.atb');
+  const val = (name) => (dark.match(new RegExp(`${name}:\\s*(#[0-9A-Fa-f]{6})`)) || [])[1];
+
+  it('the cards and the inputs are lighter than the page, step by step', () => {
+    const page = token(landing, '--lp-bg');
+    expect(lum(val('--lp-bg2'))).toBeGreaterThan(lum(page));
+    expect(lum(val('--lp-bg3'))).toBeGreaterThan(lum(val('--lp-bg2')));
+  });
+
+  it('secondary text and the main secondary colour are at least 4.5 to 1 on those surfaces', () => {
+    for (const bg of [val('--lp-bg2'), val('--lp-bg3')]) {
+      expect(ratio(val('--lp-text3'), bg), `text3 on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(token(landing, '--lp-text2'), bg), `text2 on ${bg}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('the colour that marks a sentence on the resume is not the pink of the main button, and stands out from the surfaces (3 to 1 for a shape)', () => {
+    const mark = val('--atb-mark');
+    expect(mark).toBeTruthy();
+    expect(mark.toLowerCase()).not.toBe(token(landing, '--lp-teal').toLowerCase());
+    for (const bg of [val('--lp-bg2'), val('--lp-bg3')]) expect(ratio(mark, bg)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the amber used for the AI is readable on those surfaces', () => {
+    for (const bg of [val('--lp-bg2'), val('--lp-bg3')]) expect(ratio('#FFB84D', bg)).toBeGreaterThanOrEqual(4.5);
+  });
+});

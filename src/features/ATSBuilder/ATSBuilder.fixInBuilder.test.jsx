@@ -32,13 +32,15 @@ describe('Fix in Builder', () => {
     expect(screen.getByText(label)).toBeTruthy();
   });
 
-  it('keeps the issue on screen in the builder: its title, what is wrong, and the text it quoted', () => {
+  it('keeps the issue on screen in the builder: its title, and what is wrong once it is asked for', () => {
     render(<ATSBuilder {...base([issue()])} />);
     fireEvent.click(screen.getByText(/Fix in Builder/));
     const note = screen.getByRole('note', { name: /fixing/i });
     expect(note.textContent).toMatch(/No metrics in bullets/);
+    expect(note.textContent).not.toMatch(/Add numbers to your bullets\./);          // folded away: the card stays short
+    fireEvent.click(within(note).getByRole('button', { name: /why this matters/i }));
     expect(note.textContent).toMatch(/Add numbers to your bullets\./);
-    expect(note.textContent).toMatch(/Handled monthly reporting/);
+    expect(note.textContent).not.toMatch(/Handled monthly reporting/);               // the quote is not in this resume, so it is not shown as text of it
   });
 
   it('the user can dismiss the reminder', () => {
@@ -55,16 +57,14 @@ describe('Fix in Builder', () => {
     expect(screen.queryByRole('note', { name: /fixing/i })).toBeNull();
   });
 
-  it('tells the parts apart: the issue as a heading, what is in the resume, and the AI suggestion with its warning, each labelled', () => {
+  it('tells the parts apart: the issue as a heading, then the AI suggestion in a badge with its warning', () => {
     render(<ATSBuilder {...base([issue()])} />);
     fireEvent.click(screen.getByText(/Fix in Builder/));
     const note = screen.getByRole('note', { name: /fixing/i });
     expect(within(note).getByRole('heading', { name: /No metrics in bullets/ })).toBeTruthy();
-    const inResume = note.querySelector('[data-quote="before"]');
-    expect(inResume.textContent).toBe('Handled monthly reporting');
-    expect(within(note).getByText(/^In your resume$/i)).toBeTruthy();
+    expect(note.querySelector('[data-badge="ai"]').textContent).toMatch(/AI suggestion/i);
+    expect(note.textContent).toMatch(/check every figure is true/i);
     const suggestion = note.querySelector('[data-quote="after"]');
     expect(suggestion.textContent).toBe('Cut reporting time by [X]%');   // a figure the resume does not contain is shown as [X]
-    expect(within(note).getByText(/AI suggestion/i).textContent).toMatch(/check every figure is true/i);
   });
 });

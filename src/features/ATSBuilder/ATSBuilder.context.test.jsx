@@ -99,3 +99,42 @@ describe('the resume lights up the part being worked on', () => {
     expect(document.querySelector('[data-fix-marked]')).toBeNull();
   });
 });
+
+describe('the reminder card is short and says what it is', () => {
+  const JUNK = { ...SUMMARY_ISSUE, before: 'JANE EXAMPLE, CFA ... WORKING EXPERIENCE' };
+
+  it('does not show a quote that is not in the resume as "In your resume"', () => {
+    openFix(profile({ issues: [JUNK] }));
+    expect(within(note()).queryByText(/^In your resume$/i)).toBeNull();
+    expect(note().querySelector('[data-quote="before"]')).toBeNull();
+  });
+
+  it('folds the explanation behind "Why this matters" until it is asked for', () => {
+    openFix();
+    expect(within(note()).queryByText(SUMMARY_ISSUE.description)).toBeNull();
+    fireEvent.click(within(note()).getByRole('button', { name: /why this matters/i }));
+    expect(within(note()).getByText(SUMMARY_ISSUE.description)).toBeTruthy();
+  });
+
+  it('names the suggestion as an AI suggestion in a small badge, and keeps the warning to check every figure', () => {
+    openFix();
+    const badge = note().querySelector('[data-badge="ai"]');
+    expect(badge.textContent).toMatch(/AI suggestion/i);
+    expect(note().textContent).toMatch(/check every figure is true/i);
+  });
+
+  it('the summary box is the main thing: tall, with its hint above it', () => {
+    openFix();
+    const box = summaryBox();
+    expect(parseInt(box.style.minHeight, 10)).toBeGreaterThanOrEqual(180);
+    const hint = screen.getByText(/2-3 sentences/i);
+    expect(hint.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('the figures that are not in the resume are named under the suggestion, apart from it', () => {
+    openFix();
+    const draft = note().querySelector('[data-quote="after"]');
+    const warn = within(note()).getByText(/not in your resume/i);
+    expect(draft.contains(warn)).toBe(false);
+  });
+});

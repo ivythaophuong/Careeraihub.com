@@ -12,6 +12,7 @@ const props = () => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: R
 
 beforeEach(() => {
   localStorage.clear();
+  Object.defineProperty(window, 'innerWidth', { value: 1800, configurable: true, writable: true });   // wide: the Fix page opens in Compare, the two resumes
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   Element.prototype.scrollIntoView = vi.fn();

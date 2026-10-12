@@ -7,17 +7,16 @@ import { digestResume } from '../../lib/resumeDigest.js';
 import { OrbitSpinner } from '../../components/OrbitMark';
 import { arrayBufferToBase64 } from './atsBuilderUtils.js';
 import { TEMPLATES } from './resumeTemplates.jsx';
-import { printElement } from '../../lib/printElement.js';
-import { buildResumeDocx, downloadBlob } from '../../lib/docxExport.js';
+import { exportPdf, exportDocx, makeVersion } from './exportActions.js';
 import BuilderScorePanel from './components/BuilderScorePanel.jsx';
 import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
 import { demoFixProfile, demoResetRequested } from './demoFix.js';
-import { stepForIssue, draftFor, isBulletIssue } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue, quoteInResume } from './issueStep.js';
+import { Sparkles } from 'lucide-react';
 import TemplateGallery from './components/TemplateGallery.jsx';
-import { confirmExport } from '../../lib/exportGuard.js';
-import { builderDataToText, scoreBuilderData } from './builderText.js';
+import { scoreBuilderData } from './builderText.js';
 import './atsBuilder.css';
 import { resumeContent } from '../../lib/resumeText';
 import { describePart } from '../../lib/describeScorePart';
@@ -855,16 +854,20 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
     setStep(0);
   }, [restoredData]);
 
-  // Scale live preview to fit the panel width without horizontal overflow
+  // Scale the live preview to fit the width of its column, without horizontal overflow. The column is only on screen when the Fix page is not, so it is
+  // measured each time it appears (the Builder can be mounted behind the Fix page first), and watched only while it is there. A width that is not
+  // measured yet, or too small to mean anything, never gives a zero or negative scale (that left the preview blank): no scaling, or at least 0.3.
   useEffect(() => {
-    if (!containerRef.current) return;
-    const ro = new ResizeObserver(([e]) => {
-      const available = e.contentRect.width - 32;
-      setPreviewScale(available < 794 ? available / 794 : 1);
-    });
+    if (fixMode || !containerRef.current) return undefined;
+    const fit = (width) => {
+      const available = width - 32;
+      setPreviewScale(available > 0 ? Math.max(0.3, Math.min(1, available / 794)) : 1);
+    };
+    if (containerRef.current.clientWidth) fit(containerRef.current.clientWidth);
+    const ro = new ResizeObserver(([e]) => fit(e.contentRect.width));
     ro.observe(containerRef.current);
     return () => ro.disconnect();
-  }, []);
+  }, [fixMode]);
 
   const inp = {
     width: '100%', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)',
@@ -901,40 +904,20 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // Opens the print dialog; "Save as PDF" there gives a PDF whose text is real text (an ATS can read it).
   const handleDownloadPdf = async () => {
     if (!previewRef.current || !ActiveTemplate) return;
-    if (!confirmExport(builderDataToText(data))) return;
     setDownloading(true);
-    const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
-    const tplLabel = TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate;
-    try {
-      await printElement(previewRef.current, { title: `${name}_${tplLabel}` });
-    } finally {
-      setDownloading(false);
-    }
+    try { await exportPdf({ el: previewRef.current, data, templateLabel: TEMPLATES.find(t => t.id === activeTemplate)?.label || activeTemplate }); }
+    finally { setDownloading(false); }
   };
 
-  // Word file: plain single column, real headings and bullets, the same text as the templates.
   const handleDownloadDocx = async () => {
-    if (!confirmExport(builderDataToText(data))) return;
     setDownloadingDocx(true);
-    try {
-      const name = (data.contact.name || 'resume').replace(/\s+/g, '_');
-      downloadBlob(await buildResumeDocx(data), `${name}.docx`);
-    } finally {
-      setDownloadingDocx(false);
-    }
+    try { await exportDocx(data); }
+    finally { setDownloadingDocx(false); }
   };
 
   const handleSave = () => {
     const tpl = TEMPLATES.find(t => t.id === activeTemplate);
-    const autoLabel = `Version ${(memory?.resumeVersions?.length || 0) + 1}`;
-    const version = {
-      date: new Date().toISOString(),
-      template: activeTemplate,
-      templateLabel: tpl?.label || activeTemplate,
-      label: versionLabel.trim() || autoLabel,
-      data: JSON.parse(JSON.stringify(data)),
-    };
-    onSaveVersion(version);
+    onSaveVersion(makeVersion({ data, templateId: activeTemplate, templateLabel: tpl?.label, label: versionLabel, count: memory?.resumeVersions?.length || 0 }));
     setVersionLabel('');
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -957,43 +940,59 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   const fixNumber = fixing ? stepNumberFor(fixing, data, fixing.builderStep) : null;
   const fixDraft = fixing ? draftFor(fixing, data) : null;
   const [askReplaceSummary, setAskReplaceSummary] = useState(false);
+  const [showWhyCard, setShowWhyCard] = useState(false);
   const useSummaryDraft = () => { if (data.summary && data.summary.trim() && data.summary !== fixDraft.text) setAskReplaceSummary(true); else setSummary(fixDraft.text); };
+  const fixQuote = fixing ? quoteInResume(fixing, data) : null;   // shown only when it is really in the resume
   const fixCard = fixing && fixNumber !== null && stepIndexFor(fixNumber) === step ? (
-    <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderLeft: '4px solid var(--lp-teal)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-teal)' }}>Fixing this issue</div>
-      <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, lineHeight: 1.3, color: 'var(--lp-text)' }}>{fixing.title}</h3>
-      {fixing.description && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>{fixing.description}</p>}
-      {fixing.before && (
+    <div role="note" aria-label={`Fixing: ${fixing.title || 'this issue'}`} style={{ marginBottom: 20, padding: '18px 20px', background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)' }}>Fixing this issue</div>
+        <button type="button" onClick={() => setFixing(null)} style={{ ...quietBtn, border: 'none', textDecoration: 'underline', padding: '2px 4px' }}>Hide this reminder</button>
+      </div>
+      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, lineHeight: 1.3, color: 'var(--lp-text)' }}>{fixing.title}</h3>
+      {fixing.description && (
+        <div>
+          <button type="button" aria-expanded={showWhyCard} onClick={() => setShowWhyCard(v => !v)} style={{ ...quietBtn, border: 'none', padding: 0, textDecoration: 'underline' }}>Why this matters</button>
+          {showWhyCard && <p style={{ margin: '8px 0 0', fontSize: 13.5, lineHeight: 1.65, color: 'var(--lp-text2)' }}>{fixing.description}</p>}
+        </div>
+      )}
+      {fixQuote && (
         <div>
           <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: 'var(--lp-text3)', marginBottom: 4 }}>In your resume</div>
-          <div data-quote="before" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'var(--lp-bg3)', borderLeft: '3px solid var(--lp-bdr)', borderRadius: 4 }}>{fixing.before}</div>
+          <div data-quote="before" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'var(--lp-bg3)', borderLeft: '3px solid var(--lp-bdr)', borderRadius: 4 }}>{fixQuote}</div>
         </div>
       )}
       {fixDraft && (
         <div>
-          <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: '#FFB84D', marginBottom: 4 }}>AI suggestion · check every figure is true before you use it</div>
-          <div data-quote="after" style={{ padding: '8px 12px', fontSize: 13.5, lineHeight: 1.55, color: 'var(--lp-text)', background: 'rgba(255,184,77,.08)', borderLeft: '3px solid #FFB84D', borderRadius: 4 }}>{fixDraft.text}</div>
-          {fixDraft.placeholders && fixDraft.replaced?.length > 0 && <div style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.5, color: '#FFB84D' }}>These figures are not in your resume: {fixDraft.replaced.join(', ')}. They are shown as [X]: put your real figure, or remove it.</div>}
-          {fixDraft.warnings.map((w, k) => <div key={k} style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, color: '#FFB84D' }}>{w}</div>)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+            <span data-badge="ai" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .6, color: '#FFB84D', background: 'rgba(255,184,77,.12)', border: '1px solid rgba(255,184,77,.35)' }}>
+              <Sparkles size={12} aria-hidden="true" /> AI suggestion
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--lp-text3)' }}>Check every figure is true before you use it.</span>
+          </div>
+          <div data-quote="after" style={{ padding: '10px 14px', fontSize: 14, lineHeight: 1.6, color: 'var(--lp-text)', background: 'rgba(255,184,77,.07)', borderLeft: '3px solid #FFB84D', borderRadius: 6 }}>{fixDraft.text}</div>
+          {fixDraft.placeholders && fixDraft.replaced?.length > 0 && <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.55, color: '#FFB84D' }}>These figures are not in your resume: {fixDraft.replaced.join(', ')}. They are shown as [X]: put your real figure, or remove it.</div>}
+          {fixDraft.warnings.map((w, k) => <div key={k} style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#FFB84D' }}>{w}</div>)}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        {fixDraft && fixNumber === 5 && !askReplaceSummary && (
-          <button type="button" onClick={useSummaryDraft} style={{ background: 'transparent', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 6, padding: '5px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-            {fixDraft.warnings.length ? 'Use suggestion — I confirm this is true' : 'Use suggestion'}
-          </button>
-        )}
-        {askReplaceSummary && (
-          <div role="alert" style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>
-            Replace your summary with this suggestion?
-            <span style={{ display: 'inline-flex', gap: 8, marginLeft: 10 }}>
-              <button type="button" onClick={() => { setSummary(fixDraft.text); setAskReplaceSummary(false); }} style={{ ...quietBtn }}>Replace</button>
-              <button type="button" onClick={() => setAskReplaceSummary(false)} style={{ ...quietBtn }}>Keep mine</button>
-            </span>
-          </div>
-        )}
-        <button type="button" onClick={() => setFixing(null)} style={{ ...quietBtn, marginLeft: 'auto' }}>Hide this reminder</button>
-      </div>
+      {(fixDraft && fixNumber === 5) && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {!askReplaceSummary && (
+            <button type="button" onClick={useSummaryDraft} style={{ background: 'transparent', border: '1px solid var(--lp-text2)', color: 'var(--lp-text)', borderRadius: 8, padding: '7px 16px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+              {fixDraft.warnings.length ? 'Use suggestion — I confirm this is true' : 'Use suggestion'}
+            </button>
+          )}
+          {askReplaceSummary && (
+            <div role="alert" style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>
+              Replace your summary with this suggestion?
+              <span style={{ display: 'inline-flex', gap: 8, marginLeft: 10 }}>
+                <button type="button" onClick={() => { setSummary(fixDraft.text); setAskReplaceSummary(false); }} style={{ ...quietBtn }}>Replace</button>
+                <button type="button" onClick={() => setAskReplaceSummary(false)} style={{ ...quietBtn }}>Keep mine</button>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   ) : null;
   const fixPointer = fixing && !fixCard && fixNumber !== null ? (
@@ -1086,7 +1085,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         </div>
         {anyFixable && (
           <button type="button" onClick={() => { setFixStartKey(null); setFixMode(true); }}
-            style={{ alignSelf: 'flex-start', marginBottom: 14, background: 'transparent', border: '1px solid var(--lp-teal)', color: 'var(--lp-teal)', borderRadius: 8, padding: '7px 14px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer' }}>
+            style={{ alignSelf: 'flex-start', marginBottom: 14, background: 'transparent', border: 'none', color: 'var(--lp-text2)', padding: 0, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
             Fix issues side by side →
           </button>
         )}
@@ -1204,7 +1203,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
         {step === 4 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.6 }}>2-3 sentences: years of experience, key skills, what you bring.</div>
-            <textarea aria-label="Professional summary" style={{ ...inp, minHeight: 120, resize: 'vertical' }}
+            <textarea aria-label="Professional summary" style={{ ...inp, minHeight: 200, fontSize: 14, lineHeight: 1.6, resize: 'vertical' }}
               value={data.summary}
               onChange={e => setSummary(e.target.value)}
               placeholder="Data scientist with 7 years of experience in ML applied to real world problems…" />
@@ -1506,6 +1505,9 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
             selectedId={template}
             onSelect={setTemplate}
             onBack={() => setMainTab('builder')}
+            onSaveVersion={handleSaveVersion}
+            versionsCount={memory?.resumeVersions?.length || 0}
+            onOpenHistory={() => setMainTab('history')}
           />
         );
       })()}
