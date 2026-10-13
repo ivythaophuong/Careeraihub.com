@@ -899,3 +899,45 @@ describe('a narrow screen shows one pane at a time', () => {
     }
   });
 });
+
+
+describe('on a phone only Focus is offered', () => {
+  // Compare puts two resumes side by side; in a phone-width column each is scaled to about 45 percent and cannot be read. On a phone the page uses
+  // Focus (the Edit and Resume tabs) whatever view was chosen on a wider screen, hides the switch, and does not overwrite the remembered choice.
+  const phone = (matches) => { window.matchMedia = (q) => ({ matches, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }); };
+  afterEach(() => { delete window.matchMedia; });
+
+  it('a remembered Compare choice shows Focus on a phone: the Edit pane is chosen, and there are no two-resume panes or tabs', () => {
+    localStorage.setItem('careeraihub:fixpage:view', 'compare');
+    phone(true);
+    setup();
+    const active = Array.from(document.querySelectorAll('.atb-fix-pane[data-active="true"]')).map(e => e.getAttribute('data-pane'));
+    expect(active).toEqual(['editor']);
+    expect(document.querySelector('[data-pane="original"]')).toBeNull();
+    expect(document.querySelector('[data-pane="new"]')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Edit', hidden: true })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Resume', hidden: true })).toBeTruthy();
+  });
+
+  it('the Focus | Compare switch is not shown on a phone, and the remembered choice is left as it was', () => {
+    localStorage.setItem('careeraihub:fixpage:view', 'compare');
+    phone(true);
+    setup();
+    expect(screen.queryByRole('group', { name: 'View' })).toBeNull();
+    expect(localStorage.getItem('careeraihub:fixpage:view')).toBe('compare');
+  });
+
+  it('on a wider screen the switch is there and the remembered Compare choice is used', () => {
+    localStorage.setItem('careeraihub:fixpage:view', 'compare');
+    phone(false);
+    setup();
+    expect(screen.getByRole('group', { name: 'View' })).toBeTruthy();
+    expect(document.querySelector('[data-pane="original"]')).toBeTruthy();
+  });
+
+  it('without matchMedia (an old browser) the page behaves as on a wide screen', () => {
+    localStorage.setItem('careeraihub:fixpage:view', 'compare');
+    setup();
+    expect(screen.getByRole('group', { name: 'View' })).toBeTruthy();
+  });
+});
