@@ -68,6 +68,19 @@ describe('useScrollTabs', () => {
     expect(row.getAttribute('data-more')).toBe('true');
   });
 
+  it('a row of steps (aria-current="step") is followed the same way as a row of pages', () => {
+    const Steps = ({ active }) => {
+      const ref = useScrollTabs(active);
+      return (
+        <div ref={ref} data-testid="steps" data-rect="0,300" data-client="300" data-scroll="600">
+          {[['a', '0,100'], ['b', '100,100'], ['c', '500,100']].map(([k, r]) => <button key={k} data-rect={r} aria-current={active === k ? 'step' : undefined}>{k}</button>)}
+        </div>
+      );
+    };
+    const { getByTestId } = render(<Steps active="c" />);
+    expect(getByTestId('steps').scrollLeft).toBe(400);
+  });
+
   it('does nothing and does not throw when no tab is marked', () => {
     const { getByTestId } = render(<Row active="none" />);
     expect(getByTestId('row').scrollLeft).toBe(0);
