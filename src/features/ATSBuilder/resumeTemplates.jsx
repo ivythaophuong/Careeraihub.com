@@ -71,7 +71,7 @@ export function ModernTemplate({ contact = {}, summary = '', experience = [], ed
       {skills.filter(s => s.trim()).length > 0 && (<>
         <div style={ruleLight} />
         <div style={sectionTitle}>Skills</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }} data-fix-at="skills">
           {skills.filter(s => s.trim()).map((sk, i) => (
             <span key={i} style={{ fontSize: 11, color: '#333', border: '1px solid #ccc', borderRadius: 3, padding: '3px 8px' }}>{sk}</span>
           ))}
@@ -123,14 +123,16 @@ export function CreativeTemplate({ contact = {}, summary = '', experience = [], 
         {skills.filter(s => s.trim()).length > 0 && (<>
           <div style={{ height: 1, background: '#2d3250', margin: '14px 0' }} />
           <div style={{ color: '#a0b0c8', fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Skills</div>
-          {skills.filter(s => s.trim()).slice(0, 7).map((sk, i) => (
-            <div key={i} style={{ marginBottom: 7 }}>
-              <div style={{ color: '#ccd', fontSize: 10.5, marginBottom: 3 }}>{sk}</div>
-              <div style={{ height: 4, background: '#2d3250', borderRadius: 2 }}>
-                <div style={{ height: 4, background: accent, borderRadius: 2, width: `${90 - i * 7}%` }} />
+          <div data-fix-at="skills">
+            {skills.filter(s => s.trim()).slice(0, 7).map((sk, i) => (
+              <div key={i} style={{ marginBottom: 7 }}>
+                <div style={{ color: '#ccd', fontSize: 10.5, marginBottom: 3 }}>{sk}</div>
+                <div style={{ height: 4, background: '#2d3250', borderRadius: 2 }}>
+                  <div style={{ height: 4, background: accent, borderRadius: 2, width: `${90 - i * 7}%` }} />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </>)}
 
         {education.filter(e => e.institution).length > 0 && (<>
@@ -269,7 +271,7 @@ export function TwoColumnTemplate({ contact = {}, summary = '', experience = [],
           {skills.filter(s => s.trim()).length > 0 && (
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: accent, marginBottom: 8 }}>Skills</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }} data-fix-at="skills">
                 {skills.filter(s => s.trim()).map((sk, i) => (
                   <span key={i} style={{ display: 'inline-block', background: '#dde4ff', color: accent, fontSize: 10, fontWeight: 600, borderRadius: 4, padding: '3px 7px', marginBottom: 3 }}>{sk}</span>
                 ))}
@@ -350,7 +352,7 @@ export function MinimalistTemplate({ contact = {}, summary = '', experience = []
       {skills.filter(s => s.trim()).length > 0 && (
         <div style={{ marginBottom: 26 }}>
           <div style={sectionLabel}>Skills</div>
-          <div>
+          <div data-fix-at="skills">
             {skills.filter(s => s.trim()).map((sk, i, arr) => (
               <span key={i} style={{ fontSize: 10.5, color: '#666' }}>{sk}{i < arr.length - 1 ? '  ·  ' : ''}</span>
             ))}
@@ -443,7 +445,7 @@ export function BoldTemplate({ contact = {}, summary = '', experience = [], educ
           {skills.filter(s => s.trim()).length > 0 && (
             <div style={{ flex: 1 }}>
               <div style={sectionHead}>Skills</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }} data-fix-at="skills">
                 {skills.filter(s => s.trim()).map((sk, i) => (
                   <span key={i} style={{ fontSize: 10.5, color: '#111', background: '#f5f5f5', borderLeft: `3px solid ${gold}`, padding: '3px 9px', fontWeight: 600 }}>{sk}</span>
                 ))}
