@@ -91,3 +91,14 @@ describe('ATS Builder when the pasted text has lost its line breaks', () => {
     expect(screen.queryByText(/line breaks are missing/i)).toBeNull();
   });
 });
+
+describe('ATS Builder when the sections of the resume cannot be read (for example two columns read line by line)', () => {
+  const TWO_COLUMN = `Ahmed Khalil                          SKILLS\nahmed.khalil@example.com              Project planning\n+20 100 555 0100                      Budgeting\n                                       Risk management\n\nEXPERIENCE                            EDUCATION\nProject Manager, Delta Build          BSc Civil Engineering\nFeb 2018 - Present                    Cairo University, 2014\n- Delivered 6 projects on budget      Languages: Arabic, English\n- Led a site team of 12 people        Certifications: PMP\n`;
+  it('shows no score and says what could not be found and what to do, instead of a score of 50', () => {
+    render(<ATSBuilder {...base} resumeText={TWO_COLUMN} />);
+    expect(screen.getByText(/could not find your experience, education or skills/i)).toBeTruthy();
+    expect(screen.getByText(/two columns|a table/i)).toBeTruthy();
+    expect(screen.queryByText('out of 100')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Needs Major Work/);
+  });
+});
