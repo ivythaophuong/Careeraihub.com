@@ -182,4 +182,28 @@ describe('BuilderIssuesPanel', () => {
       expect(within(card('Skills list is short'), /^Undo$/)).toBeUndefined();
     });
   });
+
+  describe('a change made on the Fix page to the dates', () => {
+    const datesIssue = { severity: 'medium', title: 'Inconsistent date formatting', description: 'Written in different ways.', before: '', after: '', builderStep: 2 };
+    const key = (i) => `${i}:${datesIssue.title}:${datesIssue.before}`;
+    const rec = { record: { kind: 'dates', changes: [{ ref: { kind: 'job', id: 1 }, before: '2020 - 2023', after: 'Jan 2020 - Mar 2023' }] }, placeholders: false, warnings: [] };
+    const withPeriod = (period) => () => { const d = initial(); d.experience[0].period = period; return d; };
+    const stored = () => { localStorage.setItem('records', JSON.stringify({ [key(0)]: rec })); };
+
+    it('shows Applied while the date is as the change left it, and Undo takes it back', () => {
+      stored();
+      render(<Harness onGoToStep={() => {}} storageKey="records" list={[datesIssue]} start={withPeriod('Jan 2020 - Mar 2023')} />);
+      expect(card('Inconsistent date formatting').textContent).toMatch(/Applied/);
+      expect(card('Inconsistent date formatting').textContent).not.toMatch(/edited by you/);
+      fireEvent.click(within(card('Inconsistent date formatting'), /^Undo$/));
+      expect(latest.data.experience[0].period).toBe('2020 - 2023');
+    });
+
+    it('says the date was edited afterwards, and offers no Undo', () => {
+      stored();
+      render(<Harness onGoToStep={() => {}} storageKey="records" list={[datesIssue]} start={withPeriod('2019')} />);
+      expect(card('Inconsistent date formatting').textContent).toMatch(/Applied, then edited by you/);
+      expect(within(card('Inconsistent date formatting'), /^Undo$/)).toBeUndefined();
+    });
+  });
 });

@@ -69,3 +69,18 @@ export function isSkillsIssue(issue, data) {
   const inText = named(issue.description);
   return inText.length === 1 && inText[0] === 4;
 }
+
+// Is the issue about the dates (of the jobs or of the education), so that the Fix page can offer the Dates card? Words decide, as in stepForIssue: the title
+// first, then the description, and only when it names no other section than the experience one that dates belong with. The AI's step number is never used,
+// and a quoted sentence that is in the resume makes it a sentence issue.
+const DATE_WORDS = /\b(dates?|dated|dating|chronolog\w*|timeline|employment gaps?|gaps? in (?:employment|work))\b/i;
+export function isDatesIssue(issue, data) {
+  if (!issue || !data || !(Array.isArray(data.experience) || Array.isArray(data.education))) return false;
+  if (quoteInResume(issue, data)) return false;
+  const inTitle = named(issue.title);
+  if (inTitle.length > 1) return false;
+  if (DATE_WORDS.test(issue.title || '')) return inTitle.length === 0 || inTitle[0] === 2;
+  if (inTitle.length === 1) return false;
+  const inText = named(issue.description);
+  return inText.length === 1 && inText[0] === 2 && DATE_WORDS.test(issue.description || '');
+}
