@@ -208,3 +208,25 @@ describe('fieldsIssueKind: the contact card and the education card, decided by w
     expect(fieldsIssueKind(issue({ title: 'No LinkedIn link' }), null)).toBeNull();
   });
 });
+
+describe('isDatesIssue: a graduation year is a date of the education entry', () => {
+  it('an issue about the graduation year goes to the Dates card', () => {
+    expect(isDatesIssue(issue({ title: 'Education lacks graduation year' }), data())).toBe(true);
+    expect(isDatesIssue(issue({ title: 'Missing graduation year' }), data())).toBe(true);
+    expect(isDatesIssue(issue({ title: 'Graduation date is unclear' }), data())).toBe(true);
+    expect(isDatesIssue(issue({ title: 'Year of graduation not stated' }), data())).toBe(true);
+  });
+  it('an issue that also names the degree or the school is a tie between two cards, and is not guessed', () => {
+    expect(isDatesIssue(issue({ title: 'Degree and graduation year missing' }), data())).toBe(false);
+    expect(isDatesIssue(issue({ title: 'University and graduation year unclear' }), data())).toBe(false);
+  });
+  it('another section named with it, a quoted sentence of the resume, or no education in the data: no', () => {
+    expect(isDatesIssue(issue({ title: 'Skills and graduation year unclear' }), data())).toBe(false);
+    expect(isDatesIssue(issue({ title: 'Missing graduation year', before: 'Handled monthly reporting' }), data())).toBe(false);
+    expect(isDatesIssue(issue({ title: 'Missing graduation year' }), { summary: 'x', experience: 5 })).toBe(false);
+  });
+  it('the contact and education cards still leave a year to the Dates card', () => {
+    expect(fieldsIssueKind(issue({ title: 'Missing graduation year' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Degree is not specified' }), data())).toBe('education');
+  });
+});
