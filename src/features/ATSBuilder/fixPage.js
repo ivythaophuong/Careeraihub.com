@@ -6,6 +6,7 @@ import { claimWarnings } from '../../lib/claimGuard.js';
 import { countPlaceholders } from '../../lib/exportGuard.js';
 import { builderDataToText } from './builderText.js';
 import { skillsStatus, undoSkills } from './skillsFix.js';
+import { datesStatus, undoDates } from './datesFix.js';
 
 const nfc = (s) => String(s ?? '').normalize('NFC');
 
@@ -60,6 +61,7 @@ export function saveFix(data, at, text) {
 //   'open'            nothing saved and the quoted text is still there (or there is no quoted text)
 export function issueStatus(data, issue, record) {
   if (record?.kind === 'skills') return skillsStatus(data, record);
+  if (record?.kind === 'dates') return datesStatus(data, record);
   if (record) {
     if (undoApply(data, record) === null) return 'applied_edited';
     return countPlaceholders(readField(data, record.at)) > 0 ? 'needs_figure' : 'applied';
@@ -117,4 +119,4 @@ export function closestBullets(data, issue, { min = 0.5, max = 3 } = {}) {
 }
 
 // Takes a recorded change back, whatever kind it is (a sentence or the skills list). null when it was changed afterwards and cannot be undone automatically.
-export const undoRecord = (data, record) => (!record ? null : record.kind === 'skills' ? undoSkills(data, record) : undoApply(data, record));
+export const undoRecord = (data, record) => (!record ? null : record.kind === 'skills' ? undoSkills(data, record) : record.kind === 'dates' ? undoDates(data, record) : undoApply(data, record));

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { isBulletIssue, isSkillsIssue, draftFor } from '../issueStep.js';
+import { isBulletIssue, isSkillsIssue, isDatesIssue, draftFor } from '../issueStep.js';
+import { listDateEntries, dateFindings, setDate, mergeDateRecords } from '../datesFix.js';
 import { addSkill, removeSkill, mergeSkillRecords, skillList, skillsFindings } from '../skillsFix.js';
 import { closestBullets, fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, undoRecord } from '../fixPage.js';
 
@@ -146,15 +147,18 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
       const rec = !!records?.[issueKey(issue, i)];
       // An issue about the skills list (decided by words, see isSkillsIssue) gets the Skills card; a recorded skills change keeps it too.
       const skills = !located && (records?.[issueKey(issue, i)]?.record?.kind === 'skills' || isSkillsIssue(issue, original));
-      return { issue, i, key: issueKey(issue, i), skills, pick: !located && !skills && !rec && hasBullets && isBulletIssue(issue) };
+      // The same for the dates of the jobs and of the education (isDatesIssue).
+      const dates = !located && !skills && (records?.[issueKey(issue, i)]?.record?.kind === 'dates' || isDatesIssue(issue, original));
+      return { issue, i, key: issueKey(issue, i), skills, dates, pick: !located && !skills && !dates && !rec && hasBullets && isBulletIssue(issue) };
     })
-    .filter(it => records?.[it.key] || it.pick || it.skills || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
+    .filter(it => records?.[it.key] || it.pick || it.skills || it.dates || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
 
   // Where each issue's sentence is in the resume as it was when the page opened: this is what the left resume highlights.
   const [seed] = useState(() => {
     const out = [];
     list.forEach((it, itemPos) => {
       if (it.skills) { out.push({ key: 'skills', itemPos, at: { kind: 'skills' } }); return; }
+      if (it.dates) return;                                  // the dates have no mark on the resume yet
       let ats = it.pick ? closestBullets(original, it.issue).map(c => c.at) : fixTargets(original, it.issue).places.map(p => p.at);   // for a pick issue: the nearest sentences
       if (!ats.length && records?.[it.key]?.record) ats = [records[it.key].record.at];   // improved and then edited: the place is known from the record
       ats.forEach(at => out.push({ key: markKeyOf(at), itemPos, at }));
@@ -163,7 +167,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   });
 
   // A pick issue nobody has acted on is open (it was never "changed by the user"); once it has a record it is read from the text like any other.
-  const statusesFor = (d, r) => list.map(it => ((it.pick || it.skills) && !r[it.key]?.record ? 'open' : issueStatus(d, it.issue, r[it.key]?.record ?? null)));
+  const statusesFor = (d, r) => list.map(it => ((it.pick || it.skills || it.dates) && !r[it.key]?.record ? 'open' : issueStatus(d, it.issue, r[it.key]?.record ?? null)));
 
   const startPos = () => {
     const statuses = statusesFor(data, records || {});
@@ -175,7 +179,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   // The place an issue points to when it is in exactly one place; for several places the user chooses.
   const placeFor = (d, pos, r = recs) => {
     if (pos === null) return null;
-    if (list[pos].skills) return null;                                    // the skills card has no one sentence to point at
+    if (list[pos].skills || list[pos].dates) return null;                                    // the skills card has no one sentence to point at
     if (r?.[list[pos].key]?.record) return r[list[pos].key].record.at;   // improved: the place is in the record
     const t = fixTargets(d, list[pos].issue);
     return t.kind === 'one' ? t.places[0].at : null;
@@ -193,6 +197,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const [pendingPick, setPendingPick] = useState(null);
   const [stage, setStage] = useState(null);           // Skills: the list with the changes made on this page and not saved yet, and their record
   const [skillInput, setSkillInput] = useState('');
+  const [drafts, setDrafts] = useState({});            // Dates: what the user has typed in each date box, by entry, and not saved yet
   const taRef = useRef(null);
   const [chosenView, setViewState] = useState(initialView);
   const [chosenPane, setPane] = useState(() => (initialView() === 'focus' ? 'editor' : 'original'));
@@ -206,7 +211,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     const a = chosen || placeFor(d, nextPos, r);
     setPos(nextPos); setChosenAt(a); setText(a ? fieldText(d, a) : '');
     setImproving(false); setShowWhy(false); setShowDraft(false);
-    setMsg(''); setAskReplace(false); setAskLeave(false); setPendingPick(null); setStage(null); setSkillInput('');
+    setMsg(''); setAskReplace(false); setAskLeave(false); setPendingPick(null); setStage(null); setSkillInput(''); setDrafts({});
   };
 
   // Compare: the box is as tall as its text, from 90 px up to 320 px, then it scrolls. (In Focus it fills the column.)
@@ -222,19 +227,36 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const improved = current ? ['applied', 'applied_edited'].includes(statuses[pos]) : false;   // this issue was improved earlier (this visit or before)
   const isPick = !!current && current.pick && !recs[current.key]?.record;
   const isSkills = !!current && !!current.skills;
-  const targets = current && !improved ? (isPick ? { kind: 'pick', places: [] } : isSkills ? { kind: 'skills', places: [] } : fixTargets(work, current.issue)) : { kind: 'one', places: [] };
+  const isDates = !!current && !!current.dates;
+  const targets = current && !improved ? (isPick ? { kind: 'pick', places: [] } : isSkills ? { kind: 'skills', places: [] } : isDates ? { kind: 'dates', places: [] } : fixTargets(work, current.issue)) : { kind: 'one', places: [] };
   const example = isPick ? draftFor(current.issue, work) : null;   // what the AI wrote about the sentence it looked at: shown, never applied
   const at = chosenAt;
   const place = at && targets ? targets.places.find(p => JSON.stringify(p.at) === JSON.stringify(at)) : null;
   const saved = at ? fieldText(work, at) : '';
   const staged = stage?.data ?? work;
   const skillsDirty = isSkills && !!stage && (stage.record.added.length > 0 || stage.record.removed.length > 0);
-  const dirty = skillsDirty || (!!at && text !== saved);
+  // Dates: the entries, what is typed in them, and the resume with those dates (each applied by setDate, the function the tests cover)
+  const dateKey = (e) => `${e.ref.kind}:${e.ref.id}`;
+  const dateEntries = isDates ? listDateEntries(work) : [];
+  const dateStage = (() => {
+    if (!isDates) return null;
+    let cur = work; let rec = null; const cleared = [];
+    for (const e of dateEntries) {
+      const k = dateKey(e);
+      if (!(k in drafts) || e.ambiguous) continue;
+      if (!String(drafts[k]).trim()) { if (String(e.text).trim()) cleared.push(e); continue; }
+      const r = setDate(cur, e.ref, drafts[k]);
+      if (r.data) { cur = r.data; rec = mergeDateRecords(rec, r.record); }
+    }
+    return { data: cur, record: rec, cleared };
+  })();
+  const datesDirty = isDates && !!dateStage && ((dateStage.record?.changes.length || 0) > 0 || dateStage.cleared.length > 0);
+  const dirty = skillsDirty || datesDirty || (!!at && text !== saved);
   const suggestion = at && current ? suggestionFor(work, current.issue, at) : null;
   const draft = suggestion && !suggestion.error ? suggestion : null;
 
   const activeKey = isSkills ? 'skills' : at ? markKeyOf(at) : null;
-  const shown = isSkills ? staged : at && dirty ? withFieldText(work, at, text) : work;     // the new resume: what is saved, plus what is being typed
+  const shown = isSkills ? staged : isDates ? dateStage.data : at && dirty ? withFieldText(work, at, text) : work;     // the new resume: what is saved, plus what is being typed
 
   // Marks on the left resume (as it was): the sentence being fixed, the other sentences that can be improved, and the ones already improved.
   const seen = new Set();
@@ -294,7 +316,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   };
   const undo = () => {
     const back = undoRecord(work, recs[current.key].record);
-    if (!back) { setMsg(isSkills ? 'The skills were changed afterwards, so this cannot be undone automatically.' : 'That sentence was changed afterwards, so it cannot be undone automatically.'); return; }
+    if (!back) { setMsg(isSkills ? 'The skills were changed afterwards, so this cannot be undone automatically.' : isDates ? 'The dates were changed afterwards, so this cannot be undone automatically.' : 'That sentence was changed afterwards, so it cannot be undone automatically.'); return; }
     const nextRecs = { ...recs }; delete nextRecs[current.key];
     setWork(back); setRecs(nextRecs);
     onChange?.(back, current.key, null);          // null: the record is removed
@@ -320,6 +342,17 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     setWork(stage.data); setRecs(nextRecs);
     onChange?.(stage.data, current.key, entry);
     go(nextUnresolved(statusesFor(stage.data, nextRecs), pos), stage.data);
+  };
+  const saveDates = () => {
+    if (dateStage.cleared.length) { setMsg('A date cannot be left empty here. Type it, or put back what was there.'); return; }
+    if (!dateStage.record || !dateStage.record.changes.length) { setMsg('Change a date first, or leave it for now.'); return; }
+    const prev = recs[current.key]?.record;
+    const record = mergeDateRecords(prev && undoRecord(work, prev) !== null ? prev : null, dateStage.record);
+    const entry = { record, placeholders: false, warnings: [] };
+    const nextRecs = { ...recs, [current.key]: entry };
+    setWork(dateStage.data); setRecs(nextRecs);
+    onChange?.(dateStage.data, current.key, entry);
+    go(nextUnresolved(statusesFor(dateStage.data, nextRecs), pos), dateStage.data);
   };
   const choose = (p) => { setChosenAt(p.at); setText(fieldText(work, p.at)); setMsg(''); };
 
@@ -381,12 +414,12 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>
               {statuses[pos] === 'applied'
-                ? <><strong style={{ color: '#00E5A0' }}>Already improved.</strong> Your resume (left) shows the {isSkills ? 'skills' : 'sentence'} as {isSkills ? 'they were' : 'it was'}; your new resume (right) shows {isSkills ? 'them' : 'it'} now.</>
-                : <>You changed this after applying it. Your resume (left) shows the {isSkills ? 'skills' : 'sentence'} as {isSkills ? 'they were' : 'it was'}; your new resume (right) shows {isSkills ? 'them' : 'it'} now. It cannot be undone automatically.</>}
+                ? <><strong style={{ color: '#00E5A0' }}>Already improved.</strong> Your resume (left) shows the {isSkills ? 'skills' : isDates ? 'dates' : 'sentence'} as {isSkills || isDates ? 'they were' : 'it was'}; your new resume (right) shows {isSkills || isDates ? 'them' : 'it'} now.</>
+                : <>You changed this after applying it. Your resume (left) shows the {isSkills ? 'skills' : isDates ? 'dates' : 'sentence'} as {isSkills || isDates ? 'they were' : 'it was'}; your new resume (right) shows {isSkills || isDates ? 'them' : 'it'} now. It cannot be undone automatically.</>}
             </div>
             {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button type="button" style={btn(true)} onClick={() => setImproving(true)}>{isSkills ? 'Change again' : 'Improve again'}</button>
+              <button type="button" style={btn(true)} onClick={() => setImproving(true)}>{isSkills || isDates ? 'Change again' : 'Improve again'}</button>
               {statuses[pos] === 'applied' && <button type="button" style={btn(false)} onClick={undo}>Undo this change</button>}
               <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
             </div>
@@ -449,6 +482,37 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
               {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button type="button" style={btn(true)} onClick={saveSkills}>Save &amp; next</button>
+                <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {isDates && (!improved || improving) && (() => {
+          const FINDING = { missing: (l) => `No date given for ${l}. Type the real one, or leave it.`, unreadable: (l) => `We could not read a date in ${l}. Check how it is written.`, end_before_start: (l) => `The end date is before the start date in ${l}.` };
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--lp-text3)' }}>Your dates</div>
+              {dateEntries.length === 0 && <div style={{ fontSize: 12.5, color: '#FFB84D' }}>There is no job or education entry with dates in your resume.</div>}
+              {dateEntries.map(e => {
+                const k = dateKey(e); const value = k in drafts ? drafts[k] : e.text;
+                const what = e.ref.kind === 'job' ? 'Dates' : 'Year';
+                return (
+                  <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--lp-text2)' }}>{e.label}</span>
+                    <input aria-label={`${what} for ${e.label}`} value={value} disabled={e.ambiguous}
+                      onChange={ev => { const v = ev.target.value; setDrafts(d => ({ ...d, [k]: v })); setMsg(''); }}
+                      style={{ boxSizing: 'border-box', width: '100%', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text)', borderRadius: 8, padding: '8px 12px', fontSize: 14, fontFamily: 'var(--lp-ff)' }} />
+                    {e.ambiguous
+                      ? <span style={{ fontSize: 12, color: '#FFB84D' }}>Two entries share an id, so this one is edited in the Builder.</span>
+                      : dateFindings({ ref: e.ref, text: value }).map(f => <span key={f} style={{ fontSize: 12, color: '#FFB84D' }}>{FINDING[f](e.label)}</span>)}
+                  </label>
+                );
+              })}
+              <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.5 }}>Nothing is suggested for dates: type only dates that are true.{datesDirty ? ' Not saved yet.' : ''}</div>
+              {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" style={btn(true)} onClick={saveDates}>Save &amp; next</button>
                 <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
               </div>
             </div>

@@ -184,9 +184,9 @@ describe('a bullet issue whose sentence is not in the resume', () => {
     expect(Object.keys(JSON.parse(localStorage.getItem(builderAppliedKey('u1')))).length).toBe(1);
   });
 
-  it('an issue about dates still goes to the step form', () => {
-    openFix([issue({ title: 'Inconsistent date formatting', before: 'June 2017 – November 2021', after: 'Jun 2017 – Nov 2021', builderStep: 2 })]);
-    expect(screen.getByText(/Step 2 of 6/)).toBeTruthy();
+  it('an issue about the contact details still goes to the step form', () => {
+    openFix([issue({ title: 'No LinkedIn link', description: 'Add a profile link.', before: 'linkedin.com/in/someone-else', after: 'linkedin.com/in/jane', builderStep: 1 })]);
+    expect(screen.getByText(/Step 1 of 6/)).toBeTruthy();
     expect(screen.queryByText(/Issue \d of \d/)).toBeNull();
   });
 
@@ -210,6 +210,28 @@ describe('a bullet issue whose sentence is not in the resume', () => {
       expect(draft.experience[0].bullets[0]).toBe('Handled monthly reporting for the sales team');
       const records = JSON.parse(localStorage.getItem(builderAppliedKey('u1')));
       expect(Object.values(records)[0].record).toEqual({ kind: 'skills', added: ['Power BI'], removed: [] });
+    });
+  });
+
+  describe('an issue about the dates', () => {
+    const datesIssue = () => issue({ title: 'Inconsistent date formatting', description: 'The dates are written in different ways.', before: 'June 2017 – November 2021', after: 'Jun 2017 – Nov 2021', builderStep: 5 });
+
+    it('opens the Fix page with the Dates card, not the step form', () => {
+      openFix([datesIssue()]);
+      expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+      expect(screen.getByRole('textbox', { name: 'Dates for Acme' }).value).toBe('2021 - 2023');
+      expect(screen.queryByText(/Step \d of 6/)).toBeNull();
+    });
+
+    it('saving writes only that date into the draft and keeps a record of the kind dates, so the Suggestions panel can read it', () => {
+      openFix([datesIssue()]);
+      fireEvent.change(screen.getByRole('textbox', { name: 'Dates for Acme' }), { target: { value: 'Jan 2021 - Mar 2023' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+      const draft = JSON.parse(localStorage.getItem(builderDraftKey('u1')));
+      expect(draft.experience[0].period).toBe('Jan 2021 - Mar 2023');
+      expect(draft.experience[0].bullets[0]).toBe('Handled monthly reporting for the sales team');
+      const records = JSON.parse(localStorage.getItem(builderAppliedKey('u1')));
+      expect(Object.values(records)[0].record).toEqual({ kind: 'dates', changes: [{ ref: { kind: 'job', id: 0 }, before: '2021 - 2023', after: 'Jan 2021 - Mar 2023' }] });
     });
   });
 });

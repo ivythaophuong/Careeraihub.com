@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, closestBullets, undoRecord } from './fixPage.js';
 import { addSkill, removeSkill } from './skillsFix.js';
+import { setDate } from './datesFix.js';
 import { undoApply } from './applyIssue.js';
 
 const base = () => ({
@@ -279,5 +280,19 @@ describe('a Skills change in the same records as a sentence change', () => {
     expect(undoRecord(s.data, s.record).summary).toBe(base().summary);
     expect(undoRecord(removeSkill(a.data, 'Power BI').data, a.record)).toBeNull();
     expect(undoRecord(base(), null)).toBeNull();
+  });
+});
+
+describe('a Dates change in the same records', () => {
+  const withIds = () => { const d = base(); d.experience.forEach((j, i) => { j.id = 10 + i; }); return d; };
+  it('issueStatus reads a dates record from the date as it is now', () => {
+    const r = setDate(withIds(), { kind: 'job', id: 10 }, '2020 - 2022');
+    expect(issueStatus(r.data, issue({ before: '' }), r.record)).toBe('applied');
+    expect(issueStatus(setDate(r.data, { kind: 'job', id: 10 }, '2019').data, issue({ before: '' }), r.record)).toBe('applied_edited');
+  });
+  it('undoRecord takes a dates change back, and gives null when it was edited afterwards', () => {
+    const r = setDate(withIds(), { kind: 'job', id: 10 }, '2020 - 2022');
+    expect(undoRecord(r.data, r.record).experience[0].period).toBe('2021 - 2023');
+    expect(undoRecord(setDate(r.data, { kind: 'job', id: 10 }, '2019').data, r.record)).toBeNull();
   });
 });

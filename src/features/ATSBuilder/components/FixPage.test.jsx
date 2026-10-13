@@ -29,7 +29,7 @@ const makeData = () => ({
 const ISSUES = [
   { severity: 'high', title: 'No metrics in bullets', description: 'Add numbers to your bullets.', before: 'Handled monthly reporting', after: 'Cut monthly reporting time by 30%', builderStep: 2, module: null },
   { severity: 'medium', title: 'Plain dashboard bullet', description: 'Say what the dashboard changed.', before: 'Built a dashboard', after: 'Built a dashboard that the managers used each week', builderStep: 2, module: null },
-  { severity: 'medium', title: 'Date formats differ', description: 'Use one date format.', before: '', after: '', builderStep: 2, module: null },
+  { severity: 'medium', title: 'Contact line is thin', description: 'Add a LinkedIn link.', before: '', after: '', builderStep: 1, module: null },
 ];
 const TEMPLATE = { id: TEMPLATES[0].id, label: TEMPLATES[0].label, component: TEMPLATES[0].component };
 
@@ -494,7 +494,7 @@ describe('an issue that was already improved can be opened again', () => {
 
 describe('a bullet issue whose sentence cannot be found: the user picks the sentence', () => {
   const PICK = { severity: 'high', title: 'No quantifiable impact for many bullets', description: 'Several bullet points describe tasks without results.', before: 'Handled the monthly reporting for the whole sales team and finance', after: 'Cut monthly reporting time by 30% for the sales team', builderStep: 2, module: null };
-  const DATES = { severity: 'medium', title: 'Inconsistent date formatting', description: 'Dates are written in different ways.', before: 'June 2017 – November 2021', after: 'Jun 2017 – Nov 2021', builderStep: 2, module: null };
+  const CONTACT = { severity: 'medium', title: 'No LinkedIn link', description: 'Add a profile link.', before: 'linkedin.com/in/someone-else', after: 'linkedin.com/in/jordan-lee', builderStep: 1, module: null };
   const pickSetup = (over = {}) => setup({ issues: [PICK], ...over });
 
   it('is on the page, and says the exact sentence was not found and asks the user to click one', () => {
@@ -579,8 +579,8 @@ describe('a bullet issue whose sentence cannot be found: the user picks the sent
     expect(at(left(), 'b:0:0').hasAttribute('data-fix-pickable')).toBe(true);
   });
 
-  it('an issue that is not about bullets (dates) is not on this page and is counted as another issue', () => {
-    setup({ issues: [DATES] });
+  it('an issue that is not about bullets, skills or dates (contact) is not on this page and is counted as another issue', () => {
+    setup({ issues: [CONTACT] });
     expect(screen.getByText(/1 other issue/i)).toBeTruthy();
   });
 
@@ -939,5 +939,128 @@ describe('on a phone only Focus is offered', () => {
     localStorage.setItem('careeraihub:fixpage:view', 'compare');
     setup();
     expect(screen.getByRole('group', { name: 'View' })).toBeTruthy();
+  });
+});
+
+
+// ── Dates: the same page, the card for the dates of the jobs and of the education ───────────────────────
+describe('the Dates card', () => {
+  const DATES_ISSUE = { severity: 'medium', title: 'Inconsistent date formatting', description: 'The dates are written in different ways.', before: 'June 2017 – November 2021', after: 'Jun 2017 – Nov 2021', builderStep: 2, module: null };
+  const datesKey = (i = 0) => `${i}:${DATES_ISSUE.title}:${DATES_ISSUE.before}`;
+  const box = (name) => screen.getByRole('textbox', { name });
+  const type = (name, value) => fireEvent.change(box(name), { target: { value } });
+  const withEdu = () => { const d = makeData(); d.education = [{ id: 7, institution: 'Example University', degree: 'BSc', year: '2019' }]; return d; };
+
+  it('an issue about dates is on the page, with one box per job and per education entry, holding the date as it is', () => {
+    setup({ data: withEdu(), issues: [DATES_ISSUE] });
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(box('Dates for Acme').value).toBe('2021 - 2023');
+    expect(box('Dates for Intern').value).toBe('2020');
+    expect(box('Dates for Beta').value).toBe('2023 - now');
+    expect(box('Year for Example University').value).toBe('2019');
+  });
+
+  it('shows no AI date: what the AI wrote for the issue is not on the card', () => {
+    setup({ issues: [DATES_ISSUE] });
+    expect(screen.queryByText(/Jun 2017/)).toBeNull();
+    expect(screen.queryByText(/November 2021/)).toBeNull();
+    expect(screen.queryByText(/AI draft/i)).toBeNull();
+  });
+
+  it('says what code can see about a date: missing, not readable, an end before the start', () => {
+    const d = makeData(); d.experience[0].period = ''; d.experience[2].period = 'Mar 2023 - Jan 2021'; d.experience[1].period = 'sometime back';
+    setup({ data: d, issues: [DATES_ISSUE] });
+    expect(screen.getByText(/No date given for Acme/i)).toBeTruthy();
+    expect(screen.getByText(/could not read a date in Intern/i)).toBeTruthy();
+    expect(screen.getByText(/end date is before the start date in Beta/i)).toBeTruthy();
+  });
+
+  it('a typed date shows on the new resume at once and is not saved until Save & next', () => {
+    const { props } = setup({ issues: [DATES_ISSUE] });
+    type('Dates for Acme', '2020 - 2022');
+    expect(right().textContent).toMatch(/2020 - 2022/);
+    expect(left().textContent).toMatch(/2021 - 2023/);
+    expect(props.onChange).not.toHaveBeenCalled();
+    expect(screen.getByText(/Not saved yet/i)).toBeTruthy();
+  });
+
+  it('Save & next saves exactly the changed dates: one record of the kind dates, every other field as it was', () => {
+    const { props } = setup({ data: withEdu(), issues: [DATES_ISSUE] });
+    type('Dates for Acme', '2020 - 2022');
+    type('Year for Example University', '2018');
+    fireEvent.click(btn(/Save & next/i));
+    expect(props.onChange).toHaveBeenCalledTimes(1);
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(key).toBe(datesKey());
+    expect(data.experience[0].period).toBe('2020 - 2022');
+    expect(data.education[0].year).toBe('2018');
+    expect(data.experience[1].period).toBe('2020');
+    expect(data.experience[2].period).toBe('2023 - now');
+    expect(data.summary).toBe(makeData().summary);
+    expect(entry.record).toEqual({ kind: 'dates', changes: [
+      { ref: { kind: 'job', id: 1 }, before: '2021 - 2023', after: '2020 - 2022' },
+      { ref: { kind: 'edu', id: 7 }, before: '2019', after: '2018' },
+    ] });
+  });
+
+  it('saving with no change saves nothing and says so; so does a date left empty', () => {
+    const { props } = setup({ issues: [DATES_ISSUE] });
+    fireEvent.click(btn(/Save & next/i));
+    expect(screen.getByRole('status').textContent).toMatch(/Change a date first/i);
+    type('Dates for Acme', '   ');
+    fireEvent.click(btn(/Save & next/i));
+    expect(screen.getByRole('status').textContent).toMatch(/cannot be left empty/i);
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+
+  it('a change put back to what it was is no change', () => {
+    setup({ issues: [DATES_ISSUE] });
+    type('Dates for Acme', '2020'); type('Dates for Acme', '2021 - 2023');
+    expect(screen.queryByText(/Not saved yet/i)).toBeNull();
+  });
+
+  it('leaving with an unsaved change asks first', () => {
+    const { props } = setup({ issues: [DATES_ISSUE] });
+    type('Dates for Acme', '2020');
+    fireEvent.click(btn(/Back to list/i));
+    expect(screen.getByText(/Leave without saving your change/i)).toBeTruthy();
+    expect(props.onBackToList).not.toHaveBeenCalled();
+  });
+
+  it('after saving, the issue is improved and the page goes on; coming back, Undo this change restores the dates and removes the record', () => {
+    const d = makeData(); d.experience[0].period = '2020 - 2022';
+    const records = { [datesKey()]: { record: { kind: 'dates', changes: [{ ref: { kind: 'job', id: 1 }, before: '2021 - 2023', after: '2020 - 2022' }] }, placeholders: false, warnings: [] } };
+    const { props } = setup({ data: d, issues: [DATES_ISSUE], records, startKey: datesKey() });
+    expect(screen.getByText(/Already improved/i)).toBeTruthy();
+    fireEvent.click(btn(/Undo this change/i));
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(data.experience[0].period).toBe('2021 - 2023');
+    expect(key).toBe(datesKey());
+    expect(entry).toBeNull();
+  });
+
+  it('a saved date the user edited afterwards cannot be undone automatically, and says so', () => {
+    const d = makeData(); d.experience[0].period = '2019';
+    const records = { [datesKey()]: { record: { kind: 'dates', changes: [{ ref: { kind: 'job', id: 1 }, before: '2021 - 2023', after: '2020 - 2022' }] }, placeholders: false, warnings: [] } };
+    setup({ data: d, issues: [DATES_ISSUE], records, startKey: datesKey() });
+    expect(screen.getByText(/You changed this after applying it/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Undo this change/i })).toBeNull();
+  });
+
+  it('two entries with the same id cannot be edited here and say so; the others still can', () => {
+    const d = makeData(); d.experience[2].id = 1;
+    setup({ data: d, issues: [DATES_ISSUE] });
+    expect(box('Dates for Acme').disabled).toBe(true);
+    expect(screen.getAllByText(/share an id/i)).toHaveLength(2);   // both entries that share it say so
+    expect(box('Dates for Intern').disabled).toBe(false);
+  });
+
+  it('sentence issues still work next to it, and a quoted sentence of the resume keeps an issue a sentence issue', () => {
+    setup({ issues: [ISSUES[0], DATES_ISSUE] });
+    expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();
+    cleanup();
+    setup({ issues: [{ ...DATES_ISSUE, title: 'Date wording', before: 'Handled monthly reporting' }] });
+    expect(screen.queryByRole('textbox', { name: /Dates for/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /Improve this sentence/i })).toBeTruthy();
   });
 });

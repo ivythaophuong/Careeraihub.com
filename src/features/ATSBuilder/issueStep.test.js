@@ -1,6 +1,6 @@
 // Where an issue is fixed in the Builder, decided by code and not by the number the AI wrote. The AI's own step is only the last resort.
 import { describe, it, expect } from 'vitest';
-import { stepForIssue, draftFor, isBulletIssue, quoteInResume, isSkillsIssue } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue, quoteInResume, isSkillsIssue, isDatesIssue } from './issueStep.js';
 
 const data = () => ({
   contact: { name: 'Jordan Lee', email: 'jordan.lee@example.com', phone: '', linkedin: '', location: 'Singapore' },
@@ -145,5 +145,32 @@ describe('isSkillsIssue: the Skills card on the Fix page is for an issue about t
     expect(isSkillsIssue(issue({ title: 'Skills list is short' }), d)).toBe(false);
     expect(isSkillsIssue(null, data())).toBe(false);
     expect(isSkillsIssue(issue({ title: 'Skills list is short' }), null)).toBe(false);
+  });
+});
+
+describe('isDatesIssue: the Dates card is for an issue about dates, decided by words, never by the AI\'s step number', () => {
+  it('the title names dates, and the quoted text (if any) is not a sentence of the resume', () => {
+    expect(isDatesIssue(issue({ title: 'Inconsistent date formatting', before: 'June 2017 – November 2021', builderStep: 5 }), data())).toBe(true);
+    expect(isDatesIssue(issue({ title: 'Missing dates on one job' }), data())).toBe(true);
+    expect(isDatesIssue(issue({ title: 'Employment timeline has a gap' }), data())).toBe(true);
+  });
+  it('the title names nothing and the description is about dates only', () => {
+    expect(isDatesIssue(issue({ title: 'Needs a closer look', description: 'The dates of your jobs are written in different formats.' }), data())).toBe(true);
+  });
+  it('a title that names another section, or a sentence issue, is not a dates issue', () => {
+    expect(isDatesIssue(issue({ title: 'Weak experience bullets' }), data())).toBe(false);
+    expect(isDatesIssue(issue({ title: 'Dates and skills are unclear' }), data())).toBe(false);
+    expect(isDatesIssue(issue({ title: 'No metrics in bullets', description: 'Add numbers.' }), data())).toBe(false);
+  });
+  it('the AI step number alone does not make it one', () => {
+    expect(isDatesIssue(issue({ title: 'Make it stronger', description: 'Needs work.', builderStep: 2 }), data())).toBe(false);
+  });
+  it('an issue whose quoted sentence is in the resume stays a sentence issue', () => {
+    expect(isDatesIssue(issue({ title: 'Date wording', before: 'Handled monthly reporting' }), data())).toBe(false);
+  });
+  it('no experience or education in the data, or no issue: no', () => {
+    expect(isDatesIssue(issue({ title: 'Missing dates' }), { summary: 'x' })).toBe(false);
+    expect(isDatesIssue(null, data())).toBe(false);
+    expect(isDatesIssue(issue({ title: 'Missing dates' }), null)).toBe(false);
   });
 });
