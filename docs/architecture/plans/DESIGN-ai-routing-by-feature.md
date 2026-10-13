@@ -103,6 +103,28 @@ What failed, by cause (so the gaps are specific, not a verdict):
 
 Reading: on conventional single-column layouts the code is already accurate for contact, dates and skills, and when it fails it mostly says so. It is **not yet** safe to replace the model for education, company/title in unusual layouts, or phone numbers; those are specific fixes. The 4% wrong values, 1% with high confidence, are the ones that would reach users unflagged, so they are the first thing to fix, not an acceptable error rate (no threshold has been approved). Limits: 12 cases, one author, expectations written by me (a few may be stricter than the extractor's design), English only, no real PDFs. The same cases have not been run through a model, so "better or worse than the model" is still UNKNOWN.
 
+### 6.2 Second corpus, written after tuning on the first (MEASURED 2026-10-13)
+
+Corpus A above was used to find and fix bugs, so its numbers (now 185 of 197 correct, 94%, none wrong with confidence 0.7 or higher) are a regression result, not a fair estimate. Corpus B (`tests/fixtures/extraction-accuracy/casesB.js`) has 12 other synthetic resumes with different layouts and wording (ALL CAPS and alternative headings, pipe and tab separators, `to date` and `Current`, a career break, a two-column text, categorised skills, wrapped bullets, accented and hyphenated names, Inc./Ltd. names, slashes and parentheses in titles, two degrees). It was written after the extractor was tuned and **was not used to change it**. One expectation of mine was wrong and was corrected before the numbers below (a US number written without a country code is `4155550132`, not `+4155550132`).
+
+| Corpus | Fields | Correct | Not found | Wrong | Wrong with confidence 0.7 or higher |
+|---|---|---|---|---|---|
+| A (tuned on) | 197 | 185 (94%) | 10 | 2 | 0 |
+| **B (not tuned on)** | 194 | **163 (84%)** | 14 | 17 | **8 (4%)** |
+
+The gap between 94% and 84% is the measure of how much the first fixes were fitted to their own examples. In B: names and emails 12/12; skills 38/41; education 11/13; job titles 12/19; companies 12/19.
+
+Failures in B, by cause (each a separate, specific fix; none applied yet):
+1. **`Title | Company | dates` with pipes** (b01, b02): the whole `Title | Company` becomes the title, the company is missing or becomes `to date`; `to date` is not read as an end date.
+2. **Tab-separated table rows** (b06): the header row `Role Employer Dates` is taken as the company and the real company is glued to the title.
+3. **A career-break line with its own date** (b08): the next job's title line is absorbed into the break entry, which gives the next job the wrong dates and company (several fields wrong, confidence up to 0.95).
+4. **Phone `+33 6 55 55 01 02`** (b02): groups of one digit are not matched, so the number is cut to `55550102` (confidence 0.75).
+5. **`BE Information Engineering`** (b11): the case-sensitive `BE` was left out on purpose (it collides with the verb), so the whole education entry is dropped.
+6. **`800ms to 250ms`** (b11): milliseconds are not counted as a figure.
+7. **Two-column text read line by line** (b05): everything under Experience and Education is null and flagged; honest, but the resume yields almost nothing. It needs the columns re-flowed, or a model.
+
+Reading: the extractor is accurate on conventional layouts and honest when it cannot read one (nulls with `requiresInterpretation`), but **8 of 194 fields (4%) were wrong with high confidence on layouts it had not seen**. That is the number that matters before any extraction moves from a model to code: a wrong value with high confidence reaches users unflagged. Corpus B is now a regression set; a third, fresh corpus is needed to measure again after fixing these. Still UNKNOWN: how a model does on the same 24 resumes.
+
 ## 7. How it would be built (PROPOSED, small, each step reviewed)
 
 1. Move extraction to code behind a flag, shadow mode first: run both, log field differences (counts only), show the user the old result until the owner approves the switch.

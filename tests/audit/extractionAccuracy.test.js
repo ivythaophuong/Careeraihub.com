@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import { extractResumeFacts } from '../../src/extraction/resumeFacts';
 import { CASES } from '../fixtures/extraction-accuracy/cases.js';
+import { CASES_B } from '../fixtures/extraction-accuracy/casesB.js';
 
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9+#%./]+/g, ' ').trim();
 const same = (a, b) => norm(a) === norm(b);
@@ -19,8 +20,9 @@ const contains = (hay, needle) => norm(hay).includes(norm(needle));
 // one scored field: expected, got, confidence
 const rows = [];
 function score(caseId, field, expected, got, confidence, ok = same(expected, got)) {
+  const corpus = caseId.startsWith('b') ? 'B' : 'A';
   const status = got == null || got === '' ? (expected == null ? 'correct' : 'missing') : ok ? 'correct' : 'wrong';
-  rows.push({ caseId, field, expected, got: got ?? null, confidence: confidence ?? null, status });
+  rows.push({ corpus, caseId, field, expected, got: got ?? null, confidence: confidence ?? null, status });
 }
 
 function run(c) {
@@ -61,7 +63,7 @@ function run(c) {
 
 const facts = {};
 describe('code extraction on synthetic resumes with known answers', () => {
-  for (const c of CASES) {
+  for (const c of [...CASES, ...CASES_B]) {
     it(`${c.id}: runs without throwing and never guesses silently`, () => {
       facts[c.id] = run(c);
       const f = facts[c.id];
@@ -76,18 +78,17 @@ describe('code extraction on synthetic resumes with known answers', () => {
     });
   }
 
-  it('produces a complete report', () => {
-    const by = (st) => rows.filter(r => r.status === st);
-    const confidentWrong = rows.filter(r => r.status === 'wrong' && (r.confidence ?? 0) >= 0.7);
-    const summary = {
-      cases: CASES.length, fields: rows.length,
-      correct: by('correct').length, wrong: by('wrong').length, missing: by('missing').length,
-      confidentWrong: confidentWrong.length,
+  it('produces a complete report, per corpus', () => {
+    const summarize = (rs, nCases) => {
+      const n = (st) => rs.filter(r => r.status === st).length;
+      return { cases: nCases, fields: rs.length, correct: n('correct'), wrong: n('wrong'), missing: n('missing'),
+        confidentWrong: rs.filter(r => r.status === 'wrong' && (r.confidence ?? 0) >= 0.7).length };
     };
-    expect(summary.correct + summary.wrong + summary.missing).toBe(summary.fields);
-    const byField = {};
-    for (const r of rows) { const k = r.field.replace(/\d+/, 'N').replace(/^skill .*/, 'skill'); (byField[k] ||= { correct: 0, wrong: 0, missing: 0 })[r.status]++; }
-    const report = { summary, byField, confidentWrong, problems: rows.filter(r => r.status !== 'correct') };
+    const A = rows.filter(r => r.corpus === 'A'), B = rows.filter(r => r.corpus === 'B');
+    const summary = { A: summarize(A, CASES.length), B: summarize(B, CASES_B.length) };
+    for (const k of ['A', 'B']) expect(summary[k].correct + summary[k].wrong + summary[k].missing).toBe(summary[k].fields);
+    const byField = (rs) => { const o = {}; for (const r of rs) { const k = r.field.replace(/\d+/, 'N').replace(/^skill .*/, 'skill'); (o[k] ||= { correct: 0, wrong: 0, missing: 0 })[r.status]++; } return o; };
+    const report = { summary, byFieldB: byField(B), confidentWrong: rows.filter(r => r.status === 'wrong' && (r.confidence ?? 0) >= 0.7), problems: rows.filter(r => r.status !== 'correct') };
     if (process.env.EXTRACTION_REPORT) fs.writeFileSync(process.env.EXTRACTION_REPORT, JSON.stringify(report, null, 1));
     else console.log(JSON.stringify(summary));
   });
