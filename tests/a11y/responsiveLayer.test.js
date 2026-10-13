@@ -34,6 +34,20 @@ describe('responsive layer is wired', () => {
   });
 });
 
+describe('the two-column main + side grids collapse on a tablet and a phone', () => {
+  // Found on the Dashboard at 390 px: its first row is `1.4fr 1fr`, which no rule collapsed, so the "This Week" card was pushed off the right edge
+  // and the page scrolled sideways (576 px wide). Every proportional two-column grid the app uses for a main card plus a side card is listed here.
+  const css = read('src/responsive.css');
+  const narrow = (css.match(/@media \(max-width: 768px\)\s*\{([\s\S]*?)\n\}/) || [])[1] || '';
+  it.each(['1.4fr 1fr', '1.5fr 1fr', '1fr 2fr'])('collapses %s to one column at 768 px and below', (cols) => {
+    expect(narrow).toContain(`[style*="grid-template-columns: ${cols}"]`);
+    expect(narrow).toMatch(/grid-template-columns: 1fr !important/);
+  });
+  it('the Dashboard still uses 1.4fr 1fr for its first row, so the rule above is the one that applies to it', () => {
+    expect(read('src/features/Dashboard/Dashboard.jsx')).toMatch(/gridTemplateColumns: '1\.4fr 1fr'/);
+  });
+});
+
 describe('keyboard focus stays visible', () => {
   it('has a global :focus-visible ring', () => {
     // !important matters: many inputs have an inline `outline: none` that would otherwise win (found in a real browser)
