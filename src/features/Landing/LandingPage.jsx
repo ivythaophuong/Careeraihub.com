@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
+import { useScrollTabs } from '../../hooks/useScrollTabs.js';
 import './landing.css';
 import { FUNCTIONS_URL, SUPABASE_ANON } from '../../lib/supabase';
 import './landing-v10.css';
@@ -3205,8 +3206,9 @@ const GR_TABS_DEF = [
 // ── GET READY TAB STRIP (used inside each Get Ready feature in the app) ───────
 
 export function GetReadyTabStrip({ activeModuleId, onNavigate, onStudyPlan }) {
+  const rowRef = useScrollTabs(activeModuleId);
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 20px', background:'rgba(236,72,153,.04)', borderBottom:'1px solid rgba(236,72,153,.1)', fontFamily:'var(--lp-ff)', overflowX:'auto', flexWrap:'nowrap', scrollbarWidth:'none' }}>
+    <div ref={rowRef} className="scroll-tabs" style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 20px', background:'rgba(236,72,153,.04)', borderBottom:'1px solid rgba(236,72,153,.1)', fontFamily:'var(--lp-ff)', overflowX:'auto', flexWrap:'nowrap', scrollbarWidth:'none' }}>
       <span style={{ fontSize:11, fontWeight:800, color:'var(--lp-teal)', textTransform:'uppercase', letterSpacing:'.12em', flexShrink:0, marginRight:6, whiteSpace:'nowrap' }}>✦ GET READY</span>
       <div style={{ width:1, height:16, background:'rgba(236,72,153,.15)', flexShrink:0, marginRight:2 }} />
       {GR_TABS_DEF.map(t => {
@@ -3214,6 +3216,7 @@ export function GetReadyTabStrip({ activeModuleId, onNavigate, onStudyPlan }) {
         return (
           <button
             key={t.k}
+            aria-current={isActive ? 'page' : undefined}
             style={{ padding:'4px 12px', borderRadius:6, fontSize:12, fontWeight:600, color: isActive ? 'var(--lp-teal)' : 'var(--lp-text2)', background: isActive ? 'var(--lp-teal-dim)' : 'transparent', border:`1px solid ${isActive ? 'var(--lp-teal-b)' : 'transparent'}`, cursor:'pointer', transition:'all .15s', fontFamily:'var(--lp-ff)', whiteSpace:'nowrap', flexShrink:0 }}
             onClick={() => t.moduleId ? onNavigate(t.moduleId) : onStudyPlan(t.k)}
           >
@@ -3887,7 +3890,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
                     </svg>
                     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
                       <div style={{fontSize:16,fontWeight:800,color:'#fff',lineHeight:1,letterSpacing:'-0.04em'}}>92</div>
-                      <div style={{fontSize:10,color:'#29c492',fontWeight:600,letterSpacing:'0.04em'}}>Excellent</div>
+                      <div style={{fontSize:9,color:'#29c492',fontWeight:600,letterSpacing:0}}>Excellent</div>
                     </div>
                   </div>
                   <div style={{flex:1}}>

@@ -187,4 +187,10 @@ describe('when there is no resume yet', () => {
     setup();
     expect(screen.queryByText(/sample resume/i)).toBeNull();
   });
+
+  it('does not say where the page is, because on a phone it is below the list and not on the right', () => {
+    setup();
+    expect(screen.queryByText(/on the right/i)).toBeNull();
+    expect(screen.getByText(/The large page is your own resume/i)).toBeTruthy();
+  });
 });
