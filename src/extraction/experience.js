@@ -12,6 +12,8 @@ const fact = (value, source, evidence, confidence, method = 'rule') =>
 
 // Periods that are on a resume but are not employment.
 const NOT_A_JOB = /^(?:career (?:break|gap)|sabbatical|gap year|time off|(?:maternity|paternity|parental|family|medical|study) leave|leave of absence|break from work)\b/i;
+// The header row of a table of jobs ("Role  Employer  Dates", "| Position | Company | Period |"): only column names, nothing else.
+const TABLE_HEADER_ROW = /^(?:[|\s,/:]*(?:job title|role|title|position|employer|company|organi[sz]ation|dates?|period|duration|location|from|to)\b)+[|\s,/:]*$/i;
 const BULLET_RE = /^[•\-*·►▪○●◦‣⁃§]\s*/;
 const isBulletLine = (line) => BULLET_RE.test(line) || /^\t/.test(line) === false && /^\s*[•\-*·►▪○●◦‣⁃§]/.test(line);
 
@@ -138,10 +140,12 @@ export function extractExperiences(sectionText, source = 'experiences') {
     const headerLines = [];
     for (let j = headerFrom; j < bulletsStart; j++) {
       if (j === i) { if (dateLineClean) headerLines.push(...splitPipes(dateLineClean)); }
-      // A wrapped line of the previous job's last bullet is not a header line.
-      else if (!isBulletLine(lines[j]) && !(j < i && startsLowercase(lines[j]))) headerLines.push(...splitPipes(lines[j]));
+      // A wrapped line of the previous job's last bullet is not a header line; neither is the column-name row of a table of jobs.
+      else if (!isBulletLine(lines[j]) && !TABLE_HEADER_ROW.test(lines[j].trim()) && !(j < i && startsLowercase(lines[j]))) headerLines.push(...splitPipes(lines[j]));
     }
-    const header = headerLines.slice(-2);
+    // A table row ("Title<TAB>Company<TAB>dates" or "| Title | Company | dates |"): the first two cells are the title and company, whatever stood above.
+    const cells = lines[i].replace(dateByLine[i].matchedText, '').split(/\t+|\|/).map(c => c.trim()).filter(Boolean);
+    const header = cells.length >= 2 ? cells.slice(0, 2) : headerLines.slice(-2);
     let { title, company } = classifyHeaderLines(header, entrySource);
     // A second role under the same employer heading: a lone title line with no separator takes the employer that stood
     // on its own line above the previous role's title. Lower confidence than a company read from the entry itself.

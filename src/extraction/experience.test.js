@@ -127,6 +127,34 @@ describe('extractExperiences', () => {
     expect(e.company.value).toBeNull();
   });
 
+  it('reads tab-separated table rows: Title<TAB>Company<TAB>dates, and skips the header row', () => {
+    const es = extractExperiences('Role\tEmployer\tDates\nGraphic Designer\tStudio Verde\tApr 2021 - Present\nJunior Designer\tPixel House\tJul 2018 - Mar 2021');
+    expect(es).toHaveLength(2);
+    expect([es[0].title.value, es[0].company.value, es[0].start.normalized_value, es[0].end.normalized_value]).toEqual(['Graphic Designer', 'Studio Verde', '2021-04', 'present']);
+    expect([es[1].title.value, es[1].company.value]).toEqual(['Junior Designer', 'Pixel House']);
+  });
+
+  it('reads company-first table rows when only the second cell is title-shaped', () => {
+    const [e] = extractExperiences('Employer\tPosition\tPeriod\nStudio Verde\tGraphic Designer\tApr 2021 - Present');
+    expect([e.title.value, e.company.value]).toEqual(['Graphic Designer', 'Studio Verde']);
+  });
+
+  it('reads a pipe table with a header row', () => {
+    const es = extractExperiences('| Role | Employer | Dates |\n| Site Engineer | Costa Build | Mar 2019 - Present |\n| Trainee Engineer | Atlantic Works | Sep 2017 - Feb 2019 |');
+    expect(es.map(e => [e.title.value, e.company.value])).toEqual([['Site Engineer', 'Costa Build'], ['Trainee Engineer', 'Atlantic Works']]);
+  });
+
+  it('does not split a line on runs of spaces: a two-column resume\'s sidebar text must not become a company', () => {
+    const [e] = extractExperiences('Project Manager, Delta Build          BSc Civil Engineering\nFeb 2018 - Present\n- Delivered 6 projects');
+    expect(e.title.value).toBe('Project Manager');
+    expect(e.company.value).not.toBe('BSc Civil Engineering');
+  });
+
+  it('a real entry that happens to start with the word Company or Role is not mistaken for a header row', () => {
+    const [e] = extractExperiences('Role Models Inc., Product Manager\nJan 2020 - Dec 2021\n- Shipped releases');
+    expect(e.title.value).toBe('Product Manager');
+  });
+
   it('is conservative when neither header line looks like a title or a company: both left null', () => {
     const [e] = extractExperiences('Something Vague\tJan 2021 - Mar 2024\nAlso Vague\n• A bullet');
     // Neither "Something Vague" nor "Also Vague" contains a title keyword or an all-caps/company shape
