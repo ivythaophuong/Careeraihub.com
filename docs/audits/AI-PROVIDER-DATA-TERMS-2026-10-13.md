@@ -17,6 +17,12 @@ Everything a user types into CareerAiHub's AI features reaches the providers thr
 - The Groq privacy policy states it does not cover customer API data; that is governed by the Groq Services Agreement and Data Processing Addendum (**not read**: UNKNOWN).
 - The "Your Data" page: "By default, Groq does not retain customer data for inference requests"; data is retained only for features that need persistence (batch, fine-tuning) or for troubleshooting and abuse investigation, limited to 30 days; "All customers may enable Zero Data Retention (ZDR) in Data Controls settings". The page does not mention using customer data for model training and does not distinguish plans (the page text alone does not prove the free tier is treated the same: UNKNOWN until the Services Agreement is read).
 
+### Groq Services Agreement, read 2026-10-13 (https://console.groq.com/docs/legal/services-agreement, via the same fetch tool: re-check wording on the live page)
+
+- Section 4.2 (Inputs and Outputs): Groq "is not permitted to use Inputs or Outputs for training or fine-tuning any AI Model Services or other models, unless explicitly granted permission or instructed by Customer", and "does not access, use, store, or retain Inputs or Outputs except as necessary to provide the Cloud Services, ... comply with applicable law, ensure the reliable operation of the Cloud Services, or confirm Customer's compliance with the AUP". A zero data retention setting can restrict this further.
+- No human-review clause was found. No provision was found that treats free or developer accounts differently from paid ones (not proof that none exists elsewhere, e.g. in the DPA, which was not read).
+- So, on the text read: **Groq's terms are the stronger ones for personal text; Gemini's free-tier terms are the weaker.** This supports option B. The Data Processing Addendum remains unread.
+
 ## What follows (PROPOSED options, owner decides; nothing changed)
 
 | Option | Effect | Cost or risk |
