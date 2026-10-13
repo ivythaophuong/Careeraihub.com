@@ -7,6 +7,7 @@ const load = async () => { vi.resetModules(); return import('./supabase.js'); };
 
 describe('FUNCTIONS_URL', () => {
   it('is the Supabase address when nothing is set', async () => {
+    vi.stubEnv('VITE_FUNCTIONS_URL', undefined);   // a developer's .env.local may set it (an empty value for the dev proxy); the test must not depend on that
     const m = await load();
     expect(m.FUNCTIONS_URL).toBe(m.SUPABASE_URL);
   });
