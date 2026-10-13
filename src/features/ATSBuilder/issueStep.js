@@ -84,3 +84,18 @@ export function isDatesIssue(issue, data) {
   const inText = named(issue.description);
   return inText.length === 1 && inText[0] === 2 && DATE_WORDS.test(issue.description || '');
 }
+
+// Which card of the Fix page an issue about the contact details or the education gets: 'contact', 'education', or null (the step form). Words decide, as in
+// stepForIssue: the title first, then the description, only when exactly one of the two sections is named and no sentence of the resume is quoted. A year
+// or a date is not decided here: it belongs to the Dates card. The AI's step number is never used.
+export function fieldsIssueKind(issue, data) {
+  if (!issue || !data || typeof data !== 'object' || quoteInResume(issue, data)) return null;
+  const inTitle = named(issue.title);
+  let step;
+  if (inTitle.length > 1) return null;
+  if (inTitle.length === 1) step = inTitle[0];
+  else { const inText = named(issue.description); if (inText.length !== 1) return null; step = inText[0]; }
+  if (step === 1 && data.contact && typeof data.contact === 'object') return 'contact';
+  if (step === 3 && Array.isArray(data.education) && !/\b(years?|dates?)\b/i.test(`${issue.title || ''}`)) return 'education';
+  return null;
+}

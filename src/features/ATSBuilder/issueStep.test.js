@@ -1,6 +1,6 @@
 // Where an issue is fixed in the Builder, decided by code and not by the number the AI wrote. The AI's own step is only the last resort.
 import { describe, it, expect } from 'vitest';
-import { stepForIssue, draftFor, isBulletIssue, quoteInResume, isSkillsIssue, isDatesIssue } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue, quoteInResume, isSkillsIssue, isDatesIssue, fieldsIssueKind } from './issueStep.js';
 
 const data = () => ({
   contact: { name: 'Jordan Lee', email: 'jordan.lee@example.com', phone: '', linkedin: '', location: 'Singapore' },
@@ -172,5 +172,39 @@ describe('isDatesIssue: the Dates card is for an issue about dates, decided by w
     expect(isDatesIssue(issue({ title: 'Missing dates' }), { summary: 'x' })).toBe(false);
     expect(isDatesIssue(null, data())).toBe(false);
     expect(isDatesIssue(issue({ title: 'Missing dates' }), null)).toBe(false);
+  });
+});
+
+describe('fieldsIssueKind: the contact card and the education card, decided by words, never by the AI\'s step number', () => {
+  it('contact: the title names only the contact details, and no sentence of the resume is quoted', () => {
+    expect(fieldsIssueKind(issue({ title: 'No LinkedIn link', before: 'linkedin.com/in/someone-else' }), data())).toBe('contact');
+    expect(fieldsIssueKind(issue({ title: 'Email looks unprofessional' }), data())).toBe('contact');
+    expect(fieldsIssueKind(issue({ title: 'Phone number missing' }), data())).toBe('contact');
+  });
+  it('education: the title names only the education', () => {
+    expect(fieldsIssueKind(issue({ title: 'Degree is not specified' }), data())).toBe('education');
+    expect(fieldsIssueKind(issue({ title: 'University name is unclear' }), data())).toBe('education');
+  });
+  it('the title names nothing and the description is about one of them', () => {
+    expect(fieldsIssueKind(issue({ title: 'Needs a closer look', description: 'Your email address is missing.' }), data())).toBe('contact');
+    expect(fieldsIssueKind(issue({ title: 'Needs a closer look', description: 'The school you attended is not named.' }), data())).toBe('education');
+  });
+  it('two sections named is a tie and is not guessed; a year or a date belongs to the Dates card, not this one', () => {
+    expect(fieldsIssueKind(issue({ title: 'Missing location for education institutions' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Missing graduation year' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Education dates are unclear' }), data())).toBeNull();
+  });
+  it('another section, a quoted sentence of the resume, or the AI step number alone: no', () => {
+    expect(fieldsIssueKind(issue({ title: 'Skills list is short' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Email wording', before: 'Handled monthly reporting' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Make it stronger', description: 'Needs work.', builderStep: 1 }), data())).toBeNull();
+  });
+  it('no contact in the data for a contact issue, no education list for an education issue, no issue: null', () => {
+    const d = data(); delete d.contact;
+    expect(fieldsIssueKind(issue({ title: 'No LinkedIn link' }), d)).toBeNull();
+    const e = data(); delete e.education;
+    expect(fieldsIssueKind(issue({ title: 'Degree is not specified' }), e)).toBeNull();
+    expect(fieldsIssueKind(null, data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'No LinkedIn link' }), null)).toBeNull();
   });
 });

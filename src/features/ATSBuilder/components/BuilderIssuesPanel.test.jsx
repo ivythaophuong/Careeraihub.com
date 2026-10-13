@@ -206,4 +206,28 @@ describe('BuilderIssuesPanel', () => {
       expect(within(card('Inconsistent date formatting'), /^Undo$/)).toBeUndefined();
     });
   });
+
+  describe('a change made on the Fix page to the contact details', () => {
+    const contactIssue = { severity: 'medium', title: 'Phone number missing', description: 'Add one.', before: '', after: '', builderStep: 1 };
+    const key = (i) => `${i}:${contactIssue.title}:${contactIssue.before}`;
+    const rec = { record: { kind: 'fields', changes: [{ ref: { kind: 'contact', field: 'phone' }, before: '', after: '+65 9000 0000' }] }, placeholders: false, warnings: [] };
+    const withPhone = (phone) => () => ({ ...initial(), contact: { name: 'Jordan', email: 'j@example.com', phone } });
+    const stored = () => { localStorage.setItem('records', JSON.stringify({ [key(0)]: rec })); };
+
+    it('shows Applied while the value is as the change left it, and Undo takes it back', () => {
+      stored();
+      render(<Harness onGoToStep={() => {}} storageKey="records" list={[contactIssue]} start={withPhone('+65 9000 0000')} />);
+      expect(card('Phone number missing').textContent).toMatch(/Applied/);
+      expect(card('Phone number missing').textContent).not.toMatch(/edited by you/);
+      fireEvent.click(within(card('Phone number missing'), /^Undo$/));
+      expect(latest.data.contact.phone).toBe('');
+    });
+
+    it('says it was edited afterwards, and offers no Undo', () => {
+      stored();
+      render(<Harness onGoToStep={() => {}} storageKey="records" list={[contactIssue]} start={withPhone('12345678')} />);
+      expect(card('Phone number missing').textContent).toMatch(/Applied, then edited by you/);
+      expect(within(card('Phone number missing'), /^Undo$/)).toBeUndefined();
+    });
+  });
 });

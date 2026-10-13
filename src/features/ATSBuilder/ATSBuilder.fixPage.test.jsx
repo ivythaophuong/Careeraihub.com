@@ -184,8 +184,8 @@ describe('a bullet issue whose sentence is not in the resume', () => {
     expect(Object.keys(JSON.parse(localStorage.getItem(builderAppliedKey('u1')))).length).toBe(1);
   });
 
-  it('an issue about the contact details still goes to the step form', () => {
-    openFix([issue({ title: 'No LinkedIn link', description: 'Add a profile link.', before: 'linkedin.com/in/someone-else', after: 'linkedin.com/in/jane', builderStep: 1 })]);
+  it('an issue that names no section goes to the step form the AI numbered', () => {
+    openFix([issue({ title: 'Needs a closer look', description: 'Please review.', before: 'something that is not in the resume', after: 'x', builderStep: 1 })]);
     expect(screen.getByText(/Step 1 of 6/)).toBeTruthy();
     expect(screen.queryByText(/Issue \d of \d/)).toBeNull();
   });
@@ -232,6 +232,28 @@ describe('a bullet issue whose sentence is not in the resume', () => {
       expect(draft.experience[0].bullets[0]).toBe('Handled monthly reporting for the sales team');
       const records = JSON.parse(localStorage.getItem(builderAppliedKey('u1')));
       expect(Object.values(records)[0].record).toEqual({ kind: 'dates', changes: [{ ref: { kind: 'job', id: 0 }, before: '2021 - 2023', after: 'Jan 2021 - Mar 2023' }] });
+    });
+  });
+
+  describe('an issue about the contact details or the education', () => {
+    it('a contact issue opens the Fix page with the contact card; saving writes only that field into the draft and keeps a record of the kind fields', () => {
+      openFix([issue({ title: 'Phone number missing', description: 'Add a phone number.', before: '', after: '+65 9123 4567', builderStep: 1 })]);
+      expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+      expect(screen.queryByText(/Step \d of 6/)).toBeNull();
+      fireEvent.change(screen.getByRole('textbox', { name: 'Phone' }), { target: { value: '+65 9000 0000' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+      const draft = JSON.parse(localStorage.getItem(builderDraftKey('u1')));
+      expect(draft.contact.phone).toBe('+65 9000 0000');
+      expect(draft.contact.email).toBe('jane@example.com');
+      const records = JSON.parse(localStorage.getItem(builderAppliedKey('u1')));
+      expect(Object.values(records)[0].record).toEqual({ kind: 'fields', changes: [{ ref: { kind: 'contact', field: 'phone' }, before: '', after: '+65 9000 0000' }] });
+    });
+
+    it('an education issue opens the Fix page with the education card', () => {
+      render(<ATSBuilder {...{ ...base([issue({ title: 'Degree is not specified', description: 'Say which degree.', before: '', after: '', builderStep: 3 })]), memory: { parseProfile: { ...profile([issue({ title: 'Degree is not specified', description: 'Say which degree.', before: '', after: '', builderStep: 3 })]), education: [{ institution: 'Example University', degree: '', year: '2019' }] } } }} />);
+      fireEvent.click(screen.getByText(/Fix in Builder/));
+      expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+      expect(screen.getByRole('textbox', { name: 'Degree (Example University)' })).toBeTruthy();
     });
   });
 });
