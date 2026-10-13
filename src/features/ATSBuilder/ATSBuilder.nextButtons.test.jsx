@@ -38,6 +38,19 @@ describe('the resume tab, once a resume is loaded', () => {
     expect(screen.queryByText(/Next: improve it/)).toBeNull();
   });
 
+  it('the main button comes before the list of issues, so a new user sees it without scrolling past every issue', () => {
+    render(<ATSBuilder {...base([issue, { ...issue, title: 'Plain verb', before: 'Built a dashboard' }, { ...issue, title: 'Another', before: 'Trained' }])} />);
+    const next = screen.getByRole('button', { name: /^Next: improve it/ });
+    const heading = screen.getByText(/Issues to Fix/i);
+    expect(next.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();   // the heading comes after the button
+  });
+
+  it('with no issues the main button is still there, and no list of issues is', () => {
+    render(<ATSBuilder {...base([])} />);
+    expect(screen.getByRole('button', { name: /^Next: edit your resume/ })).toBeTruthy();
+    expect(screen.queryByText(/Issues to Fix/i)).toBeNull();
+  });
+
   it('the analysis button is not pink any more once a resume is loaded (it is "Re-run", not the way forward)', () => {
     render(<ATSBuilder {...base([issue])} />);
     expect(screen.getByRole('button', { name: /Re-run AI analysis/ }).style.background).not.toMatch(/var\(--lp-teal\)/);

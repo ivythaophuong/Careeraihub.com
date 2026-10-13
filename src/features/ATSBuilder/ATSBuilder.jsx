@@ -505,6 +505,13 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                 </div>
               )}
 
+              {/* The main button of this screen: before the list of issues, so that it is seen without scrolling past every one */}
+              {profile && onGoToBuilder && (
+                <button onClick={() => goToBuilder((profile.issues || []).length > 0 ? { fixFirst: true } : undefined)} style={{ width: '100%', padding: '14px 0', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
+                  {(profile.issues || []).length > 0 ? 'Next: improve it →' : 'Next: edit your resume →'}
+                </button>
+              )}
+
               {/* Section 3 — Issues */}
               {profile?.issues?.length > 0 && (
                 <div className="atb-issues-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -578,12 +585,6 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                 </div>
               )}
 
-              {/* Bottom CTA */}
-              {profile && onGoToBuilder && (
-                <button onClick={() => goToBuilder((profile.issues || []).length > 0 ? { fixFirst: true } : undefined)} style={{ width: '100%', padding: '14px 0', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
-                  {(profile.issues || []).length > 0 ? 'Next: improve it →' : 'Next: edit your resume →'}
-                </button>
-              )}
             </>
           );
         })()}
