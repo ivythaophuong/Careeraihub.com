@@ -26,7 +26,7 @@ describe('?demo=fix', () => {
     expect(screen.getByText(/Demo data \(development only\)/i)).toBeTruthy();
     expect(screen.getAllByText(/Fix in Builder/).length).toBeGreaterThanOrEqual(3);
     fireEvent.click(screen.getAllByText(/Fix in Builder/)[0]);
-    expect(screen.getByText(/Issue 1 of 4/)).toBeTruthy();
+    expect(screen.getByText(/Issue 1 of 8/)).toBeTruthy();
   });
 
   it('writes nothing to the account: no memory update on Fix, on Save & next, or when saving a version', () => {
@@ -80,7 +80,7 @@ describe('?demo=fix&reset=1', () => {
     window.history.pushState({}, '', '/?demo=fix&reset=1');
     render(<ATSBuilder {...props()} />);
     fireEvent.click(screen.getAllByText(/Fix in Builder/)[0]);
-    expect(screen.getByText(/Issue 1 of 4/)).toBeTruthy();
+    expect(screen.getByText(/Issue 1 of 8/)).toBeTruthy();
     expect(screen.getByRole('region', { name: /^Your resume$/i }).textContent).toContain('Handled monthly reporting for the sales team');
   });
 
