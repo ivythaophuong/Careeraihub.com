@@ -7,8 +7,8 @@ export const URL_RE = /\bhttps?:\/\/[^\s),]+|\b(?:[a-z0-9-]+\.)?(?:linkedin\.com
 
 // A permissive phone candidate: digits grouped by spaces/dots/dashes/parens, optionally starting with +.
 // `looksLikePhone` below filters out things that only coincidentally match this shape (a date range, a year).
-// Groups may be any length (a UK mobile is written +44 7700 900123: a six-digit group), and a "+" followed by one run of 7 to 15 digits is also a number.
-export const PHONE_CANDIDATE_RE = /\+\d{7,15}\b|(?:\+\d{1,3}[\s.-]?)?(?:\(\d{1,4}\)[\s.-]?)?\d{2,}(?:[\s.-]\d{2,}){1,5}/g;
+// After a "+" country code every group may be any length, even one digit (+33 6 55 55 01 02). Groups may otherwise be any length (a UK mobile is written +44 7700 900123: a six-digit group), and a "+" followed by one run of 7 to 15 digits is also a number.
+export const PHONE_CANDIDATE_RE = /\+\d{7,15}\b|\+\d{1,3}(?:[\s.-]\d+){2,6}|(?:\+\d{1,3}[\s.-]?)?(?:\(\d{1,4}\)[\s.-]?)?\d{2,}(?:[\s.-]\d{2,}){1,5}/g;
 
 const DATE_RANGE_SHAPE = /^(19|20)\d{2}\s*[-–—]\s*(19|20)\d{2}$/; // "2021 - 2024", "2021-2024"
 const YEAR_ONLY = /^(19|20)\d{2}$/;

@@ -22,6 +22,14 @@ describe('extractPhone', () => {
     expect(extractPhone('+91 98765 00000').normalized_value).toBe('+919876500000');
     expect(extractPhone('+49 151 5550000').normalized_value).toBe('+491515550000');
   });
+  it('keeps a number with one-digit groups after a country code', () => {
+    expect(extractPhone('Phone +33 6 55 55 01 02').normalized_value).toBe('+33655550102');
+    expect(extractPhone('+52 1 55 5555 0100').normalized_value).toBe('+5215555550100');
+  });
+  it('does not turn short plus-prefixed digit runs into a phone number', () => {
+    expect(extractPhone('Scored +2 3 4 points').value).toBeNull();
+    expect(extractPhone('Rated 4 5 6 7 8 9 out of 10').value).toBeNull();
+  });
   it('reads a number written as one run of digits after a plus sign', () => {
     expect(extractPhone('Mobile +447700900123').normalized_value).toBe('+447700900123');
   });
