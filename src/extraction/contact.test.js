@@ -17,6 +17,19 @@ describe('extractPhone', () => {
     expect(f.value).toBe('+65 9123 4567');
     expect(f.confidence).toBeGreaterThan(0.85);
   });
+  it('keeps the whole number when a group has more than four digits', () => {
+    expect(extractPhone('+44 7700 900123').normalized_value).toBe('+447700900123');
+    expect(extractPhone('+91 98765 00000').normalized_value).toBe('+919876500000');
+    expect(extractPhone('+49 151 5550000').normalized_value).toBe('+491515550000');
+  });
+  it('reads a number written as one run of digits after a plus sign', () => {
+    expect(extractPhone('Mobile +447700900123').normalized_value).toBe('+447700900123');
+  });
+  it('still rejects things that only look like a number', () => {
+    expect(extractPhone('Mar 2022 - Present').value).toBeNull();
+    expect(extractPhone('ID 123456789012345678901').value).toBeNull();
+    expect(extractPhone('2018-2020-2022').value).toBeNull();
+  });
   it('does not mistake a year or a date range for a phone number', () => {
     expect(extractPhone('2021 - 2024').value).toBeNull();
     expect(extractPhone('Born 1990').value).toBeNull();
