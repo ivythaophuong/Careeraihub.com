@@ -32,7 +32,7 @@ const css = `
   .atb-fixpage .atb-fix-tabs { display: flex; }
   .atb-fixpage { height: auto !important; }
   .atb-fixpage .atb-fix-panes { grid-template-columns: 1fr !important; }
-  .atb-fixpage .atb-fix-pane[data-active="false"] { display: none; }
+  .atb-fixpage .atb-fix-pane[data-active="false"] { display: none !important; }   /* !important: a pane sets its own display (flex), which would beat this rule and show every pane at once */
 }`;
 
 const btn = (primary) => ({
@@ -49,12 +49,16 @@ function ResumePane({ name, panel, hint, data, Template, templateId, marks, acti
   const lastScrolled = useRef(null);
   const [scale, setScale] = useState(1);
 
+  // The page is scaled to the width of its box. A pane that is not on screen (display: none) has no width, so it is measured again when it is shown,
+  // as well as whenever the box changes size; never from a width of 0 or less.
+  const fit = (width) => { const w = width - 32; setScale(w > 0 && w < A4 ? w / A4 : 1); };
   useEffect(() => {
     if (!boxRef.current || typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(([e]) => { const w = e.contentRect.width - 32; setScale(w > 0 && w < A4 ? w / A4 : 1); });
+    const ro = new ResizeObserver(([e]) => fit(e.contentRect.width));
     ro.observe(boxRef.current);
     return () => ro.disconnect();
-  }, []);
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (active && boxRef.current) { const w = boxRef.current.clientWidth - 32; if (w > 0) fit(w); } }, [active]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const root = previewRef.current;

@@ -857,3 +857,45 @@ describe('the Skills card', () => {
     expect(screen.getByRole('button', { name: /Improve this sentence/i })).toBeTruthy();
   });
 });
+
+
+describe('a narrow screen shows one pane at a time', () => {
+  // The panes set their own display (flex) in their style, which beats an ordinary stylesheet rule; so the rule that hides the panes that are not chosen
+  // must be !important, or the Edit and Resume panes both show and the page scrolls the editor out of view.
+  const rules = () => (document.querySelector('.atb-fixpage style')?.textContent || '');
+  const narrow = () => (rules().match(/@media \(max-width: 768px\)\s*\{([\s\S]*)\}\s*$/) || [])[1] || '';
+
+  it('the rule that hides a pane that is not chosen beats the pane\'s own display', () => {
+    setup();
+    expect(narrow()).toMatch(/\.atb-fix-pane\[data-active="false"\]\s*\{\s*display:\s*none\s*!important;?\s*\}/);
+  });
+
+  it('exactly one pane is marked active in Focus (Edit) and in Compare (Your resume), and the tabs say which', () => {
+    setup();
+    const active = () => Array.from(document.querySelectorAll('.atb-fix-pane[data-active="true"]')).map(e => e.getAttribute('data-pane'));
+    expect(active()).toEqual(['original']);                     // wide screen: Compare opens on Your resume
+    cleanup(); localStorage.setItem('careeraihub:fixpage:view', 'focus');
+    setup();
+    expect(active()).toEqual(['editor']);
+    expect(screen.getByRole('tab', { name: 'Edit', hidden: true }).getAttribute('aria-selected')).toBe('true');   // hidden: true, because the stylesheet hides the tabs on a wide screen
+    fireEvent.click(screen.getByRole('tab', { name: 'Resume', hidden: true }));
+    expect(active()).toEqual(['focus']);
+  });
+
+  it('a resume pane that was hidden is measured when it is shown, so the page is scaled to fit and not cut off', () => {
+    const real = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return 460; } });   // a phone-sized pane; jsdom has no layout
+    try {
+      localStorage.setItem('careeraihub:fixpage:view', 'focus');
+      setup();                                                          // the Edit pane is chosen, so the resume pane starts hidden (the observer reports nothing)
+      const scaleOf = () => document.querySelector('[data-pane="focus"] [data-template]').style.transform;
+      fireEvent.click(screen.getByRole('tab', { name: 'Resume', hidden: true }));
+      const m = /scale\(([\d.]+)\)/.exec(scaleOf());
+      expect(m).toBeTruthy();
+      expect(Number(m[1])).toBeGreaterThan(0);
+      expect(Number(m[1])).toBeLessThan(1);                             // 460 px wide is narrower than an A4 page (794 px)
+    } finally {
+      if (real) Object.defineProperty(HTMLElement.prototype, 'clientWidth', real); else delete HTMLElement.prototype.clientWidth;
+    }
+  });
+});
