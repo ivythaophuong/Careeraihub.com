@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isBulletIssue, isSkillsIssue, isDatesIssue, fieldsIssueKind, draftFor } from '../issueStep.js';
-import { listContactFields, listEducationFields, fieldFindings, setField, mergeFieldRecords } from '../fieldsFix.js';
+import { listContactFields, listEducationFields, listJobFields, fieldFindings, setField, mergeFieldRecords } from '../fieldsFix.js';
 import { listDateEntries, dateFindings, setDate, mergeDateRecords } from '../datesFix.js';
 import { addSkill, removeSkill, mergeSkillRecords, skillList, skillsFindings } from '../skillsFix.js';
 import { closestBullets, fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, undoRecord } from '../fixPage.js';
@@ -152,7 +152,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
       const dates = !located && !skills && (records?.[issueKey(issue, i)]?.record?.kind === 'dates' || isDatesIssue(issue, original));
       // And for the contact details or the education (fieldsIssueKind): 'contact', 'education' or null. A recorded change keeps its card.
       const recFields = records?.[issueKey(issue, i)]?.record;
-      const fields = located || skills || dates ? null : (recFields?.kind === 'fields' ? (recFields.changes.some(c => c.ref.kind === 'edu') ? 'education' : 'contact') : fieldsIssueKind(issue, original));
+      const fields = located || skills || dates ? null : (recFields?.kind === 'fields' ? (recFields.changes.some(c => c.ref.kind === 'job') ? 'experience' : recFields.changes.some(c => c.ref.kind === 'edu') ? 'education' : 'contact') : fieldsIssueKind(issue, original));
       return { issue, i, key: issueKey(issue, i), skills, dates, fields, pick: !located && !skills && !dates && !fields && !rec && hasBullets && isBulletIssue(issue) };
     })
     .filter(it => records?.[it.key] || it.pick || it.skills || it.dates || it.fields || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
@@ -257,8 +257,8 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   })();
   const datesDirty = isDates && !!dateStage && ((dateStage.record?.changes.length || 0) > 0 || dateStage.cleared.length > 0);
   // Contact details and education (school and degree): the same, by setField
-  const fieldKey = (f) => (f.ref.kind === 'contact' ? `contact:${f.ref.field}` : `edu:${f.ref.id}:${f.ref.field}`);
-  const fieldItems = isFields ? (current.fields === 'contact' ? listContactFields(work) : listEducationFields(work)) : [];
+  const fieldKey = (f) => (f.ref.kind === 'contact' ? `contact:${f.ref.field}` : `${f.ref.kind}:${f.ref.id}:${f.ref.field}`);
+  const fieldItems = isFields ? (current.fields === 'contact' ? listContactFields(work) : current.fields === 'experience' ? listJobFields(work) : listEducationFields(work)) : [];
   const fieldStage = (() => {
     if (!isFields) return null;
     let cur = work; let rec = null; const cleared = [];
@@ -552,13 +552,13 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
         })()}
 
         {isFields && (!improved || improving) && (() => {
-          const FINDING = { missing: (l) => `${l} is empty. Type the real one, or leave it.`, not_email: () => 'This does not look like an email address.', phone_digits: () => 'A phone number usually has 7 to 15 digits.', not_linkedin: () => 'This is not a LinkedIn address.' };
+          const FINDING = { missing: (l, f) => `${l} is empty. Type the real one, or leave it.${f.ref.kind === 'job' && f.ref.field === 'company' ? ' A job with no company name is not shown on the resume.' : ''}`, not_email: () => 'This does not look like an email address.', phone_digits: () => 'A phone number usually has 7 to 15 digits.', not_linkedin: () => 'This is not a LinkedIn address.' };
           const contact = current.fields === 'contact';
           let lastGroup = null;
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--lp-text3)' }}>{contact ? 'Your contact details' : 'Your education'}</div>
-              {fieldItems.length === 0 && <div style={{ fontSize: 12.5, color: '#FFB84D' }}>There is no education entry in your resume. Add one in the Builder.</div>}
+              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--lp-text3)' }}>{contact ? 'Your contact details' : current.fields === 'experience' ? 'Your jobs' : 'Your education'}</div>
+              {fieldItems.length === 0 && <div style={{ fontSize: 12.5, color: '#FFB84D' }}>{current.fields === 'experience' ? 'There is no job in your resume. Add one in the Builder.' : 'There is no education entry in your resume. Add one in the Builder.'}</div>}
               {fieldItems.map(f => {
                 const k = fieldKey(f); const value = k in drafts ? drafts[k] : f.text;
                 const name = contact ? f.label : `${f.label} (${f.group})`;
@@ -572,7 +572,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
                       style={{ boxSizing: 'border-box', width: '100%', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text)', borderRadius: 8, padding: '8px 12px', fontSize: 14, fontFamily: 'var(--lp-ff)' }} />
                     {f.ambiguous
                       ? <span style={{ fontSize: 12, color: '#FFB84D' }}>Two entries share an id, so this one is edited in the Builder.</span>
-                      : fieldFindings({ ref: f.ref, text: value }).map(x => <span key={x} style={{ fontSize: 12, color: '#FFB84D' }}>{FINDING[x](f.label)}</span>)}
+                      : fieldFindings({ ref: f.ref, text: value }).map(x => <span key={x} style={{ fontSize: 12, color: '#FFB84D' }}>{FINDING[x](f.label, f)}</span>)}
                   </label>
                 );
               })}

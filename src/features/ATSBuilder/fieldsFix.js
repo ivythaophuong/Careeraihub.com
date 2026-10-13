@@ -1,12 +1,14 @@
-// The contact details and the school and degree of the Fix page, as pure functions over the Builder data (no screen, no AI call, no storage).
+// The contact details, the school and degree, and the title and company of a job, of the Fix page, as pure functions over the Builder data (no screen, no AI call, no storage).
 // An education entry is found by its `id` (an entry without one by its place in its own list, for this visit only), never by a position that can shift.
 // Code only reads, checks and stores what the user typed: it never rewrites a value into another one and never makes one up. The year of an education
 // entry belongs to the Dates card (datesFix.js), not to this one.
 const norm = (s) => (typeof s === 'string' ? s.normalize('NFC').replace(/[\s ]+/g, ' ').trim() : '');
 const CONTACT = [['name', 'Name'], ['email', 'Email'], ['phone', 'Phone'], ['linkedin', 'LinkedIn'], ['location', 'Location']];
 const EDU = [['institution', 'School'], ['degree', 'Degree']];
+const JOB = [['title', 'Job title'], ['company', 'Company']];
 const isObj = (d) => !!d && typeof d === 'object';
 const eduList = (d) => (isObj(d) && Array.isArray(d.education) ? d.education : []);
+const jobList = (d) => (isObj(d) && Array.isArray(d.experience) ? d.experience : []);
 const effId = (e, i) => (e && e.id !== undefined && e.id !== null ? e.id : `i${i}`);
 const str = (v) => (typeof v === 'string' ? v : '');
 
@@ -30,6 +32,21 @@ export function listEducationFields(data) {
   return out;
 }
 
+// The title and the company of each job that has something in it (a job with no company is not drawn on the resume). The dates of a job belong to the Dates card.
+export function listJobFields(data) {
+  const list = jobList(data);
+  const counts = new Map();
+  list.forEach((e, i) => counts.set(effId(e, i), (counts.get(effId(e, i)) || 0) + 1));
+  const out = [];
+  list.forEach((e, i) => {
+    if (!e || typeof e !== 'object' || (!norm(e.company) && !norm(e.title) && !norm(e.period))) return;
+    const id = effId(e, i);
+    const group = norm(e.company) || norm(e.title) || `Job ${i + 1}`;
+    for (const [field, label] of JOB) out.push({ ref: { kind: 'job', id, field }, label, group, text: str(e[field]), ambiguous: counts.get(id) > 1 });
+  });
+  return out;
+}
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Only what code can see: 'missing', 'not_email', 'phone_digits' (fewer than 7 or more than 15 digits) and 'not_linkedin' (no linkedin.com in it).
 export function fieldFindings(item) {
@@ -49,12 +66,13 @@ function locate(data, ref) {
     if (!CONTACT.some(([f]) => f === ref.field)) return { error: 'not_found' };
     return { get: (d) => str(isObj(d.contact) ? d.contact[ref.field] : ''), set: (d, v) => { if (!isObj(d.contact)) d.contact = {}; d.contact[ref.field] = v; } };
   }
-  if (ref.kind === 'edu' && ref.id !== undefined && ref.id !== null && EDU.some(([f]) => f === ref.field)) {
-    const list = eduList(data);
+  const spec = { edu: [EDU, eduList, 'education'], job: [JOB, jobList, 'experience'] }[ref.kind];
+  if (spec && ref.id !== undefined && ref.id !== null && spec[0].some(([f]) => f === ref.field)) {
+    const list = spec[1](data); const key = spec[2];
     const hits = list.map((e, i) => (e && typeof e === 'object' && effId(e, i) === ref.id ? i : -1)).filter(i => i >= 0);
     if (hits.length === 0) return { error: 'not_found' };
     if (hits.length > 1) return { error: 'ambiguous' };
-    return { get: (d) => str(d.education[hits[0]][ref.field]), set: (d, v) => { d.education[hits[0]][ref.field] = v; } };
+    return { get: (d) => str(d[key][hits[0]][ref.field]), set: (d, v) => { d[key][hits[0]][ref.field] = v; } };
   }
   return { error: 'not_found' };
 }
@@ -70,12 +88,12 @@ export function setField(data, ref, text) {
   if (norm(before) === after) return { error: 'unchanged' };
   const copy = JSON.parse(JSON.stringify(data));
   loc.set(copy, after);
-  const r = ref.kind === 'contact' ? { kind: 'contact', field: ref.field } : { kind: 'edu', id: ref.id, field: ref.field };
+  const r = ref.kind === 'contact' ? { kind: 'contact', field: ref.field } : { kind: ref.kind, id: ref.id, field: ref.field };
   return { data: copy, record: { kind: 'fields', changes: [{ ref: r, before, after }] } };
 }
 
 const isFieldsRecord = (r) => !!r && r.kind === 'fields' && Array.isArray(r.changes);
-const keyOf = (ref) => (ref.kind === 'contact' ? `contact:${ref.field}` : `edu:${ref.id}:${ref.field}`);
+const keyOf = (ref) => (ref.kind === 'contact' ? `contact:${ref.field}` : `${ref.kind}:${ref.id}:${ref.field}`);
 
 // Several changes in one visit become one record: a field keeps its first before and its last after, and a change that returns to where it started is no change.
 export function mergeFieldRecords(prev, next) {

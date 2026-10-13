@@ -79,18 +79,26 @@ export function isDatesIssue(issue, data) {
   if (quoteInResume(issue, data)) return false;
   const inTitle = named(issue.title);
   if (inTitle.length > 1) return false;
-  if (DATE_WORDS.test(issue.title || '')) return inTitle.length === 0 || inTitle[0] === 2;
+  if (DATE_WORDS.test(issue.title || '')) return (inTitle.length === 0 || inTitle[0] === 2) && !JOB_WORDS.test(issue.title);   // job titles named with it: a tie
   if (inTitle.length === 1) return false;
   const inText = named(issue.description);
   return inText.length === 1 && inText[0] === 2 && DATE_WORDS.test(issue.description || '');
 }
 
-// Which card of the Fix page an issue about the contact details or the education gets: 'contact', 'education', or null (the step form). Words decide, as in
+// Which card of the Fix page an issue about the contact details, the education or the title and company of a jobs gets: 'contact', 'education', 'experience', or null (the step form). Words decide, as in
 // stepForIssue: the title first, then the description, only when exactly one of the two sections is named and no sentence of the resume is quoted. A year
 // or a date is not decided here: it belongs to the Dates card. The AI's step number is never used.
+const JOB_WORDS = /\b(job titles?|titles?|company names?|names? of (?:the )?compan(?:y|ies)|employers?|compan(?:y|ies))\b/i;
 export function fieldsIssueKind(issue, data) {
   if (!issue || !data || typeof data !== 'object' || quoteInResume(issue, data)) return null;
   const inTitle = named(issue.title);
+  // The job card: the title or the company of a job. A date, or another section, named with it is a tie between two cards and is not guessed.
+  const hasJobs = Array.isArray(data.experience);
+  if (JOB_WORDS.test(issue.title || '')) return hasJobs && !DATE_WORDS.test(issue.title) && (inTitle.length === 0 || (inTitle.length === 1 && inTitle[0] === 2)) ? 'experience' : null;
+  if (inTitle.length === 0 && JOB_WORDS.test(issue.description || '')) {
+    const inText = named(issue.description);
+    return hasJobs && !DATE_WORDS.test(issue.description) && (inText.length === 0 || (inText.length === 1 && inText[0] === 2)) ? 'experience' : null;
+  }
   let step;
   if (inTitle.length > 1) return null;
   if (inTitle.length === 1) step = inTitle[0];

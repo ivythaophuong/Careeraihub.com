@@ -208,3 +208,35 @@ describe('fieldsIssueKind: the contact card and the education card, decided by w
     expect(fieldsIssueKind(issue({ title: 'No LinkedIn link' }), null)).toBeNull();
   });
 });
+
+describe('fieldsIssueKind: the job card (title and company)', () => {
+  it('the title is about job titles or company names, and no sentence of the resume is quoted', () => {
+    expect(fieldsIssueKind(issue({ title: 'Job titles are vague' }), data())).toBe('experience');
+    expect(fieldsIssueKind(issue({ title: 'Company name is missing' }), data())).toBe('experience');
+    expect(fieldsIssueKind(issue({ title: 'Job title does not show seniority', before: 'Data Analyst II' }), data())).toBe('experience');
+    expect(fieldsIssueKind(issue({ title: 'Employer names are abbreviated' }), data())).toBe('experience');
+  });
+  it('the title names nothing and the description is about the titles or the companies', () => {
+    expect(fieldsIssueKind(issue({ title: 'Needs a closer look', description: 'The company names are not given.' }), data())).toBe('experience');
+    expect(fieldsIssueKind(issue({ title: 'Needs a closer look', description: 'Your job titles do not say the level.' }), data())).toBe('experience');
+  });
+  it('a tie is not guessed: job titles with dates, with skills, with education, with the contact details', () => {
+    expect(fieldsIssueKind(issue({ title: 'Job titles and dates are unclear' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Job titles and skills are unclear' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Company name and degree are missing' }), data())).toBeNull();
+  });
+  it('experience in general, bullets or the AI step number alone are not this card', () => {
+    expect(fieldsIssueKind(issue({ title: 'Experience section is thin' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Weak experience bullets' }), data())).toBeNull();
+    expect(fieldsIssueKind(issue({ title: 'Make it stronger', description: 'Needs work.', builderStep: 2 }), data())).toBeNull();
+  });
+  it('a quoted sentence of the resume, no experience list in the data, no issue: null', () => {
+    expect(fieldsIssueKind(issue({ title: 'Job titles are vague', before: 'Handled monthly reporting' }), data())).toBeNull();
+    const d = data(); delete d.experience;
+    expect(fieldsIssueKind(issue({ title: 'Job titles are vague' }), d)).toBeNull();
+  });
+  it('the Dates card does not take an issue that also names the job titles', () => {
+    expect(isDatesIssue(issue({ title: 'Job titles and dates are unclear' }), data())).toBe(false);
+    expect(isDatesIssue(issue({ title: 'Inconsistent date formatting' }), data())).toBe(true);
+  });
+});
