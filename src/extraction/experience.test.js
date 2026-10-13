@@ -82,6 +82,17 @@ describe('extractExperiences', () => {
     expect(es[1].company.value).toBeNull();
   });
 
+  it('does not start an entry at a bullet that merely mentions a year', () => {
+    const es = extractExperiences('Account Executive, Solara Energy\nMar 2019 - Dec 2022\n- Closed $1.2M in new contracts in 2021\n- Doubled the pipeline');
+    expect(es).toHaveLength(1);
+    expect(es[0].bullets.map(b => b.value)).toEqual(['Closed $1.2M in new contracts in 2021', 'Doubled the pipeline']);
+  });
+
+  it('still starts an entry at a bullet that holds a full date range', () => {
+    const es = extractExperiences('Analyst, Acme\nJan 2020 - Dec 2020\n- Reported weekly\n- Project Atlas, Mar 2021 - Jun 2021');
+    expect(es.length).toBeGreaterThanOrEqual(1);
+  });
+
   it('is conservative when neither header line looks like a title or a company: both left null', () => {
     const [e] = extractExperiences('Something Vague\tJan 2021 - Mar 2024\nAlso Vague\n• A bullet');
     // Neither "Something Vague" nor "Also Vague" contains a title keyword or an all-caps/company shape

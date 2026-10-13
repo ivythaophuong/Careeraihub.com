@@ -2,6 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { findMetricsInText, bulletHasMetric } from './metrics';
 
 describe('findMetricsInText', () => {
+  it('counts a figure with an M, B or K suffix before a count noun ("2M rows per day")', () => {
+    expect(findMetricsInText('Built ETL pipelines processing 2M rows per day').map(f => f.value)).toContain('2M rows');
+    expect(findMetricsInText('Served 1.5B requests a month').map(f => f.value)).toContain('1.5B requests');
+    expect(findMetricsInText('Grew to 300K subscribers').length).toBeGreaterThan(0);
+  });
+  it('does not read a brand like "3M Company" as a figure', () => {
+    expect(findMetricsInText('Worked at 3M Company on adhesives')).toEqual([]);
+  });
+
   it('finds a percentage and normalizes it to a fraction', () => {
     const [f] = findMetricsInText('Increased lead qualification by 20%');
     expect(f.value).toBe('20%');

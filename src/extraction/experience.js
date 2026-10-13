@@ -89,7 +89,9 @@ export function extractExperiences(sectionText, source = 'experiences') {
   const dateByLine = [];
   lines.forEach((line, i) => {
     const d = findDateRangeInLine(line);
-    if (d) { dateLineIdx.push(i); dateByLine[i] = d; }
+    // A bullet that merely mentions a year ("... in new contracts in 2021") is content, not the header of a new entry;
+    // a bullet counts as a header only when it holds a full range with an end.
+    if (d && (!isBulletLine(line) || d.range?.end?.value != null)) { dateLineIdx.push(i); dateByLine[i] = d; }
   });
   if (!dateLineIdx.length) return [];
 
