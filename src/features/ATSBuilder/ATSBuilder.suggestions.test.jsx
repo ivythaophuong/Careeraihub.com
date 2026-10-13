@@ -23,7 +23,7 @@ const ISSUES = [
 const props = (issues = ISSUES) => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: profile(issues) }, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn(), resumeText: GOOD });
 
 // the score and the suggestions are behind the Review button, so the helper opens it
-const openBuilder = () => { fireEvent.click(screen.getByText(/Fix These Issues in Builder/)); fireEvent.click(screen.getByRole('button', { name: /^Review/ })); };
+const openBuilder = () => { (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })(); fireEvent.click(screen.getByRole('button', { name: /^Review/ })); };
 // The bullets are on step 2 (Experience).
 const openExperience = () => { openBuilder(); fireEvent.click(screen.getByText('Next →')); expect(screen.getByText(/Step 2 of 6/)).toBeTruthy(); };
 const card = (title) => screen.getByText(title).closest('[data-issue]');
@@ -125,7 +125,7 @@ describe('Builder suggestions, through the real component', () => {
     fireEvent.click(btn(card('No metric in reporting bullet'), /^apply$/i));
     // back to the analysis screen, then into the Builder again from the same button
     fireEvent.click(screen.getByText('Upload & Parse'));
-    fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+    (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })();
     fireEvent.click(screen.getByText('Next →'));
     expect(bulletTexts()).toContain('Cut monthly reporting time by 20%');
     fireEvent.click(screen.getByRole('button', { name: /^Review/ }));   // a new visit to the Builder starts with Review closed

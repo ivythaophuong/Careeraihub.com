@@ -26,7 +26,7 @@ const profile = (issues = [issue()]) => ({
 });
 const base = (over = {}) => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: profile() }, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn(), resumeText: GOOD, ...over });
 const openGallery = () => fireEvent.click(screen.getByRole('button', { name: /^Templates$/ }));
-const openBuilder = () => { fireEvent.click(screen.getByText(/Fix These Issues in Builder/)); };
+const openBuilder = () => { (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })(); };
 
 describe('the Templates tab', () => {
   it('is a tab of its own and opens the gallery with the user\'s own resume in every template', () => {
@@ -81,11 +81,11 @@ describe('the Builder and the template', () => {
 });
 
 describe('the end of the Fix page', () => {
-  it('offers Choose a template, which opens the gallery', () => {
+  it('offers the next step, choose a layout, which opens the gallery', () => {
     render(<ATSBuilder {...base()} />);
     fireEvent.click(screen.getByText(/Fix in Builder/));
     fireEvent.click(screen.getByRole('button', { name: /Leave it for now/i }));
-    fireEvent.click(screen.getByRole('button', { name: /choose a template/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next: choose a layout/i }));
     expect(screen.getByRole('heading', { name: /choose a template/i })).toBeTruthy();
   });
 
@@ -93,7 +93,7 @@ describe('the end of the Fix page', () => {
     render(<ATSBuilder {...base()} />);
     fireEvent.click(screen.getByText(/Fix in Builder/));
     fireEvent.click(screen.getByRole('button', { name: /Leave it for now/i }));
-    fireEvent.click(screen.getByRole('button', { name: /choose a template/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next: choose a layout/i }));
     fireEvent.click(screen.getByRole('button', { name: /back to builder/i }));
     expect(screen.getByText(/Step \d of 6/)).toBeTruthy();
     expect(screen.queryByText(/Issue \d of \d/)).toBeNull();

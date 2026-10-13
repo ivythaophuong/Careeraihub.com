@@ -319,7 +319,7 @@ describe('leaving an issue, the end, and the way out', () => {
     expect(props.onOpenBuilder).toHaveBeenCalled();
     fireEvent.click(btn(/Back to list/i));
     expect(props.onBackToList).toHaveBeenCalled();
-    fireEvent.click(btn(/Choose a template/i));
+    fireEvent.click(btn(/Next: choose a layout/i));
     expect(props.onChooseTemplate).toHaveBeenCalled();
   });
 

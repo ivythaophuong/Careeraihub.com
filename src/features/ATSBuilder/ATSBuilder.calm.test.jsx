@@ -25,7 +25,7 @@ const profile = (issues) => ({
   issues,
 });
 const base = (issues = [issue(), issue({ title: 'Needs a closer look', description: 'Please review.', before: '', after: '', builderStep: 4 })]) => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: profile(issues) }, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn(), resumeText: GOOD });
-const openBuilder = () => fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+const openBuilder = () => (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })();
 const review = () => screen.getByRole('button', { name: /^Review/ });
 
 describe('the right column is the resume', () => {

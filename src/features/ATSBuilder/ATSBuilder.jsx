@@ -284,9 +284,10 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           disabled={loading || !rawText.trim()}
           style={{
             width: '100%', padding: '12px 0',
-            background: loading || !rawText.trim() ? 'var(--lp-bdr)' : 'var(--lp-teal)',
-            color: loading || !rawText.trim() ? 'var(--lp-text3)' : '#000',
-            border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 800,
+            // Once a resume is loaded the way forward is "Next: ...", so this one is a quiet button: one pink button on the screen.
+            background: loading || !rawText.trim() ? 'var(--lp-bdr)' : profile ? 'transparent' : 'var(--lp-teal)',
+            color: loading || !rawText.trim() ? 'var(--lp-text3)' : profile ? 'var(--lp-text2)' : '#000',
+            border: profile && !loading && rawText.trim() ? '1px solid var(--lp-bdr)' : 'none', borderRadius: 8, fontSize: 13, fontWeight: 800,
             cursor: loading || !rawText.trim() ? 'default' : 'pointer',
           }}
         >
@@ -504,6 +505,13 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                 </div>
               )}
 
+              {/* The main button of this screen: before the list of issues, so that it is seen without scrolling past every one */}
+              {profile && onGoToBuilder && (
+                <button onClick={() => goToBuilder((profile.issues || []).length > 0 ? { fixFirst: true } : undefined)} style={{ width: '100%', padding: '14px 0', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
+                  {(profile.issues || []).length > 0 ? 'Next: improve it →' : 'Next: edit your resume →'}
+                </button>
+              )}
+
               {/* Section 3 — Issues */}
               {profile?.issues?.length > 0 && (
                 <div className="atb-issues-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -577,12 +585,6 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                 </div>
               )}
 
-              {/* Bottom CTA */}
-              {profile && onGoToBuilder && (
-                <button onClick={() => goToBuilder()} style={{ width: '100%', padding: '14px 0', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
-                  Fix These Issues in Builder →
-                </button>
-              )}
             </>
           );
         })()}
@@ -835,10 +837,13 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // An issue about the skills list (decided by words, isSkillsIssue) opens the Skills card.
   const hasBullets = (data.experience || []).some(j => (j.bullets || []).some(b => String(b || '').trim()));
   const canFixHere = (issue) => !!issue && (['one', 'many'].includes(fixTargets(data, issue).kind) || !!fixRecords[keyOfIssueObject(issue)] || (hasBullets && isBulletIssue(issue)) || isSkillsIssue(issue, data) || isDatesIssue(issue, data) || !!fieldsIssueKind(issue, data));
-  const [fixMode, setFixMode] = useState(() => canFixHere(focus?.issue));
-  const [fixStartKey, setFixStartKey] = useState(() => keyOfIssueObject(focus?.issue));
-  useEffect(() => { setFixMode(canFixHere(focus?.issue)); setFixStartKey(keyOfIssueObject(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
   const anyFixable = issueList.some(canFixHere);
+  // The main button of the resume tab ("Next: improve it") asks for the Fix page on the first issue that is not improved (focus.fixFirst); a Fix button on one issue
+  // asks for the page on that issue (focus.issue). Either way, only when the page can show it; otherwise the step form, as before.
+  const wantsFixPage = (f) => !!f && (f.fixFirst ? anyFixable : canFixHere(f.issue));
+  const [fixMode, setFixMode] = useState(() => wantsFixPage(focus));
+  const [fixStartKey, setFixStartKey] = useState(() => keyOfIssueObject(focus?.issue));
+  useEffect(() => { setFixMode(wantsFixPage(focus)); setFixStartKey(keyOfIssueObject(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [saved, setSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
@@ -1438,7 +1443,7 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
           onResumeExtracted={handleResumeExtracted}
           onPdfUploaded={handlePdfUploaded}
           onProfileParsed={handleProfileParsed}
-          onGoToBuilder={(focus) => { setBuilderFocus(focus?.issue ? focus : null); setEntryMode('existing'); setMainTab('builder'); }}
+          onGoToBuilder={(focus) => { setBuilderFocus(focus?.issue || focus?.fixFirst ? focus : null); setEntryMode('existing'); setMainTab('builder'); }}
           setActiveModule={setActiveModule}
         />
       )}

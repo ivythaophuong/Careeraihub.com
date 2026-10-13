@@ -416,15 +416,12 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           {others > 0 && <> {others} other issue{others > 1 ? 's' : ''} {others > 1 ? 'are' : 'is'} not covered here (no text that can be found in your resume); {others > 1 ? 'they are' : 'it is'} in the Suggestions panel of the Builder.</>}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-          <button type="button" style={btn(true)} onClick={() => onOpenBuilder?.()}>Open the Builder</button>
+          {/* One main button: the next stage of the journey. Without a way to the layouts, opening the Builder stays the main one. */}
+          {onChooseTemplate && <button type="button" style={btn(true)} onClick={() => onChooseTemplate()}>Next: choose a layout →</button>}
+          <button type="button" style={btn(!onChooseTemplate)} onClick={() => onOpenBuilder?.()}>Open the Builder</button>
           <button type="button" style={btn(false)} onClick={() => onBackToList?.()}>Back to list</button>
         </div>
-        {onChooseTemplate && (
-          <div style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--lp-bdr)' }}>
-            <div style={{ fontSize: 13, color: 'var(--lp-text2)', marginBottom: 8 }}>Happy with the text? See your resume in other layouts.</div>
-            <button type="button" style={btn(false)} onClick={() => onChooseTemplate()}>Choose a template that suits you</button>
-          </div>
-        )}
+        {onChooseTemplate && <div style={{ marginTop: 14, fontSize: 12.5, color: 'var(--lp-text3)', lineHeight: 1.5 }}>Happy with the text? The next step shows your resume in other layouts.</div>}
       </div>
     );
   }
