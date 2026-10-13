@@ -19,6 +19,20 @@ const initialView = () => {
   try { const v = localStorage.getItem(VIEW_KEY); if (v === 'focus' || v === 'compare') return v; } catch { /* storage unavailable: use the width */ }
   return typeof window !== 'undefined' && window.innerWidth >= 1700 ? 'compare' : 'focus';
 };
+// True on a phone-sized screen (the same width as the stylesheet's phone rules). An old browser without matchMedia counts as a wide screen.
+const PHONE_QUERY = '(max-width: 768px)';
+function usePhone() {
+  const [phone, setPhone] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(PHONE_QUERY).matches);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const m = window.matchMedia(PHONE_QUERY);
+    const on = () => setPhone(m.matches);
+    on();
+    if (m.addEventListener) m.addEventListener('change', on); else if (m.addListener) m.addListener(on);
+    return () => { if (m.removeEventListener) m.removeEventListener('change', on); else if (m.removeListener) m.removeListener(on); };
+  }, []);
+  return phone;
+}
 const markKeyOf = (at) => (at.kind === 'summary' ? 'summary' : at.kind === 'skills' ? 'skills' : `b:${at.exp}:${at.bullet}`);
 
 const css = `
@@ -180,8 +194,12 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const [stage, setStage] = useState(null);           // Skills: the list with the changes made on this page and not saved yet, and their record
   const [skillInput, setSkillInput] = useState('');
   const taRef = useRef(null);
-  const [view, setViewState] = useState(initialView);
-  const [pane, setPane] = useState(() => (initialView() === 'focus' ? 'editor' : 'original'));
+  const [chosenView, setViewState] = useState(initialView);
+  const [chosenPane, setPane] = useState(() => (initialView() === 'focus' ? 'editor' : 'original'));
+  // On a phone only Focus is offered: two resumes side by side are too small to read there. The choice made on a wider screen is kept, not overwritten.
+  const phone = usePhone();
+  const view = phone ? 'focus' : chosenView;
+  const pane = phone && (chosenPane === 'original' || chosenPane === 'new') ? 'editor' : chosenPane;
   const setView = (v) => { setViewState(v); setPane(v === 'focus' ? 'editor' : 'original'); try { localStorage.setItem(VIEW_KEY, v); } catch { /* the choice lives for this visit only */ } };
 
   const go = (nextPos, d, chosen, r = recs) => {
@@ -516,7 +534,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           Issue {pos + 1} of {total} · {label(current.issue.severity) || 'Issue'}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {toggle}
+          {!phone && toggle}
           <button type="button" style={link} onClick={back}>Back to list</button>
         </div>
       </div>
