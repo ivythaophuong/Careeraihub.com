@@ -52,7 +52,7 @@ describe.each(TEMPLATES.map(t => [t.id, t.component]))('%s', (_id, Template) => 
 
   it('has one mark per drawn passage and no duplicates', () => {
     const marks = Array.from(draw().querySelectorAll('[data-fix-at]')).map(e => e.getAttribute('data-fix-at'));
-    expect(marks.sort()).toEqual(['b:0:0', 'b:0:2', 'b:2:0', 'b:2:2', 'summary']);
+    expect(marks.sort()).toEqual(['b:0:0', 'b:0:2', 'b:2:0', 'b:2:2', 'skills', 'summary']);
   });
 
   it('marks no summary when there is none', () => {
@@ -60,6 +60,20 @@ describe.each(TEMPLATES.map(t => [t.id, t.component]))('%s', (_id, Template) => 
   });
 
   it('a mark carries no style: the page looks the same until the Fix page marks it', () => {
-    for (const e of draw().querySelectorAll('[data-fix-at]')) expect(e.getAttribute('data-fix-at')).toMatch(/^(summary|b:\d+:\d+)$/);
+    for (const e of draw().querySelectorAll('[data-fix-at]')) expect(e.getAttribute('data-fix-at')).toMatch(/^(summary|skills|b:\d+:\d+)$/);
+  });
+
+  it('marks the skills once, around the skills it draws and nothing else', () => {
+    const c = draw({ ...data, skills: ['SQL', '  ', 'Excel'] });
+    const marks = c.querySelectorAll('[data-fix-at="skills"]');
+    expect(marks).toHaveLength(1);
+    expect(marks[0].textContent).toMatch(/SQL/);
+    expect(marks[0].textContent).toMatch(/Excel/);
+    expect(marks[0].textContent).not.toMatch(/Employee of the year|First bullet|Analyst who builds/);   // not the awards, the bullets or the summary
+  });
+
+  it('marks no skills when there is none (an empty list or only blanks)', () => {
+    expect(draw({ ...data, skills: [] }).querySelector('[data-fix-at="skills"]')).toBeNull();
+    expect(draw({ ...data, skills: ['', '   '] }).querySelector('[data-fix-at="skills"]')).toBeNull();
   });
 });
