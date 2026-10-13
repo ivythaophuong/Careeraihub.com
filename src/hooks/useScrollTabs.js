@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-// For a row of tabs that can be wider than the screen (a phone). Put the returned ref on the row and mark the chosen tab with aria-current="page".
+// For a row of tabs that can be wider than the screen (a phone). Put the returned ref on the row and mark the chosen tab with aria-current="page" (or "step" for a row of steps).
 //  - The chosen tab is brought into view when it changes: only the row is scrolled (scrollLeft), never the page, and only if the tab is not already
 //    fully in view.
 //  - The row says whether there is more to scroll to (data-more="true" | "false"), so the style sheet can show a fade at its edge.
@@ -24,7 +24,7 @@ export function useScrollTabs(activeKey) {
 
   useEffect(() => {
     const el = ref.current;
-    const tab = el?.querySelector('[aria-current="page"]');
+    const tab = el?.querySelector('[aria-current="page"], [aria-current="step"]');
     if (el && tab) {
       const row = el.getBoundingClientRect();
       const t = tab.getBoundingClientRect();

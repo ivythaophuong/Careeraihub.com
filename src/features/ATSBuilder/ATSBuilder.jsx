@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useScrollTabs } from '../../hooks/useScrollTabs.js';
+import JourneyStrip from './components/JourneyStrip.jsx';
+import { journeyStage, addVisited } from './journey.js';
 import mammoth from 'mammoth';
 import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
@@ -1379,6 +1381,14 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
     if (updateMemory) updateMemory(m => ({ ...m, parseProfile: parsedProfile }));
   };
 
+  // The guided journey: the stage the user is in is read from where they are (the tab, and whether a resume is loaded), and the stages they have been in during
+  // this visit are kept. A click on a stage goes where the tab of that stage goes; nothing here says a stage is done.
+  const stage = journeyStage({ tab: mainTab, hasProfile: !!(demo || memory?.parseProfile) });
+  const [visitedStages, setVisitedStages] = useState([]);
+  useEffect(() => { setVisitedStages(v => addVisited(v, stage)); }, [stage]);
+  const goToTab = (tab) => { if (tab === 'builder') setEntryMode(null); setMainTab(tab); };
+  const goToStage = (n) => goToTab(n === 3 ? 'builder' : n === 4 ? 'templates' : 'parse');
+
   // Builder tab state
   const [restoredData, setRestoredData] = useState(null);
 
@@ -1414,7 +1424,8 @@ const ATSBuilder = ({ user: signedInUser, memory, updateMemory: realUpdateMemory
         <div style={{ color: 'var(--lp-text3)', fontSize: 13, marginTop: 2, marginBottom: 0 }}>
           Upload your resume, build it with 5 templates, and save versions.
         </div>
-        <ResumeBuilderTabBar active={mainTab} onTab={tab => { if (tab === 'builder') setEntryMode(null); setMainTab(tab); }} />
+        <JourneyStrip current={stage} visited={visitedStages} onGo={goToStage} />
+        <ResumeBuilderTabBar active={mainTab} onTab={goToTab} />
       </div>
 
       {/* Tab routing */}
