@@ -16,24 +16,34 @@ const isBulletLine = (line) => BULLET_RE.test(line) || /^\t/.test(line) === fals
 // A bare "lead" is deliberately NOT in this list: it reads a title in "Team Lead" but just as often reads
 // an unrelated business term in an achievement bullet ("increased lead qualification", "lead generation").
 // Only the compound forms that are unambiguously a job title are matched instead.
-const TITLE_WORDS = /\b(manager|engineer|developer|analyst|director|team lead|tech(?:nical)? lead|engineering lead|project lead|lead (?:engineer|developer|designer|analyst)|specialist|intern(?:ship)?|assistant|coordinator|designer|consultant|architect|scientist|founder|co-founder|officer|administrator|associate|executive|head of|vp |president|researcher|accountant|recruiter|strategist)\b/i;
+const TITLE_WORDS = /\b(manager|engineer|developer|analyst|director|team lead|tech(?:nical)? lead|engineering lead|project lead|lead (?:engineer|developer|designer|analyst)|specialist|intern(?:ship)?|assistant|coordinator|designer|consultant|architect|scientist|founder|co-founder|officer|administrator|associate|executive|head of|vp |president|researcher|accountant|recruiter|strategist|copywriter|writer|editor|producer|supervisor|representative|technician|teacher|instructor|lecturer|clerk|cashier|auditor|advisor|adviser|planner|buyer|nurse|paralegal|attorney|trainer)\b/i;
+// "<Area> Lead" at the end of a line ("Operations Lead") is a title; a bare "lead" in the middle of a sentence is not ("lead generation").
+const LEAD_AT_END = /(?:^|\s)[A-Z][A-Za-z&]+ Lead$/;
+const isTitleShaped = (line) => TITLE_WORDS.test(line) || LEAD_AT_END.test(String(line).trim());
 // A line in ALL CAPS, or Title Case with no title-keyword and no digits, is more likely a company name.
-const looksLikeCompany = (line) => !TITLE_WORDS.test(line) && (line === line.toUpperCase() || /^[\p{Lu}][\p{Ll}&.,'-]*(\s+[\p{Lu}&][\p{Ll}&.,'-]*)*$/u.test(line.replace(/\s*\(.*\)\s*$/, '')));
+const looksLikeCompany = (line) => !isTitleShaped(line) && (line === line.toUpperCase() || /^[\p{Lu}][\p{Ll}&.,'-]*(\s+[\p{Lu}&][\p{Ll}&.,'-]*)*$/u.test(line.replace(/\s*\(.*\)\s*$/, '')));
 
 // Classifies the two header lines of one entry (order on the page unknown) into { title, company }.
 // Confident only when exactly one line is title-shaped and the other is not (or looks company-shaped).
 function classifyHeaderLines(lines, source) {
   if (lines.length === 0) return { title: emptyFact(`${source}.title`), company: emptyFact(`${source}.company`) };
   if (lines.length === 1) {
-    // Single header line: "Title, Company" or "Title at Company" or "Title — Company" are common.
-    const m = lines[0].match(/^(.+?)\s*(?:,|\bat\b|[—–-])\s*(.+)$/i);
-    if (m && (TITLE_WORDS.test(m[1]) || !TITLE_WORDS.test(m[2]))) {
+    // Single header line: "Title, Company", "Title at Company", "Title — Company" or "Company — Title".
+    const m = lines[0].match(/^(.+?)(?:\s*,\s*|\s+at\s+|\s*[—–]\s*|\s+-\s+)(.+)$/i);
+    if (m) {
+      const sep = lines[0].slice(m[1].length, lines[0].length - m[2].length);
+      const isAt = /^\s+at\s+$/i.test(sep), isDash = /[—–-]/.test(sep);
+      const t1 = isTitleShaped(m[1]), t2 = isTitleShaped(m[2]);
+      if (t1) return { title: fact(m[1].trim(), `${source}.title`, lines[0], 0.7), company: fact(m[2].trim(), `${source}.company`, lines[0], 0.6) };
+      if (t2 && !isAt) return { title: fact(m[2].trim(), `${source}.title`, lines[0], 0.65), company: fact(m[1].trim(), `${source}.company`, lines[0], 0.6) };
+      // Neither side is title-shaped. After a comma or "at" the usual order is "Title, Company"; after a dash either order is common, so do not guess.
+      if (isDash) return { title: emptyFact(`${source}.title`), company: emptyFact(`${source}.company`) };
       return { title: fact(m[1].trim(), `${source}.title`, lines[0], 0.7), company: fact(m[2].trim(), `${source}.company`, lines[0], 0.6) };
     }
-    return { title: fact(lines[0], `${source}.title`, lines[0], 0.4), company: emptyFact(`${source}.company`) };
+    return { title: fact(lines[0], `${source}.title`, lines[0], isTitleShaped(lines[0]) ? 0.6 : 0.4), company: emptyFact(`${source}.company`) };
   }
   const [a, b] = lines;
-  const aTitle = TITLE_WORDS.test(a), bTitle = TITLE_WORDS.test(b);
+  const aTitle = isTitleShaped(a), bTitle = isTitleShaped(b);
   if (aTitle && !bTitle) return { title: fact(a, `${source}.title`, a, 0.85), company: fact(b, `${source}.company`, b, 0.7) };
   if (bTitle && !aTitle) return { title: fact(b, `${source}.title`, b, 0.85), company: fact(a, `${source}.company`, a, 0.7) };
   if (!aTitle && !bTitle && looksLikeCompany(a) && !looksLikeCompany(b)) return { title: fact(b, `${source}.title`, b, 0.5), company: fact(a, `${source}.company`, a, 0.5) };
@@ -84,6 +94,7 @@ export function extractExperiences(sectionText, source = 'experiences') {
   if (!dateLineIdx.length) return [];
 
   const entries = [];
+  let employerAbove = null; // the company line that sat above the previous entry's title line, if any
   for (let k = 0; k < dateLineIdx.length; k++) {
     const i = dateLineIdx[k];
     const prevBoundary = k > 0 ? dateLineIdx[k - 1] + 1 : 0;
@@ -111,7 +122,7 @@ export function extractExperiences(sectionText, source = 'experiences') {
       // not ending in sentence punctuation, and title- or company-shaped. Otherwise it is content like
       // any other, so a plain achievement sentence is never mistaken for a company name.
       const next = i + 1 < nextBoundary ? lines[i + 1] : null;
-      const looksHeaderish = next && next.length <= 50 && !/[.!?]$/.test(next.trim()) && (TITLE_WORDS.test(next) || looksLikeCompany(next));
+      const looksHeaderish = next && next.length <= 50 && !/[.!?]$/.test(next.trim()) && (isTitleShaped(next) || looksLikeCompany(next));
       bulletsStart = looksHeaderish ? i + 2 : i + 1;
     }
 
@@ -124,7 +135,18 @@ export function extractExperiences(sectionText, source = 'experiences') {
       // A wrapped line of the previous job's last bullet is not a header line.
       else if (!isBulletLine(lines[j]) && !(j < i && startsLowercase(lines[j]))) headerLines.push(...splitPipes(lines[j]));
     }
-    const { title, company } = classifyHeaderLines(headerLines.slice(-2), entrySource);
+    const header = headerLines.slice(-2);
+    let { title, company } = classifyHeaderLines(header, entrySource);
+    // A second role under the same employer heading: a lone title line with no separator takes the employer that stood
+    // on its own line above the previous role's title. Lower confidence than a company read from the entry itself.
+    const lone = header.length === 1 && !/[,—–]|\s-\s|\sat\s/i.test(header[0]);
+    let inherited = false;
+    if (!company.value && title.value && lone && isTitleShaped(header[0]) && employerAbove) {
+      company = fact(employerAbove.value, `${entrySource}.company`, employerAbove.evidence, 0.5);
+      inherited = true;
+    }
+    employerAbove = !inherited && header.length === 2 && company.value && company.evidence === header[0]
+      ? { value: company.value, evidence: company.evidence } : (inherited ? employerAbove : null);
 
     // A line without a marker continues the bullet above when that bullet is unfinished (no sentence end) and one of these holds: the line
     // starts in lower case, the bullet above stops on a word that needs a next word, or the bullets of this job carry markers (so an

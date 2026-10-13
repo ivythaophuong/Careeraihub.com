@@ -40,6 +40,48 @@ describe('extractExperiences', () => {
     expect(e.end.value).toMatch(/present/i);
   });
 
+  it('reads "Company — Title" when only the second part is title-shaped', () => {
+    const [e] = extractExperiences('Brightwave Media — Content Strategist\nJanuary 2021 – December 2023\n• Planned 120 articles');
+    expect(e.title.value).toBe('Content Strategist');
+    expect(e.company.value).toBe('Brightwave Media');
+  });
+
+  it('leaves both null after a dash when neither side is title-shaped, instead of guessing an order', () => {
+    const [e] = extractExperiences('Lumen Studio — Quokka Handler\nSeptember 2018 – December 2020\n• Wrote product copy for 30 clients');
+    expect(e.title.value).toBeNull();
+    expect(e.company.value).toBeNull();
+    expect(e.title.requiresInterpretation).toBe(true);
+  });
+
+  it('recognises common job nouns such as copywriter, editor and supervisor', () => {
+    for (const t of ['Junior Copywriter', 'Managing Editor', 'Shift Supervisor', 'Sales Representative', 'Lab Technician']) {
+      const [e] = extractExperiences(`Lumen Studio — ${t}\nSep 2018 – Dec 2020\n• Did the work`);
+      expect(e.title.value, t).toBe(t);
+      expect(e.company.value, t).toBe('Lumen Studio');
+    }
+  });
+
+  it('reads a capitalised "<Area> Lead" at the end of a line as a title, but not "lead generation"', () => {
+    const [e] = extractExperiences('Cobalt Payments\nOperations Lead\nApr 2022 - Present\n• Managed a team of 9');
+    expect(e.title.value).toBe('Operations Lead');
+    expect(e.company.value).toBe('Cobalt Payments');
+    const [g] = extractExperiences('Acme Ltd\nBrand Manager\nJan 2020 - Dec 2021\n• Improved lead generation by 20 percent');
+    expect(g.title.value).toBe('Brand Manager');
+  });
+
+  it('gives a second role under the same employer heading that employer, at lower confidence', () => {
+    const es = extractExperiences('Cobalt Payments\nOperations Lead\nApr 2022 - Present\n• Managed a team of 9\nOperations Analyst\nFeb 2020 - Mar 2022\n• Cut resolution time');
+    expect(es).toHaveLength(2);
+    expect(es[1].title.value).toBe('Operations Analyst');
+    expect(es[1].company.value).toBe('Cobalt Payments');
+    expect(es[1].company.confidence).toBeLessThan(es[0].company.confidence);
+  });
+
+  it('does not invent an employer for a lone title when the first entry had no separate company line', () => {
+    const es = extractExperiences('Product Manager, Acme Ltd (Jan 2021 - Mar 2024)\n• Shipped\nSenior Analyst\nJan 2019 - Dec 2020\n• Reported');
+    expect(es[1].company.value).toBeNull();
+  });
+
   it('is conservative when neither header line looks like a title or a company: both left null', () => {
     const [e] = extractExperiences('Something Vague\tJan 2021 - Mar 2024\nAlso Vague\n• A bullet');
     // Neither "Something Vague" nor "Also Vague" contains a title keyword or an all-caps/company shape
