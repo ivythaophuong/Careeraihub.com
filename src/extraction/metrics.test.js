@@ -7,6 +7,14 @@ describe('findMetricsInText', () => {
     expect(findMetricsInText('Served 1.5B requests a month').map(f => f.value)).toContain('1.5B requests');
     expect(findMetricsInText('Grew to 300K subscribers').length).toBeGreaterThan(0);
   });
+  it('counts latency and duration figures in milliseconds, seconds and minutes', () => {
+    expect(findMetricsInText('Cut p95 latency from 800ms to 250ms').map(f => f.value)).toEqual(expect.arrayContaining(['800ms', '250ms']));
+    expect(findMetricsInText('Brought boot time from 4 seconds to 1.5 seconds').map(f => f.value)).toEqual(expect.arrayContaining(['4 seconds', '1.5 seconds']));
+    expect(findMetricsInText('Cut deploy time from 40 minutes to 6 minutes').length).toBe(2);
+  });
+  it('does not count the number inside an identifier such as p95 or h264 as a figure', () => {
+    expect(findMetricsInText('Tuned the p95 dashboard for the h264 encoder')).toEqual([]);
+  });
   it('does not read a brand like "3M Company" as a figure', () => {
     expect(findMetricsInText('Worked at 3M Company on adhesives')).toEqual([]);
   });
