@@ -44,7 +44,42 @@ How often each type occurs in real analyses is UNKNOWN: no sample of real AI iss
 - Whether skills should be chips or a comma text box (a usability question; a 3-person test would answer it).
 - Whether a date issue should offer a code check (for example "end date before start date") as its own deterministic finding.
 
-## 6. Decisions for the product owner
-1. Accept the principles in section 3 (no AI draft for dates and contact).
-2. Order of slices: A, B, then C for one kind first. Which kind first: Skills, Dates, or Education/Contact?
-3. Skills as chips (proposed) or one comma text box.
+## 6. Decisions (product owner, 2026-10-13)
+1. Principles in section 3: approved.
+2. Order: A, B, C, D, with Skills first, then Dates, then Education/Contact. Not all kinds in one slice.
+3. Skills: chips plus a box that adds one skill.
+4. No code until the data contract and the way entries are identified are written down (section 7) and the tests for them exist.
+5. The first Skills slice is manual editing only. AI skill suggestions come later (section 8).
+
+## 7. How an entry is identified [VERIFIED in source: ATSBuilder.jsx]
+- Jobs and education entries have an `id`: the parser gives `id = index` when it builds the draft, an added entry gets `Date.now()`, the sample uses 0, 1... Lists are rendered with `key={job.id ?? i}`. The Builder has no reorder or drag code (none found), but entries can be added and removed, so positions can shift while ids stay.
+- Bullets and Skills have no id. Bullets are addressed by `exp` index + `bullet` index today (the existing `at`). Skills are plain strings.
+- Consequence for the model: new targets for jobs and education should carry the entry `id`, resolved to a position at read time, and fall back with a clear error when the id is gone. The existing summary and bullet targets are not changed. Skills are addressed by their normalised text (NFC, trimmed, case-insensitive), not by position.
+- UNKNOWN: whether two entries can share an `id` after parsing and adding (parser ids are 0..n-1, `Date.now()` ids are large, so a clash looks unlikely but is not tested). Slice A starts with a test that finds out.
+
+## 8. Three kinds of finding (so the card is honest about who knows what)
+| Kind | Who decides | Example |
+|---|---|---|
+| A fault code can see | code | empty skills list, a skill repeated after normalising, an email that is not shaped like one, an end date before the start date |
+| Information that is missing | the user supplies it | no end date, no phone |
+| Content the user must confirm | the user | a skill the AI suggests, the exact degree |
+Code never rewrites an email or a date into a different value; it reports and asks.
+
+## 9. Slices and pull requests
+- PR A: field model, pure functions, tests first, no screen. Acceptance: each `at` names exactly one field of one entry; `saveFix` writes only that field; `issueStatus` is computed from the saved data, not from a button; a missing field or deleted entry gives a clear fallback; the summary and bullet targets behave as before.
+- PR B: template marks, only when the model is stable; all five templates.
+- PR C1: Skills, manual edit.
+- PR C2: Dates, show what the resume has, mark a missing or invalid date, never invent one.
+- PR C3: Education and Contact, with the fallback of each.
+- PR D: routing, open the Fix page only for a valid target, otherwise the step form.
+- Later: AI skill suggestions, shown as "Suggested by the AI", never added automatically, added one at a time after the user confirms, never shown as verified.
+
+## 10. Skills acceptance checklist (PR C1)
+1. The Skills target is found and maps to the right data.
+2. Adding a skill adds exactly one item.
+3. Removing a skill leaves the others unchanged.
+4. Spaces and duplicates are handled the same way every time.
+5. No AI-suggested skill is added.
+6. After saving, the issue status is recomputed from the saved data.
+7. All five templates still draw correctly, and the summary and bullets are not affected.
+8. Tests cover an empty list, bad data and a target that no longer exists.
