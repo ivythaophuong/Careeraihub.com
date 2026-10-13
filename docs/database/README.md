@@ -135,3 +135,31 @@ Before applying, a replica run showed F-1 and F-1b moving from OPEN to FIXED.
 
 Not checked: a real forged write attempt against production (it would need a test account token); the delete path after the revoke (S1 triggers still fire on delete) on production; the website running `main` (94 more commits) has NOT been deployed, only this branch.
 Anon still has no useful access (RLS), but its INSERT/UPDATE were revoked too.
+
+## Re-applied to production: only the server writes the score tables (2026-10-13, finding F-1 reopened)
+
+**Why:** a read-only ACL query by the owner on 2026-10-13 (`pg_class.relacl` via `aclexplode`) showed `anon` and `authenticated` holding `INSERT` and `UPDATE` (and every other privilege) on `resume_scans`, `mock_sessions` and `star_stories`, although the entry above records the revoke as applied and verified on 2026-10-09. **Why the privileges were back is UNKNOWN**: nothing in the repo shows a later grant; candidates are an undo, a later grant or default-privilege change, a project restore, or a difference in how the 2026-10-09 check was made. Sign-up is open without email confirmation (`mailer_autoconfirm: true`, read 2026-10-13), so any signed-in user could have written scores through the REST API under the owner-scoped policy. Before the fix: `mock_sessions` 7 rows, none with `questions_count` outside 1 to 5 or without `user_id`; `star_stories` 2 rows; `resume_scans` 5 old rows. Absence of an obvious signature does not prove nobody wrote a score.
+
+**Applied** by the owner in the SQL Editor of project `ruibdsvrcctxgxctaxwe`, one run, result "Success. No rows returned". Statements: the `begin; ... commit;` block of `proposed/2026-10-09-server-only-score-writes.sql` (three `revoke insert, update ... from authenticated, anon`). Undo: `proposed/2026-10-09-server-only-score-writes.down.sql`.
+
+**Verified afterwards:**
+- ACL query: for all three tables `anon` and `authenticated` now hold `DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE` (no `INSERT`, no `UPDATE`); `service_role` keeps all eight.
+- Live site (careeraihub.com, owner test account): a mock interview finished and showed "✓ Saved to your history"; a STAR story was reviewed, saved and still listed after a page reload. Both go through `score-interview` / `score-star` (service role).
+
+**Not checked:** a direct REST insert or update by a signed-in test user (to see the refusal); `TRUNCATE`, `TRIGGER`, `REFERENCES` and `MAINTAIN` are still granted to `anon` and `authenticated` (not reachable through the REST API; not changed here); whether other earlier-applied steps (S1 triggers verified present on 2026-10-13; S2 `trg_lock_match_fields`, S3b `list_open_jobs` grants, Phase 1 column privileges) have drifted too. **Recommended follow-up:** a read-only drift check of every applied step against this README.
+
+### Drift check 2026-10-13 (read-only, owner), part 1
+Still as recorded on 2026-10-09: S1 delete triggers (seven trust triggers enabled, including `trg_trust_on_*_delete`); S2 `trg_lock_match_fields` on `trust_matches` enabled (`O`); S3b `list_open_jobs(integer)` executable by `authenticated` and not by `anon`. Also present on `trust_matches`: `trg_lock_row_parties` (enabled), not described in this README; origin UNKNOWN. S4 had drifted and was re-applied (section above). Part 2 (Phase 1 table privileges) pending.
+
+### Drift check 2026-10-13 (read-only, owner), part 2
+Table-level privileges of the Phase 1 tables for `anon`, `authenticated` and `PUBLIC` match `phase1/001_phase1_foundation.sql`: `career_profiles` DELETE, INSERT, SELECT; `career_targets` DELETE, SELECT; `consents`, `evidence`, `verification_attempts`, `verification_requests` SELECT only; `trusted_issuers` nothing; no row for `anon` or `PUBLIC`. Column-level grants (part 3) pending.
+
+### Drift check 2026-10-13 (read-only, owner), part 3: column privileges, result
+`information_schema.column_privileges` for `anon` and `authenticated`, INSERT and UPDATE:
+- `mock_sessions`, `star_stories`, `resume_scans`: **no rows**, so no column-level grant survives the S4 revoke.
+- Phase 1 tables match the design: `career_targets` INSERT/UPDATE `is_primary, jd_text, level, market, role_title`; `career_profiles` UPDATE `full_name, headline, location, summary`; `consents` INSERT `employer_id, expires_at, purpose, scope`, UPDATE `revoked_at`; `evidence` INSERT `claim, raw_credential, source_provider, source_type, source_url, supersedes_id, type`, UPDATE `withdrawn_at`; `verification_requests` INSERT `evidence_id`. `career_profiles` INSERT lists all columns (including `candidate_id`, `id`, `created_at`, `updated_at`) because `001_phase1_foundation.sql` grants INSERT on that table at table level (line 412): as designed, not drift.
+- `candidate_trust_profiles`: INSERT and UPDATE on **every column, including the four score columns, for `authenticated` and `anon`**. This is the known state: the score columns are protected by the trigger `trg_lock_trust_columns` (present and enabled, read 2026-10-13) and the owner-only policy, not by revoked privileges. `anon` has no row it can pass the policy for. The trigger body was not re-read in this check; if that trigger were dropped, any signed-in user could write their own `trust_score` directly. A re-read of its definition is a recommended read-only follow-up.
+Conclusion of the drift check: S1, S2, S3b and Phase 1 are as recorded; only S4 had drifted (fixed). Cause of the S4 loss remains UNKNOWN.
+
+### Drift check 2026-10-13, part 4: `trg_lock_trust_columns` definition (owner)
+Enabled (`O`), `BEFORE INSERT OR UPDATE ... FOR EACH ROW`, function `lock_trust_columns()` (not SECURITY DEFINER, fixed `search_path`). For `current_user` in (`anon`, `authenticated`): on INSERT the four score columns are forced to 0; on UPDATE they are restored to the old values. `recompute_trust_score` is SECURITY DEFINER, so inside it `current_user` is the function owner and the lock does not apply: the trigger-driven recompute can write the scores, the browser roles cannot. Not covered by this lock: roles other than `anon`/`authenticated` (service role writes are allowed by design). The remaining browser-writable columns (`is_visible`, profile text, salary range) are as intended. Drift check complete: no drift except S4 (fixed).
