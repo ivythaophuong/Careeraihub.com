@@ -36,7 +36,7 @@ const GOOD = 'Jane Example\njane@example.com\n\nExperience\nManager\tJan 2021 - 
 const issue = { severity: 'high', title: 'No metrics in bullets', description: 'Add numbers.', before: 'Handled monthly reporting', after: 'Cut time by 30%', builderStep: 2, module: null };
 const profile = { name: 'Jane Example', email: 'jane@example.com', skills: ['SQL'], education: [], workExperience: [{ title: 'Analyst', company: 'Acme', period: '2021 - 2023', bullets: ['Handled monthly reporting for the sales team'] }], issues: [issue] };
 const props = (p = profile) => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: p }, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn(), resumeText: GOOD });
-const openBuilder = () => fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+const openBuilder = () => (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })();
 const viaFixPage = () => {
   fireEvent.click(screen.getByText(/Fix in Builder/));
   fireEvent.click(screen.getByRole('button', { name: /Leave it for now/i }));

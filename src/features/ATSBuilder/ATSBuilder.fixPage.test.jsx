@@ -53,9 +53,9 @@ describe('opening the Fix page', () => {
     expect(screen.getByText(/Step 4 of 6/)).toBeTruthy();
   });
 
-  it('the main button (no single issue) still opens the Builder at step 1', () => {
+  it('the Builder tab (no single issue) opens the Builder at step 1', () => {
     render(<ATSBuilder {...base([issue()])} />);
-    fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+    (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })();
     expect(screen.getByText(/Step 1 of 6/)).toBeTruthy();
     expect(screen.queryByText(/Issue 1 of 1/)).toBeNull();
   });
@@ -135,7 +135,7 @@ describe('coming back to an issue that was already improved', () => {
 describe('a way in that does not depend on one issue', () => {
   it('the Builder has a Fix issues side by side button that opens the page on the first issue not improved', () => {
     render(<ATSBuilder {...base([issue()])} />);
-    fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+    (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })();
     fireEvent.click(screen.getByRole('button', { name: /Fix issues side by side/i }));
     expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
     expect(screen.getByRole('region', { name: /^Your new resume$/i })).toBeTruthy();
@@ -143,7 +143,7 @@ describe('a way in that does not depend on one issue', () => {
 
   it('the button is not offered when no issue can be shown there', () => {
     render(<ATSBuilder {...base([issue({ title: 'Needs a closer look', description: 'Please review.', before: 'Text that is not in the resume' })])} />);
-    fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+    (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })();
     expect(screen.queryByRole('button', { name: /Fix issues side by side/i })).toBeNull();
   });
 

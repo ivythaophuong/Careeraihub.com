@@ -52,7 +52,7 @@ describe('Fix in Builder', () => {
 
   it('opening the builder from the main button (no single issue) starts at step 1 with no reminder', () => {
     render(<ATSBuilder {...base([issue({ builderStep: 4 })])} />);
-    fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
+    (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })();
     expect(screen.getByText(/Step 1 of 6/)).toBeTruthy();
     expect(screen.queryByRole('note', { name: /fixing/i })).toBeNull();
   });
