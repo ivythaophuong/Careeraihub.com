@@ -29,7 +29,7 @@ const makeData = () => ({
 const ISSUES = [
   { severity: 'high', title: 'No metrics in bullets', description: 'Add numbers to your bullets.', before: 'Handled monthly reporting', after: 'Cut monthly reporting time by 30%', builderStep: 2, module: null },
   { severity: 'medium', title: 'Plain dashboard bullet', description: 'Say what the dashboard changed.', before: 'Built a dashboard', after: 'Built a dashboard that the managers used each week', builderStep: 2, module: null },
-  { severity: 'medium', title: 'Skills look thin', description: 'Add more skills.', before: '', after: '', builderStep: 4, module: null },
+  { severity: 'medium', title: 'Date formats differ', description: 'Use one date format.', before: '', after: '', builderStep: 2, module: null },
 ];
 const TEMPLATE = { id: TEMPLATES[0].id, label: TEMPLATES[0].label, component: TEMPLATES[0].component };
 
@@ -716,5 +716,144 @@ describe('the box the user types in uses the room it has', () => {
     Object.defineProperty(box(), 'scrollHeight', { configurable: true, get: () => 900 });
     fireEvent.change(box(), { target: { value: 'A much longer text '.repeat(200) } });
     expect(parseInt(box().style.height, 10)).toBeLessThanOrEqual(320);
+  });
+});
+
+
+// ── Skills: the same page, the card for the skills list ──────────────────────────────────────────────
+describe('the Skills card', () => {
+  const SKILLS_ISSUE = { severity: 'medium', title: 'Skills list is short', description: 'Add the tools you use.', before: '', after: 'Python, Tableau, Power BI', builderStep: 2, module: null };
+  const skillsKey = (i = 0) => `${i}:${SKILLS_ISSUE.title}:${SKILLS_ISSUE.before}`;
+  const chips = () => screen.getAllByRole('button', { name: /^Remove /i }).map(b => b.getAttribute('aria-label').replace(/^Remove /i, ''));
+  const addBox = () => screen.getByRole('textbox', { name: /add a skill/i });
+  const add = (text) => { fireEvent.change(addBox(), { target: { value: text } }); fireEvent.click(btn(/^Add skill$/i)); };
+
+  it('an issue about the skills list is on the page, and nothing else about it is guessed: no AI skill is added or listed as a chip', () => {
+    setup({ issues: [SKILLS_ISSUE] });
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(chips()).toEqual(['SQL']);
+    expect(screen.queryByText(/Python/)).toBeNull();            // the AI's words are not shown or added in this slice
+  });
+
+  it('marks the skills on your resume, and nothing is saved until Save & next', () => {
+    const { props } = setup({ issues: [SKILLS_ISSUE] });
+    expect(at(left(), 'skills').hasAttribute('data-fix-marked')).toBe(true);
+    add('Power BI');
+    expect(chips()).toEqual(['SQL', 'Power BI']);
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+
+  it('adding a skill shows it on the new resume at once, and your resume (left) keeps the old list', () => {
+    setup({ issues: [SKILLS_ISSUE] });
+    add('Power BI');
+    expect(at(right(), 'skills').textContent).toMatch(/Power BI/);
+    expect(at(left(), 'skills').textContent).not.toMatch(/Power BI/);
+  });
+
+  it('Save & next saves exactly the change: one record of the kind skills, the other fields as they were', () => {
+    const { props } = setup({ issues: [SKILLS_ISSUE] });
+    add('Power BI');
+    fireEvent.click(btn(/Save & next/i));
+    expect(props.onChange).toHaveBeenCalledTimes(1);
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(key).toBe(skillsKey());
+    expect(data.skills).toEqual(['SQL', 'Power BI']);
+    expect(data.summary).toBe(makeData().summary);
+    expect(data.experience).toEqual(makeData().experience);
+    expect(entry.record).toEqual({ kind: 'skills', added: ['Power BI'], removed: [] });
+  });
+
+  it('removing a skill, and adding then removing one, leave the others and the record exact', () => {
+    const d = makeData(); d.skills = ['SQL', 'Excel', 'Tableau'];
+    const { props } = setup({ data: d, issues: [SKILLS_ISSUE] });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Excel' }));
+    add('Temp'); fireEvent.click(screen.getByRole('button', { name: 'Remove Temp' }));
+    expect(chips()).toEqual(['SQL', 'Tableau']);
+    fireEvent.click(btn(/Save & next/i));
+    const [data, , entry] = props.onChange.mock.calls[0];
+    expect(data.skills).toEqual(['SQL', 'Tableau']);
+    expect(entry.record).toEqual({ kind: 'skills', added: [], removed: ['Excel'] });
+  });
+
+  it('a blank skill and a skill already in the list are refused with a plain message', () => {
+    setup({ issues: [SKILLS_ISSUE] });
+    add('   ');
+    expect(screen.getByRole('status').textContent).toMatch(/Type a skill/i);
+    add(' sql ');
+    expect(screen.getByRole('status').textContent).toMatch(/already in your list/i);
+    expect(chips()).toEqual(['SQL']);
+  });
+
+  it('Save & next with no change saves nothing and says so', () => {
+    const { props } = setup({ issues: [SKILLS_ISSUE] });
+    fireEvent.click(btn(/Save & next/i));
+    expect(props.onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('status').textContent).toMatch(/Add or remove a skill/i);
+  });
+
+  it('says what code can see: an empty list, a skill repeated', () => {
+    const d = makeData(); d.skills = ['SQL', 'sql', 'Excel'];
+    setup({ data: d, issues: [SKILLS_ISSUE] });
+    expect(screen.getByText(/repeated.*SQL/i)).toBeTruthy();
+    cleanup();
+    const e = makeData(); e.skills = [''];
+    setup({ data: e, issues: [SKILLS_ISSUE] });
+    expect(screen.getByText(/list is empty/i)).toBeTruthy();
+  });
+
+  it('after saving, the issue is improved: it can be undone, and the list goes back', () => {
+    const { props } = setup({ issues: [SKILLS_ISSUE] });
+    add('Power BI');
+    fireEvent.click(btn(/Save & next/i));
+    expect(screen.getByText(/Review finished/i)).toBeTruthy();
+    expect(screen.getByText(/1 applied/)).toBeTruthy();
+    expect(props.onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('coming back to a saved skills change: Undo this change restores the list and removes the record', () => {
+    const d = makeData(); d.skills = ['SQL', 'Power BI'];
+    const records = { [skillsKey()]: { record: { kind: 'skills', added: ['Power BI'], removed: [] }, placeholders: false, warnings: [] } };
+    const { props } = setup({ data: d, issues: [SKILLS_ISSUE], records, startKey: skillsKey() });
+    expect(screen.getByText(/Already improved/i)).toBeTruthy();
+    expect(at(left(), 'skills').textContent).not.toMatch(/Power BI/);     // your resume (left) shows the skills as they were
+    expect(at(right(), 'skills').textContent).toMatch(/Power BI/);
+    fireEvent.click(btn(/Undo this change/i));
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(data.skills).toEqual(['SQL']);
+    expect(key).toBe(skillsKey());
+    expect(entry).toBeNull();
+  });
+
+  it('a saved change the user edited afterwards cannot be undone automatically, and says so', () => {
+    const d = makeData(); d.skills = ['SQL'];                    // Power BI was added, then removed in the Builder
+    const records = { [skillsKey()]: { record: { kind: 'skills', added: ['Power BI'], removed: [] }, placeholders: false, warnings: [] } };
+    setup({ data: d, issues: [SKILLS_ISSUE], records, startKey: skillsKey() });
+    expect(screen.getByText(/You changed this after applying it/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Undo this change/i })).toBeNull();
+  });
+
+  it('leaving with an unsaved skills change asks first', () => {
+    const { props } = setup({ issues: [SKILLS_ISSUE] });
+    add('Power BI');
+    fireEvent.click(btn(/Back to list/i));
+    expect(screen.getByText(/Leave without saving your change/i)).toBeTruthy();
+    expect(props.onBackToList).not.toHaveBeenCalled();
+  });
+
+  it('sentence issues still work next to it: the page lists both and a sentence is still saved as before', () => {
+    const { props } = setup({ issues: [ISSUES[0], SKILLS_ISSUE] });
+    expect(screen.getByText(/Issue 1 of 2/)).toBeTruthy();
+    improve();
+    fireEvent.change(editBox(), { target: { value: 'Cut monthly reporting time by 30% for the sales team' } });
+    fireEvent.click(btn(/Save & next/i));
+    expect(props.onChange.mock.calls[0][2].record).toMatchObject({ inserted: expect.any(String), original: expect.any(String) });
+    expect(screen.getByText(/Issue 2 of 2/)).toBeTruthy();
+    expect(chips()).toEqual(['SQL']);
+  });
+
+  it('an issue that names skills but quotes a sentence of the resume stays a sentence issue', () => {
+    setup({ issues: [{ ...SKILLS_ISSUE, title: 'Skills not shown', before: 'Handled monthly reporting' }] });
+    expect(screen.queryByRole('textbox', { name: /add a skill/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /Improve this sentence/i })).toBeTruthy();
   });
 });

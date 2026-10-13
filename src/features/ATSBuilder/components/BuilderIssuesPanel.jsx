@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { locateAll, applyIssue, undoApply } from '../applyIssue.js';
+import { locateAll, applyIssue } from '../applyIssue.js';
+import { undoRecord } from '../fixPage.js';
 import { claimWarnings } from '../../../lib/claimGuard.js';
 import { builderDataToText } from '../builderText.js';
 import { issueKey } from '../fixPage.js';
@@ -43,7 +44,7 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
     setNotes(n => ({ ...n, [k]: '' }));
   };
   const undo = (k) => {
-    const back = undoApply(data, applied[k].record);
+    const back = undoRecord(data, applied[k].record);
     if (!back) { setNotes(n => ({ ...n, [k]: 'That text changed, so it cannot be undone automatically. Edit it by hand.' })); return; }
     onChange(back);
     setApplied(a => { const c = { ...a }; delete c[k]; return c; });
@@ -60,7 +61,7 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
         {issues.map((issue, i) => {
           const k = keyOf(issue, i);
           const rec = applied[k];
-          const canUndo = !!rec && undoApply(data, rec.record) !== null;
+          const canUndo = !!rec && undoRecord(data, rec.record) !== null;
           const hits = rec || !issue.before || !issue.after ? [] : locateAll(data, issue.before);
           const quoteGone = !rec && !!issue.before && hits.length === 0;
           const status = rec ? (canUndo ? 'Applied' : 'Applied, then edited by you')

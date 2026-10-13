@@ -24,7 +24,7 @@ const profile = (issues) => ({
   workExperience: [{ title: 'Analyst', company: 'Acme', period: '2021 - 2023', bullets: ['Handled monthly reporting', 'Built a dashboard for 6 managers'] }],
   issues,
 });
-const base = (issues = [issue(), issue({ title: 'Thin skills', before: '', after: '', builderStep: 4 })]) => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: profile(issues) }, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn(), resumeText: GOOD });
+const base = (issues = [issue(), issue({ title: 'Needs a closer look', description: 'Please review.', before: '', after: '', builderStep: 4 })]) => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: profile(issues) }, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn(), resumeText: GOOD });
 const openBuilder = () => fireEvent.click(screen.getByText(/Fix These Issues in Builder/));
 const review = () => screen.getByRole('button', { name: /^Review/ });
 
@@ -105,7 +105,7 @@ describe('one primary action per screen', () => {
 describe('buttons that say where they go', () => {
   it('the reminder is hidden with Hide this reminder, not Done', () => {
     render(<ATSBuilder {...base()} />);
-    fireEvent.click(screen.getAllByText(/Fix in Builder/)[1]);   // the skills issue: it has no sentence to pick, so it uses the step form and its reminder
+    fireEvent.click(screen.getAllByText(/Fix in Builder/)[1]);   // an issue with no section named and no sentence to pick: it uses the step form and its reminder
     expect(screen.queryByRole('button', { name: /^Done$/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /hide this reminder/i }));
     expect(screen.queryByRole('note', { name: /fixing/i })).toBeNull();

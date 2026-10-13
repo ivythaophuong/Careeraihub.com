@@ -13,7 +13,7 @@ import BuilderIssuesPanel from './components/BuilderIssuesPanel.jsx';
 import FixPage from './components/FixPage.jsx';
 import { fixTargets, issueKey } from './fixPage.js';
 import { demoFixProfile, demoResetRequested } from './demoFix.js';
-import { stepForIssue, draftFor, isBulletIssue, quoteInResume } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue, isSkillsIssue, quoteInResume } from './issueStep.js';
 import { Sparkles } from 'lucide-react';
 import TemplateGallery from './components/TemplateGallery.jsx';
 import { scoreBuilderData } from './builderText.js';
@@ -827,8 +827,9 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
   // says where), so it can be seen again, undone or improved again. Before, an improved issue could never be opened on that page again.
   // Any other issue keeps the step form.
   // A bullet issue whose sentence is not found is there too: the page asks the user to click the sentence (FixPage, "pick" issues).
+  // An issue about the skills list (decided by words, isSkillsIssue) opens the Skills card.
   const hasBullets = (data.experience || []).some(j => (j.bullets || []).some(b => String(b || '').trim()));
-  const canFixHere = (issue) => !!issue && (['one', 'many'].includes(fixTargets(data, issue).kind) || !!fixRecords[keyOfIssueObject(issue)] || (hasBullets && isBulletIssue(issue)));
+  const canFixHere = (issue) => !!issue && (['one', 'many'].includes(fixTargets(data, issue).kind) || !!fixRecords[keyOfIssueObject(issue)] || (hasBullets && isBulletIssue(issue)) || isSkillsIssue(issue, data));
   const [fixMode, setFixMode] = useState(() => canFixHere(focus?.issue));
   const [fixStartKey, setFixStartKey] = useState(() => keyOfIssueObject(focus?.issue));
   useEffect(() => { setFixMode(canFixHere(focus?.issue)); setFixStartKey(keyOfIssueObject(focus?.issue)); }, [focus]);   // eslint-disable-line react-hooks/exhaustive-deps

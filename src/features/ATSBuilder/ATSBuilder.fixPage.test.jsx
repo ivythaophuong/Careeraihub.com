@@ -189,4 +189,27 @@ describe('a bullet issue whose sentence is not in the resume', () => {
     expect(screen.getByText(/Step 2 of 6/)).toBeTruthy();
     expect(screen.queryByText(/Issue \d of \d/)).toBeNull();
   });
+
+  describe('an issue about the skills list', () => {
+    const skillsIssue = () => issue({ title: 'Skills list is short', description: 'Add the tools you use.', before: '', after: 'Python', builderStep: 2 });
+
+    it('opens the Fix page with the Skills card, not the step form', () => {
+      openFix([skillsIssue()]);
+      expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+      expect(screen.getByRole('textbox', { name: /add a skill/i })).toBeTruthy();
+      expect(screen.queryByText(/Step \d of 6/)).toBeNull();
+    });
+
+    it('saving writes only the skills into the draft and keeps a record of the kind skills, so the Suggestions panel can read it', () => {
+      openFix([skillsIssue()]);
+      fireEvent.change(screen.getByRole('textbox', { name: /add a skill/i }), { target: { value: 'Power BI' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Add skill$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+      const draft = JSON.parse(localStorage.getItem(builderDraftKey('u1')));
+      expect(draft.skills.filter(Boolean)).toEqual(['SQL', 'Power BI']);
+      expect(draft.experience[0].bullets[0]).toBe('Handled monthly reporting for the sales team');
+      const records = JSON.parse(localStorage.getItem(builderAppliedKey('u1')));
+      expect(Object.values(records)[0].record).toEqual({ kind: 'skills', added: ['Power BI'], removed: [] });
+    });
+  });
 });
