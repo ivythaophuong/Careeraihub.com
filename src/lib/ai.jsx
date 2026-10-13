@@ -1,10 +1,10 @@
 import React from 'react';
-import { SUPABASE_URL, SUPABASE_ANON } from './supabase';
+import { FUNCTIONS_URL, SUPABASE_ANON } from './supabase';
 import { getValidSession } from './session';
 
 // All model calls go through the `ai` Supabase Edge Function (supabase/functions/ai), which holds
 // the provider keys, picks the provider/model, and enforces limits. No API key ships to the browser.
-const AI_ENDPOINT = `${SUPABASE_URL}/functions/v1/ai`;
+const AI_ENDPOINT = `${FUNCTIONS_URL}/functions/v1/ai`;
 
 const REQUEST_TIMEOUT_MS = 100_000; // the function waits up to 80s on the provider
 const MAX_RETRIES = 1;
