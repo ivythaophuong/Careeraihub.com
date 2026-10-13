@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Badge, Spinner } from '../../components/CommonUI';
 import { extractJSON } from '../../lib/ai.jsx';
@@ -11,6 +11,9 @@ import {
 } from './interview';
 import { splitFirstSentence } from './feedbackDetail';
 import { SESSIONS_KEPT } from '../../lib/historyLimits';
+import { saveDeviceSession, loadDeviceSession, clearDeviceSession } from './deviceSession';
+import { formatElapsed, describeEvaluationFailure } from './sessionUi';
+import SessionPanel from './SessionPanel';
 
 const scoreColor = (s) => (s >= 75 ? C.green : s >= 60 ? C.gold : C.red);
 const label = { color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 };
@@ -42,7 +45,7 @@ function Outline({ items }) {
   );
 }
 
-export default function HiringManagerSim({ resumeText, form, memory, updateMemory, setAuthModal, setActiveModule }) {
+export default function HiringManagerSim({ resumeText, form, memory, updateMemory, setAuthModal, setActiveModule, user }) {
   const [phase, setPhase] = useState('select'); // select | interview | summary
   const [personaId, setPersonaId] = useState(null);
   const [role, setRole] = useState(form?.role || '');
@@ -58,12 +61,45 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [confirmExit, setConfirmExit] = useState(false);
   const [attempt, setAttempt] = useState(1); // 1 = first try at this question; more = practice retries
   const [lastShown, setLastShown] = useState(null); // { fb, warnings } of the newest attempt, to go back to
+  const [failureKind, setFailureKind] = useState(null); // 'known' | 'unknown' | 'limit' after a failed feedback request
+  const [elapsedMs, setElapsedMs] = useState(0); // informational only: nothing is cut off or scored by it
+  const [showTimer, setShowTimer] = useState(false);
+  const [deviceKept, setDeviceKept] = useState(false); // true only after the browser confirmed it stored this session
+  const [kept, setKept] = useState(() => loadDeviceSession(user?.id)); // an earlier session of this tab that can be continued
+  const headingRef = useRef(null);
+  const elapsedRef = useRef(0);
 
   const resume = pickResumeSource({ memory, resumeText });
   const persona = personaId ? PERSONAS[personaId] : null;
   const pColor = persona ? C[persona.color] : C.accent;
   const history = (memory?.mockSessions || []).slice(0, 5);
   const q = questions[idx];
+
+  const answeredNow = results.filter(r => !r.skipped).length;
+
+  // Informational elapsed time while an interview is on screen.
+  useEffect(() => {
+    if (phase !== 'interview') return undefined;
+    const t = setInterval(() => { elapsedRef.current += 1000; setElapsedMs(elapsedRef.current); }, 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  // Keep the session on this device (not on the server) so a refresh or a visit to another module does not lose it.
+  useEffect(() => {
+    if (phase !== 'interview' || !questions.length) return;
+    setDeviceKept(saveDeviceSession(user?.id, { personaId, role: role.trim(), questions, idx, results, answer, elapsedMs: elapsedRef.current }));
+  }, [phase, personaId, role, questions, idx, results, answer, user?.id]);
+
+  // Closing or reloading the tab with work in progress asks first.
+  useEffect(() => {
+    if (phase !== 'interview' || (answeredNow === 0 && !answer.trim())) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [phase, answeredNow, answer]);
+
+  // After feedback appears, move focus to it so keyboard and screen-reader users land on the result.
+  useEffect(() => { if (current && headingRef.current) headingRef.current.focus(); }, [current]);
 
   const fail = (e, guestMsg, fallback) => {
     if (e.status === 401 && setAuthModal) { setErr(guestMsg); setAuthModal('register'); }
@@ -73,7 +109,20 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const reset = () => {
     setPhase('select'); setPersonaId(null); setQuestions([]); setIdx(0); setResults([]); setAnswer('');
     setCurrent(null); setWarnings([]); setErr(''); setSaved(false); setConfirmExit(false); setAttempt(1); setLastShown(null);
+    setFailureKind(null); setElapsedMs(0); elapsedRef.current = 0; setKept(null); setDeviceKept(false);
+    clearDeviceSession(user?.id);
   };
+
+  const continueKept = () => {
+    const k = kept; if (!k) return;
+    const done = k.results.length > k.idx && !k.results[k.idx]?.skipped ? k.results[k.idx] : null;
+    setPersonaId(k.personaId); setRole(k.role || ''); setQuestions(k.questions); setIdx(k.idx); setResults(k.results);
+    setAnswer(k.answer || ''); setCurrent(done); setWarnings([]); setErr(''); setSaved(false); setAttempt(1); setLastShown(done ? { fb: done, warnings: [] } : null);
+    setFailureKind(null); elapsedRef.current = k.elapsedMs; setElapsedMs(k.elapsedMs); setKept(null);
+    setPhase('interview');
+  };
+
+  const discardKept = () => { clearDeviceSession(user?.id); setKept(null); };
 
   const start = async (id) => {
     if (busy) return;
@@ -83,6 +132,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       const raw = await callLLMFor('mock_questions', resume)([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
       setQuestions(normalizeQuestions(extractJSON(raw)));
       setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false); setAttempt(1); setLastShown(null);
+      setFailureKind(null); elapsedRef.current = 0; setElapsedMs(0); setKept(null);
       setPhase('interview');
     } catch (e) {
       fail(e, 'Create a free account or sign in to start a mock interview.', 'Could not start the interview. Please try again.');
@@ -94,7 +144,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const submit = async () => {
     if (busy || current) return;
     if (answer.trim().length < MIN_ANSWER_CHARS) { setErr(`Answer a bit more fully (at least ${MIN_ANSWER_CHARS} characters) so there is something to evaluate.`); return; }
-    setBusy('feedback'); setErr('');
+    setBusy('feedback'); setErr(''); setFailureKind(null);
     try {
       let fb, receipt;
       if (serverScoringOn()) {
@@ -117,7 +167,8 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       }
     } catch (e) {
       // The typed answer stays in the box so the user can simply retry.
-      fail(e, 'Create a free account or sign in to get feedback.', 'Could not evaluate your answer. Please try again.');
+      if (e.status === 401) fail(e, 'Create a free account or sign in to get feedback.', '');
+      else { const f = describeEvaluationFailure(e); setFailureKind(f.kind); setErr(f.text); }
     } finally {
       setBusy(null);
     }
@@ -126,6 +177,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const finish = async (finalResults) => {
     if (busy) return;
     const summary = summarize(finalResults);
+    let saveFailed = false;
     if (summary.answered > 0) {
       let saveErr = '';
       if (serverScoringOn()) {
@@ -154,8 +206,10 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         );
         setSaved(true);
       }
-      if (saveErr) setErr(saveErr);
+      if (saveErr) { setErr(saveErr); saveFailed = true; }
     }
+    // Only drop the copy kept on this device once the session is safely saved (or there was nothing to save).
+    if (!saveFailed) { clearDeviceSession(user?.id); setDeviceKept(false); }
     setPhase('summary');
   };
 
@@ -193,6 +247,31 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           </div>
         )}
       </div>
+
+      {kept && (
+        <Card style={{ border: `1px solid ${C.accent}44` }}>
+          <div style={{ color: C.text, fontWeight: 900, fontSize: 14, marginBottom: 4 }}>Continue your practice</div>
+          <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, marginBottom: 10 }}>
+            {PERSONAS[kept.personaId].label}{kept.role ? ` · ${kept.role}` : ''} · question {kept.idx + 1} of {kept.questions.length} · {kept.results.filter(r => !r.skipped).length} answered.
+            This is kept on this device only, not in your account, and is removed when you close this tab or finish.
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Btn onClick={continueKept} color={C.accent} dark>Continue practice</Btn>
+            <button type="button" onClick={discardKept} style={ghostBtn}>Discard it</button>
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <div style={label}>Practice mode</div>
+        <div role="group" aria-label="Practice mode" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" aria-pressed="true" style={{ ...ghostBtn, color: C.text, borderColor: C.accent, padding: '8px 14px' }}>Text practice</button>
+          <button type="button" disabled aria-disabled="true" aria-describedby="voice-note" style={{ ...ghostBtn, padding: '8px 14px', opacity: 0.55, cursor: 'not-allowed' }}>Voice practice</button>
+        </div>
+        <div id="voice-note" style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
+          Voice practice is not available yet. You type your answers; no microphone is used and nothing is recorded.
+        </div>
+      </Card>
 
       <Card>
         <div style={label}>Role You're Interviewing For</div>
@@ -259,6 +338,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
                 <div style={{ color: C.muted, fontSize: 12 }}>{s.answered} answered{s.skipped ? ` · ${s.skipped} skipped` : ''}</div>
               </div>
             </div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>An AI estimate from this interview, not verified evidence of your skills.</div>
             {saved && <div style={{ color: C.green, fontSize: 11, marginTop: 8 }}>✓ Saved to your history</div>}
             {!saved && err && <div role="alert" style={{ color: C.red, fontSize: 11, marginTop: 8 }}>⚠️ Not saved to your history: {err}</div>}
           </Card>
@@ -309,7 +389,9 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           <div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>{persona.icon} {persona.label}</div>
           <div style={{ color: C.muted, fontSize: 12 }}>Mock interview in progress</div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {showTimer && <span role="timer" aria-label="Elapsed time, for your information only" style={{ color: C.muted, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>Elapsed {formatElapsed(elapsedMs)}</span>}
+          <button type="button" onClick={() => setShowTimer(v => !v)} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
           {answeredCount > 0 && !busy && <button onClick={() => finish(results)} style={ghostBtn}>Finish & see results</button>}
           {confirmExit ? (
             <>
@@ -322,6 +404,8 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         </div>
       </div>
 
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ flex: '1 1 480px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card style={{ border: `1px solid ${pColor}44`, background: pColor + "05" }}>
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
           <div style={label}>Question {idx + 1}/{questions.length}</div>
@@ -342,7 +426,10 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             placeholder={attempt > 1 ? 'Improve your answer, then ask for feedback again.' : 'Type your answer here. A STAR structure (Situation, Task, Action, Result) works well for behavioural questions...'}
             style={{ width: "100%", minHeight: 140, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: 16, fontSize: 13, outline: "none", lineHeight: 1.7, fontFamily: "inherit", resize: "vertical" }}
           />
-          {err && <div role="alert" style={{ color: C.red, fontSize: 12 }}>⚠️ {err}</div>}
+          <div aria-live="polite" style={{ color: C.muted, fontSize: 11 }}>
+            {busy === 'feedback' ? 'Sending your answer for evaluation. It is not saved to your account yet.' : answer.trim() && deviceKept ? 'Draft kept on this device. It is not saved to your account.' : ''}
+          </div>
+          {err && <div role="alert" style={{ color: failureKind === 'unknown' ? C.gold : C.red, fontSize: 12, lineHeight: 1.6 }}>⚠️ {err}</div>}
           <div style={{ display: "flex", gap: 12 }}>
             <Btn onClick={submit} disabled={!!busy} color={pColor} dark style={{ flex: 1 }}>{busy === 'feedback' ? 'Evaluating…' : '🧠 Get AI Feedback'}</Btn>
             {attempt === 1
@@ -357,7 +444,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         <>
           <Card style={{ border: `1px solid ${scoreColor(current.score)}44` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: attempt > 1 ? 8 : 20 }}>
-              <div style={{ color: scoreColor(current.score), fontWeight: 900, fontSize: 20 }}>{current.verdict}{attempt > 1 && <span style={{ color: C.muted, fontSize: 12, fontWeight: 700, marginLeft: 8 }}>Practice attempt {attempt}</span>}</div>
+              <div ref={headingRef} tabIndex={-1} style={{ color: scoreColor(current.score), fontWeight: 900, fontSize: 20, outline: 'none' }}>{current.verdict}{attempt > 1 && <span style={{ color: C.muted, fontSize: 12, fontWeight: 700, marginLeft: 8 }}>Practice attempt {attempt}</span>}</div>
               <div style={{ textAlign: "right" }}>
                 {attempt > 1 && <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Practice score (not counted)</div>}
                 <div style={{ color: scoreColor(current.score), fontSize: attempt > 1 ? 18 : 24, fontWeight: 900 }} aria-label="Answer score">{current.score}%</div>
@@ -390,6 +477,11 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           {attempt === 1 && <div style={{ color: C.muted, fontSize: 11 }}>Retrying is practice: only your first attempt counts toward your score and history, and practice attempts are not saved.</div>}
         </>
       )}
+      </div>
+      <div style={{ flex: '0 1 260px', minWidth: 220 }}>
+        <SessionPanel questions={questions} idx={idx} results={results} color={pColor} deviceKept={deviceKept} />
+      </div>
+      </div>
     </div>
   );
 }
