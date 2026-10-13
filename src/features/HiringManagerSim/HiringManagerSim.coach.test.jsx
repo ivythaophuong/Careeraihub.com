@@ -43,7 +43,7 @@ const submit = async () => { fireEvent.click(screen.getByText(/Get AI Feedback/)
 const retry = () => fireEvent.click(screen.getByRole('button', { name: /try this answer again/i }));
 const scoreShown = () => screen.getByLabelText('Answer score').textContent;
 
-beforeEach(() => { vi.clearAllMocks(); delete globalThis.__serverScoring; vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => { sessionStorage.clear(); vi.clearAllMocks(); delete globalThis.__serverScoring; vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(cleanup);
 
 describe('feedback is short, with "more detail" on request', () => {

@@ -38,7 +38,7 @@ const start = async (persona = /Series B/) => { fireEvent.click(screen.getByText
 const answer = (text = ANSWER) => fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: text } });
 const submit = () => fireEvent.click(screen.getByText(/Get AI Feedback/));
 
-beforeEach(() => { vi.clearAllMocks(); vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => { sessionStorage.clear(); vi.clearAllMocks(); vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(cleanup);
 
 describe('selecting and starting', () => {

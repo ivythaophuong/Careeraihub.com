@@ -43,6 +43,7 @@ import ReadinessScore from './features/ReadinessScore/ReadinessScore';
 import JDAnalyzer from './features/JDAnalyzer/JDAnalyzer';
 import STARBuilder from './features/STARBuilder/STARBuilder';
 import HiringManagerSim from './features/HiringManagerSim/HiringManagerSim';
+import { clearAllDeviceSessions } from './features/HiringManagerSim/deviceSession';
 import SalaryCoach from './features/SalaryCoach/SalaryCoach';
 import CoverLetterGen from './features/CoverLetterGen/CoverLetterGen';
 import MarketIntel from './features/MarketIntel/MarketIntel';
@@ -246,6 +247,7 @@ function App() {
     sb.signOut(user?.token);
     localStorage.removeItem("supabase.auth.token");
     try { Object.keys(localStorage).filter(k => k.startsWith('careerai_builder_draft')).forEach(k => localStorage.removeItem(k)); } catch {} // drafts hold resume text
+    clearAllDeviceSessions(); // a practice session kept on this device holds the user's answers
     setUser(null);
     setIsRecruiter(false);
     setSetupDone(false);
