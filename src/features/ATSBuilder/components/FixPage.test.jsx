@@ -1200,3 +1200,86 @@ describe('the contact and education card', () => {
     expect(screen.getByRole('button', { name: /Improve this sentence/i })).toBeTruthy();
   });
 });
+
+
+describe('the job card (title and company)', () => {
+  const JOB_ISSUE = { severity: 'medium', title: 'Job titles are vague', description: 'The titles do not say the level.', before: '', after: 'Senior Data Analyst', builderStep: 2, module: null };
+  const jobKey = (i = 0) => `${i}:${JOB_ISSUE.title}:${JOB_ISSUE.before}`;
+  const box = (name) => screen.getByRole('textbox', { name });
+  const type = (name, value) => fireEvent.change(box(name), { target: { value } });
+
+  it('an issue about job titles is on the page with a title box and a company box for each job, holding what is there, and no contact boxes', () => {
+    setup({ issues: [JOB_ISSUE] });
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(box('Job title (Acme)').value).toBe('Analyst');
+    expect(box('Company (Acme)').value).toBe('Acme');
+    expect(box('Job title (Intern)').value).toBe('Intern');
+    expect(box('Company (Intern)').value).toBe('');
+    expect(box('Company (Beta)').value).toBe('Beta');
+    expect(screen.queryByRole('textbox', { name: 'Email' })).toBeNull();
+  });
+
+  it('shows no AI text, and says that a job with no company name is not shown on the resume', () => {
+    setup({ issues: [JOB_ISSUE] });
+    expect(screen.queryByText(/Senior Data Analyst/)).toBeNull();
+    expect(screen.getByText(/not shown on the resume/i)).toBeTruthy();
+  });
+
+  it('typing the missing company shows the job on the new resume at once, with its bullets', () => {
+    setup({ issues: [JOB_ISSUE] });
+    expect(right().textContent).not.toMatch(/Filed paperwork/);
+    type('Company (Intern)', 'Gamma Ltd');
+    expect(right().textContent).toMatch(/Gamma Ltd/);
+    expect(right().textContent).toMatch(/Filed paperwork/);
+    expect(left().textContent).not.toMatch(/Gamma Ltd/);
+  });
+
+  it('Save & next saves exactly the changed fields by the id of the job, as one record of the kind fields, and nothing else', () => {
+    const { props } = setup({ issues: [JOB_ISSUE] });
+    type('Job title (Acme)', 'Senior Analyst'); type('Company (Intern)', 'Gamma Ltd');
+    fireEvent.click(btn(/Save & next/i));
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(key).toBe(jobKey());
+    expect(data.experience[0].title).toBe('Senior Analyst');
+    expect(data.experience[1].company).toBe('Gamma Ltd');
+    expect(data.experience.map(j => j.period)).toEqual(makeData().experience.map(j => j.period));
+    expect(data.experience[0].bullets).toEqual(makeData().experience[0].bullets);
+    expect(entry.record).toEqual({ kind: 'fields', changes: [
+      { ref: { kind: 'job', id: 1, field: 'title' }, before: 'Analyst', after: 'Senior Analyst' },
+      { ref: { kind: 'job', id: 2, field: 'company' }, before: '', after: 'Gamma Ltd' },
+    ] });
+  });
+
+  it('saving with no change, or with a box emptied, saves nothing and says so', () => {
+    const { props } = setup({ issues: [JOB_ISSUE] });
+    fireEvent.click(btn(/Save & next/i));
+    expect(screen.getByRole('status').textContent).toMatch(/Change something first/i);
+    type('Company (Acme)', ' ');
+    fireEvent.click(btn(/Save & next/i));
+    expect(screen.getByRole('status').textContent).toMatch(/cannot be left empty/i);
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+
+  it('a saved change can be undone, and one edited afterwards cannot', () => {
+    const d = makeData(); d.experience[0].title = 'Senior Analyst';
+    const record = { kind: 'fields', changes: [{ ref: { kind: 'job', id: 1, field: 'title' }, before: 'Analyst', after: 'Senior Analyst' }] };
+    const records = { [jobKey()]: { record, placeholders: false, warnings: [] } };
+    const { props } = setup({ data: d, issues: [JOB_ISSUE], records, startKey: jobKey() });
+    fireEvent.click(btn(/Undo this change/i));
+    expect(props.onChange.mock.calls[0][0].experience[0].title).toBe('Analyst');
+    expect(props.onChange.mock.calls[0][2]).toBeNull();
+    cleanup();
+    const e = makeData(); e.experience[0].title = 'Director';
+    setup({ data: e, issues: [JOB_ISSUE], records, startKey: jobKey() });
+    expect(screen.getByText(/You changed this after applying it/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Undo this change/i })).toBeNull();
+  });
+
+  it('two jobs with the same id cannot be edited here and say so', () => {
+    const d = makeData(); d.experience[2].id = 1;
+    setup({ data: d, issues: [JOB_ISSUE] });
+    expect(box('Job title (Acme)').disabled).toBe(true);
+    expect(box('Job title (Intern)').disabled).toBe(false);
+    expect(screen.getAllByText(/share an id/i).length).toBeGreaterThanOrEqual(1);
+  });
+});

@@ -2,7 +2,7 @@
 // its id, never by its position. Code checks only what it can see (a missing field, an email that is not shaped like one, too few digits in a phone number,
 // a LinkedIn address that is not one); it never rewrites a value into another one and never makes one up.
 import { describe, it, expect } from 'vitest';
-import { listContactFields, listEducationFields, fieldFindings, setField, mergeFieldRecords, fieldsStatus, undoFields } from './fieldsFix.js';
+import { listContactFields, listEducationFields, listJobFields, fieldFindings, setField, mergeFieldRecords, fieldsStatus, undoFields } from './fieldsFix.js';
 
 const base = () => ({
   contact: { name: 'Jordan Lee', email: 'jordan.lee@example.com', phone: '+65 8123 4567', linkedin: 'linkedin.com/in/jordan-lee', location: 'Singapore' },
@@ -149,5 +149,66 @@ describe('mergeFieldRecords, fieldsStatus and undoFields', () => {
     expect(undoFields(r.data, r.record).education[1].institution).toBe('');
     const gone = { ...r.data, education: r.data.education.filter(e => e.id !== 22) };
     expect(fieldsStatus(gone, r.record)).toBe('applied_edited');
+  });
+});
+
+describe('the job title and the company of a job', () => {
+  const jobs = () => { const d = base(); d.experience = [
+    { id: 11, company: 'Acme', title: 'Analyst', period: '2021 - 2023', bullets: ['Built a dashboard'] },
+    { id: 12, company: '', title: 'Intern', period: '2020', bullets: [''] },
+    { id: 13, company: '', title: '', period: '', bullets: [''] },
+  ]; return d; };
+
+  it('listJobFields lists the title and the company of each job that has something in it, with the id of the job', () => {
+    expect(listJobFields(jobs()).map(f => [f.ref.id, f.ref.field, f.label, f.group, f.text])).toEqual([
+      [11, 'title', 'Job title', 'Acme', 'Analyst'], [11, 'company', 'Company', 'Acme', 'Acme'],
+      [12, 'title', 'Job title', 'Intern', 'Intern'], [12, 'company', 'Company', 'Intern', ''],
+    ]);
+  });
+  it('a blank job is left out, a job with no id is addressable by its place, two jobs with the same id are marked ambiguous, bad data gives nothing', () => {
+    const d = jobs(); delete d.experience[0].id;
+    expect(listJobFields(d)[0].ref.id).toBe('i0');
+    const e = jobs(); e.experience[1].id = 11;
+    expect(listJobFields(e).every(f => f.ambiguous)).toBe(true);
+    expect(listJobFields(null)).toEqual([]);
+    expect(listJobFields({ experience: 'x' })).toEqual([]);
+  });
+  it('code only says when a title or a company is missing; it never judges one (and a job with no company is not drawn on the resume)', () => {
+    const item = (field, text) => ({ ref: { kind: 'job', id: 1, field }, text });
+    expect(fieldFindings(item('title', ''))).toEqual(['missing']);
+    expect(fieldFindings(item('company', '  '))).toEqual(['missing']);
+    expect(fieldFindings(item('title', 'Associate'))).toEqual([]);
+    expect(fieldFindings(item('company', 'x'))).toEqual([]);
+  });
+  it('setField writes the one title or company of the job that has the id, even when the list was reordered, and nothing else', () => {
+    const d = jobs(); d.experience.reverse();
+    const r = setField(d, { kind: 'job', id: 11, field: 'title' }, ' Senior  Analyst ');
+    expect(r.data.experience.find(j => j.id === 11).title).toBe('Senior Analyst');
+    expect(r.data.experience.find(j => j.id === 11).company).toBe('Acme');
+    expect(r.data.experience.find(j => j.id === 11).period).toBe('2021 - 2023');
+    expect(r.data.experience.find(j => j.id === 11).bullets).toEqual(['Built a dashboard']);
+    expect(r.record).toEqual({ kind: 'fields', changes: [{ ref: { kind: 'job', id: 11, field: 'title' }, before: 'Analyst', after: 'Senior Analyst' }] });
+  });
+  it('refuses clearly: empty, unchanged, unknown job, the period (that is the Dates card), two jobs with one id', () => {
+    expect(setField(jobs(), { kind: 'job', id: 11, field: 'title' }, ' ')).toEqual({ error: 'empty' });
+    expect(setField(jobs(), { kind: 'job', id: 11, field: 'title' }, 'Analyst')).toEqual({ error: 'unchanged' });
+    expect(setField(jobs(), { kind: 'job', id: 99, field: 'title' }, 'x')).toEqual({ error: 'not_found' });
+    expect(setField(jobs(), { kind: 'job', id: 11, field: 'period' }, '2020')).toEqual({ error: 'not_found' });
+    const d = jobs(); d.experience[1].id = 11;
+    expect(setField(d, { kind: 'job', id: 11, field: 'title' }, 'x')).toEqual({ error: 'ambiguous' });
+  });
+  it('status and undo are read by id: applied while as saved, edited afterwards or a deleted job means no automatic undo; a missing company can be put back to empty', () => {
+    const r = setField(jobs(), { kind: 'job', id: 12, field: 'company' }, 'Gamma Ltd');
+    expect(fieldsStatus(r.data, r.record)).toBe('applied');
+    expect(undoFields(r.data, r.record).experience[1].company).toBe('');
+    expect(fieldsStatus(setField(r.data, { kind: 'job', id: 12, field: 'company' }, 'Delta').data, r.record)).toBe('applied_edited');
+    expect(fieldsStatus({ ...r.data, experience: r.data.experience.filter(j => j.id !== 12) }, r.record)).toBe('applied_edited');
+  });
+  it('two changes to different fields of one job stay two changes; the same field twice keeps the first before and the last after', () => {
+    const a = setField(jobs(), { kind: 'job', id: 11, field: 'title' }, 'Lead');
+    const b = setField(a.data, { kind: 'job', id: 11, field: 'company' }, 'Acme Group');
+    expect(mergeFieldRecords(a.record, b.record).changes).toHaveLength(2);
+    const c = setField(a.data, { kind: 'job', id: 11, field: 'title' }, 'Director');
+    expect(mergeFieldRecords(a.record, c.record).changes).toEqual([{ ref: { kind: 'job', id: 11, field: 'title' }, before: 'Analyst', after: 'Director' }]);
   });
 });

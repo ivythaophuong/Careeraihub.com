@@ -256,4 +256,21 @@ describe('a bullet issue whose sentence is not in the resume', () => {
       expect(screen.getByRole('textbox', { name: 'Degree (Example University)' })).toBeTruthy();
     });
   });
+
+  describe('an issue about job titles', () => {
+    const jobIssue = () => issue({ title: 'Job titles are vague', description: 'The titles do not say the level.', before: '', after: 'Senior Data Analyst', builderStep: 2 });
+    it('opens the Fix page with the job card; saving writes only that title into the draft and keeps a record of the kind fields', () => {
+      openFix([jobIssue()]);
+      expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+      expect(screen.queryByText(/Step \d of 6/)).toBeNull();
+      fireEvent.change(screen.getByRole('textbox', { name: 'Job title (Acme)' }), { target: { value: 'Senior Analyst' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save & next/i }));
+      const draft = JSON.parse(localStorage.getItem(builderDraftKey('u1')));
+      expect(draft.experience[0].title).toBe('Senior Analyst');
+      expect(draft.experience[0].company).toBe('Acme');
+      expect(draft.experience[0].bullets[0]).toBe('Handled monthly reporting for the sales team');
+      const records = JSON.parse(localStorage.getItem(builderAppliedKey('u1')));
+      expect(Object.values(records)[0].record).toEqual({ kind: 'fields', changes: [{ ref: { kind: 'job', id: 0, field: 'title' }, before: 'Analyst', after: 'Senior Analyst' }] });
+    });
+  });
 });
