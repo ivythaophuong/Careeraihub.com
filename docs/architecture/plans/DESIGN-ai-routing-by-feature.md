@@ -137,6 +137,22 @@ Corpus C (`tests/fixtures/extraction-accuracy/casesC.js`) has 12 more synthetic 
 
 C agrees with B (82% against 84%, 6% against 4% confidently wrong), which supports reading B's number, not A's, as the realistic one for layouts the extractor has not been tuned to. After the fixes from 6.2, re-run C and report its change; if anyone then reads and tunes on C's individual failures, C becomes a regression set and a corpus D must be written.
 
+### 6.4 After the fixes for corpus B (MEASURED 2026-10-13)
+
+Six of the seven causes listed in 6.2 are fixed, each with a test that failed before the fix (commits `b424eaa` career break, `e39d966` pipes and "to date", `328d9fc` job tables, `32d6520` phone with one-digit groups, `258b02b` BE/ME degrees, `f8d6802` ms/seconds figures; earlier: `83bbb21`, `331de78`, `d8451e4`, `e781f0c` from corpus A).
+
+| Corpus | Fields | Correct | Not found | Wrong | Wrong with confidence 0.7 or higher |
+|---|---|---|---|---|---|
+| A (tuned on) | 197 | 185 (94%) | 10 | 2 | 0 |
+| B (the bugs came from it, now a regression set) | 194 | **183 (94%)** | 9 | 2 | **0** |
+| C (never read, never tuned on) | 170 | **153 (90%)** | 10 | 7 | **3** |
+
+C went from 139 to 153 correct (82% to 90%) and from 10 to 3 confidently wrong without being read, which is the evidence that the fixes generalise and are not only fitted to B. The 3 confident errors remaining in C are not yet looked at; reading them would turn C into a regression set (a corpus D would then be needed).
+
+What is left in B (all of it is the same resume, `b05`): **the two-column resume read line by line** returns nothing under Experience, Education and Skills, flagged as needing interpretation. Fixing it is a different kind of work (re-flow the columns from layout, which exists only while the PDF coordinates are available, or send such resumes to a model as a Tier 3 case), not another rule. Decision needed from the owner.
+
+Still not established: how a model does on the same 36 resumes; real PDFs and real resumes (all 36 are synthetic, written by one author in English); what share of real users' resumes are two-column (UNKNOWN, no data). Until those are known the numbers are a regression guard and an honest-failure check, not a claim of accuracy on real resumes.
+
 ## 7. How it would be built (PROPOSED, small, each step reviewed)
 
 1. Move extraction to code behind a flag, shadow mode first: run both, log field differences (counts only), show the user the old result until the owner approves the switch.
