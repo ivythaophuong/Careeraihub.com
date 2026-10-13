@@ -1283,3 +1283,14 @@ describe('the job card (title and company)', () => {
     expect(screen.getAllByText(/share an id/i).length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('a graduation year issue', () => {
+  it('opens the Dates card with the year box of the education entry', () => {
+    const d = makeData(); d.education = [{ id: 7, institution: 'Example University', degree: 'BSc', year: '' }];
+    setup({ data: d, issues: [{ severity: 'medium', title: 'Education lacks graduation year', description: 'No year is given.', before: '', after: '2019', builderStep: 3, module: null }] });
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'Year for Example University' }).value).toBe('');
+    expect(screen.getByText(/No date given for Example University/i)).toBeTruthy();
+    expect(screen.queryByText('2019')).toBeNull();      // what the AI wrote is not shown
+  });
+});
