@@ -56,3 +56,26 @@ export function skillsStatus(data, record) {
   const ok = (record.added || []).every(s => keys.has(skillKey(s))) && (record.removed || []).every(s => !keys.has(skillKey(s)));
   return ok ? 'applied' : 'applied_edited';
 }
+
+const isSkillsRecord = (r) => !!r && r.kind === 'skills';
+
+// Several changes made in one visit become one record with the net effect: a skill added and then removed (or removed and added back) is no change.
+export function mergeSkillRecords(prev, next) {
+  const p = isSkillsRecord(prev) ? prev : { added: [], removed: [] };
+  if (!isSkillsRecord(next)) return { kind: 'skills', added: [...(p.added || [])], removed: [...(p.removed || [])] };
+  let added = [...(p.added || [])]; let removed = [...(p.removed || [])];
+  const without = (list, s) => list.filter(x => skillKey(x) !== skillKey(s));
+  const has = (list, s) => list.some(x => skillKey(x) === skillKey(s));
+  for (const s of next.added || []) { if (has(removed, s)) removed = without(removed, s); else if (!has(added, s)) added.push(s); }
+  for (const s of next.removed || []) { if (has(added, s)) added = without(added, s); else if (!has(removed, s)) removed.push(s); }
+  return { kind: 'skills', added, removed };
+}
+
+// Takes the change back, but only while it is still as it was made: a list the user changed afterwards is not undone automatically (null).
+export function undoSkills(data, record) {
+  if (!isSkillsRecord(record) || !isData(data) || skillsStatus(data, record) !== 'applied') return null;
+  let cur = data;
+  for (const s of record.added || []) { const r = removeSkill(cur, s); if (r.data) cur = r.data; }
+  for (const s of record.removed || []) { const r = addSkill(cur, s); if (r.data) cur = r.data; }
+  return cur;
+}

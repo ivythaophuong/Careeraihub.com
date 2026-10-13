@@ -158,4 +158,28 @@ describe('BuilderIssuesPanel', () => {
       expect(within(card('Passive bullet'), /^apply$/i)).toBeTruthy();
     });
   });
+
+  describe('a change made on the Fix page to the skills list', () => {
+    const skillsIssue = { severity: 'medium', title: 'Skills list is short', description: 'Add the tools you use.', before: '', after: 'Python', builderStep: 4 };
+    const key = (i) => `${i}:${skillsIssue.title}:${skillsIssue.before}`;
+    const rec = { record: { kind: 'skills', added: ['Power BI'], removed: [] }, placeholders: false, warnings: [] };
+    const withSkills = (skills) => () => ({ ...initial(), skills });
+    const stored = () => { localStorage.setItem('records', JSON.stringify({ [key(0)]: rec })); };
+
+    it('shows Applied while the list is as the change left it, and Undo takes it back', () => {
+      stored();
+      render(<Harness onGoToStep={() => {}} storageKey="records" list={[skillsIssue]} start={withSkills(['SQL', 'Power BI'])} />);
+      expect(card('Skills list is short').textContent).toMatch(/Applied/);
+      expect(card('Skills list is short').textContent).not.toMatch(/edited by you/);
+      fireEvent.click(within(card('Skills list is short'), /^Undo$/));
+      expect(latest.data.skills).toEqual(['SQL']);
+    });
+
+    it('says the list was edited afterwards, and offers no Undo', () => {
+      stored();
+      render(<Harness onGoToStep={() => {}} storageKey="records" list={[skillsIssue]} start={withSkills(['SQL'])} />);
+      expect(card('Skills list is short').textContent).toMatch(/Applied, then edited by you/);
+      expect(within(card('Skills list is short'), /^Undo$/)).toBeUndefined();
+    });
+  });
 });

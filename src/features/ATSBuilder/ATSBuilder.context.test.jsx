@@ -80,7 +80,7 @@ describe('the suggestion sits next to the box it is for', () => {
   });
 
   it('a suggestion for another step offers no Use suggestion button: it is only shown', () => {
-    openFix(profile({ issues: [{ ...SUMMARY_ISSUE, title: 'Redundant skill keywords', builderStep: 4, after: 'SQL, Excel' }] }));
+    openFix(profile({ issues: [{ ...SUMMARY_ISSUE, title: 'Needs a closer look', description: 'Please review.', before: '', builderStep: 4, after: 'SQL, Excel' }   /* no section named, so the AI step decides: the step form (an issue about skills opens the Skills card) */] }));
     expect(screen.getByText(/Step 4 of 6/)).toBeTruthy();
     expect(within(note()).queryByRole('button', { name: /use suggestion/i })).toBeNull();
   });

@@ -56,3 +56,16 @@ function SECTION_WORDS_IN_TITLE(title) { return named(title).length > 0; }
 export function quoteInResume(issue, data) {
   return issue?.before && String(issue.before).trim() && locateAll(data, issue.before).length > 0 ? issue.before : null;
 }
+
+// Is the issue about the skills list, so that the Fix page can offer the Skills card? Words decide, as in stepForIssue: the title first, then the
+// description, and only when exactly one section is named and it is Skills. The AI's step number is never used, and a quoted sentence that is in the
+// resume makes it a sentence issue.
+export function isSkillsIssue(issue, data) {
+  if (!issue || !data || !Array.isArray(data.skills)) return false;
+  if (quoteInResume(issue, data)) return false;
+  const inTitle = named(issue.title);
+  if (inTitle.length === 1) return inTitle[0] === 4;
+  if (inTitle.length > 1) return false;
+  const inText = named(issue.description);
+  return inText.length === 1 && inText[0] === 4;
+}

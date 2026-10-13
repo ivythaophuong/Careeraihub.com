@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { undoApply } from '../applyIssue.js';
-import { isBulletIssue, draftFor } from '../issueStep.js';
-import { closestBullets, fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText } from '../fixPage.js';
+import { isBulletIssue, isSkillsIssue, draftFor } from '../issueStep.js';
+import { addSkill, removeSkill, mergeSkillRecords, skillList, skillsFindings } from '../skillsFix.js';
+import { closestBullets, fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, undoRecord } from '../fixPage.js';
 
 // The Fix page: your resume on the left, with the sentences that can be improved highlighted; your new resume on the right, which follows what you type;
 // and one editor below them. One issue at a time, and one thing at a time inside the editor: first two choices (improve it, or leave it), then the edit box,
@@ -19,7 +19,7 @@ const initialView = () => {
   try { const v = localStorage.getItem(VIEW_KEY); if (v === 'focus' || v === 'compare') return v; } catch { /* storage unavailable: use the width */ }
   return typeof window !== 'undefined' && window.innerWidth >= 1700 ? 'compare' : 'focus';
 };
-const markKeyOf = (at) => (at.kind === 'summary' ? 'summary' : `b:${at.exp}:${at.bullet}`);
+const markKeyOf = (at) => (at.kind === 'summary' ? 'summary' : at.kind === 'skills' ? 'skills' : `b:${at.exp}:${at.bullet}`);
 
 const css = `
 .atb-fixpage [data-fix-marked] { outline: 2px solid var(--atb-mark, #22D3EE); outline-offset: 3px; background: var(--atb-mark-bg, rgba(34, 211, 238, .16)); }   /* the Builder's mark colour: not the pink of the main button */
@@ -106,7 +106,7 @@ function revertApplied(data, records) {
   let cur = data;
   for (const e of Object.values(records || {})) {
     if (!e?.record) continue;
-    const back = undoApply(cur, e.record);
+    const back = undoRecord(cur, e.record);
     if (back) cur = back;
   }
   return cur;
@@ -126,14 +126,17 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     .map((issue, i) => {
       const located = ['one', 'many'].includes(fixTargets(original, issue).kind);
       const rec = !!records?.[issueKey(issue, i)];
-      return { issue, i, key: issueKey(issue, i), pick: !located && !rec && hasBullets && isBulletIssue(issue) };
+      // An issue about the skills list (decided by words, see isSkillsIssue) gets the Skills card; a recorded skills change keeps it too.
+      const skills = !located && (records?.[issueKey(issue, i)]?.record?.kind === 'skills' || isSkillsIssue(issue, original));
+      return { issue, i, key: issueKey(issue, i), skills, pick: !located && !skills && !rec && hasBullets && isBulletIssue(issue) };
     })
-    .filter(it => records?.[it.key] || it.pick || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
+    .filter(it => records?.[it.key] || it.pick || it.skills || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
 
   // Where each issue's sentence is in the resume as it was when the page opened: this is what the left resume highlights.
   const [seed] = useState(() => {
     const out = [];
     list.forEach((it, itemPos) => {
+      if (it.skills) { out.push({ key: 'skills', itemPos, at: { kind: 'skills' } }); return; }
       let ats = it.pick ? closestBullets(original, it.issue).map(c => c.at) : fixTargets(original, it.issue).places.map(p => p.at);   // for a pick issue: the nearest sentences
       if (!ats.length && records?.[it.key]?.record) ats = [records[it.key].record.at];   // improved and then edited: the place is known from the record
       ats.forEach(at => out.push({ key: markKeyOf(at), itemPos, at }));
@@ -142,7 +145,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   });
 
   // A pick issue nobody has acted on is open (it was never "changed by the user"); once it has a record it is read from the text like any other.
-  const statusesFor = (d, r) => list.map(it => (it.pick && !r[it.key]?.record ? 'open' : issueStatus(d, it.issue, r[it.key]?.record ?? null)));
+  const statusesFor = (d, r) => list.map(it => ((it.pick || it.skills) && !r[it.key]?.record ? 'open' : issueStatus(d, it.issue, r[it.key]?.record ?? null)));
 
   const startPos = () => {
     const statuses = statusesFor(data, records || {});
@@ -154,6 +157,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   // The place an issue points to when it is in exactly one place; for several places the user chooses.
   const placeFor = (d, pos, r = recs) => {
     if (pos === null) return null;
+    if (list[pos].skills) return null;                                    // the skills card has no one sentence to point at
     if (r?.[list[pos].key]?.record) return r[list[pos].key].record.at;   // improved: the place is in the record
     const t = fixTargets(d, list[pos].issue);
     return t.kind === 'one' ? t.places[0].at : null;
@@ -169,6 +173,8 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const [askReplace, setAskReplace] = useState(false);
   const [askLeave, setAskLeave] = useState(false);
   const [pendingPick, setPendingPick] = useState(null);
+  const [stage, setStage] = useState(null);           // Skills: the list with the changes made on this page and not saved yet, and their record
+  const [skillInput, setSkillInput] = useState('');
   const taRef = useRef(null);
   const [view, setViewState] = useState(initialView);
   const [pane, setPane] = useState(() => (initialView() === 'focus' ? 'editor' : 'original'));
@@ -178,7 +184,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     const a = chosen || placeFor(d, nextPos, r);
     setPos(nextPos); setChosenAt(a); setText(a ? fieldText(d, a) : '');
     setImproving(false); setShowWhy(false); setShowDraft(false);
-    setMsg(''); setAskReplace(false); setAskLeave(false); setPendingPick(null);
+    setMsg(''); setAskReplace(false); setAskLeave(false); setPendingPick(null); setStage(null); setSkillInput('');
   };
 
   // Compare: the box is as tall as its text, from 90 px up to 320 px, then it scrolls. (In Focus it fills the column.)
@@ -193,17 +199,20 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const statuses = statusesFor(work, recs);
   const improved = current ? ['applied', 'applied_edited'].includes(statuses[pos]) : false;   // this issue was improved earlier (this visit or before)
   const isPick = !!current && current.pick && !recs[current.key]?.record;
-  const targets = current && !improved ? (isPick ? { kind: 'pick', places: [] } : fixTargets(work, current.issue)) : { kind: 'one', places: [] };
+  const isSkills = !!current && !!current.skills;
+  const targets = current && !improved ? (isPick ? { kind: 'pick', places: [] } : isSkills ? { kind: 'skills', places: [] } : fixTargets(work, current.issue)) : { kind: 'one', places: [] };
   const example = isPick ? draftFor(current.issue, work) : null;   // what the AI wrote about the sentence it looked at: shown, never applied
   const at = chosenAt;
   const place = at && targets ? targets.places.find(p => JSON.stringify(p.at) === JSON.stringify(at)) : null;
   const saved = at ? fieldText(work, at) : '';
-  const dirty = !!at && text !== saved;
+  const staged = stage?.data ?? work;
+  const skillsDirty = isSkills && !!stage && (stage.record.added.length > 0 || stage.record.removed.length > 0);
+  const dirty = skillsDirty || (!!at && text !== saved);
   const suggestion = at && current ? suggestionFor(work, current.issue, at) : null;
   const draft = suggestion && !suggestion.error ? suggestion : null;
 
-  const activeKey = at ? markKeyOf(at) : null;
-  const shown = at && dirty ? withFieldText(work, at, text) : work;     // the new resume: what is saved, plus what is being typed
+  const activeKey = isSkills ? 'skills' : at ? markKeyOf(at) : null;
+  const shown = isSkills ? staged : at && dirty ? withFieldText(work, at, text) : work;     // the new resume: what is saved, plus what is being typed
 
   // Marks on the left resume (as it was): the sentence being fixed, the other sentences that can be improved, and the ones already improved.
   const seen = new Set();
@@ -254,7 +263,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     if (r.error === 'empty') { setMsg('Write the text first, or leave this one for now.'); return; }
     if (r.error) { setMsg('That place is not in your resume any more.'); return; }
     const prev = recs[current.key]?.record;
-    const record = prev && undoApply(work, prev) !== null ? { ...r.record, original: prev.original } : r.record;   // Undo goes back to the very first original
+    const record = prev && undoRecord(work, prev) !== null ? { ...r.record, original: prev.original } : r.record;   // Undo goes back to the very first original
     const entry = { record, placeholders: r.blanks > 0, warnings: [] };
     const nextRecs = { ...recs, [current.key]: entry };
     setWork(r.data); setRecs(nextRecs);
@@ -262,8 +271,8 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     go(nextUnresolved(statusesFor(r.data, nextRecs), pos), r.data);
   };
   const undo = () => {
-    const back = undoApply(work, recs[current.key].record);
-    if (!back) { setMsg('That sentence was changed afterwards, so it cannot be undone automatically.'); return; }
+    const back = undoRecord(work, recs[current.key].record);
+    if (!back) { setMsg(isSkills ? 'The skills were changed afterwards, so this cannot be undone automatically.' : 'That sentence was changed afterwards, so it cannot be undone automatically.'); return; }
     const nextRecs = { ...recs }; delete nextRecs[current.key];
     setWork(back); setRecs(nextRecs);
     onChange?.(back, current.key, null);          // null: the record is removed
@@ -272,6 +281,24 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const leave = () => go(nextUnresolved(statuses, pos), work);
   const back = () => { if (dirty) setAskLeave(true); else onBackToList?.(); };
   const useDraft = () => { if (dirty && text !== draft.text) setAskReplace(true); else setText(draft.text); };
+  // Skills: each change is made on the staged list by the same pure functions the tests cover; nothing is saved until Save & next.
+  const changeSkills = (r) => {
+    if (r.error) { setMsg(r.error === 'duplicate' ? 'That skill is already in your list.' : r.error === 'empty' ? 'Type a skill first.' : 'That skill is not in your list any more.'); return false; }
+    setStage({ data: r.data, record: mergeSkillRecords(stage?.record, r.record) }); setMsg('');
+    return true;
+  };
+  const onAddSkill = () => { if (changeSkills(addSkill(staged, skillInput))) setSkillInput(''); };
+  const onRemoveSkill = (name) => changeSkills(removeSkill(staged, name));
+  const saveSkills = () => {
+    if (!skillsDirty) { setMsg('Add or remove a skill first, or leave it for now.'); return; }
+    const prev = recs[current.key]?.record;
+    const record = mergeSkillRecords(prev && undoRecord(work, prev) !== null ? prev : null, stage.record);
+    const entry = { record, placeholders: false, warnings: [] };
+    const nextRecs = { ...recs, [current.key]: entry };
+    setWork(stage.data); setRecs(nextRecs);
+    onChange?.(stage.data, current.key, entry);
+    go(nextUnresolved(statusesFor(stage.data, nextRecs), pos), stage.data);
+  };
   const choose = (p) => { setChosenAt(p.at); setText(fieldText(work, p.at)); setMsg(''); };
 
   const total = list.length;
@@ -332,12 +359,12 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>
               {statuses[pos] === 'applied'
-                ? <><strong style={{ color: '#00E5A0' }}>Already improved.</strong> Your resume (left) shows the sentence as it was; your new resume (right) shows it now.</>
-                : <>You changed this after applying it. Your resume (left) shows the sentence as it was; your new resume (right) shows it now. It cannot be undone automatically.</>}
+                ? <><strong style={{ color: '#00E5A0' }}>Already improved.</strong> Your resume (left) shows the {isSkills ? 'skills' : 'sentence'} as {isSkills ? 'they were' : 'it was'}; your new resume (right) shows {isSkills ? 'them' : 'it'} now.</>
+                : <>You changed this after applying it. Your resume (left) shows the {isSkills ? 'skills' : 'sentence'} as {isSkills ? 'they were' : 'it was'}; your new resume (right) shows {isSkills ? 'them' : 'it'} now. It cannot be undone automatically.</>}
             </div>
             {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button type="button" style={btn(true)} onClick={() => setImproving(true)}>Improve again</button>
+              <button type="button" style={btn(true)} onClick={() => setImproving(true)}>{isSkills ? 'Change again' : 'Improve again'}</button>
               {statuses[pos] === 'applied' && <button type="button" style={btn(false)} onClick={undo}>Undo this change</button>}
               <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
             </div>
@@ -375,6 +402,36 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
             <div style={{ marginTop: 12 }}><button type="button" style={btn(false)} onClick={leave}>Leave it for now</button></div>
           </div>
         )}
+
+        {isSkills && (!improved || improving) && (() => {
+          const f = skillsFindings(staged);
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--lp-text3)' }}>Your skills</div>
+              {f.empty && <div style={{ fontSize: 12.5, color: '#FFB84D' }}>Your skills list is empty.</div>}
+              {f.duplicates.length > 0 && <div style={{ fontSize: 12.5, color: '#FFB84D' }}>Repeated in your list: {f.duplicates.join(', ')}. Remove the extra one if you like.</div>}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {skillList(staged).map((sk, k) => (
+                  <span key={`${k}:${sk}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 6, padding: '4px 6px 4px 10px', fontSize: 13, color: 'var(--lp-text)' }}>
+                    {sk}
+                    <button type="button" aria-label={`Remove ${sk}`} onClick={() => onRemoveSkill(sk)} style={{ background: 'transparent', border: 'none', color: 'var(--lp-text2)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '0 4px' }}>×</button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input aria-label="Add a skill" value={skillInput} onChange={e => { setSkillInput(e.target.value); setMsg(''); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddSkill(); } }}
+                  style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text)', borderRadius: 8, padding: '8px 12px', fontSize: 14, fontFamily: 'var(--lp-ff)' }} />
+                <button type="button" style={btn(false)} onClick={onAddSkill}>Add skill</button>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.5 }}>Add only skills you really have.{skillsDirty ? ' Not saved yet.' : ''}</div>
+              {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" style={btn(true)} onClick={saveSkills}>Save &amp; next</button>
+                <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
+              </div>
+            </div>
+          );
+        })()}
 
         {at && (!improved || improving) && (<>
           {place && !place.drawn && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.6 }}>This text is in a job with no company name, so the resume does not show it. You can still edit it here.</div>}

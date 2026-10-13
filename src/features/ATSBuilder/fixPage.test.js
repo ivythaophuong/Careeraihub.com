@@ -1,6 +1,7 @@
 // The logic behind the Fix page (no screen): where an issue's text is, what the draft would put there, saving one field, and the status of each issue.
 import { describe, it, expect } from 'vitest';
-import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, closestBullets } from './fixPage.js';
+import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, closestBullets, undoRecord } from './fixPage.js';
+import { addSkill, removeSkill } from './skillsFix.js';
 import { undoApply } from './applyIssue.js';
 
 const base = () => ({
@@ -262,5 +263,21 @@ describe('closestBullets: the sentences nearest to a quote that is not in the re
     const x = d(); const copy = JSON.stringify(x);
     closestBullets(x, { before: quote });
     expect(JSON.stringify(x)).toBe(copy);
+  });
+});
+
+describe('a Skills change in the same records as a sentence change', () => {
+  it('issueStatus reads a skills record from the list as it is now', () => {
+    const a = addSkill(base(), 'Power BI');
+    expect(issueStatus(a.data, issue({ before: '' }), a.record)).toBe('applied');
+    expect(issueStatus(removeSkill(a.data, 'Power BI').data, issue({ before: '' }), a.record)).toBe('applied_edited');
+  });
+  it('undoRecord takes either kind of change back, and gives null when it was edited afterwards', () => {
+    const a = addSkill(base(), 'Power BI');
+    expect(undoRecord(a.data, a.record).skills).toEqual(['SQL']);
+    const s = saveFix(base(), { kind: 'summary' }, 'A new summary.');
+    expect(undoRecord(s.data, s.record).summary).toBe(base().summary);
+    expect(undoRecord(removeSkill(a.data, 'Power BI').data, a.record)).toBeNull();
+    expect(undoRecord(base(), null)).toBeNull();
   });
 });

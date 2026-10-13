@@ -1,7 +1,7 @@
 // The Skills field of the Fix page, as pure functions over the Builder data (no screen, no AI). Skills are plain strings with no id, so a skill is
 // identified by its normalised text (NFC, spaces collapsed, case ignored), never by its position in the list.
 import { describe, it, expect } from 'vitest';
-import { normalizeSkill, skillKey, skillList, skillsFindings, addSkill, removeSkill, skillsStatus } from './skillsFix.js';
+import { normalizeSkill, skillKey, skillList, skillsFindings, addSkill, removeSkill, skillsStatus, mergeSkillRecords, undoSkills } from './skillsFix.js';
 
 const base = (skills = ['SQL', 'Excel']) => ({
   contact: { name: 'Jordan Lee', email: 'jordan.lee@example.com', phone: '', linkedin: '', location: 'Singapore' },
@@ -132,5 +132,50 @@ describe('the summary and bullet targets are not touched by this module', () => 
     expect(r.summary).toBe(d.summary);
     expect(r.experience).toEqual(d.experience);
     expect(r.education).toEqual(d.education);
+  });
+});
+
+describe('mergeSkillRecords: several changes in one visit become one record with the net effect', () => {
+  const rec = (added = [], removed = []) => ({ kind: 'skills', added, removed });
+  it('with nothing before, it is the new record', () => {
+    expect(mergeSkillRecords(null, rec(['A']))).toEqual(rec(['A']));
+    expect(mergeSkillRecords(undefined, rec([], ['B']))).toEqual(rec([], ['B']));
+  });
+  it('adds and removes of different skills add up', () => {
+    expect(mergeSkillRecords(rec(['A']), rec(['B'], ['C']))).toEqual(rec(['A', 'B'], ['C']));
+  });
+  it('a skill added and then removed (any case) cancels out, and so does one removed and then added back', () => {
+    expect(mergeSkillRecords(rec(['A']), rec([], ['a']))).toEqual(rec());
+    expect(mergeSkillRecords(rec([], ['B']), rec(['b']))).toEqual(rec());
+  });
+  it('does not list a skill twice', () => {
+    expect(mergeSkillRecords(rec(['A']), rec(['a']))).toEqual(rec(['A']));
+  });
+  it('a bad record is ignored', () => {
+    expect(mergeSkillRecords(rec(['A']), null)).toEqual(rec(['A']));
+    expect(mergeSkillRecords({ kind: 'other' }, rec(['A']))).toEqual(rec(['A']));
+  });
+});
+
+describe('undoSkills: back to the list before the change, only while the change is still as it was made', () => {
+  it('takes out what was added and puts back what was removed', () => {
+    const a = addSkill(base(['SQL', 'Excel']), 'Power BI');
+    expect(undoSkills(a.data, a.record).skills).toEqual(['SQL', 'Excel']);
+    const r = removeSkill(base(['SQL', 'Excel']), 'SQL');
+    expect(undoSkills(r.data, r.record).skills.map(skillKey).sort()).toEqual(['excel', 'sql']);
+  });
+  it('a change the user edited afterwards cannot be undone automatically (null)', () => {
+    const a = addSkill(base(), 'Power BI');
+    expect(undoSkills(removeSkill(a.data, 'Power BI').data, a.record)).toBeNull();
+  });
+  it('bad data or another kind of record gives null, and the input is not changed', () => {
+    expect(undoSkills(null, { kind: 'skills', added: ['A'], removed: [] })).toBeNull();
+    expect(undoSkills(base(), { kind: 'bullet', inserted: 'x', original: 'y' })).toBeNull();
+    const d = base(); const a = addSkill(d, 'Power BI'); const snap = JSON.stringify(a.data);
+    undoSkills(a.data, a.record); expect(JSON.stringify(a.data)).toBe(snap);
+  });
+  it('undoing the only added skill leaves the blank row the form needs', () => {
+    const a = addSkill(base(['']), 'SQL');
+    expect(undoSkills(a.data, a.record).skills).toEqual(['']);
   });
 });

@@ -1,6 +1,6 @@
 // Where an issue is fixed in the Builder, decided by code and not by the number the AI wrote. The AI's own step is only the last resort.
 import { describe, it, expect } from 'vitest';
-import { stepForIssue, draftFor, isBulletIssue, quoteInResume } from './issueStep.js';
+import { stepForIssue, draftFor, isBulletIssue, quoteInResume, isSkillsIssue } from './issueStep.js';
 
 const data = () => ({
   contact: { name: 'Jordan Lee', email: 'jordan.lee@example.com', phone: '', linkedin: '', location: 'Singapore' },
@@ -119,5 +119,31 @@ describe('quoteInResume: show the AI\'s quote only when it really is in the resu
   it('gives nothing when there is no quote', () => {
     expect(quoteInResume(issue({ before: '' }), data())).toBeNull();
     expect(quoteInResume(null, data())).toBeNull();
+  });
+});
+
+describe('isSkillsIssue: the Skills card on the Fix page is for an issue about the skills list, decided by words and never by the AI\'s step number', () => {
+  it('the title names only skills, and no sentence of the resume is quoted', () => {
+    expect(isSkillsIssue(issue({ title: 'Skills list is short', builderStep: 2 }), data())).toBe(true);
+    expect(isSkillsIssue(issue({ title: 'Add keywords from the job description', before: '' }), data())).toBe(true);
+  });
+  it('the title names no section and the description names only skills', () => {
+    expect(isSkillsIssue(issue({ title: 'Too few items', description: 'List more of the tools you use as skills.' }), data())).toBe(true);
+  });
+  it('the AI step number alone does not make it a skills issue', () => {
+    expect(isSkillsIssue(issue({ title: 'Make it stronger', description: 'Needs work.', builderStep: 4 }), data())).toBe(false);
+  });
+  it('a title that names another section, or two sections, is not (a tie is not guessed)', () => {
+    expect(isSkillsIssue(issue({ title: 'Education is missing a degree' }), data())).toBe(false);
+    expect(isSkillsIssue(issue({ title: 'Skills and summary are generic' }), data())).toBe(false);
+  });
+  it('an issue whose quoted sentence is in the resume is a sentence issue, even if the title says skills', () => {
+    expect(isSkillsIssue(issue({ title: 'Skills not shown', before: 'Handled monthly reporting' }), data())).toBe(false);
+  });
+  it('no skills field in the data, or no issue: no', () => {
+    const d = data(); delete d.skills;
+    expect(isSkillsIssue(issue({ title: 'Skills list is short' }), d)).toBe(false);
+    expect(isSkillsIssue(null, data())).toBe(false);
+    expect(isSkillsIssue(issue({ title: 'Skills list is short' }), null)).toBe(false);
   });
 });
