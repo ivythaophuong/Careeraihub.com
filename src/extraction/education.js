@@ -12,7 +12,10 @@ const DEGREE_RE = /\b(b\.?s\.?c?\.?|m\.?s\.?c?\.?|ph\.?d\.?|b\.?a\.?|m\.?a\.?|m\
 // Degree abbreviations that would collide with ordinary words if matched case-insensitively ("be", "me", "md", "jd"), so they are
 // matched in their written case only: B.Tech, BEng, BBA, BFA, LLB, B.E. (with dots), and so on.
 const DEGREE_CASED_RE = /(?<![A-Za-z])(?:B\.?Tech|M\.?Tech|BEng|MEng|BCom|MCom|BBA|B\.B\.A|BFA|B\.F\.A|MFA|M\.F\.A|BEd|MEd|LLB|LL\.B|LLM|LL\.M|MPhil|M\.Phil|BArch|B\.Arch|MArch|B\.Pharm|BPharm|BCA|MCA|B\.E|M\.E|J\.D|M\.D)(?![A-Za-z])/;
-const isDegreeLine = (l) => DEGREE_RE.test(l) || DEGREE_CASED_RE.test(l);
+// "BE Information Engineering", "ME in Embedded Systems": BE and ME are degrees only at the start of a line and before a capitalised subject
+// (optionally after "in"); anywhere else "be" and "me" are ordinary words.
+const DEGREE_LINE_START_RE = /^(?:BE|ME)(?=\s+(?:in\s+)?[A-Z])/;
+const isDegreeLine = (l) => DEGREE_RE.test(l) || DEGREE_CASED_RE.test(l) || DEGREE_LINE_START_RE.test(String(l).trim());
 const YEAR_RE = /(?<!\d)(19|20)\d{2}(?!\d)/g;
 
 export function extractEducation(sectionText, source = 'education') {

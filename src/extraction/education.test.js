@@ -39,6 +39,15 @@ describe('extractEducation', () => {
     }
   });
 
+  it('reads BE and ME at the start of a line when a capitalised subject follows', () => {
+    for (const l of ['BE Information Engineering, Example Institute of Technology, 2020', 'ME Embedded Systems, Example College, 2019', 'BE in Computer Science, Example University, 2016']) {
+      expect(extractEducation(l), l).toHaveLength(1);
+    }
+  });
+  it('still does not read the verb or pronoun as a degree', () => {
+    for (const l of ['Be proactive and learn fast', 'Contact ME for details', 'to BE honest, 2020']) expect(extractEducation(l), l).toHaveLength(0);
+  });
+
   it('does not read ordinary words as a degree', () => {
     expect(extractEducation('Dean\'s list, GPA 3.9')).toHaveLength(0);
     expect(extractEducation('Be proactive and learn fast')).toHaveLength(0);
