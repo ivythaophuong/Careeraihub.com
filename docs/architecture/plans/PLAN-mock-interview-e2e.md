@@ -98,3 +98,7 @@ The ACL read on production (see `docs/database/proposed/PROPOSAL-practice-sessio
 ## 13. Decision D-3 recorded 2026-10-13: option C
 
 The original answer is not stored on the server (first version). Server keeps question set, progress, feedback and score (no verbatim quotes), answer hash and length, and the cost ledger. See section 6 of `docs/database/proposed/PROPOSAL-practice-session-ledger-2026-10-13.md`. New obligations: (a) three pre-release checks (draft recovery, no answer text in logs or tables, deletion matches the published policy); (b) the owner reads Gemini and Groq current data-use terms for free tiers before the Privacy wording is written; (c) the Privacy and Terms pages must state what is stored and how to delete it; (d) the evidence-quote idea for feedback is shown live only, never persisted.
+
+## 14. Provider data terms read 2026-10-13
+
+Gemini free tier may use submitted content to improve Google products and let human reviewers read it; Groq's page says it does not retain inference data by default (its Services Agreement and DPA are unread). See `docs/audits/AI-PROVIDER-DATA-TERMS-2026-10-13.md`. A platform decision (options A to D there) is needed before the Privacy page is written; it is outside this plan's scope but blocks the Mock Interview privacy wording.
