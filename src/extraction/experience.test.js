@@ -114,6 +114,19 @@ describe('extractExperiences', () => {
     expect(leave.map(e => e.company.value)).toEqual(['Cedar Hospital', 'Birch Clinic']);
   });
 
+  it('reads "Title | Company | dates" and "Title | Company" with pipes', () => {
+    const [a] = extractExperiences('Senior Software Engineer II | Kite Analytics | 2021 – to date\n- Designed a streaming service');
+    expect([a.title.value, a.company.value, a.start.normalized_value, a.end.normalized_value]).toEqual(['Senior Software Engineer II', 'Kite Analytics', '2021', 'present']);
+    const [b] = extractExperiences('Customer Success Manager | Tidewater Software\nSept 2020 – Present\n- Owned 35 accounts');
+    expect([b.title.value, b.company.value]).toEqual(['Customer Success Manager', 'Tidewater Software']);
+  });
+
+  it('after a pipe with neither side title-shaped nothing is guessed', () => {
+    const [e] = extractExperiences('Lumen Studio | Quokka Handler\nSep 2018 – Dec 2020\n- Did the work');
+    expect(e.title.value).toBeNull();
+    expect(e.company.value).toBeNull();
+  });
+
   it('is conservative when neither header line looks like a title or a company: both left null', () => {
     const [e] = extractExperiences('Something Vague\tJan 2021 - Mar 2024\nAlso Vague\n• A bullet');
     // Neither "Something Vague" nor "Also Vague" contains a title keyword or an all-caps/company shape

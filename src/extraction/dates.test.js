@@ -79,6 +79,26 @@ describe('findDateRangeInLine', () => {
 });
 
 describe('Vietnamese date forms', () => {
+  it('reads "to date", "till now" and "until present" as an ongoing end', () => {
+    for (const t of ['2021 – to date', 'Jan 2020 to date', '2019 till now', 'Mar 2018 - until present', 'Feb 2020 to present']) {
+      const r = parseDateRange(t);
+      expect(r.end.normalized_value, t).toBe('present');
+      expect(r.start.normalized_value, t).toMatch(/^(19|20)\d{2}(-\d{2})?$/);
+    }
+  });
+  it('reads a range written with the word "to" between two dates', () => {
+    const r = parseDateRange('Mar 2020 to Dec 2021');
+    expect([r.start.normalized_value, r.end.normalized_value]).toEqual(['2020-03', '2021-12']);
+  });
+  it('finds those ranges inside a line', () => {
+    expect(findDateRangeInLine('Senior Engineer | Kite Analytics | 2021 – to date').range.end.normalized_value).toBe('present');
+    expect(findDateRangeInLine('Analyst, Acme Jan 2020 to date').range.end.normalized_value).toBe('present');
+    expect(findDateRangeInLine('Analyst, Acme Mar 2020 to Dec 2021').range.end.normalized_value).toBe('2021-12');
+  });
+  it('does not read ordinary sentences with "to" as dates', () => {
+    expect(findDateRangeInLine('Moved from 2 teams to 3 teams and wanted to date nobody')).toBeNull();
+  });
+
   it('reads "Tháng 1/2021" and the present markers "nay", "đến nay", "hiện nay"', () => {
     expect(parseDate('Tháng 1/2021').normalized_value).toBe('2021-01');
     expect(parseDate('tháng 03/2020').normalized_value).toBe('2020-03');

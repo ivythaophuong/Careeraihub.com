@@ -54,8 +54,11 @@ const RANGE_SPLIT = /\s+[-–—]\s+|[–—]|\s+(?:to|until|till|through|thru)\
 
 // Parses "Jan 2020 - Mar 2024", "2021 – Present", a single date (end left empty, requiresInterpretation),
 // or nothing found. Returns { start: Fact, end: Fact }.
+// "2021 - to date", "Jan 2020 to date", "2019 till now": an ongoing end written as words. "Mar 2020 to Dec 2021": the word "to" as the separator.
+const ONGOING_WORDS = /\s*[-–—]?\s*\b(?:to|till|until)\s+(?:date|now|present)\b/i;
+const WORD_RANGE = /(?<=\d)\s+(?:to|until|till)\s+(?=(?:[A-Za-z]{3,9}\.?\s+)?\d{4}\b)/i;
 export function parseDateRange(text, source = 'dates') {
-  const t = String(text || '').trim();
+  const t = String(text || '').trim().replace(ONGOING_WORDS, ' – present').replace(WORD_RANGE, ' – ');
   if (!t) return { start: empty(`${source}.start`), end: empty(`${source}.end`) };
   const parts = t.split(RANGE_SPLIT).map(s => s.trim()).filter(Boolean);
   if (parts.length >= 2) {
@@ -68,7 +71,9 @@ export function parseDateRange(text, source = 'dates') {
 // Finds the first date-range-shaped run in a line of text (e.g. a tab-separated trailing date on an
 // experience line) and returns { range: {start,end}, matchedText } or null if nothing looks like a date.
 const DATE_TOKEN_SRC = `${MONTH_YEAR_RE.source}|(?:(?:tháng|thang)\\s*)?(?:\\d{1,2}[/.-])?\\d{4}|present|current|now|hiện tại|hiện nay|đến nay|nay`;
-const SCAN_RE = new RegExp(`((?:${DATE_TOKEN_SRC})\\s*(?:[-–—]|\\b(?:to|until|till|through|thru)\\b)\\s*(?:${DATE_TOKEN_SRC}))|((?<!\\d)(?:19|20)\\d{2}(?!\\d))`, 'iu');
+const ONGOING_SRC = '(?:to|till|until)\\s+(?:date|now|present)\\b';
+// Either a dash or a word ("to", "until", "till", "through", "thru") separates two dates; an ongoing end may also be words ("to date", "till now").
+const SCAN_RE = new RegExp(`((?:${DATE_TOKEN_SRC})\\s*(?:[-–—]|\\b(?:to|until|till|through|thru)\\b)\\s*(?:${ONGOING_SRC}|${DATE_TOKEN_SRC}))|((?:${DATE_TOKEN_SRC})\\s+${ONGOING_SRC})|((?<!\\d)(?:19|20)\\d{2}(?!\\d))`, 'iu');
 export function findDateRangeInLine(line, source = 'dates') {
   const m = SCAN_RE.exec(String(line || ''));
   if (!m) return null;

@@ -31,10 +31,10 @@ function classifyHeaderLines(lines, source) {
   if (lines.length === 0) return { title: emptyFact(`${source}.title`), company: emptyFact(`${source}.company`) };
   if (lines.length === 1) {
     // Single header line: "Title, Company", "Title at Company", "Title — Company" or "Company — Title".
-    const m = lines[0].match(/^(.+?)(?:\s*,\s*|\s+at\s+|\s*[—–]\s*|\s+-\s+)(.+)$/i);
+    const m = lines[0].match(/^(.+?)(?:\s*,\s*|\s+at\s+|\s*[—–|]\s*|\s+-\s+)(.+)$/i);
     if (m) {
       const sep = lines[0].slice(m[1].length, lines[0].length - m[2].length);
-      const isAt = /^\s+at\s+$/i.test(sep), isDash = /[—–-]/.test(sep);
+      const isAt = /^\s+at\s+$/i.test(sep), isDash = /[—–|-]/.test(sep);
       const t1 = isTitleShaped(m[1]), t2 = isTitleShaped(m[2]);
       if (t1) return { title: fact(m[1].trim(), `${source}.title`, lines[0], 0.7), company: fact(m[2].trim(), `${source}.company`, lines[0], 0.6) };
       if (t2 && !isAt) return { title: fact(m[2].trim(), `${source}.title`, lines[0], 0.65), company: fact(m[1].trim(), `${source}.company`, lines[0], 0.6) };
@@ -117,7 +117,7 @@ export function extractExperiences(sectionText, source = 'experiences') {
     // export): there, a glyph-based search finds nothing and must not be allowed to swallow the whole
     // entry as "header". In that case at most ONE line right after the date counts as a header
     // continuation (e.g. a company name on its own line); everything else is content.
-    const dateLineClean = lines[i].replace(dateByLine[i].matchedText, '').replace(/\t/g, ' ').replace(/\(\s*\)/g, '').trim();
+    const dateLineClean = lines[i].replace(dateByLine[i].matchedText, '').replace(/\t/g, ' ').replace(/\(\s*\)/g, '').replace(/^[\s|,;:–—-]+|[\s|,;:–—-]+$/g, '').trim();
     let bulletsStart = -1;
     for (let j = i + 1; j < nextBoundary; j++) if (isBulletLine(lines[j])) { bulletsStart = j; break; }
     if (bulletsStart === -1) {
