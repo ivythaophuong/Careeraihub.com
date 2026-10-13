@@ -125,6 +125,18 @@ Failures in B, by cause (each a separate, specific fix; none applied yet):
 
 Reading: the extractor is accurate on conventional layouts and honest when it cannot read one (nulls with `requiresInterpretation`), but **8 of 194 fields (4%) were wrong with high confidence on layouts it had not seen**. That is the number that matters before any extraction moves from a model to code: a wrong value with high confidence reaches users unflagged. Corpus B is now a regression set; a third, fresh corpus is needed to measure again after fixing these. Still UNKNOWN: how a model does on the same 24 resumes.
 
+### 6.3 Corpus C, written before the fixes for B; baseline recorded, individual failures deliberately not read (MEASURED 2026-10-13)
+
+Corpus C (`tests/fixtures/extraction-accuracy/casesC.js`) has 12 more synthetic resumes. It includes forms of the failure types found in B (an `@` separator with parenthesised dates, a pipe table, a sabbatical between jobs, a one-digit phone group, `BE`/`ME` degrees, millisecond and second figures, a two-column sidebar) and others (ISO and dotted dates, "The ..." and ALL CAPS companies, an ampersand in a title, Projects and Volunteering sections, an entry-level resume, numbered bullets). Only the summary counts were looked at; the failing fields were not read, so that the fixes made for B are not fitted to C.
+
+| Corpus | Fields | Correct | Not found | Wrong | Wrong with confidence 0.7 or higher |
+|---|---|---|---|---|---|
+| A (tuned on) | 197 | 185 (94%) | 10 | 2 | 0 |
+| B (found the bugs listed in 6.2) | 194 | 163 (84%) | 14 | 17 | 8 (4%) |
+| **C (baseline before fixing B)** | 170 | **139 (82%)** | 14 | 17 | **10 (6%)** |
+
+C agrees with B (82% against 84%, 6% against 4% confidently wrong), which supports reading B's number, not A's, as the realistic one for layouts the extractor has not been tuned to. After the fixes from 6.2, re-run C and report its change; if anyone then reads and tunes on C's individual failures, C becomes a regression set and a corpus D must be written.
+
 ## 7. How it would be built (PROPOSED, small, each step reviewed)
 
 1. Move extraction to code behind a flag, shadow mode first: run both, log field differences (counts only), show the user the old result until the owner approves the switch.
