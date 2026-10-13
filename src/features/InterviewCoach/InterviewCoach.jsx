@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useScrollTabs } from '../../hooks/useScrollTabs.js';
 import HiringManagerSim from '../HiringManagerSim/HiringManagerSim';
 import STARBuilder from '../STARBuilder/STARBuilder';
 import WeaknessRadar from '../WeaknessRadar/WeaknessRadar';
@@ -116,11 +117,12 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function InterviewCoach(props) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const tabsRef = useScrollTabs(activeTab);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* Tab strip */}
-      <div style={tabBarStyle}>
+      <div ref={tabsRef} className="scroll-tabs" style={tabBarStyle}>
         <span style={{
           fontSize: 9, fontWeight: 800, color: 'var(--lp-teal)',
           textTransform: 'uppercase', letterSpacing: '.12em',
@@ -132,6 +134,7 @@ export default function InterviewCoach(props) {
         {TABS.map(tab => (
           <button
             key={tab.id}
+            aria-current={activeTab === tab.id ? 'page' : undefined}
             style={tabBtnStyle(activeTab === tab.id)}
             onClick={() => setActiveTab(tab.id)}
           >

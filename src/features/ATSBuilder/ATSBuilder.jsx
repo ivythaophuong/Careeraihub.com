@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useScrollTabs } from '../../hooks/useScrollTabs.js';
 import mammoth from 'mammoth';
 import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
@@ -42,8 +43,9 @@ const RB_TABS = [
 ];
 
 function ResumeBuilderTabBar({ active, onTab }) {
+  const rowRef = useScrollTabs(active);
   return (
-    <div style={{
+    <div ref={rowRef} className="scroll-tabs" style={{
       display: 'flex', alignItems: 'center', gap: 4,
       padding: '0 24px', borderBottom: '1px solid var(--lp-bdr)',
       background: 'var(--lp-bg3)', overflowX: 'auto', scrollbarWidth: 'none',
@@ -51,6 +53,7 @@ function ResumeBuilderTabBar({ active, onTab }) {
       {RB_TABS.map(t => (
         <button
           key={t.id}
+          aria-current={active === t.id ? 'page' : undefined}
           onClick={() => onTab(t.id)}
           style={{
             padding: '12px 16px', fontSize: 13, fontWeight: active === t.id ? 700 : 500,

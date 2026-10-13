@@ -57,7 +57,7 @@ export default function TemplateGallery({ data, templates = [], selectedId, onSe
         {onBack && <button type="button" onClick={onBack} style={btn(false)}>Back to Builder</button>}
       </div>
       <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text3)' }}>
-        The page on the right is your own resume. Your content stays the same; only the layout changes. You can change it again at any time.
+        The large page is your own resume. Your content stays the same; only the layout changes. You can change it again at any time.
       </p>
       {sample && <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#FFB84D' }}>The preview uses a sample resume. Upload yours to see your own.</p>}
 

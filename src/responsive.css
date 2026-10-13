@@ -27,12 +27,15 @@ input, select, textarea { max-width: 100%; }
 
 /* ── ≤768px — tablet / large phone ──────────────────────────────────────── */
 @media (max-width: 768px) {
+  /* a box with width: 100% and padding must not be wider than its card: its padding and border go inside the width */
+  input, select, textarea { box-sizing: border-box; }
   /* inline grids: 3+ columns collapse to 2, 2-column forms collapse to 1 */
   [style*="repeat(4,"], [style*="repeat(4, "],
   [style*="repeat(5,"], [style*="repeat(5, "],
   [style*="1fr 1fr 1fr"] { grid-template-columns: repeat(2, 1fr) !important; }
   [style*="grid-template-columns: 1fr 1fr;"],
   [style*="grid-template-columns: 1fr 2fr"],
+  [style*="grid-template-columns: 1.4fr 1fr"],
   [style*="grid-template-columns: 1.5fr 1fr"] { grid-template-columns: 1fr !important; }
 }
 
@@ -46,4 +49,10 @@ input, select, textarea { max-width: 100%; }
 @media (hover: none) and (pointer: coarse) {
   button, .mod-tab, .lp-nl { min-height: 40px; }
   input, select, textarea { font-size: 16px; }
+}
+
+/* A row of tabs wider than the screen: a fade at the edge says there is more (useScrollTabs sets data-more) */
+.scroll-tabs[data-more="true"] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
 }
