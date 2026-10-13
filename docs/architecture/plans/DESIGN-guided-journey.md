@@ -19,14 +19,15 @@ So the journey is mostly there. What is missing is that nothing says "you are at
 
 ## 3. The proposal [PROPOSAL]
 ### 3.1 A progress strip
-A strip of four named stages above the tab bar, showing the stage the user is in and the ones done, each clickable to go back. The stage is **decided by code from what the user has actually done**, never by what the AI says:
-| Stage | Is current when | Counts as done when |
-|---|---|---|
-| 1 Add your resume | no resume is loaded | a profile is loaded (parsed, pasted or from memory) |
-| 2 See what to improve | a profile is loaded and the user has not opened an issue | the user opened the first issue, or the profile has no issues |
-| 3 Improve | the user is on the Fix page or the step form | every issue was acted on or left (this is the page's own count: "applied", "open", "changed by you"; it never says "all fixed") |
-| 4 Choose a layout and download | the user is on the Templates tab | a version was saved or a file was downloaded |
-A stage can be reopened at any time. The strip changes nothing about the tabs: the tabs stay, so an experienced user is not slowed down.
+A strip of four named stages above the tab bar. It shows **where the user is** and **which stages they have already been to in this visit**; each stage can be clicked to go there. It is decided by code from where the user is, never by what the AI says, and it never says a stage is "done" or "complete": that would be a claim about the resume that the product cannot make.
+| Stage | The user is in it when |
+|---|---|
+| 1 Add your resume | on the "Your resume" tab and no profile is loaded |
+| 2 See what to improve | on the "Your resume" tab and a profile is loaded |
+| 3 Improve | on the Fix page, or on the Builder (edit) tab |
+| 4 Choose a layout and download | on the Templates tab or the Version History tab |
+A stage the user has been in during this visit is shown as "visited" (a mark that does not depend on colour alone), the one they are in as "you are here", the others plainly. The strip changes nothing about the tabs: the tabs stay, so an experienced user is not slowed down.
+**Why not "done":** the product does not keep whether an issue was left aside (only what was saved), nor whether a file was downloaded [VERIFIED: the records hold only saved changes; no download event is stored]. So "done" could not be computed, and a guess is not allowed. "Visited" is exactly what the page knows.
 
 ### 3.2 One main button per screen
 Each stage has exactly one pink button that moves the user to the next stage, with the same wording pattern "Next: ...":
@@ -53,7 +54,7 @@ The words banned by the product rules stay banned (auto-fix, real-time AI, apply
 Scoring, the AI call, what is stored, the exports, the Fix page cards, and the dark theme and tokens. The strip and the labels are interface only.
 
 ## 4. Slices [PROPOSAL], one small pull request each, tests first
-1. **Stage logic, no screen:** a pure function from the real state (profile loaded? issues opened? records? versions saved?) to the current stage and the done stages. Tests: each row of the table in 3.1, an empty state, a profile with no issues, a state restored from a saved draft.
+1. **Stage logic, no screen:** a pure function from where the user is (the tab, whether the Fix page is open, whether a profile is loaded) to the stage they are in, and one that adds a stage to the set of visited ones. Tests: each row of the table in 3.1, an empty state, bad input, and that nothing ever returns "done".
 2. **The strip:** the component and its place above the tab bar; keyboard reachable, a mark that does not depend on colour alone, a narrow-screen layout (checked at 390 px). Tests: the right stage is marked, a click goes back, the screen reader name says "step 2 of 4".
 3. **One main button per screen:** the wording in 3.2 and the single pink button. Tests: one primary button per stage, and the owner's banned words are absent.
 4. **The labels:** 3.3, with every existing test that reads a label updated in the same PR.
@@ -73,7 +74,7 @@ Nothing in the product measures this today. A small observation test is the chea
 - The saved layout choice and the Fix page view choice are kept as they are.
 
 ## 7. Decisions for the product owner
-1. Accept the four stages and the rule that the stage is decided by code from what the user did (3.1).
+1. Accept the four stages, and the rule that the stage is decided by code from where the user is and that the strip says "you are here" and "visited" but never "done" (3.1).
 2. Accept "one main button per screen" and its wording (3.2).
 3. Accept, change or reject each proposed label in 3.3 (a short answer per row is enough).
 4. Whether to run the 3-person test (section 5) and who the three people are; it can be done before slice 2 to set the baseline.
