@@ -80,6 +80,29 @@ Gemini's price doubles on 2027-01-01. Per-call figures are small; the exposure i
 4. Writing: blind read by the owner, Haiku vs Sonnet vs Groq, on 10 synthetic requests.
 Then, and only then, a route table (section 7) and the changes to code.
 
+### 6.1 Result of step 1, code side only (MEASURED 2026-10-13, `tests/audit/extractionAccuracy.test.js`)
+
+12 synthetic resumes written by one author (no real data), 197 scored fields, the code extractor only; **no model was run**, so there is no comparison with a model yet.
+
+| Result | Fields | Share |
+|---|---|---|
+| Correct | 167 | 85% |
+| Not found (null, and flagged as needing interpretation) | 22 | 11% |
+| Wrong value | 8 | 4% |
+| of which wrong with confidence 0.7 or higher | 2 | 1% |
+
+By field: email 12/12; start and end dates 18/19; skills 42/45; job titles 15/19; companies 14/19; education institution and year 7/12; phone 2/3. Honesty rule held in all 12 cases (a missing field was always reported as null with `requiresInterpretation` or confidence 0; the test asserts it).
+
+What failed, by cause (so the gaps are specific, not a verdict):
+1. **Education not found at all in 4 of 12 cases**: `B.Tech`, `BFA`, `BBA` degree lines (c04, c09, c11, c12) while `BSc` and `BA` lines were found. Likely a degree vocabulary gap (INFERRED, not yet traced in the code).
+2. **Company-first layout with a dash** (`Company — Title`, c02): title and company swapped or merged, one of them with confidence 0.7.
+3. **Two roles under one employer heading** (c03): company and one title not found.
+4. **Phone `+44 7700 900123` came back as `+4477009001`** (c02) with confidence 0.9: a truncated number, a real bug candidate.
+5. **Structure lost into one paragraph** (c10): almost everything null, honestly. This is the case where a model (Tier 1 or 3) is genuinely needed or the text should be re-flowed.
+6. **Metrics**: `2M rows per day` was not counted (c04); one resume produced 2 experience entries instead of 1 (c09).
+
+Reading: on conventional single-column layouts the code is already accurate for contact, dates and skills, and when it fails it mostly says so. It is **not yet** safe to replace the model for education, company/title in unusual layouts, or phone numbers; those are specific fixes. The 4% wrong values, 1% with high confidence, are the ones that would reach users unflagged, so they are the first thing to fix, not an acceptable error rate (no threshold has been approved). Limits: 12 cases, one author, expectations written by me (a few may be stricter than the extractor's design), English only, no real PDFs. The same cases have not been run through a model, so "better or worse than the model" is still UNKNOWN.
+
 ## 7. How it would be built (PROPOSED, small, each step reviewed)
 
 1. Move extraction to code behind a flag, shadow mode first: run both, log field differences (counts only), show the user the old result until the owner approves the switch.
