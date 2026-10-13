@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, closestBullets, undoRecord } from './fixPage.js';
 import { addSkill, removeSkill } from './skillsFix.js';
 import { setDate } from './datesFix.js';
+import { setField } from './fieldsFix.js';
 import { undoApply } from './applyIssue.js';
 
 const base = () => ({
@@ -294,5 +295,18 @@ describe('a Dates change in the same records', () => {
     const r = setDate(withIds(), { kind: 'job', id: 10 }, '2020 - 2022');
     expect(undoRecord(r.data, r.record).experience[0].period).toBe('2021 - 2023');
     expect(undoRecord(setDate(r.data, { kind: 'job', id: 10 }, '2019').data, r.record)).toBeNull();
+  });
+});
+
+describe('a contact or education change in the same records', () => {
+  it('issueStatus reads a fields record from the value as it is now', () => {
+    const r = setField(base(), { kind: 'contact', field: 'phone' }, '+65 9000 0000');
+    expect(issueStatus(r.data, issue({ before: '' }), r.record)).toBe('applied');
+    expect(issueStatus(setField(r.data, { kind: 'contact', field: 'phone' }, '1').data, issue({ before: '' }), r.record)).toBe('applied_edited');
+  });
+  it('undoRecord takes a fields change back, and gives null when it was edited afterwards', () => {
+    const r = setField(base(), { kind: 'contact', field: 'phone' }, '+65 9000 0000');
+    expect(undoRecord(r.data, r.record).contact.phone).toBe(base().contact.phone);
+    expect(undoRecord(setField(r.data, { kind: 'contact', field: 'phone' }, '1').data, r.record)).toBeNull();
   });
 });

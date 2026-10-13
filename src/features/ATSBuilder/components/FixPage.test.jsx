@@ -29,7 +29,7 @@ const makeData = () => ({
 const ISSUES = [
   { severity: 'high', title: 'No metrics in bullets', description: 'Add numbers to your bullets.', before: 'Handled monthly reporting', after: 'Cut monthly reporting time by 30%', builderStep: 2, module: null },
   { severity: 'medium', title: 'Plain dashboard bullet', description: 'Say what the dashboard changed.', before: 'Built a dashboard', after: 'Built a dashboard that the managers used each week', builderStep: 2, module: null },
-  { severity: 'medium', title: 'Contact line is thin', description: 'Add a LinkedIn link.', before: '', after: '', builderStep: 1, module: null },
+  { severity: 'medium', title: 'Needs a closer look', description: 'Please review.', before: '', after: '', builderStep: 1, module: null },
 ];
 const TEMPLATE = { id: TEMPLATES[0].id, label: TEMPLATES[0].label, component: TEMPLATES[0].component };
 
@@ -494,7 +494,7 @@ describe('an issue that was already improved can be opened again', () => {
 
 describe('a bullet issue whose sentence cannot be found: the user picks the sentence', () => {
   const PICK = { severity: 'high', title: 'No quantifiable impact for many bullets', description: 'Several bullet points describe tasks without results.', before: 'Handled the monthly reporting for the whole sales team and finance', after: 'Cut monthly reporting time by 30% for the sales team', builderStep: 2, module: null };
-  const CONTACT = { severity: 'medium', title: 'No LinkedIn link', description: 'Add a profile link.', before: 'linkedin.com/in/someone-else', after: 'linkedin.com/in/jordan-lee', builderStep: 1, module: null };
+  const CONTACT = { severity: 'medium', title: 'Needs a closer look', description: 'Please review.', before: 'something that is not in the resume', after: 'x', builderStep: 1, module: null };
   const pickSetup = (over = {}) => setup({ issues: [PICK], ...over });
 
   it('is on the page, and says the exact sentence was not found and asks the user to click one', () => {
@@ -579,7 +579,7 @@ describe('a bullet issue whose sentence cannot be found: the user picks the sent
     expect(at(left(), 'b:0:0').hasAttribute('data-fix-pickable')).toBe(true);
   });
 
-  it('an issue that is not about bullets, skills or dates (contact) is not on this page and is counted as another issue', () => {
+  it('an issue that is not about bullets, skills, dates, contact or education is not on this page and is counted as another issue', () => {
     setup({ issues: [CONTACT] });
     expect(screen.getByText(/1 other issue/i)).toBeTruthy();
   });
@@ -1061,6 +1061,142 @@ describe('the Dates card', () => {
     cleanup();
     setup({ issues: [{ ...DATES_ISSUE, title: 'Date wording', before: 'Handled monthly reporting' }] });
     expect(screen.queryByRole('textbox', { name: /Dates for/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /Improve this sentence/i })).toBeTruthy();
+  });
+});
+
+
+// ── Contact and education: the same page, the card for the contact details and for the school and the degree ──
+describe('the contact and education card', () => {
+  const CONTACT_ISSUE = { severity: 'medium', title: 'Phone number missing', description: 'Add a phone number.', before: '', after: '+65 9123 4567', builderStep: 1, module: null };
+  const EDU_ISSUE = { severity: 'medium', title: 'Degree is not specified', description: 'Say which degree.', before: '', after: 'BSc Economics', builderStep: 3, module: null };
+  const fieldsKey = (issue, i = 0) => `${i}:${issue.title}:${issue.before}`;
+  const box = (name) => screen.getByRole('textbox', { name });
+  const type = (name, value) => fireEvent.change(box(name), { target: { value } });
+  const withEdu = () => { const d = makeData(); d.education = [{ id: 7, institution: 'Example University', degree: 'BSc Business', year: '2019' }, { id: 8, institution: 'City College', degree: '', year: '2015' }]; return d; };
+
+  it('a contact issue is on the page with the five contact boxes, holding the details as they are, and no school or degree boxes', () => {
+    setup({ data: withEdu(), issues: [CONTACT_ISSUE] });
+    expect(screen.getByText(/Issue 1 of 1/)).toBeTruthy();
+    expect(box('Name').value).toBe('Jordan Lee');
+    expect(box('Email').value).toBe('jordan.lee@example.com');
+    expect(box('Phone').value).toBe('');
+    expect(box('LinkedIn').value).toBe('');
+    expect(box('Location').value).toBe('Singapore');
+    expect(screen.queryByRole('textbox', { name: /^School/ })).toBeNull();
+  });
+
+  it('an education issue is on the page with a school box and a degree box for each entry, and no contact boxes', () => {
+    setup({ data: withEdu(), issues: [EDU_ISSUE] });
+    expect(box('School (Example University)').value).toBe('Example University');
+    expect(box('Degree (Example University)').value).toBe('BSc Business');
+    expect(box('Degree (City College)').value).toBe('');
+    expect(screen.queryByRole('textbox', { name: 'Email' })).toBeNull();
+  });
+
+  it('shows no AI text: what the AI wrote for the issue is not on the card', () => {
+    setup({ data: withEdu(), issues: [CONTACT_ISSUE] });
+    expect(screen.queryByText(/9123 4567/)).toBeNull();
+    expect(screen.queryByText(/AI draft/i)).toBeNull();
+  });
+
+  it('says what code can see: an empty value, an email that is not one, too few digits, a LinkedIn address that is not one', () => {
+    const d = makeData(); d.contact.email = 'jordan at example'; d.contact.phone = '8123'; d.contact.linkedin = 'my profile';
+    setup({ data: d, issues: [CONTACT_ISSUE] });
+    expect(screen.getByText(/does not look like an email/i)).toBeTruthy();
+    expect(screen.getByText(/usually has 7 to 15 digits/i)).toBeTruthy();
+    expect(screen.getByText(/not a LinkedIn address/i)).toBeTruthy();
+    cleanup();
+    setup({ issues: [CONTACT_ISSUE] });
+    expect(screen.getAllByText(/is empty/i).length).toBeGreaterThanOrEqual(2);   // phone and LinkedIn
+  });
+
+  it('a typed value shows on the new resume at once and is not saved until Save & next', () => {
+    const { props } = setup({ issues: [CONTACT_ISSUE] });
+    type('Email', 'jordan.new@example.com');
+    expect(right().textContent).toMatch(/jordan\.new@example\.com/);
+    expect(left().textContent).toMatch(/jordan\.lee@example\.com/);
+    expect(props.onChange).not.toHaveBeenCalled();
+    expect(screen.getByText(/Not saved yet/i)).toBeTruthy();
+  });
+
+  it('Save & next saves exactly the changed fields as one record of the kind fields, every other field as it was', () => {
+    const { props } = setup({ issues: [CONTACT_ISSUE] });
+    type('Phone', '+65 9000 0000'); type('Location', 'Hanoi');
+    fireEvent.click(btn(/Save & next/i));
+    expect(props.onChange).toHaveBeenCalledTimes(1);
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(key).toBe(fieldsKey(CONTACT_ISSUE));
+    expect(data.contact).toEqual({ ...makeData().contact, phone: '+65 9000 0000', location: 'Hanoi' });
+    expect(data.summary).toBe(makeData().summary);
+    expect(entry.record).toEqual({ kind: 'fields', changes: [
+      { ref: { kind: 'contact', field: 'phone' }, before: '', after: '+65 9000 0000' },
+      { ref: { kind: 'contact', field: 'location' }, before: 'Singapore', after: 'Hanoi' },
+    ] });
+  });
+
+  it('an education change is saved by the id of the entry', () => {
+    const { props } = setup({ data: withEdu(), issues: [EDU_ISSUE] });
+    type('Degree (City College)', 'Diploma in Business');
+    fireEvent.click(btn(/Save & next/i));
+    const [data, , entry] = props.onChange.mock.calls[0];
+    expect(data.education[1].degree).toBe('Diploma in Business');
+    expect(data.education[0]).toEqual(withEdu().education[0]);
+    expect(entry.record).toEqual({ kind: 'fields', changes: [{ ref: { kind: 'edu', id: 8, field: 'degree' }, before: '', after: 'Diploma in Business' }] });
+  });
+
+  it('saving with no change says so, and so does a value left empty: nothing is saved', () => {
+    const { props } = setup({ issues: [CONTACT_ISSUE] });
+    fireEvent.click(btn(/Save & next/i));
+    expect(screen.getByRole('status').textContent).toMatch(/Change something first/i);
+    type('Email', '  ');
+    fireEvent.click(btn(/Save & next/i));
+    expect(screen.getByRole('status').textContent).toMatch(/cannot be left empty/i);
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+
+  it('leaving with an unsaved change asks first', () => {
+    const { props } = setup({ issues: [CONTACT_ISSUE] });
+    type('Email', 'a@b.co');
+    fireEvent.click(btn(/Back to list/i));
+    expect(screen.getByText(/Leave without saving your change/i)).toBeTruthy();
+    expect(props.onBackToList).not.toHaveBeenCalled();
+  });
+
+  it('coming back to a saved change: Undo this change restores the value and removes the record; one edited afterwards cannot be undone', () => {
+    const d = makeData(); d.contact.phone = '+65 9000 0000';
+    const record = { kind: 'fields', changes: [{ ref: { kind: 'contact', field: 'phone' }, before: '', after: '+65 9000 0000' }] };
+    const records = { [fieldsKey(CONTACT_ISSUE)]: { record, placeholders: false, warnings: [] } };
+    const { props } = setup({ data: d, issues: [CONTACT_ISSUE], records, startKey: fieldsKey(CONTACT_ISSUE) });
+    expect(screen.getByText(/Already improved/i)).toBeTruthy();
+    fireEvent.click(btn(/Undo this change/i));
+    const [data, key, entry] = props.onChange.mock.calls[0];
+    expect(data.contact.phone).toBe('');
+    expect(key).toBe(fieldsKey(CONTACT_ISSUE));
+    expect(entry).toBeNull();
+    cleanup();
+    const e = makeData(); e.contact.phone = '12345678';
+    setup({ data: e, issues: [CONTACT_ISSUE], records, startKey: fieldsKey(CONTACT_ISSUE) });
+    expect(screen.getByText(/You changed this after applying it/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Undo this change/i })).toBeNull();
+  });
+
+  it('two education entries with the same id cannot be edited here and say so', () => {
+    const d = withEdu(); d.education[1].id = 7;
+    setup({ data: d, issues: [EDU_ISSUE] });
+    expect(box('Degree (Example University)').disabled).toBe(true);
+    expect(screen.getAllByText(/share an id/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('points to the Builder for anything this card does not edit', () => {
+    const { props } = setup({ issues: [CONTACT_ISSUE] });
+    fireEvent.click(screen.getByRole('button', { name: /Open the Builder/i }));
+    expect(props.onOpenBuilder).toHaveBeenCalled();
+  });
+
+  it('a quoted sentence of the resume keeps an issue a sentence issue', () => {
+    setup({ issues: [{ ...CONTACT_ISSUE, title: 'Email wording', before: 'Handled monthly reporting' }] });
+    expect(screen.queryByRole('textbox', { name: 'Email' })).toBeNull();
     expect(screen.getByRole('button', { name: /Improve this sentence/i })).toBeTruthy();
   });
 });

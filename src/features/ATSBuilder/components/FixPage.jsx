@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { isBulletIssue, isSkillsIssue, isDatesIssue, draftFor } from '../issueStep.js';
+import { isBulletIssue, isSkillsIssue, isDatesIssue, fieldsIssueKind, draftFor } from '../issueStep.js';
+import { listContactFields, listEducationFields, fieldFindings, setField, mergeFieldRecords } from '../fieldsFix.js';
 import { listDateEntries, dateFindings, setDate, mergeDateRecords } from '../datesFix.js';
 import { addSkill, removeSkill, mergeSkillRecords, skillList, skillsFindings } from '../skillsFix.js';
 import { closestBullets, fixTargets, suggestionFor, saveFix, issueStatus, nextUnresolved, firstUnresolved, summaryCounts, issueKey, fieldText, withFieldText, undoRecord } from '../fixPage.js';
@@ -149,16 +150,19 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
       const skills = !located && (records?.[issueKey(issue, i)]?.record?.kind === 'skills' || isSkillsIssue(issue, original));
       // The same for the dates of the jobs and of the education (isDatesIssue).
       const dates = !located && !skills && (records?.[issueKey(issue, i)]?.record?.kind === 'dates' || isDatesIssue(issue, original));
-      return { issue, i, key: issueKey(issue, i), skills, dates, pick: !located && !skills && !dates && !rec && hasBullets && isBulletIssue(issue) };
+      // And for the contact details or the education (fieldsIssueKind): 'contact', 'education' or null. A recorded change keeps its card.
+      const recFields = records?.[issueKey(issue, i)]?.record;
+      const fields = located || skills || dates ? null : (recFields?.kind === 'fields' ? (recFields.changes.some(c => c.ref.kind === 'edu') ? 'education' : 'contact') : fieldsIssueKind(issue, original));
+      return { issue, i, key: issueKey(issue, i), skills, dates, fields, pick: !located && !skills && !dates && !fields && !rec && hasBullets && isBulletIssue(issue) };
     })
-    .filter(it => records?.[it.key] || it.pick || it.skills || it.dates || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
+    .filter(it => records?.[it.key] || it.pick || it.skills || it.dates || it.fields || ['one', 'many'].includes(fixTargets(original, it.issue).kind)));
 
   // Where each issue's sentence is in the resume as it was when the page opened: this is what the left resume highlights.
   const [seed] = useState(() => {
     const out = [];
     list.forEach((it, itemPos) => {
       if (it.skills) { out.push({ key: 'skills', itemPos, at: { kind: 'skills' } }); return; }
-      if (it.dates) return;                                  // the dates have no mark on the resume yet
+      if (it.dates || it.fields) return;                     // the dates, the contact details and the education have no mark on the resume yet
       let ats = it.pick ? closestBullets(original, it.issue).map(c => c.at) : fixTargets(original, it.issue).places.map(p => p.at);   // for a pick issue: the nearest sentences
       if (!ats.length && records?.[it.key]?.record) ats = [records[it.key].record.at];   // improved and then edited: the place is known from the record
       ats.forEach(at => out.push({ key: markKeyOf(at), itemPos, at }));
@@ -167,7 +171,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   });
 
   // A pick issue nobody has acted on is open (it was never "changed by the user"); once it has a record it is read from the text like any other.
-  const statusesFor = (d, r) => list.map(it => ((it.pick || it.skills || it.dates) && !r[it.key]?.record ? 'open' : issueStatus(d, it.issue, r[it.key]?.record ?? null)));
+  const statusesFor = (d, r) => list.map(it => ((it.pick || it.skills || it.dates || it.fields) && !r[it.key]?.record ? 'open' : issueStatus(d, it.issue, r[it.key]?.record ?? null)));
 
   const startPos = () => {
     const statuses = statusesFor(data, records || {});
@@ -179,7 +183,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   // The place an issue points to when it is in exactly one place; for several places the user chooses.
   const placeFor = (d, pos, r = recs) => {
     if (pos === null) return null;
-    if (list[pos].skills || list[pos].dates) return null;                                    // the skills card has no one sentence to point at
+    if (list[pos].skills || list[pos].dates || list[pos].fields) return null;                                    // the skills card has no one sentence to point at
     if (r?.[list[pos].key]?.record) return r[list[pos].key].record.at;   // improved: the place is in the record
     const t = fixTargets(d, list[pos].issue);
     return t.kind === 'one' ? t.places[0].at : null;
@@ -228,7 +232,8 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   const isPick = !!current && current.pick && !recs[current.key]?.record;
   const isSkills = !!current && !!current.skills;
   const isDates = !!current && !!current.dates;
-  const targets = current && !improved ? (isPick ? { kind: 'pick', places: [] } : isSkills ? { kind: 'skills', places: [] } : isDates ? { kind: 'dates', places: [] } : fixTargets(work, current.issue)) : { kind: 'one', places: [] };
+  const isFields = !!current && !!current.fields;
+  const targets = current && !improved ? (isPick ? { kind: 'pick', places: [] } : isSkills ? { kind: 'skills', places: [] } : isDates ? { kind: 'dates', places: [] } : isFields ? { kind: 'fields', places: [] } : fixTargets(work, current.issue)) : { kind: 'one', places: [] };
   const example = isPick ? draftFor(current.issue, work) : null;   // what the AI wrote about the sentence it looked at: shown, never applied
   const at = chosenAt;
   const place = at && targets ? targets.places.find(p => JSON.stringify(p.at) === JSON.stringify(at)) : null;
@@ -251,12 +256,28 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     return { data: cur, record: rec, cleared };
   })();
   const datesDirty = isDates && !!dateStage && ((dateStage.record?.changes.length || 0) > 0 || dateStage.cleared.length > 0);
-  const dirty = skillsDirty || datesDirty || (!!at && text !== saved);
+  // Contact details and education (school and degree): the same, by setField
+  const fieldKey = (f) => (f.ref.kind === 'contact' ? `contact:${f.ref.field}` : `edu:${f.ref.id}:${f.ref.field}`);
+  const fieldItems = isFields ? (current.fields === 'contact' ? listContactFields(work) : listEducationFields(work)) : [];
+  const fieldStage = (() => {
+    if (!isFields) return null;
+    let cur = work; let rec = null; const cleared = [];
+    for (const f of fieldItems) {
+      const k = fieldKey(f);
+      if (!(k in drafts) || f.ambiguous) continue;
+      if (!String(drafts[k]).trim()) { if (String(f.text).trim()) cleared.push(f); continue; }
+      const r = setField(cur, f.ref, drafts[k]);
+      if (r.data) { cur = r.data; rec = mergeFieldRecords(rec, r.record); }
+    }
+    return { data: cur, record: rec, cleared };
+  })();
+  const fieldsDirty = isFields && !!fieldStage && ((fieldStage.record?.changes.length || 0) > 0 || fieldStage.cleared.length > 0);
+  const dirty = skillsDirty || datesDirty || fieldsDirty || (!!at && text !== saved);
   const suggestion = at && current ? suggestionFor(work, current.issue, at) : null;
   const draft = suggestion && !suggestion.error ? suggestion : null;
 
   const activeKey = isSkills ? 'skills' : at ? markKeyOf(at) : null;
-  const shown = isSkills ? staged : isDates ? dateStage.data : at && dirty ? withFieldText(work, at, text) : work;     // the new resume: what is saved, plus what is being typed
+  const shown = isSkills ? staged : isDates ? dateStage.data : isFields ? fieldStage.data : at && dirty ? withFieldText(work, at, text) : work;     // the new resume: what is saved, plus what is being typed
 
   // Marks on the left resume (as it was): the sentence being fixed, the other sentences that can be improved, and the ones already improved.
   const seen = new Set();
@@ -316,7 +337,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
   };
   const undo = () => {
     const back = undoRecord(work, recs[current.key].record);
-    if (!back) { setMsg(isSkills ? 'The skills were changed afterwards, so this cannot be undone automatically.' : isDates ? 'The dates were changed afterwards, so this cannot be undone automatically.' : 'That sentence was changed afterwards, so it cannot be undone automatically.'); return; }
+    if (!back) { setMsg(isSkills ? 'The skills were changed afterwards, so this cannot be undone automatically.' : isDates ? 'The dates were changed afterwards, so this cannot be undone automatically.' : isFields ? 'These details were changed afterwards, so this cannot be undone automatically.' : 'That sentence was changed afterwards, so it cannot be undone automatically.'); return; }
     const nextRecs = { ...recs }; delete nextRecs[current.key];
     setWork(back); setRecs(nextRecs);
     onChange?.(back, current.key, null);          // null: the record is removed
@@ -353,6 +374,17 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
     setWork(dateStage.data); setRecs(nextRecs);
     onChange?.(dateStage.data, current.key, entry);
     go(nextUnresolved(statusesFor(dateStage.data, nextRecs), pos), dateStage.data);
+  };
+  const saveFields = () => {
+    if (fieldStage.cleared.length) { setMsg('A value cannot be left empty here. Type it, or put back what was there.'); return; }
+    if (!fieldStage.record || !fieldStage.record.changes.length) { setMsg('Change something first, or leave it for now.'); return; }
+    const prev = recs[current.key]?.record;
+    const record = mergeFieldRecords(prev && undoRecord(work, prev) !== null ? prev : null, fieldStage.record);
+    const entry = { record, placeholders: false, warnings: [] };
+    const nextRecs = { ...recs, [current.key]: entry };
+    setWork(fieldStage.data); setRecs(nextRecs);
+    onChange?.(fieldStage.data, current.key, entry);
+    go(nextUnresolved(statusesFor(fieldStage.data, nextRecs), pos), fieldStage.data);
   };
   const choose = (p) => { setChosenAt(p.at); setText(fieldText(work, p.at)); setMsg(''); };
 
@@ -414,12 +446,12 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>
               {statuses[pos] === 'applied'
-                ? <><strong style={{ color: '#00E5A0' }}>Already improved.</strong> Your resume (left) shows the {isSkills ? 'skills' : isDates ? 'dates' : 'sentence'} as {isSkills || isDates ? 'they were' : 'it was'}; your new resume (right) shows {isSkills || isDates ? 'them' : 'it'} now.</>
-                : <>You changed this after applying it. Your resume (left) shows the {isSkills ? 'skills' : isDates ? 'dates' : 'sentence'} as {isSkills || isDates ? 'they were' : 'it was'}; your new resume (right) shows {isSkills || isDates ? 'them' : 'it'} now. It cannot be undone automatically.</>}
+                ? <><strong style={{ color: '#00E5A0' }}>Already improved.</strong> Your resume (left) shows the {isSkills ? 'skills' : isDates ? 'dates' : isFields ? 'details' : 'sentence'} as {isSkills || isDates || isFields ? 'they were' : 'it was'}; your new resume (right) shows {isSkills || isDates || isFields ? 'them' : 'it'} now.</>
+                : <>You changed this after applying it. Your resume (left) shows the {isSkills ? 'skills' : isDates ? 'dates' : isFields ? 'details' : 'sentence'} as {isSkills || isDates || isFields ? 'they were' : 'it was'}; your new resume (right) shows {isSkills || isDates || isFields ? 'them' : 'it'} now. It cannot be undone automatically.</>}
             </div>
             {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button type="button" style={btn(true)} onClick={() => setImproving(true)}>{isSkills || isDates ? 'Change again' : 'Improve again'}</button>
+              <button type="button" style={btn(true)} onClick={() => setImproving(true)}>{isSkills || isDates || isFields ? 'Change again' : 'Improve again'}</button>
               {statuses[pos] === 'applied' && <button type="button" style={btn(false)} onClick={undo}>Undo this change</button>}
               <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
             </div>
@@ -513,6 +545,44 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
               {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button type="button" style={btn(true)} onClick={saveDates}>Save &amp; next</button>
+                <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {isFields && (!improved || improving) && (() => {
+          const FINDING = { missing: (l) => `${l} is empty. Type the real one, or leave it.`, not_email: () => 'This does not look like an email address.', phone_digits: () => 'A phone number usually has 7 to 15 digits.', not_linkedin: () => 'This is not a LinkedIn address.' };
+          const contact = current.fields === 'contact';
+          let lastGroup = null;
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--lp-text3)' }}>{contact ? 'Your contact details' : 'Your education'}</div>
+              {fieldItems.length === 0 && <div style={{ fontSize: 12.5, color: '#FFB84D' }}>There is no education entry in your resume. Add one in the Builder.</div>}
+              {fieldItems.map(f => {
+                const k = fieldKey(f); const value = k in drafts ? drafts[k] : f.text;
+                const name = contact ? f.label : `${f.label} (${f.group})`;
+                const header = !contact && f.group !== lastGroup ? f.group : null; lastGroup = f.group;
+                return (
+                  <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {header && <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--lp-text)', marginTop: 4 }}>{header}</span>}
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--lp-text2)' }}>{f.label}</span>
+                    <input aria-label={name} value={value} disabled={f.ambiguous}
+                      onChange={ev => { const v = ev.target.value; setDrafts(d => ({ ...d, [k]: v })); setMsg(''); }}
+                      style={{ boxSizing: 'border-box', width: '100%', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text)', borderRadius: 8, padding: '8px 12px', fontSize: 14, fontFamily: 'var(--lp-ff)' }} />
+                    {f.ambiguous
+                      ? <span style={{ fontSize: 12, color: '#FFB84D' }}>Two entries share an id, so this one is edited in the Builder.</span>
+                      : fieldFindings({ ref: f.ref, text: value }).map(x => <span key={x} style={{ fontSize: 12, color: '#FFB84D' }}>{FINDING[x](f.label)}</span>)}
+                  </label>
+                );
+              })}
+              <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.5 }}>
+                Nothing is suggested here: type only what is true.{fieldsDirty ? ' Not saved yet.' : ''} Something else to change?{' '}
+                <button type="button" style={link} onClick={() => { if (fieldsDirty) setMsg('Save your change first, or leave it for now.'); else onOpenBuilder?.(); }}>Open the Builder</button>
+              </div>
+              {msg && <div role="status" style={{ fontSize: 12.5, color: '#FFB84D' }}>{msg}</div>}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" style={btn(true)} onClick={saveFields}>Save &amp; next</button>
                 <button type="button" style={btn(false)} onClick={leave}>Leave it for now</button>
               </div>
             </div>
