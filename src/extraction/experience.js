@@ -10,6 +10,8 @@ const emptyFact = (source) => ({ value: null, normalized_value: null, source, ev
 const fact = (value, source, evidence, confidence, method = 'rule') =>
   ({ value, normalized_value: null, source, evidence, confidence, extraction_method: method, requiresInterpretation: false });
 
+// Periods that are on a resume but are not employment.
+const NOT_A_JOB = /^(?:career (?:break|gap)|sabbatical|gap year|time off|(?:maternity|paternity|parental|family|medical|study) leave|leave of absence|break from work)\b/i;
 const BULLET_RE = /^[•\-*·►▪○●◦‣⁃§]\s*/;
 const isBulletLine = (line) => BULLET_RE.test(line) || /^\t/.test(line) === false && /^\s*[•\-*·►▪○●◦‣⁃§]/.test(line);
 
@@ -124,7 +126,9 @@ export function extractExperiences(sectionText, source = 'experiences') {
       // not ending in sentence punctuation, and title- or company-shaped. Otherwise it is content like
       // any other, so a plain achievement sentence is never mistaken for a company name.
       const next = i + 1 < nextBoundary ? lines[i + 1] : null;
-      const looksHeaderish = next && next.length <= 50 && !/[.!?]$/.test(next.trim()) && (isTitleShaped(next) || looksLikeCompany(next));
+      // A line that sits directly before the NEXT entry's date line is that entry's header, not a continuation of this one.
+      const beforeNextDate = i + 2 === nextBoundary && nextBoundary < lines.length;
+      const looksHeaderish = next && !beforeNextDate && next.length <= 50 && !/[.!?]$/.test(next.trim()) && (isTitleShaped(next) || looksLikeCompany(next));
       bulletsStart = looksHeaderish ? i + 2 : i + 1;
     }
 
@@ -168,6 +172,10 @@ export function extractExperiences(sectionText, source = 'experiences') {
       bullets.push(fact(text, `${entrySource}.bullets[${bullets.length}]`, lines[j], 0.8, 'structure'));
       lastMarked = marked;
     }
+
+    // A career break, sabbatical or leave is a period without an employer, not a job: leaving it out keeps the gap visible to the
+    // chronology checks instead of hiding it as work history.
+    if (NOT_A_JOB.test(String(title.value || '').trim())) continue;
 
     entries.push({
       title, company,

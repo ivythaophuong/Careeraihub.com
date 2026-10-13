@@ -93,6 +93,27 @@ describe('extractExperiences', () => {
     expect(es.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('a line right before the next date belongs to the next entry, not to a bullet-less entry above it', () => {
+    const es = extractExperiences('Acme Ltd, Analyst\nJan 2021 - Dec 2021\nSenior Developer, Pylon Systems\nMar 2016 - Dec 2019\n- Shipped releases');
+    expect(es).toHaveLength(2);
+    expect(es[0].title.value).toBe('Analyst');
+    expect(es[0].company.value).toBe('Acme Ltd');
+    expect(es[1].title.value).toBe('Senior Developer');
+    expect(es[1].company.value).toBe('Pylon Systems');
+  });
+
+  it('keeps a career break, sabbatical or leave out of the jobs, and does not let it change the next job', () => {
+    const es = extractExperiences('Finance Manager, Oakridge Group\nMar 2023 - Current\n- Led the budget\n\nCareer Break (family care)\nJan 2021 - Feb 2023\n\nFinance Analyst, Oakridge Group\nJul 2016 - Dec 2020\n- Produced reports');
+    expect(es.map(e => e.title.value)).toEqual(['Finance Manager', 'Finance Analyst']);
+    expect(es[1].company.value).toBe('Oakridge Group');
+    expect(es[1].start.normalized_value).toBe('2016-07');
+    expect(es[1].end.normalized_value).toBe('2020-12');
+    const sab = extractExperiences('Engineering Manager, Pylon Systems\nJun 2022 - Present\n- Grew the team\n\nSabbatical (travel and study)\nJan 2021 - May 2022\n\nSenior Developer, Pylon Systems\nMar 2016 - Dec 2020\n- Shipped releases');
+    expect(sab.map(e => e.title.value)).toEqual(['Engineering Manager', 'Senior Developer']);
+    const leave = extractExperiences('Nurse, Cedar Hospital\nJan 2020 - Present\n- Cared for patients\n\nMaternity leave\nJan 2018 - Dec 2018\n\nNurse, Birch Clinic\nJan 2014 - Dec 2017\n- Cared for patients');
+    expect(leave.map(e => e.company.value)).toEqual(['Cedar Hospital', 'Birch Clinic']);
+  });
+
   it('is conservative when neither header line looks like a title or a company: both left null', () => {
     const [e] = extractExperiences('Something Vague\tJan 2021 - Mar 2024\nAlso Vague\n• A bullet');
     // Neither "Something Vague" nor "Also Vague" contains a title keyword or an all-caps/company shape
