@@ -1115,6 +1115,21 @@
   --atb-mark-bg: rgba(34, 211, 238, .16);
 }
 [data-theme="light"] .atb {
+  /* The Builder's own page colours were one dark set on :root; here is the light one. The status colours are darker so they can be read as text on white. */
+  --atb-red:      #B91C1C;
+  --atb-amber:    #92400E;
+  --atb-violet:   #6D28D9;
+  --atb-teal:     #0E7490;
+  --atb-green:    #047857;
+  --atb-bg:       #F8FAFC;
+  --atb-bg2:      #FFFFFF;
+  --atb-bg3:      #F1F5F9;
+  --atb-bg4:      #E9EEF6;
+  --atb-bdr:      rgba(15, 23, 42, .09);
+  --atb-bdr2:     rgba(15, 23, 42, .16);
+  --atb-text:     #0F172A;
+  --atb-text2:    #334155;
+  --atb-text3:    #556579;
   --lp-text3: #556579;
   --atb-mark: #0891B2;
   --atb-mark-bg: rgba(8, 145, 178, .14);
