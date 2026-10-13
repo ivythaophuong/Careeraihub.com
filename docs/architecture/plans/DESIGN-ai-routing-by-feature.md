@@ -1,89 +1,100 @@
-# Design: which model serves which feature (routing by task, not one chain for everything)
+# Design: code first, then the right model for what is left (routing by feature)
 
-Status: **DESIGN ONLY. Nothing changed in code, secrets, providers or production.** Written 2026-10-13 for the product owner. Needs owner decisions in section 8 and a measured quality check before any switch.
-Labels: MEASURED (a run or log) · SOURCE (provider page read 2026-10-13) · INFERRED · UNKNOWN · PROPOSED.
-Inputs: `docs/audits/R1-AI-PROXY-MITIGATION-PROPOSAL-2026-10-13.md` (the 17 feature labels), `AI-PROVIDER-DATA-TERMS-2026-10-13.md`, `STAR-VARIANCE-RESULTS-2026-10-12.md`, `supabase/functions/ai/providers.js`.
+Status: **DESIGN ONLY. Nothing changed in product code, secrets, providers or production.** Rewritten 2026-10-13 after the owner's correction: extraction is done by code, AI only interprets and explains (`docs/AI_ARCHITECTURE_CONTRACT.md` section 1, ADR-007, ADR-011). The first version of this file put extraction on an AI model; that was wrong against the contract.
+Labels: MEASURED (a run or log) · SOURCE (provider page read 2026-10-13) · VERIFIED (read in source today) · INFERRED · UNKNOWN · PROPOSED.
+Inputs: the R1 proposal (impact table), `AI-PROVIDER-DATA-TERMS-2026-10-13.md`, `STAR-VARIANCE-RESULTS-2026-10-12.md`, `MIGRATION_MATRIX.md`, `supabase/functions/ai/providers.js`.
 
-## 1. Facts that decide routing
+## 1. The rule, in four tiers
 
-| Fact | Evidence |
-|---|---|
-| Price per 1M tokens in/out: Groq gpt-oss-120b $0.15/$0.60; Gemini 3.8 Flash $0.75/$3.75 until 2026-12-31, then $1.50/$7.50 (thinking billed as output); Claude Haiku 4.5 $1/$5; Claude Sonnet 5.5 $2/$10; OpenRouter `:free` $0 | SOURCE |
-| Free quotas: Groq 8K tokens/min and 200K/day for gpt-oss-120b; OpenRouter free 50 requests/day; Gemini free about 20 requests/day (third-party figure, unverified) and it ran out in the STAR measurement | SOURCE, MEASURED |
-| Free Gemini content may be used to improve Google products and reviewed by people; Groq: no training, no retention by default; Claude API: no training by default | SOURCE |
-| Only Gemini and Claude read PDFs; Groq and OpenRouter cannot | `SUPPORTS_PDF` in `providers.js` |
-| A different model gives different scores for the same text: Gemini averaged 4 to 16 points below Groq on the same STAR stories (small sample, different temperature settings, so a hint only) | MEASURED, `STAR-VARIANCE-RESULTS` section 4 |
-| Run-to-run spread on one model (Groq, STAR): standard deviation 3.3 on the overall score, up to 25 points on one section | MEASURED |
-| Typical sizes measured: STAR review about 670 in / 480 out tokens; ATS parse about 1.6K in / 2K to 4K out including reasoning | MEASURED |
-| Quality of any provider on our tasks (extraction accuracy, writing quality, evaluation validity) | **not measured** |
-| The live chain today is Gemini (free) then Groq (free); no Anthropic, OpenRouter or OpenAI key | secrets list 2026-10-13 |
-
-## 2. Task classes and what each needs
-
-| Class | What it needs | Features (label) |
+| Tier | Who answers | Examples |
 |---|---|---|
-| A. Extraction to JSON | exact fields, schema-valid JSON, cheap, high volume, low creativity | `ats_parse`, `scan_template_parse`, `onboarding_profile`, `onboarding_pdf_extract` (PDF) |
-| B. Scored judgement | **stable scale across calls and models**, JSON, no invented numbers; the number is shown to the user | `score_interview_evaluate` (`score-interview`), STAR review (`score-star`), `scan_jd_match`, `jd_analyze`, `skills_gap` |
-| C. Writing the user will send or read | tone, fluency, faithfulness to the CV; quality visible to the user | `cover_letter`, `cover_letter_tone`, `salary_script`, `ats_bullet_rewrite`, `memory_plan` |
-| D. Question generation | variety, relevance to the CV, short output; PDF only when no text | `mock_questions` |
-| E. Conversational | short answers, latency matters, context history | `ai_coach` |
-| F. Not worth an AI call | the contract says code decides | market numbers (`salary_market`, switched off), anything a deterministic function already returns |
+| 0 | **Code.** If code can answer, no model is called. | reading text from PDF and DOCX (pdf.js, mammoth: VERIFIED in `App.jsx`), the ATS Readiness score (`computeDeterministicScore`), keyword coverage (`checkKeywords`), facts from a resume (`src/extraction/resumeFacts.js`), negotiation arithmetic |
+| 1 | **A model explains** a result that code produced. Short, cheap. | why a score is what it is, what to fix, what a gap means |
+| 2 | **A model generates** text the user will use. | interview questions, cover letter, negotiation script, coaching chat, plans |
+| 3 | **A model reads what code cannot read.** | a scanned or damaged PDF (OCR), only after the code path failed |
 
-## 3. Estimated cost per call (INFERRED from measured sizes or from the code ceilings)
+Everything below follows from this. Choosing a cheaper provider for a Tier 0 job would be the wrong optimisation: moving a job from a model to code removes its cost, its variance and its privacy exposure.
 
-| Feature | Size basis | Groq | Haiku 4.5 | Gemini paid | Sonnet 5.5 |
+## 2. Every AI call site, and how far it can move to code today
+
+21 call sites, mechanically confirmed by `tests/security/aiCallSites.test.js` (17 browser labels, 2 server labels, 2 unlabelled calls in unused code). "Code today" says what already exists in the repo; whether the code path is as accurate as the model on real CVs is **UNKNOWN until measured** (section 6).
+
+| # | Label (where) | What the model does today | Target tier | Code that exists | Notes |
 |---|---|---|---|---|---|
-| STAR review | measured 670 in / 560 out | $0.0004 | $0.0035 | not estimated (reasoning varied 80 to 1,300 tokens) | $0.007 |
-| ATS parse | measured 1.6K in / 2K out | $0.0014 | $0.011 | $0.013 | $0.022 |
-| Mock evaluate | ceiling: about 3K in / 1.8K out | at most $0.0015 | at most $0.012 | at most $0.009 | at most $0.024 |
-| Cover letter, salary script | ceiling 2.5K to 3K out, input unmeasured | about $0.002 | about $0.02 | about $0.012 | about $0.035 |
-| AI coach reply | ceiling 600 out, history window up to the cap | under $0.001 | under $0.005 | under $0.003 | under $0.01 |
+| 1 | `ats_parse` (ATS Builder) | reads the CV and returns all fields (ceiling 4000 out; observed 1.6K in, 2K to 4K out) | **0** for the fields, 1 for the explanation | `extraction/resumeFacts.js` (contact, dates, education, experience, skills, metrics); ATS score already code | the prompt already says the model must not output a score; extraction is the part still on a model. MIGRATION_MATRIX PR-20 |
+| 2 | `scan_template_parse` (Resume Scan) | parses the CV again (ceiling 4500 out, 12K chars in: the largest ceiling) | **0**, share one extraction with #1 | same as #1 | duplicate parse of the same text (AI contract section 4) |
+| 3 | `onboarding_profile` (App) | role, years, top skills, headline (800 out) | **0**, model only if code returns `requiresInterpretation` | `resumeFacts`, dates | PR-23 |
+| 4 | `onboarding_pdf_extract` (App) | reads a PDF when pdf.js failed (3000 out, PDF) | **3** | text extraction itself is code | legitimate model use (scanned file); must be labelled `extraction_method: ai` |
+| 5 | `scan_jd_match` (Resume Scan) | match score, bars, narrative (2500 out) | **0** for coverage and score, 1 for gaps and rewrite hints | `checkKeywords` already code | the model's `matchScore` is the part to replace (PR-22) |
+| 6 | `jd_analyze` (JD Analyzer) | match score, requirements, gaps (2500 out, PDF possible) | **0** requirement matching, **1** synonyms and notes | partial (`jdAnalysis.js`) | the score is entirely model-made today |
+| 7 | `skills_gap` (Skills Gap) | skills list and advice (1500 out) | **0** evidenced skills, **1** advice | `extraction/skills.js` | market numbers already removed |
+| 8 | `score_interview_evaluate` (`score-interview`) | **sets the 0 to 100 answer score**, code clamps it (1800 out) | target: **0** structure score + **1** text feedback | `_shared/structure/` exists but `ENABLED_LANGUAGES` is empty (gated) | ADR-013; until the gate opens this is an interim Tier 1-style call that produces a number. A model switch changes the scale (section 4) |
+| 9 | `score_star_review` (`score-star`) | section scores, code computes the total (2500 out) | same as #8 | same | measured spread on Groq: sd 3.3 overall, up to 25 on a section |
+| 10 | `mock_questions` (Mock Interview) | writes 5 questions (2500 out, PDF possible) | **2** | none | PDF only as fallback when no text |
+| 11 | `cover_letter` | writes the letter (2500 out, PDF possible) | **2** + code fact check | `factGuard`/`numberGuard` (not applied to every output) | PR-05 |
+| 12 | `cover_letter_tone` | rewrites tone (1500 out) | **2** | same | |
+| 13 | `salary_script` | writes the script (3000 out, PDF possible) | **2**, math stays code | `negotiationMath` | |
+| 14 | `ats_bullet_rewrite` | rewrites bullets (4000 out) | **2** + figure guard | `factGuard` | |
+| 15 | `memory_plan` (AI Memory) | **sets `overallProgress`** and writes a weekly plan (1500 out) | **0** progress from activity counts, **2** plan text | counts exist (ADR-013 Q-E) | contract class A; PR-24 |
+| 16 | `ai_coach` (AI Career Coach) | chat reply (600 out, bounded history) | **2** | none | |
+| 17 | `salary_market` (Salary Coach) | market numbers | **none**: unreachable | n/a | **VERIFIED**: `MARKET_DATA_ENABLED = false`, and the component holding the call (`MarketDataTab`) is mounted only when it is true. If re-enabled it needs a sourced dataset, never model numbers |
+| 18 | `mock_evaluate_legacy` | old path when `VITE_SERVER_SCORING=false` | none | n/a | save is blocked by S4, so it fails closed; candidate for removal |
+| 19 | `star_review_legacy` | old STAR path | none | n/a | same |
+| 20, 21 | `resumeParser.extractResumeFromPdf/Docx` | unlabelled `callLLM` | none | n/a | no caller anywhere (VERIFIED); dead code, D6 says remove in its own PR |
 
-Ceilings are upper bounds from `maxTokens` and the input caps, not averages. Real averages need the usage logs grouped by feature (the 7-day pull is still outstanding). At these sizes **one user doing a full session costs cents or less on any provider**; the cost question is about volume and abuse, not about a single user.
+Of the 21: **7 move mostly to code** (#1, 2, 3, 5, 6, 7, 15 for its progress number); **2 produce a model-made number today and should become code plus explanatory text once the structure score is gated** (#8, 9); **1 is a legitimate Tier 3** (#4); **6 are legitimately Tier 2** (#10 to 14, 16, plus the text part of #15); **5 should not exist as live calls** (#17 to 21). 7 + 2 + 1 + 6 + 5 = 21.
 
-## 4. Proposed routing (PROPOSED, nothing measured for quality)
+## 3. What this changes for cost and privacy
 
-| Class | Primary | Fallback | Why |
+- The biggest model outputs today are extraction: `ats_parse` (up to 4000 tokens) and `scan_template_parse` (up to 4500). Moving them to code removes most of the AI spend per CV and the variance of parsing, and it removes a full resume from going to a provider for parsing at all.
+- What remains is smaller: Tier 1 explanations take a few hundred tokens of code output as input, and Tier 2 is short generation. The cost per session at any provider is then cents or less.
+- Personal text still reaches a provider for Tier 1 to 3; the data terms in `AI-PROVIDER-DATA-TERMS-2026-10-13.md` apply (free Gemini excluded for personal text; PDFs only to a provider that reads them and does not train on them).
+
+## 4. Routing for what stays on a model (PROPOSED; quality unmeasured)
+
+| Tier | Primary | Fallback | Reason |
 |---|---|---|---|
-| A. Extraction, text input | Groq gpt-oss-120b (JSON schema mode) | Claude Haiku 4.5 | cheapest, good terms for personal text; JSON mode exists; extraction is easy to verify by code (the output is checked against the CV text) |
-| A. Extraction with a PDF (`onboarding_pdf_extract`) | Claude Haiku 4.5 | Gemini **paid** | only PDF-capable providers; Haiku's terms do not allow training; free Gemini excluded for personal documents |
-| B. Scored judgement | **one fixed model per feature, no silent model switch**: start with Groq gpt-oss-120b (the only one measured, spread known) | if it is down: tell the user, or run a second model **and record which model produced the score** | scores from different models are not on the same scale (MEASURED hint); a fallback that changes the scale must be visible in the stored row (`practice_submissions` / ledger carries provider and model) |
-| B. With a PDF (`jd_analyze` with PDF) | Claude Haiku 4.5 | none | same reasons as above |
-| C. Writing | Claude Haiku 4.5 as the candidate to test, Sonnet 5.5 only for the one or two features where Haiku measurably loses | Groq | writing quality is what the user sees; neither is measured; Haiku is the cost-sensible test |
-| D. Questions | Groq | Haiku 4.5 | short output, cheap, text only; PDF path goes to Haiku |
-| E. Coach chat | Groq | Haiku 4.5 | short, frequent, latency-sensitive |
-| F. | no AI | – | the contract |
+| 1 explain | Groq gpt-oss-120b | Claude Haiku 4.5 | cheapest, no training or retention by default; the input is already structured, so small models do well (to be checked) |
+| 2 generate (questions, coach) | Groq | Claude Haiku 4.5 | short output, text only |
+| 2 generate (letters, scripts, bullets) | Claude Haiku 4.5 to test; Sonnet 5.5 only if Haiku measurably loses | Groq | the user reads this text; writing quality is the product |
+| 3 PDF OCR | Claude Haiku 4.5 | Gemini **paid** | only providers that read PDFs; no free Gemini for personal documents |
+| Any call that produces a score (#8, #9, #5, #6 while still on a model) | **one fixed model per feature**; Groq is the only one measured | none silent: a second model's number is recorded with its model and is not mixed into one scale | a different model scores the same text differently (MEASURED hint: Gemini 4 to 16 points below Groq on STAR, different temperature settings, small sample) |
 
-OpenRouter free: only for tests with synthetic data (50 requests a day, data handling unconfirmed). Gemini: remove from the first position for personal text; keep only as a PDF-capable fallback and only on a paid plan, or not at all.
+Rules that hold whatever the table says: routing is decided on the server; the browser's `feature` label is untrusted, so an unknown label gets the cheapest acceptable route; personal text never goes to a provider whose terms allow training; every route is recorded in the ledger (provider, model, tokens, feature); per-provider quotas are a routing input (the Gemini 503s moved all traffic to Groq in the logs).
 
-## 5. Routing rules that must hold whatever the table says
+## 5. Cost per call, for reference (INFERRED; from measured sizes and the prices read 2026-10-13)
 
-1. **Routing is a server decision.** The browser's `feature` label is untrusted (`sanitizeFeature` checks shape only). A label can choose a model only inside the same cost class, and an unknown label gets the cheapest acceptable model, never the most expensive. Labels set by the server itself (`score-star`, `score-interview`) are trusted.
-2. **A fallback must not change the meaning of a number.** For class B the stored row records provider, model and the scoring prompt version; the UI shows an AI-estimate label (already done) and the trust trigger is not fed by mixed-model scores without a decision (ADR-013).
-3. **Personal text never goes to a provider whose terms allow training on it.** Enforced by the route table, not by convention.
-4. **Per-provider quota is a routing input.** Spreading features across providers uses each free or paid quota separately and avoids one 429 taking everything down (observed: Gemini 503s moved all traffic to Groq).
-5. **Every route is covered by the ledger** (provider, model, tokens, feature, policy version) so cost per feature is measurable (section 6).
-6. **Switching a feature's model needs a before/after check** on the same synthetic inputs (the STAR variance tool is the template): same inputs, 2 to 3 candidate models, compare extraction accuracy (class A, checkable by code), score level and spread (class B), and a blind human read of outputs (class C).
+| Call | Groq | Haiku 4.5 | Gemini paid | Sonnet 5.5 |
+|---|---|---|---|---|
+| ATS parse today (1.6K in, 2K out) | $0.0014 | $0.011 | $0.013 | $0.022 |
+| STAR review (670 in, 560 out) | $0.0004 | $0.0035 | not estimated | $0.007 |
+| Tier 1 explanation of a code result (about 1K in, 500 out) | $0.0004 | $0.0035 | $0.003 | $0.007 |
 
-## 6. What to measure before choosing (PROPOSED, small, no production change)
+Gemini's price doubles on 2027-01-01. Per-call figures are small; the exposure is volume and abuse (R1), not one user.
 
-1. The 7-day `[usage]` pull grouped by `feature`: mean and 95th percentile of tokens, failed-attempt share, per feature. This replaces the ceilings in section 3.
-2. Class A: 20 synthetic CVs with known fields; field-level accuracy and JSON validity for Groq and Haiku (code can score this exactly).
-3. Class B: the STAR variance tool on Haiku 4.5 with the same 10 stories x 5 runs, same temperature policy on both sides; compare level offset and spread to Groq's 3.3. For interview answers, build the equivalent set first (none exists).
-4. Class C: 10 synthetic cover-letter and salary requests, blind comparison by the owner of Haiku vs Sonnet vs Groq.
-Each run uses synthetic data only, never real CVs, and the owner approves the spend (a Claude run needs a paid Anthropic account; the cost of the whole set is a few dollars at the sizes above, to be confirmed with `count_tokens` before running).
+## 6. What to do and measure first (PROPOSED, synthetic data only)
 
-## 7. How it would be built (PROPOSED, small)
+1. **Accuracy of the code extraction against the model on the same CVs** (20 synthetic CVs with known fields; field-level accuracy, exact for code). This decides whether #1, #2, #3 can move, and for which CV layouts the code returns `requiresInterpretation` and a model is still needed. The shadow comparison PR-10/PR-13 in `MIGRATION_MATRIX` is the same idea.
+2. The 7-day `[usage]` pull grouped by feature, to replace the ceilings with real averages.
+3. Scores that stay on a model (#8, #9): run the STAR variance tool on Haiku 4.5 and on Groq with identical temperature policy.
+4. Writing: blind read by the owner, Haiku vs Sonnet vs Groq, on 10 synthetic requests.
+Then, and only then, a route table (section 7) and the changes to code.
 
-A route table in `supabase/functions/ai/providers.js` (or a new `_shared/routes.js`): feature → ordered list of `{provider, model, constraints}` plus the class; `callWithFallback` takes the route instead of the global chain; the ledger records the chosen route; the first deploy runs in observe mode (log the route it would have chosen while still using the old chain). Tests: PDF requests never reach a non-PDF provider; unknown label gets the cheapest route; class B fallback records the model; no personal-text route includes a provider flagged as training.
+## 7. How it would be built (PROPOSED, small, each step reviewed)
 
-## 8. Decisions needed from the owner
+1. Move extraction to code behind a flag, shadow mode first: run both, log field differences (counts only), show the user the old result until the owner approves the switch.
+2. A route table (`feature → tier → ordered providers, constraints`) in the server; `callWithFallback` takes the route; the ledger records it; observe mode first.
+3. Remove dead calls (#18 to 21) in their own PR (D6).
+4. `tests/security/aiCallSites.test.js` (added with this document) fails when a new AI call appears without being added to the design.
+
+## 8. Decisions for the owner
 
 | # | Decision | Recommendation |
 |---|---|---|
-| R1 | Adopt "route by task class" as the direction | yes |
-| R2 | Create an Anthropic account (paid, with a spend limit) to test Haiku 4.5 | yes, for measurement only first |
-| R3 | Gemini's role: out of first position for personal text; paid fallback for PDFs or removed | out of first position |
-| R4 | Class B model switching policy: one fixed model per feature, with visible fallback | yes |
-| R5 | Run the measurement set in section 6 (synthetic data, small spend) | yes, in order 1, 2, 3, 4 |
-| R6 | Whether OpenRouter stays only as a test provider | yes |
+| R1 | Adopt the four tiers as the routing rule (code first) | yes |
+| R2 | Put extraction migration (#1, 2, 3) ahead of provider changes | yes: it removes the largest cost, variance and privacy exposure |
+| R3 | Approve the accuracy comparison in section 6, item 1, with synthetic CVs | yes |
+| R4 | Create an Anthropic account with a hard spend limit for measurement only | yes, small |
+| R5 | Gemini out of first position for personal text; paid fallback for PDFs or removed | out of first position |
+| R6 | Score features keep one fixed model each, fallback visible | yes |
+| R7 | Remove the dead calls (#18 to 21) | yes, separate PR |
