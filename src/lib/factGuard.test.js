@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { neutralizeInventedFigures, hasPlaceholder, revertInsertion, findBlanks, extraBlanks, fillNote } from './factGuard';
+import { neutralizeInventedFigures, hasPlaceholder, revertInsertion, findBlanks, extraBlanks, fillNote, countBlanks } from './factGuard';
 
 const RESUME = 'Associate Product Manager at Example Company. Worked on dashboard reporting. Supported product research.';
 
@@ -163,5 +163,13 @@ describe('fillNote', () => {
   });
   it('uses the plural for several blanks', () => {
     expect(fillNote([], ['[number]', '[type]'])).toBe('The text has blanks for you to fill: [number], [type]. Put your real details, or remove them.');
+  });
+});
+
+describe('countBlanks', () => {
+  it('counts every occurrence, and not a footnote number', () => {
+    expect(countBlanks('Up [X]% and [X] clients, see [1], plus [City, Region]')).toBe(3);
+    expect(countBlanks('')).toBe(0);
+    expect(countBlanks(undefined)).toBe(0);
   });
 });

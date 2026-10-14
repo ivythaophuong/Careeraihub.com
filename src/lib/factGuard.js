@@ -61,6 +61,9 @@ export function findBlanks(text, source = '') {
   return out;
 }
 
+// How many blanks are in `text`, every occurrence counted (not each kind once). Used before a file is exported.
+export const countBlanks = (text) => [...String(text ?? '').matchAll(BLANK_RE)].filter((m) => !/^\[\d+\]$/.test(m[0])).length;
+
 export const hasPlaceholder = (text, source = '') => findBlanks(text, source).length > 0;
 
 // The blanks the "figures not in your resume" note does not already explain: when the code replaced figures, the [X] it wrote are explained;
