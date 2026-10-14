@@ -143,7 +143,7 @@ describe('the two steps', () => {
     const v = onSaveVersion.mock.calls[0][0];
     expect(v).toMatchObject({ template: TEMPLATES[4].id, templateLabel: TEMPLATES[4].label, label: 'Version 3' });
     expect(v.data).toEqual(data());
-    expect(screen.getByText(/saved to version history/i)).toBeTruthy();
+    expect(screen.getByText(/in Saved versions/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /see your versions/i }));
     expect(onOpenHistory).toHaveBeenCalled();
   });

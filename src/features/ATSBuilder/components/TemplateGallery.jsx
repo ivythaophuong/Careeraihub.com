@@ -106,7 +106,7 @@ export default function TemplateGallery({ data, templates = [], selectedId, onSe
               <button type="button" onClick={save} style={btn(false)}>Save this version</button>
               {savedAs && (
                 <div role="status" style={{ fontSize: 12.5, lineHeight: 1.6, color: '#00E5A0' }}>
-                  ✓ Saved to Version History as “{savedAs}”.{onOpenHistory && <> <button type="button" onClick={onOpenHistory} style={{ ...link, color: 'var(--lp-text2)' }}>See your versions</button></>}
+                  ✓ Saved as “{savedAs}” in Saved versions.{onOpenHistory && <> <button type="button" onClick={onOpenHistory} style={{ ...link, color: 'var(--lp-text2)' }}>See your versions</button></>}
                 </div>
               )}
             </div>

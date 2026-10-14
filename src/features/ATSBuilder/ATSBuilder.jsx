@@ -40,8 +40,8 @@ function base64ToBlobUrl(b64) {
 const RB_TABS = [
   { id: 'parse',   label: 'Upload & Parse'  },
   { id: 'builder', label: 'Builder'         },
-  { id: 'templates', label: 'Templates'     },
-  { id: 'history', label: 'Version History' },
+  { id: 'templates', label: 'Layout & download' },
+  { id: 'history', label: 'Saved versions' },
 ];
 
 function ResumeBuilderTabBar({ active, onTab }) {
@@ -693,12 +693,12 @@ function VersionHistoryTab({ memory, onRestore }) {
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ color: 'var(--lp-text)', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Version History</div>
+      <div style={{ color: 'var(--lp-text)', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Saved versions</div>
       <div style={{ color: 'var(--lp-text3)', fontSize: 12, marginBottom: 20 }}>Saved resume snapshots. Restore any version back into the Builder.</div>
 
       {versions.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--lp-text3)', fontSize: 13, opacity: .6 }}>
-          No versions saved yet. Build your resume in the Builder tab and save a version.
+          No versions saved yet. Open the “Layout & download” tab, choose a layout and save a version.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

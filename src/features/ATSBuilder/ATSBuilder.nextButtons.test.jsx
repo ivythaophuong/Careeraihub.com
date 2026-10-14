@@ -92,7 +92,7 @@ describe('the end of the Fix page', () => {
 describe('the layouts', () => {
   it('already has one main button, "Next: download or save"', () => {
     render(<ATSBuilder {...base([issue])} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Layout & download' }));
     expect(screen.getByRole('button', { name: /^Next: download or save/ })).toBeTruthy();
     expect(pink()).toHaveLength(1);
   });

@@ -42,7 +42,7 @@ describe('the journey strip in the Resume Builder', () => {
 
   it('the stage follows the tabs, and the ones the user has been in are marked visited', () => {
     render(<ATSBuilder {...base()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Layout & download' }));
     expect(label(4)).toMatch(/you are here/);
     expect(label(2)).toMatch(/visited/);
     fireEvent.click(screen.getByRole('button', { name: 'Builder' }));
@@ -70,7 +70,7 @@ describe('the journey strip in the Resume Builder', () => {
 
   it('never says a stage is done or complete', () => {
     render(<ATSBuilder {...base()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Layout & download' }));
     for (const n of [1, 2, 3, 4]) expect(label(n)).not.toMatch(/\bdone\b|complete|finished/i);
   });
 });
