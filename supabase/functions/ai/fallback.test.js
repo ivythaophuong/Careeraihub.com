@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
-import { providerChain, callWithFallback, shouldFallBack, ProviderError, modelFor } from './providers.js';
+import { providerChain, callWithFallback, shouldFallBack, ProviderError, modelFor, NO_SILENT_FALLBACK, withThinkingRoom } from './providers.js';
 
 const MSGS = [{ role: 'user', content: 'hi' }];
 const geminiOk = (t = 'from gemini') => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: t }] }, finishReason: 'STOP' }] }), { status: 200 });
@@ -183,5 +183,76 @@ describe('overall deadline (ADR-012)', () => {
       expect(f.mock.calls.length).toBeLessThanOrEqual(3);
       expect(f.mock.calls.length).toBeGreaterThanOrEqual(2);
     } finally { vi.useRealTimers(); }
+  });
+});
+
+// A different model scores the same text differently (measured 2026-10-14: the same answer got 12, 22 and 32 from three models), and a different
+// model writes differently (one inflated a third of its rewrites). So a call whose result is a number the user sees is not moved to another model
+// without anyone noticing: it fails, and the person tries again on the same model.
+describe('features that produce a score do not fall back to another model', () => {
+  const meter = (feature) => ({ record: () => {}, correlationId: 'c', feature, userRef: null });
+
+  it('lists the features whose answer is, or contains, a number the user sees as a score', () => {
+    expect([...NO_SILENT_FALLBACK].sort()).toEqual(['jd_analyze', 'memory_plan', 'scan_jd_match', 'score_interview_evaluate', 'score_star_review']);
+  });
+  it.each([...['score_star_review', 'score_interview_evaluate', 'scan_jd_match', 'jd_analyze', 'memory_plan']])('%s: the chosen provider is busy, the user hears that, and no other provider is called', async (feature) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const f = router({ 'generativelanguage': () => err(503, 'high demand'), 'groq.com': () => compatOk(), 'anthropic.com': () => anthropicOk() });
+    await expect(callWithFallback({ env: ENV, messages: MSGS, maxTokens: 100, meter: meter(feature) }, f)).rejects.toMatchObject({ status: 503 });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+  it('a score feature that works is answered by the chosen provider as before', async () => {
+    const f = router({ 'generativelanguage': () => geminiOk('scored') });
+    expect(await callWithFallback({ env: ENV, messages: MSGS, maxTokens: 100, meter: meter('score_star_review') }, f)).toBe('scored');
+  });
+  it('writing features and unknown labels still fall back, exactly as before', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const feature of ['cover_letter', 'ats_parse', 'unknown', undefined]) {
+      const f = router({ 'generativelanguage': () => err(503), 'anthropic.com': () => anthropicOk() });
+      expect(await callWithFallback({ env: ENV, messages: MSGS, maxTokens: 100, meter: meter(feature) }, f)).toBe('from claude');
+    }
+    const f2 = router({ 'generativelanguage': () => err(503), 'anthropic.com': () => anthropicOk() });
+    expect(await callWithFallback({ env: ENV, messages: MSGS, maxTokens: 100 }, f2)).toBe('from claude');   // no meter at all
+  });
+  it('with a PDF the pinned provider is the first one that reads PDFs, and there is still no second one', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const env = { AI_PROVIDER: 'groq', GROQ_API_KEY: 'q', ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g' };
+    const f = router({ 'anthropic.com': () => err(503), 'generativelanguage': () => geminiOk(), 'groq.com': () => compatOk() });
+    await expect(callWithFallback({ env, messages: MSGS, maxTokens: 100, pdfBase64: 'AAAA', meter: meter('jd_analyze') }, f)).rejects.toMatchObject({ status: 503 });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+  it('the usage log marks the attempt as not a fallback', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const events = [];
+    const m = { record: (e) => events.push(e), correlationId: 'c', feature: 'score_star_review', userRef: null };
+    await callWithFallback({ env: ENV, messages: MSGS, maxTokens: 100, meter: m }, router({ 'generativelanguage': () => err(503) })).catch(() => {});
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ provider: 'gemini', fallback: false, outcome: 'error' });
+  });
+});
+
+// A model that thinks before it answers counts the thinking against the output limit. Measured on 12 rewrites: Haiku 5.5 used up to 3,182 of the
+// 4,000 tokens the ats_parse call allows. A reply cut by the limit is not retried on another provider, so the limit leaves room (the same idea as
+// groqBody for gpt-oss). The provider bills the tokens used, not the limit.
+describe('room for thinking', () => {
+  it('doubles the limit, never below 4096 and never above 16000', () => {
+    expect(withThinkingRoom(4000)).toBe(8000);
+    expect(withThinkingRoom(600)).toBe(4096);
+    expect(withThinkingRoom(12000)).toBe(16000);
+  });
+  const bodyOf = async (env, maxTokens) => {
+    let body;
+    const f = vi.fn(async (url, init) => { body = JSON.parse(init.body); return String(url).includes('anthropic') ? anthropicOk() : compatOk(); });
+    await callWithFallback({ env, messages: MSGS, maxTokens }, f);
+    return body;
+  };
+  it('OpenAI gets max_completion_tokens with room', async () => {
+    expect((await bodyOf({ AI_PROVIDER: 'openai', OPENAI_API_KEY: 'k' }, 4000)).max_completion_tokens).toBe(8000);
+  });
+  it('Anthropic gets max_tokens with room', async () => {
+    expect((await bodyOf({ AI_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'k' }, 4000)).max_tokens).toBe(8000);
+  });
+  it('OpenRouter and the other compatible providers keep the limit the feature asked for', async () => {
+    expect((await bodyOf({ AI_PROVIDER: 'openrouter', OPENROUTER_API_KEY: 'k' }, 4000)).max_tokens).toBe(4000);
   });
 });

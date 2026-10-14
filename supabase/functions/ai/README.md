@@ -65,6 +65,12 @@ A fallback model may answer differently from the primary one: JSON shape is stil
 | Mistral | Free Experiment plan: data may be used for training unless opted out in the Admin Console; paid plans: not used for training (secondary sources, official page not readable) | confirm on Mistral's own page |
 | OpenRouter | Does not store prompts unless the account opts in. Requests carry `provider: { zdr: true }`, so only Zero Data Retention endpoints are used (docs: openrouter.ai/docs/guides/features/zdr) | whether `:free` models have a ZDR endpoint: UNKNOWN. If not, the request fails and the next provider is tried |
 
+## Features that produce a score do not fall back, and room for thinking
+
+- `NO_SILENT_FALLBACK` (`providers.js`): `score_star_review`, `score_interview_evaluate`, `scan_jd_match`, `jd_analyze`, `memory_plan`. For these the chain is only the first provider that can serve the request (the first one that reads PDFs, when a PDF is attached). If it fails, the caller gets that error and the browser's one retry goes to the same provider. Reason, MEASURED 2026-10-14 on an invented set: the same interview answer scored 12, 22 and 32 from three models, so a silent switch changes the number the user sees. `score-star` and `score-interview` set their own label; for `ai` the label comes from the browser, and it only decides the caller's own request. Every other feature falls back as before.
+- `withThinkingRoom` (`providers.js`): OpenAI and Anthropic requests carry twice the feature's output limit (at least 4096, at most 16000), because a model that thinks counts its thinking against the limit and a reply cut by the limit is not retried elsewhere (Haiku 5.5 used up to 3,182 of the 4,000 `ats_parse` allows). The provider bills the tokens used, not the limit. Groq's gpt-oss already had this (`groqBody`); other compatible providers and Gemini are unchanged.
+- Not changed: the order of the chain for writing features is still `AI_PROVIDER` then `AI_FALLBACKS` (or every keyed provider). Which providers are keyed in production, and whether `AI_FALLBACKS` is set, is UNKNOWN from the repo.
+
 ## Time budget for the fallback chain (ADR-012)
 
 `callWithFallback` has an overall budget (default 90 s, `DEFAULT_DEADLINE_MS` in `providers.js`). Each provider attempt gets at most the time that is left (and never more than its own 80 s), and no further provider is started when less than 5 s remain; the first provider's error is then reported, as before. `ai`, `score-star` and `score-interview` all use it because they all call `callWithFallback`.
