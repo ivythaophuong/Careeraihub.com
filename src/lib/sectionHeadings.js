@@ -14,7 +14,7 @@ const GROUPS = {
     canonical: 'work experience',
     strong: ['experience', 'experiences', 'employment'],
     weak: ['history'],
-    mods: ['work', 'working', 'professional', 'relevant', 'related', 'career', 'industry', 'recent', 'selected', 'previous', 'prior', 'internship', 'internships'],
+    mods: ['work', 'working', 'professional', 'relevant', 'related', 'career', 'industry', 'recent', 'selected', 'previous', 'prior', 'internship', 'internships', 'research', 'other'],
   },
   education: {
     canonical: 'education',
