@@ -11,6 +11,7 @@ import { TEMPLATE_PARSE, JD_MAX_CHARS, missingSections } from '../../lib/templat
 import mammoth from 'mammoth';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
 import { neutralizeInventedFigures, hasPlaceholder, revertInsertion } from '../../lib/factGuard.js';
+import { claimWarnings } from '../../lib/claimGuard.js';
 import { prepareJdMatch, checkKeywords } from '../../lib/resumeDigest.js';
 
 
@@ -66,11 +67,13 @@ function dataToResumeText(data) {
   return lines.join('\n');
 }
 
-// A rewrite may only reuse figures the resume already contains; any other figure becomes a [X] blank.
+// A rewrite may only reuse figures the resume already contains; any other figure becomes a [X] blank. A rewrite that adds a role, a scope, a duty, a tool,
+// a link, a place or a result the resume never said gets a warning (the same claimGuard the Builder uses); the button then asks the user to confirm.
 function guardIssues(issues, resume) {
   return (issues || []).map(issue => {
     const g = neutralizeInventedFigures(issue.fix, resume);
-    return { ...issue, fix: g.text, needsInput: g.needsInput };
+    const warnings = claimWarnings({ before: issue.original || '', after: g.text, resumeText: resume }).map(w => w.message);
+    return { ...issue, fix: g.text, needsInput: g.needsInput, warnings };
   });
 }
 
@@ -933,6 +936,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                       ? 'AI draft — [X] marks a number only you know. Fill in your real figure before applying; leave it out if you have none.'
                       : 'AI draft — check it matches what you actually did before applying.'}
                   </div>
+                  {(issue.warnings || []).map((m, j) => <div key={j} style={{ fontSize: 10.5, color: '#FFB84D', lineHeight: 1.5, paddingLeft: 28 }}>{m}</div>)}
 
                   {/* Edit textarea (shown when editing an already-applied fix) */}
                   {editing && (
@@ -956,7 +960,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                             patchResume(editDraft, applied || issue.original, i, patchRecords[i]?.original);
                           }}
                           style={{ padding: '8px 18px', background: '#00E5A0', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: hasPlaceholder(editDraft, resumeCtx) ? 'not-allowed' : 'pointer', opacity: hasPlaceholder(editDraft, resumeCtx) ? .45 : 1 }}
-                        >{hasPlaceholder(editDraft, resumeCtx) ? 'Fill the blanks to save' : 'Save ✓'}</button>
+                        >{hasPlaceholder(editDraft, resumeCtx) ? 'Fill the blanks to save' : claimWarnings({ before: issue.original || '', after: editDraft, resumeText: resumeCtx }).length ? 'Save — I confirm this is true ✓' : 'Save ✓'}</button>
                         <button
                           onClick={() => setEditingIdx(null)}
                           style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text3)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}
@@ -981,7 +985,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                             border: '1px solid rgba(236,72,153,.3)',
                             color: 'var(--lp-teal)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           }}
-                        >{issue.needsInput ? 'Fill in & apply →' : 'Apply fix →'}</button>
+                        >{issue.needsInput ? 'Fill in & apply →' : issue.warnings?.length ? 'Apply fix — I confirm this is true →' : 'Apply fix →'}</button>
                       )}
                       {applied && (
                         <>
