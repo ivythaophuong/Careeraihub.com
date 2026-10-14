@@ -90,6 +90,8 @@ describe('headings in other wordings are recognised as the section they stand fo
     ['Selected Professional Experience', 'work experience'],
     ['Industry Experience', 'work experience'],
     ['Relevant Work Experience', 'work experience'],
+    ['Research Experience', 'work experience'],
+    ['Other Experience', 'work experience'],
     ['Education and Qualifications', 'education'],
     ['Licenses & Certifications', 'certifications'],
     ['Professional Certifications', 'certifications'],
@@ -107,6 +109,9 @@ describe('lines that are NOT headings stay body text', () => {
     'Tools',                                                  // a lone generic word is a label inside a skills list, not a new section
     'Technologies',
     'Strengths',
+    'Research',                                               // a lone generic word is not a section
+    'Other',
+    'Research and Education',                                 // two different sections: ambiguous
     'Skills and Experience',                                  // two different sections: ambiguous, so not a heading
     'Education and Certifications',
     'Skills: SQL, Excel',                                     // heading word followed by content
