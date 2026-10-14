@@ -166,9 +166,8 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
 
   // The score shown to the user is computed by code from the resume text (src/scoring/), never by the model.
   const detScore = Number.isFinite(detResult?.score?.score) ? detResult.score.score : null;
-  const atsColor = detScore !== null
-    ? detScore >= 80 ? '#00E5A0' : detScore >= 60 ? '#FFB84D' : '#FF5A5A'
-    : 'var(--lp-text3)';
+  // One neutral colour for every number: the cut-offs 80 and 60 were never validated, so the colour must not say "good" or "poor".
+  const atsColor = detScore !== null ? 'var(--lp-text)' : 'var(--lp-text3)';
 
   return (
     <div className="atb-parse-wrap">
@@ -369,8 +368,8 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
         {detResult && (() => {
           const hasScore = detScore !== null;
           const score = hasScore ? detScore : 0;
-          const scoreColor = score >= 80 ? '#00E5A0' : score >= 60 ? '#FFB84D' : '#FF5A5A';
-          // No verdict word ("Strong", "Needs Improvement"): the cut-offs 80 and 60 were never validated against anything. The label says what the number rests on.
+          const scoreColor = 'var(--lp-text)';
+          // No verdict word ("Strong", "Needs Improvement") and no red/amber/green: the cut-offs 80 and 60 were never validated against anything. The label says what the number rests on.
           const scoreParts = detResult.score?.parts || [];
           const scoreLabel = !hasScore ? 'Not enough readable content to score' : `Based on ${scoreParts.filter((p) => p.score !== null).length} of ${scoreParts.length} checks`;
           const circumference = 2 * Math.PI * 28;
@@ -442,7 +441,7 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
                     {detResult.score.parts.map(part => {
                       const d = describePart(part);
                       const assessed = d.assessed;
-                      const c = !assessed ? 'var(--lp-text3)' : part.score >= 80 ? '#00E5A0' : part.score >= 60 ? '#FFB84D' : '#FF5A5A';
+                      const c = !assessed ? 'var(--lp-text3)' : 'var(--lp-text)';
                       return (
                         <div key={part.id}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
