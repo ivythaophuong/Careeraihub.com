@@ -259,3 +259,43 @@ describe('BuilderIssuesPanel: blanks the model wrote itself', () => {
     expect(screen.queryByText(/replace \[X\]/i)).toBeNull();
   });
 });
+
+// The click on Apply is the user's confirmation. When the suggestion adds something the resume never said (a role, a scope, a duty, a result, a tool),
+// the card shows why and the button says so; a suggestion that adds nothing keeps the plain "Apply". Measured 2026-10-14: without the new claim rules
+// a rewrite such as "Trained new colleagues and handled escalated complaints" got the plain button.
+describe('BuilderIssuesPanel: the button asks for confirmation when a suggestion adds something the resume did not say', () => {
+  beforeEach(() => { try { localStorage.clear(); } catch {} });
+  afterEach(cleanup);
+  const one = (after) => [{ severity: 'medium', title: 'Passive bullet', description: 'Starts with Responsible.', before: 'Responsible for weekly reports', after, builderStep: 2 }];
+  const label = () => Array.from(card('Passive bullet').querySelectorAll('button')).map(b => b.textContent).find(t => /^apply/i.test(t));
+
+  it('a faithful rewrite keeps the plain "Apply" and shows no warning', () => {
+    render(<Harness onGoToStep={() => {}} list={one('Produced weekly reports')} />);
+    expect(label()).toBe('Apply');
+    expect(card('Passive bullet').textContent).not.toMatch(/Keep it only if/);
+  });
+  it.each([
+    ['a duty the resume never mentions', 'Trained new colleagues and handled escalated complaints', /does not mention/],
+    ['a higher role', 'Led the weekly reports', /Keep it only if your role really was that|claims more responsibility/],
+    ['a tool and a result', 'Improved customer retention by implementing Salesforce workflows', /Salesforce|result/],
+  ])('%s: the button says "I confirm this is true" and the reason is on the card before anything is applied', (_, after, reason) => {
+    render(<Harness onGoToStep={() => {}} list={one(after)} />);
+    expect(label()).toBe('Apply — I confirm this is true');
+    expect(card('Passive bullet').textContent).toMatch(reason);
+    expect(latest.data.experience[0].bullets[0]).toBe('Responsible for weekly reports');   // nothing is applied until the click
+  });
+  it('the reason stays on the card after it is applied, and Undo is offered', () => {
+    render(<Harness onGoToStep={() => {}} list={one('Trained new colleagues and handled escalated complaints')} />);
+    fireEvent.click(within(card('Passive bullet'), /^apply/i));
+    expect(card('Passive bullet').textContent).toMatch(/does not mention/);
+    expect(within(card('Passive bullet'), /undo/i)).toBeTruthy();
+  });
+  it('when the text is in two places, each place button also asks for confirmation', () => {
+    const start = () => ({ ...initial(), experience: [
+      { id: 1, company: 'Acme', title: 'Analyst', period: '2020 - 2023', bullets: ['Responsible for weekly reports'] },
+      { id: 2, company: 'Beta', title: 'Analyst', period: '2017 - 2020', bullets: ['Responsible for weekly reports'] }] });
+    render(<Harness onGoToStep={() => {}} list={one('Trained new colleagues and handled escalated complaints')} start={start} />);
+    const labels = Array.from(card('Passive bullet').querySelectorAll('button')).map(b => b.textContent);
+    expect(labels.filter(t => /I confirm this is true/.test(t))).toHaveLength(2);
+  });
+});
