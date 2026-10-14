@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useScrollTabs } from '../../hooks/useScrollTabs.js';
 import JourneyStrip from './components/JourneyStrip.jsx';
-import { buildParsePrompt, dropFalseDateClaims } from './parsePrompt.js';
+import { buildParsePrompt, dropFalseDateClaims, todayIso } from './parsePrompt.js';
+import { futureEndNotes } from '../../validation/futureEnd';
 import { journeyStage, addVisited } from './journey.js';
 import mammoth from 'mammoth';
 import { extractJSON } from '../../lib/ai.jsx';
@@ -467,10 +468,12 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
                     })}
                     {(() => {
                       const rep = sectionReport(rawText);
+                      const dateNotes = futureEndNotes(detResult?.facts, todayIso());
                       return (
                         <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', lineHeight: 1.5, borderTop: '1px solid var(--lp-bdr)', paddingTop: 10 }}>
                           Sections we recognised: {rep.recognised.length ? rep.recognised.join(', ') : 'none'}.
                           {rep.unrecognisedHeadings.length > 0 && <> Lines that look like headings but were not recognised: {rep.unrecognisedHeadings.map(h => `"${h}"`).join(', ')}.</>}
+                          {dateNotes.map(n => <div key={n.refs[0]} style={{ marginTop: 6 }}>Note: {n.message}</div>)}
                         </div>
                       );
                     })()}
