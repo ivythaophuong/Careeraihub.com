@@ -310,3 +310,11 @@ describe('a contact or education change in the same records', () => {
     expect(undoRecord(setField(r.data, { kind: 'contact', field: 'phone' }, '1').data, r.record)).toBeNull();
   });
 });
+
+describe('a blank the models write counts as unfinished, like [X]', () => {
+  const at = { kind: 'bullet', exp: 0, bullet: 0 };
+  it('saveFix counts [number] as a blank', () => {
+    expect(saveFix(base(), at, 'Cut reporting time by [number]%').blanks).toBe(1);
+    expect(saveFix(base(), at, 'Cut reporting time in [City, Region]').blanks).toBe(1);
+  });
+});

@@ -3,6 +3,7 @@ import { useScrollTabs } from '../../hooks/useScrollTabs.js';
 import JourneyStrip from './components/JourneyStrip.jsx';
 import { buildParsePrompt, dropFalseDateClaims, todayIso } from './parsePrompt.js';
 import { futureEndNotes } from '../../validation/futureEnd';
+import { fillNote } from '../../lib/factGuard.js';
 import { journeyStage, addVisited } from './journey.js';
 import mammoth from 'mammoth';
 import { extractJSON } from '../../lib/ai.jsx';
@@ -955,6 +956,7 @@ function BuilderTab({ initialProfile, memory, onSaveVersion, restoredData, setAc
           </div>
           <div data-quote="after" style={{ padding: '10px 14px', fontSize: 14, lineHeight: 1.6, color: 'var(--lp-text)', background: 'rgba(255,184,77,.07)', borderLeft: '3px solid #FFB84D', borderRadius: 6 }}>{fixDraft.text}</div>
           {fixDraft.placeholders && fixDraft.replaced?.length > 0 && <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.55, color: '#FFB84D' }}>These figures are not in your resume: {fixDraft.replaced.join(', ')}. They are shown as [X]: put your real figure, or remove it.</div>}
+          {fixDraft.placeholders && fillNote(fixDraft.replaced, fixDraft.blanks) && <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.55, color: '#FFB84D' }}>{fillNote(fixDraft.replaced, fixDraft.blanks)}</div>}
           {fixDraft.warnings.map((w, k) => <div key={k} style={{ marginTop: 8, fontSize: 12, lineHeight: 1.5, color: '#FFB84D' }}>{w}</div>)}
         </div>
       )}

@@ -266,3 +266,23 @@ describe('isDatesIssue: a graduation year is a date of the education entry', () 
     expect(fieldsIssueKind(issue({ title: 'Degree is not specified' }), data())).toBe('education');
   });
 });
+
+describe('draftFor: blanks the model wrote itself', () => {
+  it('[X]% written by the model sets placeholders and lists the blank', () => {
+    const d = draftFor(issue({ after: 'Cut reporting time by [X]%' }), data());
+    expect(d.placeholders).toBe(true);
+    expect(d.blanks).toEqual(['[X]']);
+    expect(d.replaced).toEqual([]);
+  });
+  it('[number] is kept as written and sets placeholders', () => {
+    const d = draftFor(issue({ after: 'Fixed [number] defects' }), data());
+    expect(d.text).toBe('Fixed [number] defects');
+    expect(d.placeholders).toBe(true);
+    expect(d.blanks).toEqual(['[number]']);
+  });
+  it('a clean draft has no blanks', () => {
+    const d = draftFor(issue({ after: 'Produced weekly reports' }), data());
+    expect(d.placeholders).toBe(false);
+    expect(d.blanks).toEqual([]);
+  });
+});

@@ -185,3 +185,29 @@ describe('a quote the AI shortened with an ellipsis', () => {
     expect(r.data.experience[0].bullets[0]).toBe('Analyzed deal data of target companies in 15+ M&A transactions using SQL and Alteryx');
   });
 });
+
+describe('applyIssue: placeholders is set when anything is left for the user to fill', () => {
+  const run = (after) => applyIssue(base(), { before: 'Responsible for weekly reports', after }, { kind: 'bullet', exp: 1, bullet: 0 });
+  it('is false for a clean rewrite', () => {
+    const r = run('Produced weekly reports for 4 teams');
+    expect(r.placeholders).toBe(false);
+    expect(r.blanks).toEqual([]);
+  });
+  it('is true when the code replaced an invented figure', () => {
+    const r = run('Produced weekly reports for 90 teams');
+    expect(r.placeholders).toBe(true);
+    expect(r.replaced).toEqual(['90']);
+  });
+  it('is true when the model wrote [X]% itself (the code replaced nothing)', () => {
+    const r = run('Produced weekly reports, cutting errors by [X]%');
+    expect(r.placeholders).toBe(true);
+    expect(r.replaced).toEqual([]);
+    expect(r.blanks).toEqual(['[X]']);
+  });
+  it('is true for [number] and [City, Region], which are kept as written', () => {
+    const r = run('Produced [number] weekly reports in [City, Region]');
+    expect(r.placeholders).toBe(true);
+    expect(r.data.experience[1].bullets[0]).toBe('Produced [number] weekly reports in [City, Region]');
+    expect(r.blanks).toEqual(['[number]', '[City, Region]']);
+  });
+});

@@ -1294,3 +1294,32 @@ describe('a graduation year issue', () => {
     expect(screen.queryByText('2019')).toBeNull();      // what the AI wrote is not shown
   });
 });
+
+describe('blanks the model wrote itself (not figures the code replaced)', () => {
+  const withAfter = (after) => setup({ issues: [{ ...ISSUES[0], after }, ...ISSUES.slice(1)] });
+  const openDraft2 = () => { improve(); fireEvent.click(btn(/Show AI draft/i)); };
+
+  it('[X]% written by the model: the fold says there are blanks to fill, and the note names the blank', () => {
+    withAfter('Cut monthly reporting time by [X]%');
+    improve();
+    expect(btn(/Show AI draft/i).textContent).toMatch(/blanks? to fill/i);
+    expect(btn(/Show AI draft/i).textContent).not.toMatch(/figures not in your resume/i);
+    fireEvent.click(btn(/Show AI draft/i));
+    expect(screen.getByText(/has a blank for you to fill: \[X\]/i)).toBeTruthy();
+  });
+
+  it('[number] and [City, Region] are shown as written and listed in the note', () => {
+    withAfter('Handled [number] reports in [City, Region]');
+    openDraft2();
+    const draft = screen.getByRole('region', { name: /AI draft/i });
+    expect(draft.textContent).toContain('[number]');
+    expect(draft.textContent).toContain('[City, Region]');
+    expect(screen.getByText(/has blanks for you to fill: \[number\], \[City, Region\]/i)).toBeTruthy();
+  });
+
+  it('a clean draft has no such note', () => {
+    withAfter('Produced the monthly reporting for the sales team');
+    openDraft2();
+    expect(screen.queryByText(/for you to fill/i)).toBeNull();
+  });
+});

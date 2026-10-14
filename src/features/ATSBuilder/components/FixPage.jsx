@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { fillNote } from '../../../lib/factGuard.js';
 import { isBulletIssue, isSkillsIssue, isDatesIssue, fieldsIssueKind, draftFor } from '../issueStep.js';
 import { listContactFields, listEducationFields, listJobFields, fieldFindings, setField, mergeFieldRecords } from '../fieldsFix.js';
 import { listDateEntries, dateFindings, setDate, mergeDateRecords } from '../datesFix.js';
@@ -467,6 +468,7 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
                 <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>Example: {example.text}</div>
               </section>
               {example.placeholders && example.replaced?.length > 0 && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.5 }}>These figures are not in your resume: {example.replaced.join(', ')}. The example shows [X] in their place.</div>}
+              {example.placeholders && fillNote(example.replaced, example.blanks) && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.5 }}>{fillNote(example.replaced, example.blanks)}</div>}
             </>)}
             <div><button type="button" style={btn(false)} onClick={leave}>Leave it for now</button></div>
           </div>
@@ -610,11 +612,12 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
                 <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--lp-text2)' }}>Example: {example.text}</div>
               </section>
               {example.placeholders && example.replaced?.length > 0 && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.5 }}>These figures are not in your resume: {example.replaced.join(', ')}. The example shows [X] in their place.</div>}
+              {example.placeholders && fillNote(example.replaced, example.blanks) && <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.5 }}>{fillNote(example.replaced, example.blanks)}</div>}
             </>)}
           </>)}
           {improving && draft && (<>
             <button type="button" style={{ ...link, alignSelf: 'flex-start' }} aria-expanded={showDraft} onClick={() => setShowDraft(v => !v)}>
-              {showDraft ? 'Hide AI draft' : 'Show AI draft'}{!showDraft && draft.placeholders ? ' ⚠ includes figures not in your resume' : ''}
+              {showDraft ? 'Hide AI draft' : 'Show AI draft'}{!showDraft && draft.placeholders ? (draft.replaced?.length > 0 ? ' ⚠ includes figures not in your resume' : ' ⚠ has blanks to fill') : ''}
             </button>
             {showDraft && (<>
               <section aria-label="AI draft" style={{ padding: '10px 12px', background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 8 }}>
@@ -626,6 +629,9 @@ export default function FixPage({ data, issues = [], startKey = null, records = 
                 <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.5 }}>
                   These figures are not in your resume: {draft.replaced.join(', ')}. The draft shows [X] in their place. Put your real figure, or remove it.
                 </div>
+              )}
+              {draft.placeholders && fillNote(draft.replaced, draft.blanks) && (
+                <div style={{ fontSize: 12.5, color: '#FFB84D', lineHeight: 1.5 }}>{fillNote(draft.replaced, draft.blanks)}</div>
               )}
               {askReplace
                 ? prompt('Replace what you typed with the AI draft?', () => setAskReplace(false), () => { setText(draft.text); setAskReplace(false); }, 'Replace')

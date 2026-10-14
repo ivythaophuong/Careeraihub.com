@@ -77,8 +77,9 @@ export function applyIssue(data, issue, chosen) {
   return {
     data: write(data, at, next),
     record: { at, inserted: guarded.text, original: current.slice(match.index, end) },
-    placeholders: guarded.changed,
+    placeholders: guarded.needsInput,
     replaced: guarded.replaced,
+    blanks: guarded.blanks,
   };
 }
 
