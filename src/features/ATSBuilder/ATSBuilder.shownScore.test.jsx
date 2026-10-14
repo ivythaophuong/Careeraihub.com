@@ -102,3 +102,26 @@ describe('ATS Builder when the sections of the resume cannot be read (for exampl
     expect(document.body.textContent).not.toMatch(/Needs Major Work/);
   });
 });
+
+describe('the upload screen after a resume is loaded', () => {
+  const noAiProfile = { ...base, memory: {} };
+  it('does not tell the user to upload a resume once there is one', () => {
+    render(<ATSBuilder {...noAiProfile} resumeText={GOOD} />);
+    expect(screen.queryByText(/Upload a resume to see your diagnostic report/)).toBeNull();
+    expect(screen.getByText('out of 100')).toBeTruthy();
+  });
+  it('still asks for a resume when there is none', () => {
+    render(<ATSBuilder {...noAiProfile} resumeText={'   '} />);
+    expect(screen.getByText(/Upload or paste a resume to see your readiness score/)).toBeTruthy();
+  });
+  it('offers the AI step with one button, not two', () => {
+    render(<ATSBuilder {...noAiProfile} resumeText={GOOD} />);
+    expect(screen.getAllByRole('button', { name: /Find issues & enhance with AI/ })).toHaveLength(1);
+    expect(screen.getByText(/Want to know what to fix\?/)).toBeTruthy(); // the explanation next to the score stays
+  });
+  it('puts no verdict on the score, and states what it is based on', () => {
+    render(<ATSBuilder {...noAiProfile} resumeText={GOOD} />);
+    expect(document.body.textContent).not.toMatch(/Strong Resume|Needs Improvement|Needs Major Work/);
+    expect(screen.getByText(/Based on 3 of 3 checks/)).toBeTruthy();
+  });
+});
