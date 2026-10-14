@@ -50,12 +50,48 @@ const allWords = (t) => noBlanks(t).toLowerCase().match(/[a-z][a-z'-]{2,}/g) || 
 const MIN_NEW_WORDS = 3;
 const MIN_NEW_SHARE = 0.5;
 
-// Words of the suggestion that the resume (and the text it replaces) never uses, when they are at least half of what the suggestion says.
-function newContentWords(before, after, source) {
+// Every content word of the suggestion that the resume (and the text it replaces) never uses, and how many content words the suggestion has in all.
+function freshWords(after, source) {
   const known = new Set(allWords(source).map(stem));
   const mine = [...new Set(allWords(after).filter((w) => !STOP.has(w) && !FILLER.has(w)))];
-  const fresh = mine.filter((w) => !known.has(stem(w)));
-  return fresh.length >= MIN_NEW_WORDS && fresh.length / mine.length >= MIN_NEW_SHARE ? fresh : [];
+  return { fresh: mine.filter((w) => !known.has(stem(w))), total: mine.length };
+}
+// ...when they are at least half of what the suggestion says.
+function newContentWords(before, after, source) {
+  const { fresh, total } = freshWords(after, source);
+  return fresh.length >= MIN_NEW_WORDS && fresh.length / total >= MIN_NEW_SHARE ? fresh : [];
+}
+
+// ── Layer 2: evidence. The model quotes the resume for what a suggestion is based on and names what it added that the resume does not say. Code
+// trusts neither: a quote must really be in the resume, and words added without being declared are warned about. Without the fields (the old
+// format) nothing here fires.
+const normQuote = (t) => String(t ?? '').normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const MIN_QUOTE_CHARS = 6;
+const MAX_DECLARED = 5;
+const MAX_DECLARED_CHARS = 120;
+const MIN_UNDECLARED = 2;
+const textsOf = (v, limit) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim() && x.length <= MAX_DECLARED_CHARS * 2).map((x) => x.trim()).slice(0, limit) : []);
+
+function evidenceWarnings({ evidence, unsupported, after, source }) {
+  const out = [];
+  const hasEvidence = Array.isArray(evidence);
+  if (!hasEvidence && !Array.isArray(unsupported)) return out;
+
+  if (hasEvidence) {
+    const haystack = normQuote(source);
+    const missing = textsOf(evidence, 8).filter((q) => { const n = normQuote(q); return n.length >= MIN_QUOTE_CHARS && !haystack.includes(n); });
+    if (missing.length) out.push({ type: 'bad_evidence', words: missing, message: `The AI quoted text that is not in your resume: "${missing[0]}"${missing.length > 1 ? ` and ${missing.length - 1} more` : ''}. Do not rely on that quote.` });
+  }
+
+  const declared = textsOf(unsupported, MAX_DECLARED).filter((x) => x.length <= MAX_DECLARED_CHARS);
+  if (declared.length) out.push({ type: 'declared_addition', words: declared, message: `The AI says this suggestion adds: ${declared.join('; ')}. Keep it only if it is true.` });
+
+  if (hasEvidence) {
+    const covered = new Set(allWords(declared.join(' ')).map(stem));
+    const undeclared = freshWords(after, source).fresh.filter((w) => !covered.has(stem(w)));
+    if (undeclared.length >= MIN_UNDECLARED) out.push({ type: 'undeclared_addition', words: undeclared.slice(0, 6), message: `The suggestion also adds words your resume does not use, and the AI did not mention them: ${undeclared.slice(0, 6).join(', ')}. Keep it only if it is true.` });
+  }
+  return out;
 }
 
 const HEADING_WORDS = /^(skills?|technical skills|core skills|key skills)$/;
@@ -74,7 +110,7 @@ function newSkills(before, after, sourceLower) {
   return items.length >= known.length ? [...new Set(items.filter((x) => x.split(/\s+/).length <= 4 && !inSource(x) && !sameSkill(x)))] : [];
 }
 
-export function claimWarnings({ before = '', after = '', resumeText = '' } = {}) {
+export function claimWarnings({ before = '', after = '', resumeText = '', evidence, unsupported } = {}) {
   const out = [];
   const source = `${resumeText}\n${before}`;
   const sourceLower = source.toLowerCase();
@@ -121,6 +157,8 @@ export function claimWarnings({ before = '', after = '', resumeText = '' } = {})
     const value = m[1].trim(); const city = value.split(',')[0].trim().toLowerCase();
     if (city.length > 1 && !sourceLower.includes(city)) { out.push({ type: 'invented_location', words: [value], message: `The suggestion gives a place (${value}) that your resume does not name. Use your own, or remove it.` }); break; }
   }
+
+  out.push(...evidenceWarnings({ evidence, unsupported, after, source }));
 
   const skills = newSkills(before, after, sourceLower);
   if (skills.length) out.push({ type: 'new_skill', words: skills, message: `The suggestion adds skills your resume does not list: ${skills.join(', ')}. Keep only the ones you really have.` });

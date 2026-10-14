@@ -155,3 +155,56 @@ describe('new_skill: skill names that contain a word like "management" are still
     expect(w).toBeUndefined();
   });
 });
+
+// Layer 2, evidence: the model is asked to quote the resume for what a suggestion is based on ("evidence") and to name anything it added that the
+// resume does not say ("unsupported"). Code does not trust either: a quote must really be in the resume, and a suggestion that adds words nobody
+// declared is warned about. When the model returned neither field (the old format), none of these warnings appears.
+describe('evidence and declared additions', () => {
+  const R = 'Dana Whitfield\nHarbor Mart\n- Supported daily operations and customer service.\n- Worked at the register\nSkills\nCustomer service';
+  const w = (extra) => claimWarnings({ before: 'Supported daily operations and customer service.', resumeText: R, ...extra });
+  const typesOf = (extra) => w(extra).map(x => x.type);
+
+  it('a quote that is in the resume is fine, whatever the case and punctuation', () => {
+    expect(typesOf({ after: 'Supported daily store operations and customer service.', evidence: ['supported daily operations, and Customer Service'] })).not.toContain('bad_evidence');
+  });
+  it('a quote that is NOT in the resume is flagged, and named', () => {
+    const x = w({ after: 'Supported daily operations and customer service.', evidence: ['Led a team of twelve cashiers at Harbor Mart'] }).find(y => y.type === 'bad_evidence');
+    expect(x.words).toEqual(['Led a team of twelve cashiers at Harbor Mart']);
+    expect(x.message).toMatch(/not in your resume/i);
+  });
+  it('a very short quote cannot be checked and is not flagged', () => {
+    expect(typesOf({ after: 'Supported operations.', evidence: ['ops'] })).not.toContain('bad_evidence');
+  });
+  it('what the model says it added is passed on to the user', () => {
+    const x = w({ after: 'Improved retention by implementing Salesforce workflows.', evidence: ['Supported daily operations and customer service'], unsupported: ['Salesforce workflows', 'improved retention'] }).find(y => y.type === 'declared_addition');
+    expect(x.words).toEqual(['Salesforce workflows', 'improved retention']);
+    expect(x.message).toMatch(/AI says/i);
+  });
+  it('words added without saying so are flagged when the model used the new format', () => {
+    const x = w({ after: 'Trained new colleagues and handled escalated complaints.', evidence: ['Supported daily operations and customer service'], unsupported: [] }).find(y => y.type === 'undeclared_addition');
+    expect(x.words).toEqual(expect.arrayContaining(['trained', 'colleagues', 'escalated', 'complaints']));
+    expect(x.message).toMatch(/did not mention/i);
+  });
+  it('words the model declared are not also reported as undeclared', () => {
+    const t = typesOf({ after: 'Trained new colleagues and handled escalated complaints.', evidence: ['Supported daily operations and customer service'], unsupported: ['trained new colleagues', 'handled escalated complaints'] });
+    expect(t).toContain('declared_addition');
+    expect(t).not.toContain('undeclared_addition');
+  });
+  it('a faithful rewrite with a real quote and nothing declared produces none of the evidence warnings', () => {
+    const t = typesOf({ after: 'Supported daily store operations and customer service.', evidence: ['Supported daily operations and customer service'], unsupported: [] });
+    expect(t.filter(x => ['bad_evidence', 'declared_addition', 'undeclared_addition'].includes(x))).toEqual([]);
+  });
+  it('one new word is a paraphrase, not an addition', () => {
+    expect(typesOf({ after: 'Supported daily store operations and customer service.', evidence: ['Supported daily operations and customer service'], unsupported: [] })).not.toContain('undeclared_addition');
+  });
+  it('with neither field (the old format) there are no evidence warnings at all', () => {
+    const t = typesOf({ after: 'Trained new colleagues and handled escalated complaints.' });
+    expect(t.filter(x => ['bad_evidence', 'declared_addition', 'undeclared_addition'].includes(x))).toEqual([]);
+  });
+  it('odd values are ignored: not an array, not strings, too long, too many', () => {
+    expect(typesOf({ after: 'Supported operations.', evidence: 'a string', unsupported: { a: 1 } }).filter(x => /evidence|addition/.test(x))).toEqual([]);
+    const x = w({ after: 'Supported operations.', evidence: [], unsupported: [7, null, 'a'.repeat(300), 'one', 'two', 'three', 'four', 'five', 'six', 'seven'] }).find(y => y.type === 'declared_addition');
+    expect(x.words.length).toBeLessThanOrEqual(5);
+    expect(x.words.every(s => typeof s === 'string' && s.length <= 120)).toBe(true);
+  });
+});

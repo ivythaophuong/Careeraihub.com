@@ -78,3 +78,19 @@ describe('buildParsePrompt: what the model may write in "after"', () => {
     expect(prompt).toContain("Today's date is 2026-10-14");
   });
 });
+
+describe('buildParsePrompt: evidence for every suggestion', () => {
+  const prompt = buildParsePrompt('Jordan Lee\nAnalyst at Acme\n- Built reports', '2026-10-14');
+  it('the JSON shape of an issue has "evidence" and "unsupported"', () => {
+    expect(prompt).toMatch(/"evidence":\s*\[/);
+    expect(prompt).toMatch(/"unsupported":\s*\[/);
+  });
+  it('asks the model to copy exact phrases from the resume as evidence, and to name what it added that the resume does not say', () => {
+    expect(prompt).toMatch(/evidence: .*exact phrases? (copied )?from the resume/i);
+    expect(prompt).toMatch(/unsupported: .*(does not say|not in the resume)/i);
+  });
+  it('keeps the placeholder and no-invention rules', () => {
+    expect(prompt).toMatch(/exactly \[X\]/);
+    expect(prompt).toMatch(/never add a tool, company, place, job title or result/i);
+  });
+});

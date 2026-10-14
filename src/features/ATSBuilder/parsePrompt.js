@@ -29,7 +29,7 @@ Return ONLY raw JSON (no markdown, start with {):
   "awards": ["award 1","award 2"],
   "extras": [{"heading":"Section Name as written in resume","items":["item 1","item 2"]}],
   "issues": [
-    {"severity":"critical","title":"4-6 word specific title","description":"2-3 sentences: what is wrong and why it hurts.","before":"exact weak text quoted from resume","after":"improved version with specifics","builderStep":2,"module":null}
+    {"severity":"critical","title":"4-6 word specific title","description":"2-3 sentences: what is wrong and why it hurts.","before":"exact weak text quoted from resume","after":"improved version with specifics","evidence":["exact phrase from the resume that the rewrite is based on"],"unsupported":["short phrase for anything in after that the resume does not say"],"builderStep":2,"module":null}
   ]
 }
 For extras: include every section not already captured above (e.g. Certifications, Publications, Projects, Volunteer, Languages, Interests, Patents, etc.). Do NOT put work experience, education, skills, awards, or summary into extras.
@@ -40,6 +40,8 @@ issues: List 3-6 specific, actionable problems found in THIS resume. Rules:
 - description: 2-3 sentences. Name the exact problem and why it hurts ATS or recruiter screening.
 - before: quote exact weak text from the resume (keep short, max 12 words)
 - after: rewritten version showing the fix for that specific text. Use ONLY facts the resume states. Where a figure would help but the resume does not give one, write exactly [X] (no other word in brackets, never invent a number). Never add a tool, company, place, job title or result that the resume does not state.
+- evidence: one or more exact phrases copied from the resume (max 12 words each) that support what "after" says. Copy them letter for letter; never write a phrase the resume does not contain.
+- unsupported: a short phrase for each thing in "after" that the resume does not say (a duty, tool, result, link, place or skill you added). Use an empty list when "after" only rewords what the resume already says. The person will be asked to confirm each one.
 - builderStep: 1=Contact, 2=Experience, 3=Education, 4=Skills, 5=Summary — the builder step where this is fixed; null if not fixable in builder
 - module: "scan" if this issue requires comparing against a JD (keyword gaps); null otherwise
 Only include issues that are genuinely present. Do not fabricate problems.
