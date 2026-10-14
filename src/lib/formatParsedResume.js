@@ -61,3 +61,19 @@ export function formatParsedResume(p) {
 
   return out.join('\n');
 }
+
+// Shown when the resume text had to be rebuilt by the model because the PDF could not be read as text. The score is computed from this
+// rebuilt text, so it can differ from the file.
+export const REBUILT_RESUME_NOTICE = "We couldn't read your PDF directly, so we rebuilt the text with AI. It may differ from your file. For the most accurate score, upload a .docx.";
+
+// Reads a PDF for onboarding: directly first; if that throws, ask the model and rebuild the text from its JSON. `rebuilt` is true only when
+// rebuilt text came back. An error from the model is not caught here (the caller shows it).
+export async function readPdfForSetup(file, { extractText, extractWithModel }) {
+  try {
+    return { text: await extractText(file), rebuilt: false };
+  } catch (_) {
+    const parsed = await extractWithModel(file);
+    const rebuilt = parsed && !parsed.error ? formatParsedResume(parsed) : '';
+    return { text: rebuilt, rebuilt: rebuilt.trim() !== '' };
+  }
+}
