@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleRequest, createRateLimiter, LIMITS } from './handler.js';
-import { pickProvider, resolveModel } from './providers.js';
+import { pickProvider, resolveModel, withThinkingRoom } from './providers.js';
 
 const ENV = {
   SUPABASE_URL: 'https://proj.supabase.co',
@@ -148,7 +148,11 @@ describe('provider call', () => {
     const f = makeFetch();
     await call({ ...VALID, maxTokens: 999999 }, { fetchImpl: f });
     const init = f.mock.calls.find(([u]) => !String(u).includes('/auth/'))[1];
-    expect(JSON.parse(init.body).max_tokens).toBe(LIMITS.maxTokensCap);
+    // The browser's 999999 is cut to the cap; the provider then gets the cap plus room for thinking (withThinkingRoom), which is the same for a request at the cap.
+    expect(JSON.parse(init.body).max_tokens).toBe(withThinkingRoom(LIMITS.maxTokensCap));
+    const g = makeFetch();
+    await call({ ...VALID, maxTokens: LIMITS.maxTokensCap }, { fetchImpl: g });
+    expect(JSON.parse(g.mock.calls.find(([u]) => !String(u).includes('/auth/'))[1].body).max_tokens).toBe(JSON.parse(init.body).max_tokens);
   });
 
   it('forwards the PDF to Anthropic as a document block', async () => {

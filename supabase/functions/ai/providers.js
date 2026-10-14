@@ -85,6 +85,17 @@ export function geminiGenerationConfig(model, maxTokens) {
 
 // Groq's gpt-oss models "think" before they answer, and the thinking can use up the output limit so the JSON is cut off ("response hit the length limit").
 // Documented fix (console.groq.com/docs/reasoning): reasoning_effort "low", and an output limit that leaves room for the thinking.
+// A model that thinks before it answers counts the thinking against the output limit. Measured 2026-10-14 on 12 rewrites: Haiku 5.5 used up to 3,182 of the
+// 4,000 tokens the ats_parse call allows, and a reply cut by the limit is never retried on another provider. So OpenAI and Anthropic get room, as groqBody
+// gives it to gpt-oss. The provider bills the tokens used, not the limit.
+export const withThinkingRoom = (maxTokens) => Math.min(16000, Math.max(Math.floor(maxTokens) * 2, 4096));
+
+// Features whose answer is, or contains, a number the user sees as a score. A different model gives the same text a different score (12, 22 and 32
+// from three models, 2026-10-14), so these are not moved to another model without anyone noticing: the first provider that can serve the request
+// answers, and if it fails the user hears that and tries again (the browser already retries once). The two score functions set their own label on the
+// server; for the `ai` function the label comes from the browser, which only decides the caller's own request.
+export const NO_SILENT_FALLBACK = new Set(['score_star_review', 'score_interview_evaluate', 'scan_jd_match', 'jd_analyze', 'memory_plan']);
+
 export function groqBody(model, maxTokens, messages) {
   if (!/gpt-oss/i.test(model)) return { model, max_completion_tokens: maxTokens, messages };
   return { model, max_completion_tokens: Math.min(8192, Math.max(maxTokens * 2, 2048)), reasoning_effort: 'low', include_reasoning: false, messages };
@@ -116,7 +127,7 @@ function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) 
       body: provider === 'groq' ? groqBody(model, maxTokens, msgs)
         : isCompat(provider)
           ? { model, max_tokens: maxTokens, messages: msgs, ...(provider === 'openrouter' ? { provider: { zdr: true } } : {}) } // OpenRouter: route only to endpoints with Zero Data Retention
-          : { model, max_completion_tokens: maxTokens, messages: msgs },
+          : { model, max_completion_tokens: withThinkingRoom(maxTokens), messages: msgs },
     };
   }
   const msgs = pdfBase64
@@ -128,7 +139,7 @@ function buildRequest({ provider, model, key, messages, maxTokens, pdfBase64 }) 
   return {
     url: 'https://api.anthropic.com/v1/messages',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: { model, max_tokens: maxTokens, messages: msgs },
+    body: { model, max_tokens: withThinkingRoom(maxTokens), messages: msgs },
   };
 }
 
@@ -210,7 +221,8 @@ export const deadlineFor = (env) => {
 export async function callWithFallback({ env, messages, maxTokens, pdfBase64, meter = null }, fetchImpl = fetch, timeoutMs, clock = Date.now) {
   const startedAt = clock();
   const deadlineMs = deadlineFor(env);
-  const chain = providerChain(env).filter(p => !pdfBase64 || SUPPORTS_PDF[p]);
+  const capable = providerChain(env).filter(p => !pdfBase64 || SUPPORTS_PDF[p]);
+  const chain = NO_SILENT_FALLBACK.has(meter?.feature) ? capable.slice(0, 1) : capable;
   if (!chain.length) throw new ProviderError('No AI provider is configured.', { kind: 'upstream', status: 500 });
   // meter: { record(event), correlationId, feature, userRef, priceTable? }. Metering failures never reach the caller.
   const emit = (fields) => { try { meter?.record?.(buildEvent({ correlationId: meter.correlationId, feature: meter.feature, userRef: meter.userRef, hasPdf: !!pdfBase64, resumeKind: meter.resumeKind, resumeChars: meter.resumeChars, priceTable: meter.priceTable, ...fields })); } catch { /* never break the request */ } };
