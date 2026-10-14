@@ -4,7 +4,7 @@ import { sb } from './lib/supabase';
 import { extractJSON } from './lib/ai.jsx';
 import { callLLMFor } from './lib/aiFeature.js';
 import { extractTextFromPdfFile } from './lib/resumeParser.js';
-import { formatParsedResume, RESUME_EXTRACT_PROMPT } from './lib/formatParsedResume';
+import { readPdfForSetup, REBUILT_RESUME_NOTICE, RESUME_EXTRACT_PROMPT } from './lib/formatParsedResume';
 import { C, MODULES } from './styles/theme';
 import { Badge, Btn, Card, Spinner } from './components/CommonUI';
 import { useMemory } from './hooks/useMemory';
@@ -333,23 +333,27 @@ function App() {
         setResumeParsing(true);
         try {
           let text = '';
+          let rebuilt = false;
           if (file.name.toLowerCase().endsWith('.docx')) {
             const ab = await file.arrayBuffer();
             const { value } = await mammoth.extractRawText({ arrayBuffer: ab });
             text = value;
           } else {
-            try {
-              text = await extractTextFromPdfFile(file);
-            } catch (_) {
-              const ab = await file.arrayBuffer();
-              const b64 = _ab2b64(ab);
-              const raw = await callLLMFor('onboarding_pdf_extract', { kind: 'pdf', chars: 0 })([{ role: 'user', content: RESUME_EXTRACT_PROMPT }], 3000, b64);
-              const parsed = extractJSON(raw);
-              text = parsed.error ? '' : formatParsedResume(parsed);
-            }
+            const r = await readPdfForSetup(file, {
+              extractText: extractTextFromPdfFile,
+              extractWithModel: async (f) => {
+                const ab = await f.arrayBuffer();
+                const b64 = _ab2b64(ab);
+                const raw = await callLLMFor('onboarding_pdf_extract', { kind: 'pdf', chars: 0 })([{ role: 'user', content: RESUME_EXTRACT_PROMPT }], 3000, b64);
+                return extractJSON(raw);
+              },
+            });
+            text = r.text;
+            rebuilt = r.rebuilt;
           }
           if (text.trim()) {
             setResumeText(text);
+            if (rebuilt) showToast(REBUILT_RESUME_NOTICE, 'info');
           } else {
             showToast('Could not extract text — try a .docx file or paste your resume below.', 'error');
           }

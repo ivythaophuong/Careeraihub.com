@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatParsedResume, RESUME_EXTRACT_PROMPT } from './formatParsedResume';
+import { formatParsedResume, RESUME_EXTRACT_PROMPT, readPdfForSetup, REBUILT_RESUME_NOTICE } from './formatParsedResume';
 import { computeDeterministicScore } from '../scoring/computeDeterministicScore';
 import { extractResumeFacts } from '../extraction/resumeFacts';
 
@@ -63,5 +63,41 @@ describe('formatParsedResume', () => {
 describe('RESUME_EXTRACT_PROMPT', () => {
   it('asks for the sections the rebuilt text keeps', () => {
     for (const k of ['personalInfo', 'email', 'phone', 'location', 'summary', 'experience', 'education', 'skills', 'projects', 'certifications']) expect(RESUME_EXTRACT_PROMPT).toContain(k);
+  });
+});
+
+describe('readPdfForSetup: says when the text was rebuilt by the model', () => {
+  const file = { name: 'cv.pdf' };
+  const parsed = { personalInfo: { fullName: 'Ana Silva', email: 'ana@example.com' }, experience: [{ company: 'Acme', position: 'Analyst', description: ['Cut cost 20%'] }] };
+
+  it('a PDF that reads directly is NOT marked rebuilt, and the model is never asked', async () => {
+    let asked = false;
+    const r = await readPdfForSetup(file, { extractText: async () => 'Ana Silva\nana@example.com', extractWithModel: async () => { asked = true; return parsed; } });
+    expect(r).toEqual({ text: 'Ana Silva\nana@example.com', rebuilt: false });
+    expect(asked).toBe(false);
+  });
+
+  it('a PDF that cannot be read directly is rebuilt from the model JSON and marked rebuilt', async () => {
+    const r = await readPdfForSetup(file, { extractText: async () => { throw new Error('worker blocked'); }, extractWithModel: async () => parsed });
+    expect(r.rebuilt).toBe(true);
+    expect(r.text).toContain('ana@example.com');
+  });
+
+  it('when the model also returns nothing usable, the text is empty and it is NOT marked rebuilt (there is nothing to warn about)', async () => {
+    const r = await readPdfForSetup(file, { extractText: async () => { throw new Error('x'); }, extractWithModel: async () => ({ error: true }) });
+    expect(r).toEqual({ text: '', rebuilt: false });
+  });
+
+  it('an error from the model itself still reaches the caller, as before', async () => {
+    await expect(readPdfForSetup(file, { extractText: async () => { throw new Error('x'); }, extractWithModel: async () => { throw new Error('429'); } })).rejects.toThrow('429');
+  });
+});
+
+describe('REBUILT_RESUME_NOTICE', () => {
+  it('tells the user the text was rebuilt, that it may differ, and what to do', () => {
+    expect(REBUILT_RESUME_NOTICE).toMatch(/rebuilt/i);
+    expect(REBUILT_RESUME_NOTICE).toMatch(/differ/i);
+    expect(REBUILT_RESUME_NOTICE).toMatch(/\.docx/i);
+    expect(REBUILT_RESUME_NOTICE.length).toBeLessThan(220);
   });
 });
