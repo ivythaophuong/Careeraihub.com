@@ -19,3 +19,18 @@ export function detectLostStructure(text) {
   }
   return { lost: false };
 }
+
+// A text with real lines in which no experience, education or skill could be read has a layout the extractor cannot follow (two columns read
+// line by line, a table, headings it does not know). Scoring it would give a low number that says nothing about the CV, so, like lost line
+// breaks, the honest answer is "cannot read the sections", not a score. A short or thin text is never judged, and anything read at all
+// (an entry-level CV with only education and skills, for example) means the layout was readable.
+const MIN_UNREADABLE_LINES = 6;
+const MIN_UNREADABLE_CHARS = 250;
+
+export function detectUnreadableSections(text, found) {
+  const t = normalizeResumeText(text);
+  const lines = t.split('\n').filter((l) => l.trim()).length;
+  const anything = (found?.experiences || 0) + (found?.education || 0) + (found?.skills || 0) > 0;
+  if (anything || lines < MIN_UNREADABLE_LINES || t.length < MIN_UNREADABLE_CHARS) return { unreadable: false };
+  return { unreadable: true, reason: 'No experience, education or skills could be found in this text, so the sections cannot be told apart.' };
+}

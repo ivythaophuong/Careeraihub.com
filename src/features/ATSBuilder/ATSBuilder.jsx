@@ -451,6 +451,11 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
                         This text has no line breaks, so we cannot tell where one section ends and the next begins. Paste it again with its line breaks, or upload the file.
                       </div>
                     )}
+                    {!hasScore && detResult?.facts?.extraction?.notes?.includes('layout_unreadable') && (
+                      <div role="note" style={{ marginTop: 8, fontSize: 11.5, lineHeight: 1.55, color: 'var(--lp-text2)', maxWidth: 360 }}>
+                        We could not find your experience, education or skills in this text, so there is no score. This often happens when a resume has two columns or a table that the file reader mixes together. Try pasting the text one section at a time, or upload a single-column version.
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ height: 4, borderRadius: 2, background: 'var(--lp-bdr)', overflow: 'hidden' }}>

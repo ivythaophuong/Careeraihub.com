@@ -5,7 +5,7 @@ import { splitSections } from '../lib/resumeDigest';
 import { RESUME_FACTS_VERSION, validateResumeFacts } from '../contracts/resumeFacts';
 import { contentHash } from './hash';
 import { normalizeResumeText } from '../lib/textNormalize';
-import { detectLostStructure } from '../lib/textStructure';
+import { detectLostStructure, detectUnreadableSections } from '../lib/textStructure';
 import { extractContact } from './contact';
 import { extractExperiences } from './experience';
 import { extractEducation } from './education';
@@ -43,11 +43,15 @@ export function extractResumeFacts(text) {
   const metrics = experiences.flatMap((e, ei) =>
     e.bullets.flatMap((b, bi) => findMetricsInText(b.value, `metrics[exp${ei}.b${bi}]`)));
 
+  const unreadable = structure.lost ? { unreadable: false } : detectUnreadableSections(raw, { experiences: experiences.length, education: education.length, skills: skills.length });
+
   const facts = {
     schema_version: RESUME_FACTS_VERSION,
     content_hash: contentHash(raw),
     // A text whose line breaks are lost cannot be read section by section: say so (status failed, note structure_lost) instead of scoring it low.
-    extraction: { status: raw.trim() && !structure.lost ? 'ok' : 'failed', notes: structure.lost ? ['structure_lost'] : [] },
+    // Same for a text with lines in which no experience, education or skill could be read at all (two columns read line by line, a table):
+    // status failed, note layout_unreadable, so it is not scored 50 on the strength of a contact line.
+    extraction: { status: raw.trim() && !structure.lost && !unreadable.unreadable ? 'ok' : 'failed', notes: structure.lost ? ['structure_lost'] : unreadable.unreadable ? ['layout_unreadable'] : [] },
     contact: extractContact(contactText, raw),
     experiences,
     education,
