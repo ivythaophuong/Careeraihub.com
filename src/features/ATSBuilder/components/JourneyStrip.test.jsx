@@ -65,4 +65,18 @@ describe('JourneyStrip', () => {
     expect(screen.getAllByRole('button').some(b => b.getAttribute('aria-current'))).toBe(false);
     fireEvent.click(screen.getAllByRole('button')[0]);
   });
+
+  it('marks the stage the user is in and the visited ones with classes the stylesheet draws, and each stage keeps its name as a tooltip', () => {
+    setup({ current: 3, visited: [1, 2, 3] });
+    const b = screen.getAllByRole('button');
+    expect(b[2].className).toMatch(/\bis-here\b/);
+    expect(b[0].className).toMatch(/\bis-visited\b/);
+    expect(b[3].className).not.toMatch(/is-here|is-visited/);
+    b.forEach((el, i) => expect(el.getAttribute('title')).toBe(['Add your resume', 'See what to improve', 'Improve', 'Choose a layout and download'][i]));
+  });
+
+  it('keeps every stage name in the page text, so hiding it on a narrow screen (CSS) never removes it from a screen reader', () => {
+    setup({ current: 1, visited: [1] });
+    ['Add your resume', 'See what to improve', 'Improve', 'Choose a layout and download'].forEach((l) => expect(screen.getByText(l)).toBeTruthy());
+  });
 });

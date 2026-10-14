@@ -1145,3 +1145,38 @@
 
 /* A box being typed in gets a soft glow, so the page answers the typing. */
 .atb textarea:focus, .atb input:focus { box-shadow: 0 0 0 3px var(--lp-teal-dim); }
+
+/* ── Journey strip: the four stages above the tabs (JourneyStrip.jsx). Colours come from the theme variables only, so light and dark both work. ── */
+.jy-strip { margin: 12px 0 4px; }
+.jy-list { display: flex; align-items: center; list-style: none; margin: 0; padding: 4px 2px; overflow-x: auto; scrollbar-width: none; }
+.jy-item { display: flex; align-items: center; flex: 0 0 auto; }
+/* the line between two stages */
+.jy-item + .jy-item::before { content: ''; width: 28px; height: 1px; margin: 0 4px; background: var(--lp-bdr2); flex-shrink: 0; }
+.jy-step {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 14px 4px 6px; border-radius: 999px;
+  border: 1px solid transparent; background: transparent; color: var(--lp-text3); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+  cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.jy-step:hover { background: var(--lp-bg3); color: var(--lp-text); }
+.jy-step:focus-visible { outline: 2px solid var(--lp-teal); outline-offset: 2px; }
+.jy-step.is-visited { color: var(--lp-text2); }
+.jy-step.is-here { cursor: default; background: var(--lp-teal-dim); border-color: var(--lp-teal-b); color: var(--lp-text); font-weight: 800; }
+.jy-num {
+  width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid currentColor; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; flex-shrink: 0; line-height: 1;
+}
+.jy-step.is-here .jy-num { border-color: var(--lp-teal); color: var(--lp-teal); }
+/* a narrow screen: only the stage the user is in keeps its words; the others are a numbered circle (their name is in the label and the tooltip) */
+@media (max-width: 640px) {
+  .jy-item + .jy-item::before { width: 12px; margin: 0 2px; }
+  .jy-step:not(.is-here) { padding-right: 6px; }
+  .jy-step:not(.is-here) .jy-label { display: none; }
+  .jy-step.is-here .jy-label { white-space: normal; line-height: 1.2; max-width: 150px; }
+  .jy-step { padding-left: 4px; }
+}
+@media (max-width: 420px) {
+  .jy-item + .jy-item::before { width: 6px; margin: 0; }
+  .jy-step { gap: 8px; }
+  .jy-step.is-here .jy-label { max-width: 118px; font-size: 12.5px; }
+}
+@media (prefers-reduced-motion: reduce) { .jy-step { transition: none; } }
