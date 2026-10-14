@@ -390,12 +390,12 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
       <div className="atb-parse-preview-pane" style={{ padding: 24, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Empty state */}
-        {!loading && !profile && (
+        {!loading && !profile && !detResult && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: 'var(--lp-text3)', gap: 8, opacity: .5 }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <div style={{ fontSize: 12 }}>Upload a resume to see your diagnostic report</div>
+            <div style={{ fontSize: 12 }}>Upload or paste a resume to see your readiness score</div>
           </div>
         )}
 
@@ -403,7 +403,9 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
           const hasScore = detScore !== null;
           const score = hasScore ? detScore : 0;
           const scoreColor = score >= 80 ? '#00E5A0' : score >= 60 ? '#FFB84D' : '#FF5A5A';
-          const scoreLabel = !hasScore ? 'Not enough readable content to score' : score >= 80 ? 'Strong Resume' : score >= 60 ? 'Needs Improvement' : 'Needs Major Work';
+          // No verdict word ("Strong", "Needs Improvement"): the cut-offs 80 and 60 were never validated against anything. The label says what the number rests on.
+          const scoreParts = detResult.score?.parts || [];
+          const scoreLabel = !hasScore ? 'Not enough readable content to score' : `Based on ${scoreParts.filter((p) => p.score !== null).length} of ${scoreParts.length} checks`;
           const circumference = 2 * Math.PI * 28;
           // focus = { step, issue } when the user came from one issue, so the builder opens at that issue's step and keeps it on screen.
           const goToBuilder = (focus) => { if (!profile) return; if (onProfileParsed) onProfileParsed({ ...profile, skills: localSkills }, { keepDraft: true }); if (onGoToBuilder) onGoToBuilder(focus); };
@@ -577,10 +579,7 @@ Do NOT output any overall score or per-dimension scores: the score is computed b
               {!profile && !loading && (
                 <div style={{ background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--lp-text)' }}>Want to know what to fix?</div>
-                  <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.5 }}>AI reads your resume, lists the problems behind this score and suggests rewrites. It never changes the score.</div>
-                  <button onClick={() => { if (rawText.trim()) { if (onResumeExtracted) onResumeExtracted(rawText); parseResume(rawText); } }} style={{ alignSelf: 'flex-start', padding: '9px 16px', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                    Find issues & enhance with AI →
-                  </button>
+                  <div style={{ fontSize: 12, color: 'var(--lp-text3)', lineHeight: 1.5 }}>AI reads your resume, lists the problems behind this score and suggests rewrites. Use the “Find issues & enhance with AI” button. It never changes the score.</div>
                 </div>
               )}
               {loading && (
