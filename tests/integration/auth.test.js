@@ -53,13 +53,18 @@ function extractSession(signupData) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+// These tests sign real accounts up (and in) on the production project named above, and sign-up there is open without email confirmation, so they run only
+// when asked: RUN_LIVE_TESTS=1 npx vitest run tests/integration. Without the flag, `npx vitest run` creates nothing outside the machine (found 2026-10-14:
+// every full run had been creating test_<time>@mailinator.com accounts). The extractSession tests below use no network and always run.
+const LIVE = Boolean(process.env.RUN_LIVE_TESTS);
+
 // Unique email per test run so we never collide with existing accounts
 const testEmail = `test_${Date.now()}@mailinator.com`;
 const testPassword = "TestPass123!";
 const testName = "Test User";
 
 describe("Supabase Auth — signup flow", () => {
-  it("signUp returns a recognisable response shape", async () => {
+  it.skipIf(!LIVE)("signUp returns a recognisable response shape", async () => {
     const data = await signUp(testEmail, testPassword, testName);
 
     // Supabase always returns at least a user object or an id at the root
@@ -101,7 +106,7 @@ describe("Supabase Auth — signup flow", () => {
   });
 });
 
-describe("Supabase Auth — sign in flow", () => {
+describe.skipIf(!LIVE)("Supabase Auth — sign in flow", () => {
   it("signIn succeeds with correct credentials and returns access_token", async () => {
     // Sign up first, then sign in — this exercises the full create-then-login path
     const uniqueEmail = `test_signin_${Date.now()}@mailinator.com`;
