@@ -4,6 +4,7 @@ import { sb } from './lib/supabase';
 import { extractJSON } from './lib/ai.jsx';
 import { callLLMFor } from './lib/aiFeature.js';
 import { extractTextFromPdfFile } from './lib/resumeParser.js';
+import { formatParsedResume, RESUME_EXTRACT_PROMPT } from './lib/formatParsedResume';
 import { C, MODULES } from './styles/theme';
 import { Badge, Btn, Card, Spinner } from './components/CommonUI';
 import { useMemory } from './hooks/useMemory';
@@ -13,28 +14,6 @@ const _ab2b64 = (buf) => {
   for (let i = 0; i < bytes.byteLength; i++) b += String.fromCharCode(bytes[i]);
   return btoa(b);
 };
-const _formatParsedResume = (p) => {
-  const s = [];
-  if (p.personalInfo?.fullName) s.push(p.personalInfo.fullName);
-  if (p.summary) s.push('\n' + p.summary);
-  if (p.experience?.length) {
-    s.push('\n\nEXPERIENCE');
-    p.experience.forEach(e => {
-      s.push(`${e.position} at ${e.company} (${e.startDate} – ${e.endDate})`);
-      (e.description || []).forEach(d => s.push('• ' + d));
-    });
-  }
-  if (p.education?.length) {
-    s.push('\n\nEDUCATION');
-    p.education.forEach(e => s.push(`${e.degree} — ${e.school} ${e.year || ''}`));
-  }
-  if (p.skills?.length) {
-    s.push('\n\nSKILLS');
-    p.skills.forEach(sk => s.push(`${sk.category}: ${(sk.items || []).join(', ')}`));
-  }
-  return s.join('\n');
-};
-const RESUME_EXTRACT_PROMPT = `Extract this resume and return ONLY raw JSON (no markdown, start with {): {"personalInfo":{"fullName":"","email":"","phone":"","location":""},"summary":"","experience":[{"company":"","position":"","startDate":"","endDate":"","description":[]}],"education":[{"school":"","degree":"","year":""}],"skills":[{"category":"","items":[]}]}`;
 
 // ── Feature Modules ──────────────────────────────────────────────────────────
 import ResumeScan from './features/ResumeScan/ResumeScan';
@@ -366,7 +345,7 @@ function App() {
               const b64 = _ab2b64(ab);
               const raw = await callLLMFor('onboarding_pdf_extract', { kind: 'pdf', chars: 0 })([{ role: 'user', content: RESUME_EXTRACT_PROMPT }], 3000, b64);
               const parsed = extractJSON(raw);
-              text = parsed.error ? '' : _formatParsedResume(parsed);
+              text = parsed.error ? '' : formatParsedResume(parsed);
             }
           }
           if (text.trim()) {
