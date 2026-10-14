@@ -97,7 +97,7 @@ describe('saving from the Fix page', () => {
 describe('the template', () => {
   it('the template the user chose in the gallery is the one the Fix page draws, after a trip through the tabs', () => {
     render(<ATSBuilder {...base([issue()])} />);
-    fireEvent.click(screen.getByRole('button', { name: /^Templates$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Layout & download$/ }));
     fireEvent.click(screen.getByRole('button', { name: new RegExp(TEMPLATES[4].label) }));
     fireEvent.click(screen.getByRole('button', { name: /Upload & Parse/ }));
     fireEvent.click(screen.getByText(/Fix in Builder/));

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Choosing a template is its own screen (the Templates tab); the Builder only names the template in use and links to it.
+// Choosing a template is its own screen (the Layout & download tab); the Builder only names the template in use and links to it.
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
@@ -25,10 +25,10 @@ const profile = (issues = [issue()]) => ({
   issues,
 });
 const base = (over = {}) => ({ user: { id: 'u1', token: 't' }, memory: { parseProfile: profile() }, updateMemory: vi.fn(), form: {}, setActiveModule: vi.fn(), setResumeText: vi.fn(), resumeText: GOOD, ...over });
-const openGallery = () => fireEvent.click(screen.getByRole('button', { name: /^Templates$/ }));
+const openGallery = () => fireEvent.click(screen.getByRole('button', { name: /^Layout & download$/ }));
 const openBuilder = () => { (() => { fireEvent.click(screen.getByRole('button', { name: 'Builder' })); fireEvent.click(screen.getByText(/Load from memory/)); })(); };
 
-describe('the Templates tab', () => {
+describe('the Layout & download tab', () => {
   it('is a tab of its own and opens the gallery with the user\'s own resume in every template', () => {
     render(<ATSBuilder {...base()} />);
     openGallery();
@@ -103,7 +103,7 @@ describe('the end of the Fix page', () => {
 describe('after choosing a layout: download or save', () => {
   const toStepTwo = (p) => {
     render(<ATSBuilder {...p} />);
-    fireEvent.click(screen.getByRole('button', { name: /^Templates$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Layout & download$/ }));
     fireEvent.click(screen.getByRole('button', { name: new RegExp(TEMPLATES[2].label) }));
     fireEvent.click(screen.getByRole('button', { name: /next: download or save/i }));
   };
@@ -124,13 +124,13 @@ describe('after choosing a layout: download or save', () => {
     expect(next.resumeVersions).toHaveLength(1);
     expect(next.resumeVersions[0]).toMatchObject({ template: TEMPLATES[2].id, templateLabel: TEMPLATES[2].label, label: 'Version 1' });
     fireEvent.click(screen.getByRole('button', { name: /see your versions/i }));
-    expect(screen.getByRole('button', { name: /^Version History$/ }).textContent).toMatch(/Version History/);
+    expect(screen.getByRole('button', { name: /^Saved versions$/ }).textContent).toMatch(/Saved versions/);
     expect(screen.queryByRole('heading', { name: /choose a template/i })).toBeNull();
   });
 
   it('with no resume yet, the screen says it is a sample and offers no download or save', () => {
     render(<ATSBuilder {...base({ memory: {} })} />);
-    fireEvent.click(screen.getByRole('button', { name: /^Templates$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Layout & download$/ }));
     expect(screen.getByText(/upload or write your resume/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /next: download or save/i })).toBeNull();
   });
