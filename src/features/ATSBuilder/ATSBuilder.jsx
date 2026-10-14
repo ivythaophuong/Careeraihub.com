@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useScrollTabs } from '../../hooks/useScrollTabs.js';
 import JourneyStrip from './components/JourneyStrip.jsx';
+import { buildParsePrompt, dropFalseDateClaims } from './parsePrompt.js';
 import { journeyStage, addVisited } from './journey.js';
 import mammoth from 'mammoth';
 import { extractJSON } from '../../lib/ai.jsx';
@@ -110,46 +111,11 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
     setLoading(true); setProfile(null); setError('');
     try {
       const raw = await callLLMFor('ats_parse', { kind: 'text', chars: Math.min(text.length, 5000) })([{ role: 'user', content:
-        `Parse this resume and extract all structured data for a resume builder.
-Resume text:
-${text.slice(0, 5000)}
-
-Return ONLY raw JSON (no markdown, start with {):
-{
-  "name": "full name",
-  "email": "email address",
-  "phone": "phone number",
-  "linkedin": "linkedin handle or URL",
-  "location": "city / region",
-  "targetRole": "most recent or target role title",
-  "experience": "X years",
-  "topSkills": ["skill1","skill2","skill3"],
-  "market": "city / region",
-  "summary": "professional summary paragraph if present, else empty string",
-  "workExperience": [{"title":"job title","company":"company name","period":"date range","duration":"X years","bullets":["bullet point 1","bullet point 2"]}],
-  "education": [{"degree":"degree name","institution":"school","year":"graduation year","gpa":"if present"}],
-  "skills": ["skill1","skill2","skill3","skill4","skill5","skill6","skill7","skill8"],
-  "awards": ["award 1","award 2"],
-  "extras": [{"heading":"Section Name as written in resume","items":["item 1","item 2"]}],
-  "issues": [
-    {"severity":"critical","title":"4-6 word specific title","description":"2-3 sentences: what is wrong and why it hurts.","before":"exact weak text quoted from resume","after":"improved version with specifics","builderStep":2,"module":null}
-  ]
-}
-For extras: include every section not already captured above (e.g. Certifications, Publications, Projects, Volunteer, Languages, Interests, Patents, etc.). Do NOT put work experience, education, skills, awards, or summary into extras.
-
-issues: List 3-6 specific, actionable problems found in THIS resume. Rules:
-- severity: "critical" (the resume is likely rejected because of it), "high" (clearly hurts screening), "medium" (worth fixing)
-- title: 4-6 words, hyper-specific (NOT "Improve bullet quality" — instead "No metrics in any bullet")
-- description: 2-3 sentences. Name the exact problem and why it hurts ATS or recruiter screening.
-- before: quote exact weak text from the resume (keep short, max 12 words)
-- after: rewritten version showing the fix for that specific text
-- builderStep: 1=Contact, 2=Experience, 3=Education, 4=Skills, 5=Summary — the builder step where this is fixed; null if not fixable in builder
-- module: "scan" if this issue requires comparing against a JD (keyword gaps); null otherwise
-Only include issues that are genuinely present. Do not fabricate problems.
-
-Do NOT output any overall score or per-dimension scores: the score is computed by code, not by you. Your job here is to extract the data and to explain concrete problems.` }], 4000);
+        buildParsePrompt(text) }], 4000);
       const parsed = extractJSON(raw);
       if (!parsed.error) {
+        // The model once called a past end date "an impossible future date"; code decides dates, so a claim about a date that is not after today is dropped.
+        if (Array.isArray(parsed.issues)) parsed.issues = dropFalseDateClaims(parsed.issues);
         setProfile(parsed);
         if (onProfileParsed) onProfileParsed(parsed);
       } else {
