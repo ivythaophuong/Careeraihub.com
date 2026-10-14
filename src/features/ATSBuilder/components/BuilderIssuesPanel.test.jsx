@@ -231,3 +231,31 @@ describe('BuilderIssuesPanel', () => {
     });
   });
 });
+
+describe('BuilderIssuesPanel: blanks the model wrote itself', () => {
+  beforeEach(() => { try { localStorage.clear(); } catch {} });
+  afterEach(cleanup);
+  const one = (after) => [{ severity: 'medium', title: 'Passive bullet', description: 'Starts with Responsible.', before: 'Responsible for weekly reports', after, builderStep: 2 }];
+
+  it('[X]% written by the model still gets a note to fill it in', () => {
+    render(<Harness onGoToStep={() => {}} list={one('Produced weekly reports, cutting errors by [X]%')} />);
+    fireEvent.click(within(card('Passive bullet'), /^apply/i));
+    expect(latest.data.experience[0].bullets[0]).toBe('Produced weekly reports, cutting errors by [X]%');
+    expect(screen.getByText(/has a blank for you to fill: \[X\]/i)).toBeTruthy();
+  });
+
+  it('[number] is applied as written, with a note that names it (not the "[X]" note)', () => {
+    render(<Harness onGoToStep={() => {}} list={one('Produced [number] weekly reports')} />);
+    fireEvent.click(within(card('Passive bullet'), /^apply/i));
+    expect(latest.data.experience[0].bullets[0]).toBe('Produced [number] weekly reports');
+    expect(screen.getByText(/has a blank for you to fill: \[number\]/i)).toBeTruthy();
+    expect(screen.queryByText(/replace \[X\] with your real figure/i)).toBeNull();
+  });
+
+  it('a clean rewrite has no note', () => {
+    render(<Harness onGoToStep={() => {}} list={one('Produced weekly reports')} />);
+    fireEvent.click(within(card('Passive bullet'), /^apply/i));
+    expect(screen.queryByText(/for you to fill/i)).toBeNull();
+    expect(screen.queryByText(/replace \[X\]/i)).toBeNull();
+  });
+});

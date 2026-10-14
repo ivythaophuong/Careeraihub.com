@@ -39,7 +39,7 @@ issues: List 3-6 specific, actionable problems found in THIS resume. Rules:
 - title: 4-6 words, hyper-specific (NOT "Improve bullet quality" — instead "No metrics in any bullet")
 - description: 2-3 sentences. Name the exact problem and why it hurts ATS or recruiter screening.
 - before: quote exact weak text from the resume (keep short, max 12 words)
-- after: rewritten version showing the fix for that specific text
+- after: rewritten version showing the fix for that specific text. Use ONLY facts the resume states. Where a figure would help but the resume does not give one, write exactly [X] (no other word in brackets, never invent a number). Never add a tool, company, place, job title or result that the resume does not state.
 - builderStep: 1=Contact, 2=Experience, 3=Education, 4=Skills, 5=Summary — the builder step where this is fixed; null if not fixable in builder
 - module: "scan" if this issue requires comparing against a JD (keyword gaps); null otherwise
 Only include issues that are genuinely present. Do not fabricate problems.

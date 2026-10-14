@@ -41,7 +41,7 @@ export function suggestionFor(data, issue, at) {
   const r = applyIssue(data, issue, at);
   if (r.error) return { error: r.error };
   const warnings = claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message);
-  return { text: readField(r.data, r.record.at), placeholders: r.placeholders, replaced: r.replaced, warnings };
+  return { text: readField(r.data, r.record.at), placeholders: r.placeholders, replaced: r.replaced, blanks: r.blanks, warnings };
 }
 
 // Saves what the user wrote as the whole text of one field. Everything else stays as it was. The record has the shape undoApply reads.

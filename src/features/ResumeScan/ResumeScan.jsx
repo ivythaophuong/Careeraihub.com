@@ -70,7 +70,7 @@ function dataToResumeText(data) {
 function guardIssues(issues, resume) {
   return (issues || []).map(issue => {
     const g = neutralizeInventedFigures(issue.fix, resume);
-    return { ...issue, fix: g.text, needsInput: hasPlaceholder(g.text) };
+    return { ...issue, fix: g.text, needsInput: g.needsInput };
   });
 }
 
@@ -949,14 +949,14 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                       />
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button
-                          disabled={hasPlaceholder(editDraft)}
+                          disabled={hasPlaceholder(editDraft, resumeCtx)}
                           onClick={() => {
                             setAppliedFixes(f => ({ ...f, [i]: editDraft }));
                             setEditingIdx(null);
                             patchResume(editDraft, applied || issue.original, i, patchRecords[i]?.original);
                           }}
-                          style={{ padding: '8px 18px', background: '#00E5A0', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: hasPlaceholder(editDraft) ? 'not-allowed' : 'pointer', opacity: hasPlaceholder(editDraft) ? .45 : 1 }}
-                        >{hasPlaceholder(editDraft) ? 'Replace [X] to save' : 'Save ✓'}</button>
+                          style={{ padding: '8px 18px', background: '#00E5A0', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: hasPlaceholder(editDraft, resumeCtx) ? 'not-allowed' : 'pointer', opacity: hasPlaceholder(editDraft, resumeCtx) ? .45 : 1 }}
+                        >{hasPlaceholder(editDraft, resumeCtx) ? 'Fill the blanks to save' : 'Save ✓'}</button>
                         <button
                           onClick={() => setEditingIdx(null)}
                           style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text3)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}

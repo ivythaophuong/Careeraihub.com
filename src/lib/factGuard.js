@@ -12,7 +12,11 @@ const TOKEN = new RegExp(
 );
 
 export const PLACEHOLDER = '[X]';
-const PLACEHOLDER_RE = /\[[XY]\]/;
+// A blank the model wrote itself: gpt-6-luna writes [number], [type], [City, Region], Haiku writes [X]%. Any short [bracketed] text is unfinished
+// content the user has to fill or remove. A footnote number like [1] is not. [X] and [Y] always count; another bracket does not count when the
+// resume already has that exact bracket (a resume may contain its own [Confidential]).
+const BLANK_RE = /\[[^\[\]\r\n]{1,60}\]/g;
+const isXY = (t) => /^\[[XY]\]$/.test(t);
 
 const isYear = (core) => /^(19|20)\d{2}$/.test(core);
 
@@ -41,10 +45,38 @@ export function neutralizeInventedFigures(text, source) {
     const suffix = /[%xX]$/.test(tok) ? tok.slice(-1) : '';
     return `${prefix}${PLACEHOLDER}${suffix}`;
   });
-  return { text: out, changed: replaced.length > 0, replaced };
+  const blanks = findBlanks(out, source);
+  return { text: out, changed: replaced.length > 0, replaced, blanks, needsInput: replaced.length > 0 || blanks.length > 0 };
 }
 
-export const hasPlaceholder = (text) => PLACEHOLDER_RE.test(String(text || ''));
+// The blanks left in `text`, each listed once, in order. Pure.
+export function findBlanks(text, source = '') {
+  const src = String(source ?? '');
+  const out = [];
+  for (const m of String(text ?? '').matchAll(BLANK_RE)) {
+    const t = m[0];
+    if (/^\[\d+\]$/.test(t) || out.includes(t) || (!isXY(t) && src.includes(t))) continue;
+    out.push(t);
+  }
+  return out;
+}
+
+export const hasPlaceholder = (text, source = '') => findBlanks(text, source).length > 0;
+
+// The blanks the "figures not in your resume" note does not already explain: when the code replaced figures, the [X] it wrote are explained;
+// when it replaced nothing, every blank is extra (the model wrote [X]% or [number] itself).
+export function extraBlanks(replaced, blanks) {
+  const b = Array.isArray(blanks) ? blanks : [];
+  return Array.isArray(replaced) && replaced.length ? b.filter((x) => !isXY(x)) : b;
+}
+
+// One sentence for the user about those blanks, or '' when there is nothing to say.
+export function fillNote(replaced, blanks) {
+  const extra = extraBlanks(replaced, blanks);
+  if (!extra.length) return '';
+  const many = extra.length > 1;
+  return `The text ${Array.isArray(replaced) && replaced.length ? 'also ' : ''}has ${many ? 'blanks' : 'a blank'} for you to fill: ${extra.join(', ')}. Put your real details, or remove ${many ? 'them' : 'it'}.`;
+}
 
 // Put back the passage a fix replaced. Returns null when the inserted text can no longer be found
 // (the candidate rewrote it by hand), so the caller can say so instead of claiming it was undone.

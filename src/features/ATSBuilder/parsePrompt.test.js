@@ -62,3 +62,19 @@ describe('dropFalseDateClaims', () => {
     expect(dropFalseDateClaims([null, 5, {}], '2026-10-14')).toEqual([{}]); // junk entries are removed so the screen never reads a property of null
   });
 });
+
+describe('buildParsePrompt: what the model may write in "after"', () => {
+  const prompt = buildParsePrompt('Jordan Lee\nAnalyst at Acme\n- Built reports', '2026-10-14');
+  it('tells the model to write exactly [X] where a figure would help but the resume does not give it', () => {
+    expect(prompt).toMatch(/\[X\]/);
+    expect(prompt).toMatch(/exactly \[X\]/i);
+    expect(prompt).toMatch(/no other word in brackets/i);
+  });
+  it('forbids adding a tool, company, place, title or result the resume does not state', () => {
+    expect(prompt).toMatch(/never add a tool, company, place, job title or result/i);
+  });
+  it('keeps the rules it already had (no scores; the date)', () => {
+    expect(prompt).toMatch(/Do NOT output any overall score/);
+    expect(prompt).toContain("Today's date is 2026-10-14");
+  });
+});

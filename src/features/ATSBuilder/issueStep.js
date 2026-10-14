@@ -37,7 +37,7 @@ export function draftFor(issue, data) {
   const resumeText = builderDataToText(data);
   const g = neutralizeInventedFigures(after, resumeText);
   const warnings = claimWarnings({ before: issue.before || '', after, resumeText }).map(w => w.message);
-  return { text: g.text, placeholders: g.changed, replaced: g.replaced, warnings };
+  return { text: g.text, placeholders: g.needsInput, replaced: g.replaced, blanks: g.blanks, warnings };
 }
 
 // Is the issue about the sentences under a job, so that the user can pick the sentence it applies to on the side-by-side page?

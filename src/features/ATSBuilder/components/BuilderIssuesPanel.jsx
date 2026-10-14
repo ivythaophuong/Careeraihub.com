@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { locateAll, applyIssue } from '../applyIssue.js';
 import { undoRecord } from '../fixPage.js';
 import { claimWarnings } from '../../../lib/claimGuard.js';
+import { fillNote } from '../../../lib/factGuard.js';
 import { builderDataToText } from '../builderText.js';
 import { issueKey } from '../fixPage.js';
 import { stepForIssue } from '../issueStep.js';
@@ -40,7 +41,7 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
     // Warnings are judged against the resume as it was BEFORE the change, then kept with the record until Undo.
     const warnings = claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message);
     onChange(r.data);
-    remember(k, { record: r.record, placeholders: r.placeholders, warnings });
+    remember(k, { record: r.record, placeholders: r.placeholders, replaced: r.replaced, blanks: r.blanks, warnings });
     setNotes(n => ({ ...n, [k]: '' }));
   };
   const undo = (k) => {
@@ -80,7 +81,9 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
               {issue.before && <div><strong>Now:</strong> <span>{issue.before}</span></div>}
               {issue.after && <div><strong>Suggested:</strong> <span>{issue.after}</span></div>}
               {warnings.map((m, j) => <div key={j} style={{ color: '#FFB84D', lineHeight: 1.5 }}>{m}</div>)}
-              {rec?.placeholders && <div style={{ color: '#FFB84D' }}>Replace [X] with your real figure, or remove it.</div>}
+              {/* Applied before this field existed (no blanks stored): the old note. Otherwise the code's own [X] get the figure note, and any other blank gets its own. */}
+              {rec?.placeholders && (!rec.blanks || rec.replaced?.length > 0) && <div style={{ color: '#FFB84D' }}>Replace [X] with your real figure, or remove it.</div>}
+              {rec?.placeholders && rec.blanks && fillNote(rec.replaced, rec.blanks) && <div style={{ color: '#FFB84D' }}>{fillNote(rec.replaced, rec.blanks)}</div>}
               {notes[k] && <div style={{ color: '#FFB84D' }}>{notes[k]}</div>}
               {hits.length > 1 && <div style={{ lineHeight: 1.5 }}>That text is in {hits.length} places. Choose where to apply it:</div>}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
