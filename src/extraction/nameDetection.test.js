@@ -112,3 +112,13 @@ describe('a location line before the name is skipped, like a contact line', () =
     expect(name('Austin, Texas\nJordan Lee').value).toBeNull();
   });
 });
+
+describe('known limit: a two-column resume read column by column', () => {
+  // A PDF with a sidebar is read left column first, so the first recognised heading ("Contact") comes before the name, which sits at the
+  // top of the right column. The reader looks for a name before the first heading, so it finds none. Reading it correctly needs column
+  // detection (a design of its own); guessing a name from any later line would read "State University" as a person.
+  const text = 'Contact\njordan@example.com\n+1 555 0100\nSkills\nSQL\nExcel\nEducation\nBSc Economics\nState University\n2016\nJordan A. Lee\nOperations Analyst\nExperience\nSenior Analyst, Acme Corp\nJan 2020 – Mar 2023\nBuilt 3 dashboards';
+  it.fails('finds the name in the right column', () => {
+    expect(extractResumeFacts(text).contact.name.value).toBe('Jordan A. Lee');
+  });
+});

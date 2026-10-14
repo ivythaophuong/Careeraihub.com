@@ -26,17 +26,9 @@ const cases = [
 const upload = (text) => computeDeterministicScore(text).score.score;
 
 describe('Builder score vs upload score on the same content (synthetic resumes)', () => {
-  for (const c of cases.filter(x => x.name !== 'standard-bullets-dot')) {
+  for (const c of cases) {
     it(`${c.name}: same score`, () => {
       expect(scoreBuilderData(c.data).score).toBe(upload(c.text));
     });
   }
-
-  // KNOWN DIFFERENCE, in the reader of uploaded files, not in the Builder: a job header written as "Title, Company" on its
-  // own line after a blank line is counted as a bullet of the previous job (3 bullets read as 4), which lowers the upload's
-  // "numbers in bullets" check. Tracked for a separate reader fix; flip this to a normal test when it is fixed.
-  it.fails('standard-bullets-dot: same score (reader counts the next job header as a bullet)', () => {
-    const c = cases.find(x => x.name === 'standard-bullets-dot');
-    expect(scoreBuilderData(c.data).score).toBe(upload(c.text));
-  });
 });

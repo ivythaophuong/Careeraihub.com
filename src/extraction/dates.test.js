@@ -79,6 +79,26 @@ describe('findDateRangeInLine', () => {
 });
 
 describe('Vietnamese date forms', () => {
+  it('reads "to date", "till now" and "until present" as an ongoing end', () => {
+    for (const t of ['2021 – to date', 'Jan 2020 to date', '2019 till now', 'Mar 2018 - until present', 'Feb 2020 to present']) {
+      const r = parseDateRange(t);
+      expect(r.end.normalized_value, t).toBe('present');
+      expect(r.start.normalized_value, t).toMatch(/^(19|20)\d{2}(-\d{2})?$/);
+    }
+  });
+  it('reads a range written with the word "to" between two dates', () => {
+    const r = parseDateRange('Mar 2020 to Dec 2021');
+    expect([r.start.normalized_value, r.end.normalized_value]).toEqual(['2020-03', '2021-12']);
+  });
+  it('finds those ranges inside a line', () => {
+    expect(findDateRangeInLine('Senior Engineer | Kite Analytics | 2021 – to date').range.end.normalized_value).toBe('present');
+    expect(findDateRangeInLine('Analyst, Acme Jan 2020 to date').range.end.normalized_value).toBe('present');
+    expect(findDateRangeInLine('Analyst, Acme Mar 2020 to Dec 2021').range.end.normalized_value).toBe('2021-12');
+  });
+  it('does not read ordinary sentences with "to" as dates', () => {
+    expect(findDateRangeInLine('Moved from 2 teams to 3 teams and wanted to date nobody')).toBeNull();
+  });
+
   it('reads "Tháng 1/2021" and the present markers "nay", "đến nay", "hiện nay"', () => {
     expect(parseDate('Tháng 1/2021').normalized_value).toBe('2021-01');
     expect(parseDate('tháng 03/2020').normalized_value).toBe('2020-03');
@@ -92,5 +112,29 @@ describe('Vietnamese date forms', () => {
   });
   it('does not turn ordinary words that contain "nay" into a date', () => {
     expect(parseDate('Nayla').normalized_value).toBeNull();
+  });
+});
+
+describe('ranges written with a word instead of a dash', () => {
+  it.each([
+    ['January 2020 to Present', '2020-01', 'present'],
+    ['Jun 2017 until Dec 2019', '2017-06', '2019-12'],
+    ['Jan 2020 through Mar 2023', '2020-01', '2023-03'],
+    ['2018 to 2021', '2018', '2021'],
+  ])('%s', (text, start, end) => {
+    const r = parseDateRange(text);
+    expect(r.start.normalized_value).toBe(start);
+    expect(r.end.normalized_value).toBe(end);
+  });
+
+  it('is found inside a line, and the whole range is what gets removed from the header', () => {
+    const f = findDateRangeInLine('Analyst, Acme Corp  January 2020 to Present');
+    expect(f.matchedText).toBe('January 2020 to Present');
+    expect(f.range.end.normalized_value).toBe('present');
+  });
+
+  it('does not read ordinary sentences with "to" as a date range', () => {
+    expect(findDateRangeInLine('Reported to the CFO since 2020')?.matchedText).toBe('2020');
+    expect(findDateRangeInLine('Moved from 2019 to improve reporting')?.range.end.normalized_value ?? null).toBeNull();
   });
 });

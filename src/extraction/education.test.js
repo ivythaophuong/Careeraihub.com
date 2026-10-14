@@ -24,6 +24,37 @@ describe('extractEducation', () => {
     expect(es[1].year.normalized_value).toBe('2019');
   });
 
+  it('recognises engineering, business, arts and law degree abbreviations', () => {
+    const lines = [
+      'B.Tech Computer Science, Anna University, 2020', 'BTech Mechanical Engineering, Example Institute, 2018',
+      'BFA Graphic Design, Istanbul Technical University, 2017', 'MFA Creative Writing, Example College, 2021',
+      'BBA Finance, University of Texas, 2017', 'BBA, ESADE, 2018', 'B.E. Electronics, Example University, 2015',
+      'BEng Civil Engineering, Example University, 2016', 'BCom Accounting, Example University, 2014', 'LLB, Example University, 2012',
+      'M.Tech Data Science, Example Institute, 2022', 'MEng Robotics, Example University, 2023', 'BEd Primary Education, Example College, 2013',
+    ];
+    for (const l of lines) {
+      const es = extractEducation(l);
+      expect(es, l).toHaveLength(1);
+      expect(es[0].year.normalized_value, l).toMatch(/^(19|20)\d{2}$/);
+    }
+  });
+
+  it('reads BE and ME at the start of a line when a capitalised subject follows', () => {
+    for (const l of ['BE Information Engineering, Example Institute of Technology, 2020', 'ME Embedded Systems, Example College, 2019', 'BE in Computer Science, Example University, 2016']) {
+      expect(extractEducation(l), l).toHaveLength(1);
+    }
+  });
+  it('still does not read the verb or pronoun as a degree', () => {
+    for (const l of ['Be proactive and learn fast', 'Contact ME for details', 'to BE honest, 2020']) expect(extractEducation(l), l).toHaveLength(0);
+  });
+
+  it('does not read ordinary words as a degree', () => {
+    expect(extractEducation('Dean\'s list, GPA 3.9')).toHaveLength(0);
+    expect(extractEducation('Be proactive and learn fast')).toHaveLength(0);
+    expect(extractEducation('Member of the debate club, 2019')).toHaveLength(0);
+    expect(extractEducation('Mobile development workshop 2020')).toHaveLength(0);
+  });
+
   it('recognises common abbreviations and Vietnamese degree words', () => {
     expect(extractEducation('B.Sc. Computer Science')).toHaveLength(1);
     expect(extractEducation('Cử nhân Kinh tế')).toHaveLength(1);

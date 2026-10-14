@@ -10,7 +10,9 @@ const PATTERNS = [
   { kind: 'percent', re: /[+-]?\d+(?:\.\d+)?\s?(?:%|per\s?cent\b|percent\b)/i, confidence: 0.95 },
   { kind: 'money', re: /(?:[$€£₫¥]\s?\d[\d,.]*\s?(?:[kKmMbB](?:n)?)?|\d[\d,.]*\s?(?:USD|EUR|GBP|VND|SGD))/, confidence: 0.9 },
   { kind: 'multiplier', re: /\b\d+(?:\.\d+)?\s?[xX]\b/, confidence: 0.85 },
-  { kind: 'count_with_unit', re: /\b\d[\d,]*(?:\.\d+)?\s?(?:k|K|million|billion|hours?|days?|weeks?|months?|years?|users?|customers?|clients?|people|engineers?|members?|teams?|countries?|markets?|stores?|projects?)\b/, confidence: 0.75 },
+  { kind: 'count_with_unit', re: /\b\d[\d,]*(?:\.\d+)?\s?(?:k|K|million|billion|ms|milliseconds?|seconds?|secs?|minutes?|mins?|hours?|days?|weeks?|months?|years?|users?|customers?|clients?|people|engineers?|members?|teams?|countries?|markets?|stores?|projects?)\b/, confidence: 0.75 },
+  // "2M rows", "1.5B requests", "300K subscribers": a K/M/B suffix is only a figure when a count noun follows, so a brand such as "3M Company" is not one.
+  { kind: 'count_suffix', re: /\b\d[\d,]*(?:\.\d+)?\s?[kKmMbB]\+?\s+(?:rows|records|requests|events|users|customers|clients|downloads|transactions|views|visits|subscribers|sessions|messages|orders|devices|items|installs|impressions|leads|tickets|calls|followers|accounts|employees|members)\b/i, confidence: 0.8 },
   { kind: 'number', re: /(?<![\w.])\d{1,3}(?:,\d{3})*(?:\.\d+)?(?![\w%])/, confidence: 0.5 },
 ];
 

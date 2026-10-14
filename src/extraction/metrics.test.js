@@ -2,6 +2,23 @@ import { describe, it, expect } from 'vitest';
 import { findMetricsInText, bulletHasMetric } from './metrics';
 
 describe('findMetricsInText', () => {
+  it('counts a figure with an M, B or K suffix before a count noun ("2M rows per day")', () => {
+    expect(findMetricsInText('Built ETL pipelines processing 2M rows per day').map(f => f.value)).toContain('2M rows');
+    expect(findMetricsInText('Served 1.5B requests a month').map(f => f.value)).toContain('1.5B requests');
+    expect(findMetricsInText('Grew to 300K subscribers').length).toBeGreaterThan(0);
+  });
+  it('counts latency and duration figures in milliseconds, seconds and minutes', () => {
+    expect(findMetricsInText('Cut p95 latency from 800ms to 250ms').map(f => f.value)).toEqual(expect.arrayContaining(['800ms', '250ms']));
+    expect(findMetricsInText('Brought boot time from 4 seconds to 1.5 seconds').map(f => f.value)).toEqual(expect.arrayContaining(['4 seconds', '1.5 seconds']));
+    expect(findMetricsInText('Cut deploy time from 40 minutes to 6 minutes').length).toBe(2);
+  });
+  it('does not count the number inside an identifier such as p95 or h264 as a figure', () => {
+    expect(findMetricsInText('Tuned the p95 dashboard for the h264 encoder')).toEqual([]);
+  });
+  it('does not read a brand like "3M Company" as a figure', () => {
+    expect(findMetricsInText('Worked at 3M Company on adhesives')).toEqual([]);
+  });
+
   it('finds a percentage and normalizes it to a fraction', () => {
     const [f] = findMetricsInText('Increased lead qualification by 20%');
     expect(f.value).toBe('20%');
