@@ -94,3 +94,9 @@ describe('buildParsePrompt: evidence for every suggestion', () => {
     expect(prompt).toMatch(/never add a tool, company, place, job title or result/i);
   });
 });
+
+describe('buildParsePrompt: unsupported does not repeat the blanks', () => {
+  it('tells the model not to list a figure it replaced with [X], because that is already marked', () => {
+    expect(buildParsePrompt('x', '2026-10-14')).toMatch(/unsupported: .*do not list .*\[X\].*already marked/i);
+  });
+});

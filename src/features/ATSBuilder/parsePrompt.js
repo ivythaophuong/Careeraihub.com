@@ -41,7 +41,7 @@ issues: List 3-6 specific, actionable problems found in THIS resume. Rules:
 - before: quote exact weak text from the resume (keep short, max 12 words)
 - after: rewritten version showing the fix for that specific text. Use ONLY facts the resume states. Where a figure would help but the resume does not give one, write exactly [X] (no other word in brackets, never invent a number). Never add a tool, company, place, job title or result that the resume does not state.
 - evidence: one or more exact phrases copied from the resume (max 12 words each) that support what "after" says. Copy them letter for letter; never write a phrase the resume does not contain.
-- unsupported: a short phrase for each thing in "after" that the resume does not say (a duty, tool, result, link, place or skill you added). Use an empty list when "after" only rewords what the resume already says. The person will be asked to confirm each one.
+- unsupported: a short phrase for each thing in "after" that the resume does not say (a duty, tool, result, link, place or skill you added). Do not list a figure you replaced with [X]: it is already marked for the person. Use an empty list when "after" only rewords what the resume already says. The person will be asked to confirm each one.
 - builderStep: 1=Contact, 2=Experience, 3=Education, 4=Skills, 5=Summary — the builder step where this is fixed; null if not fixable in builder
 - module: "scan" if this issue requires comparing against a JD (keyword gaps); null otherwise
 Only include issues that are genuinely present. Do not fabricate problems.

@@ -203,8 +203,69 @@ describe('evidence and declared additions', () => {
   });
   it('odd values are ignored: not an array, not strings, too long, too many', () => {
     expect(typesOf({ after: 'Supported operations.', evidence: 'a string', unsupported: { a: 1 } }).filter(x => /evidence|addition/.test(x))).toEqual([]);
-    const x = w({ after: 'Supported operations.', evidence: [], unsupported: [7, null, 'a'.repeat(300), 'one', 'two', 'three', 'four', 'five', 'six', 'seven'] }).find(y => y.type === 'declared_addition');
+    const x = w({ after: 'Supported operations with alpha beta gamma delta epsilon zeta eta.', evidence: [], unsupported: [7, null, 'a'.repeat(300), 'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta'] }).find(y => y.type === 'declared_addition');
     expect(x.words.length).toBeLessThanOrEqual(5);
     expect(x.words.every(s => typeof s === 'string' && s.length <= 120)).toBe(true);
+  });
+});
+
+// Measured 2026-10-14 (12 invented resumes): gpt-6-luna listed "number of customers assisted" as something it added, for a suggestion that already has [X]
+// in that place, in 74% of its suggestions. That is the figure the user is already asked to fill; saying it again turns almost every button into
+// "I confirm" and wears the warning out. Haiku's "added without saying" mostly fired on the contact line (city, region, LinkedIn).
+describe('evidence warnings: no noise from figures that are already blanks, or from the contact line', () => {
+  const R = 'Dana Whitfield\nHarbor Mart\n- Supported daily operations and customer service.\nSkills\nCustomer service';
+  const w = (extra) => claimWarnings({ before: 'Supported daily operations and customer service.', resumeText: R, evidence: ['Supported daily operations and customer service'], ...extra });
+  const typesOf = (extra) => w(extra).map(x => x.type);
+
+  it('a declaration that only restates a figure left as a blank is not passed on', () => {
+    expect(typesOf({ after: 'Helped [X] customers find products.', unsupported: ['number of customers assisted', 'headcount of staff supervised', 'percentage of tickets resolved', 'the total value', 'Number of shelves restocked'] })).not.toContain('declared_addition');
+  });
+  it('a real declaration next to such figures is still passed on, alone', () => {
+    const x = w({ after: 'Improved retention by implementing Salesforce workflows, for [X] accounts.', unsupported: ['number of accounts', 'Salesforce workflows'] }).find(y => y.type === 'declared_addition');
+    expect(x.words).toEqual(['Salesforce workflows']);
+  });
+  it('a declaration about a missing detail that is not a figure is kept', () => {
+    expect(typesOf({ after: 'Contributed to the web app, including [X].', unsupported: ['specific web app contribution'] })).toContain('declared_addition');
+  });
+  it('words added to the contact line are not reported as "added without saying so"', () => {
+    const t = claimWarnings({ before: 'ben@example.com | +1 555 0100', after: 'ben@example.com | +1 555 0100 | [X] city, region | linkedin.com/in/[X]', resumeText: 'Ben\nben@example.com | +1 555 0100', evidence: [], unsupported: [] }).map(x => x.type);
+    expect(t).not.toContain('undeclared_addition');
+  });
+  it('the same kind of words added to a bullet still are', () => {
+    expect(typesOf({ after: 'Trained new colleagues and handled escalated complaints.', unsupported: [] })).toContain('undeclared_addition');
+  });
+});
+
+// Second round of the same measurement: after the figure filter, most of what gpt-6-luna still declared was a blank in other words ("bug count", "report
+// count", "specific Excel task"). A declaration is passed on only when it points at a word the suggestion really added (a word that is in "after" and
+// not in the resume), and never for the contact line.
+describe('a declaration counts only when it points at something the suggestion added', () => {
+  const R = 'Dana Whitfield\nHarbor Mart\n- Worked on the web app with the team\nSkills\nJavaScript';
+  const w = (extra) => claimWarnings({ before: 'Worked on the web app with the team', resumeText: R, evidence: ['Worked on the web app with the team'], ...extra });
+  it('is dropped when it only names a detail the person has to fill', () => {
+    const t = w({ after: 'Fixed [X] bugs in the web app with the team.', unsupported: ['bug count', 'specific code review contribution', 'affected area'] }).map(x => x.type);
+    expect(t).not.toContain('declared_addition');
+  });
+  it('is kept when it names words the suggestion really added', () => {
+    const x = w({ after: 'Built a Salesforce integration for the web app.', unsupported: ['Salesforce integration', 'bug count'] }).find(y => y.type === 'declared_addition');
+    expect(x.words).toEqual(['Salesforce integration']);
+  });
+  it('is kept for a skill or a role the suggestion added', () => {
+    expect(w({ after: 'Prepared the weekly reports for the web app team.', unsupported: ["'Prepared' implies ownership of the reports"] }).map(x => x.type)).toContain('declared_addition');
+  });
+  it('is dropped on the contact line', () => {
+    const t = claimWarnings({ before: 'ben@example.com | +1 555 0100', after: 'ben@example.com | +1 555 0100 | [X] city, region | linkedin.com/in/[X]', resumeText: 'Ben\nben@example.com | +1 555 0100', evidence: [], unsupported: ['city and region', 'LinkedIn profile URL'] }).map(x => x.type);
+    expect(t).not.toContain('declared_addition');
+  });
+});
+
+describe('a declaration about a quantity is a blank in other words', () => {
+  const R = 'Dana Whitfield\nHarbor Mart\n- Worked on the web app with the team\nSkills\nJavaScript';
+  const t = (after, unsupported) => claimWarnings({ before: 'Worked on the web app with the team', resumeText: R, evidence: ['Worked on the web app with the team'], after, unsupported }).map(x => x.type);
+  it.each([['bug count'], ['route count per week'], ['invoice and payment volume'], ['call volume figure'], ['monthly transaction volume']])('%s is not passed on', (phrase) => {
+    expect(t('Fixed [X] bugs, routes, invoices and payment calls in the web app with the team.', [phrase])).not.toContain('declared_addition');
+  });
+  it('a tool or a duty next to a blank is still passed on', () => {
+    expect(t('Fixed [X] Salesforce bugs in the web app with the team.', ['Salesforce'])).toContain('declared_addition');
   });
 });
