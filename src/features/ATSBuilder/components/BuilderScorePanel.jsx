@@ -6,7 +6,6 @@ import { describePart } from '../../../lib/describeScorePart.js';
 const LABELS = { completeness: 'Completeness', measurable_impact: 'Numbers in bullets', chronology_health: 'Date consistency' };
 const STEP_NAMES = { 1: 'Contact', 2: 'Experience', 3: 'Education', 4: 'Skills', 5: 'Summary' };
 const goLabel = (n) => `Go to ${STEP_NAMES[n] || 'this step'}`;
-const colorFor = (n) => (n >= 80 ? '#00E5A0' : n >= 60 ? '#FFB84D' : '#FF5A5A');
 
 // The ATS Readiness score of the draft being edited. Computed by code on every change (after a short pause), never by AI.
 export default function BuilderScorePanel({ data, debounceMs = 300, onGoToStep }) {
@@ -26,7 +25,7 @@ export default function BuilderScorePanel({ data, debounceMs = 300, onGoToStep }
       <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
         style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontFamily: 'inherit' }}>
         <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--lp-text3)' }}>ATS Readiness</span>
-        {n !== null && <span data-testid="builder-score" style={{ fontSize: 20, fontWeight: 900, color: colorFor(n) }}>{n}</span>}
+        {n !== null && <span data-testid="builder-score" style={{ fontSize: 20, fontWeight: 900, color: 'var(--lp-text)' }}>{n}</span>}
         <span style={{ marginLeft: 'auto', fontSize: 11 }}>{open ? 'Hide' : 'Show'}</span>
       </button>
       {open && (
