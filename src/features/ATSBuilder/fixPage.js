@@ -2,7 +2,7 @@
 // in one field, and the status of each issue. Pure functions over the Builder data. They reuse applyIssue.js (finding the quote, the figure guard that turns
 // a number the resume does not have into [X], undo by content) and claimGuard.js; nothing here calls AI or touches storage.
 import { locateAll, applyIssue, undoApply } from './applyIssue.js';
-import { claimWarnings } from '../../lib/claimGuard.js';
+import { warningsForIssue } from '../../lib/claimGuard.js';
 import { countPlaceholders } from '../../lib/exportGuard.js';
 import { builderDataToText } from './builderText.js';
 import { skillsStatus, undoSkills } from './skillsFix.js';
@@ -40,7 +40,7 @@ export function fixTargets(data, issue) {
 export function suggestionFor(data, issue, at) {
   const r = applyIssue(data, issue, at);
   if (r.error) return { error: r.error };
-  const warnings = claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message);
+  const warnings = warningsForIssue(issue, builderDataToText(data));
   return { text: readField(r.data, r.record.at), placeholders: r.placeholders, replaced: r.replaced, blanks: r.blanks, warnings };
 }
 

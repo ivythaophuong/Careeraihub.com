@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { locateAll, applyIssue } from '../applyIssue.js';
 import { undoRecord } from '../fixPage.js';
-import { claimWarnings } from '../../../lib/claimGuard.js';
+import { warningsForIssue } from '../../../lib/claimGuard.js';
 import { fillNote } from '../../../lib/factGuard.js';
 import { builderDataToText } from '../builderText.js';
 import { issueKey } from '../fixPage.js';
@@ -39,7 +39,7 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
     const r = applyIssue(data, issue, chosen);
     if (r.error) { setNotes(n => ({ ...n, [k]: 'Could not find that text in your resume any more.' })); return; }
     // Warnings are judged against the resume as it was BEFORE the change, then kept with the record until Undo.
-    const warnings = claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message);
+    const warnings = warningsForIssue(issue, builderDataToText(data));
     onChange(r.data);
     remember(k, { record: r.record, placeholders: r.placeholders, replaced: r.replaced, blanks: r.blanks, warnings });
     setNotes(n => ({ ...n, [k]: '' }));
@@ -69,7 +69,7 @@ export default function BuilderIssuesPanel({ issues, data, onChange, onGoToStep,
             : quoteGone ? 'Changed by you: check it still applies'
             : 'Open';
           const warnings = rec ? (rec.warnings || []) : (hits.length && issue.after
-            ? claimWarnings({ before: issue.before, after: issue.after, resumeText: builderDataToText(data) }).map(w => w.message) : []);
+            ? warningsForIssue(issue, builderDataToText(data)) : []);
           const applyLabel = warnings.length ? 'Apply — I confirm this is true' : 'Apply';
           const target = stepForIssue(issue, data);   // decided by the resume and the words of the issue; the AI's number only when they do not decide
           const canJump = !rec && target !== null && hits.length !== 1;

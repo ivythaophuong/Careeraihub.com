@@ -286,3 +286,16 @@ describe('draftFor: blanks the model wrote itself', () => {
     expect(d.blanks).toEqual([]);
   });
 });
+
+describe('draftFor: what the model said it added', () => {
+  const d = (over) => draftFor(issue({ before: 'Handled monthly reporting', after: 'Handled monthly reporting and trained new colleagues on Salesforce workflows', ...over }), data());
+  it('passes the model\'s own declaration on as a warning', () => {
+    expect(d({ evidence: ['Handled monthly reporting'], unsupported: ['Salesforce workflows'] }).warnings.join(' ')).toMatch(/The AI says this suggestion adds: Salesforce workflows/);
+  });
+  it('warns when the model quoted text that is not in the resume', () => {
+    expect(d({ evidence: ['Led a team of twelve analysts'], unsupported: [] }).warnings.join(' ')).toMatch(/not in your resume/);
+  });
+  it('without the two fields the warnings are what they were', () => {
+    expect(d({}).warnings.join(' ')).not.toMatch(/The AI says|did not mention them/);
+  });
+});

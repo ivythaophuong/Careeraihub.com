@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { claimWarnings, contributionLevel } from './claimGuard.js';
+import { claimWarnings, contributionLevel, warningsForIssue } from './claimGuard.js';
 
 const resume = 'Jordan Lee\nMarketing Analyst, Acme Corp\n- Assisted the marketing team with campaign reporting.\n- Cut costs by 12%\nSkills: SQL, Excel';
 const types = (before, after, source = resume) => claimWarnings({ before, after, resumeText: source }).map(w => w.type);
@@ -267,5 +267,26 @@ describe('a declaration about a quantity is a blank in other words', () => {
   });
   it('a tool or a duty next to a blank is still passed on', () => {
     expect(t('Fixed [X] Salesforce bugs in the web app with the team.', ['Salesforce'])).toContain('declared_addition');
+  });
+});
+
+describe('warningsForIssue: the messages for one suggestion, with what the model said about it', () => {
+  const R = 'Dana Whitfield\nHarbor Mart\n- Supported daily operations and customer service.\nSkills\nCustomer service';
+  const issue = { before: 'Supported daily operations and customer service.', after: 'Improved retention by implementing Salesforce workflows.', evidence: ['Supported daily operations and customer service'], unsupported: ['Salesforce workflows'] };
+  it('returns the message strings, including the model\'s own declaration', () => {
+    const m = warningsForIssue(issue, R);
+    expect(m.every(x => typeof x === 'string')).toBe(true);
+    expect(m.join(' ')).toMatch(/The AI says this suggestion adds: Salesforce workflows/);
+  });
+  it('works without the two fields (a suggestion saved before they existed)', () => {
+    const { evidence, unsupported, ...old } = issue;
+    expect(warningsForIssue(old, R).join(' ')).not.toMatch(/The AI says/);
+  });
+  it('can be asked about another text than issue.after (the draft as it would be saved)', () => {
+    expect(warningsForIssue({ ...issue, unsupported: [] }, R, 'Supported daily store operations and customer service.')).toEqual([]);
+  });
+  it('is safe with no issue', () => {
+    expect(warningsForIssue(undefined, R)).toEqual([]);
+    expect(warningsForIssue({}, R)).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@
 // Steps: 1 Contact, 2 Experience, 3 Education, 4 Skills, 5 Summary.
 import { locateAll } from './applyIssue.js';
 import { neutralizeInventedFigures } from '../../lib/factGuard.js';
-import { claimWarnings } from '../../lib/claimGuard.js';
+import { warningsForIssue } from '../../lib/claimGuard.js';
 import { builderDataToText } from './builderText.js';
 
 const SECTIONS = [
@@ -36,7 +36,7 @@ export function draftFor(issue, data) {
   if (!after) return null;
   const resumeText = builderDataToText(data);
   const g = neutralizeInventedFigures(after, resumeText);
-  const warnings = claimWarnings({ before: issue.before || '', after, resumeText }).map(w => w.message);
+  const warnings = warningsForIssue(issue, resumeText, after);
   return { text: g.text, placeholders: g.needsInput, replaced: g.replaced, blanks: g.blanks, warnings };
 }
 

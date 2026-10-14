@@ -173,3 +173,8 @@ export function claimWarnings({ before = '', after = '', resumeText = '', eviden
 
   return out;
 }
+
+// The warning messages for one AI suggestion (an issue with before / after, and, when the model followed the newer format, evidence / unsupported).
+// `after` can be another text than issue.after, for example the draft as it would be saved.
+export const warningsForIssue = (issue, resumeText, after = issue?.after) =>
+  claimWarnings({ before: issue?.before ?? '', after: after ?? '', resumeText, evidence: issue?.evidence, unsupported: issue?.unsupported }).map(w => w.message);
