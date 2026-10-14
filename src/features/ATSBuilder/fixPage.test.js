@@ -318,3 +318,15 @@ describe('a blank the models write counts as unfinished, like [X]', () => {
     expect(saveFix(base(), at, 'Cut reporting time in [City, Region]').blanks).toBe(1);
   });
 });
+
+describe('suggestionFor: what the model said it added', () => {
+  const at = { kind: 'bullet', exp: 0, bullet: 0 };
+  it('carries the model\'s own declaration into the warnings', () => {
+    const s = suggestionFor(base(), issue({ after: 'Handled monthly reporting and trained new colleagues on Salesforce workflows', evidence: ['Handled monthly reporting for the sales team'], unsupported: ['Salesforce workflows'] }), at);
+    expect(s.warnings.join(' ')).toMatch(/The AI says this suggestion adds: Salesforce workflows/);
+  });
+  it('without the two fields the warnings do not mention the AI', () => {
+    const s = suggestionFor(base(), issue({ after: 'Handled monthly reporting and trained new colleagues on Salesforce workflows' }), at);
+    expect(s.warnings.join(' ')).not.toMatch(/The AI says/);
+  });
+});

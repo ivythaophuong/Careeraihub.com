@@ -299,3 +299,35 @@ describe('BuilderIssuesPanel: the button asks for confirmation when a suggestion
     expect(labels.filter(t => /I confirm this is true/.test(t))).toHaveLength(2);
   });
 });
+
+describe('BuilderIssuesPanel: the model\'s own declaration and evidence', () => {
+  beforeEach(() => { try { localStorage.clear(); } catch {} });
+  afterEach(cleanup);
+  const one = (over) => [{ severity: 'medium', title: 'Passive bullet', description: 'Starts with Responsible.', before: 'Responsible for weekly reports', after: 'Produced weekly reports for the Salesforce team', evidence: ['Responsible for weekly reports'], unsupported: [], builderStep: 2, ...over }];
+  const label = () => Array.from(card('Passive bullet').querySelectorAll('button')).map(b => b.textContent).find(t => /^apply/i.test(t));
+
+  it('a declared addition shows on the card before Apply, and the button asks for confirmation', () => {
+    render(<Harness onGoToStep={() => {}} list={one({ unsupported: ['Salesforce team'] })} />);
+    expect(card('Passive bullet').textContent).toMatch(/The AI says this suggestion adds: Salesforce team/);
+    expect(label()).toBe('Apply — I confirm this is true');
+  });
+  it('a quote that is not in the resume is shown as a warning', () => {
+    render(<Harness onGoToStep={() => {}} list={one({ after: 'Produced weekly reports', evidence: ['Led a team of twelve analysts at Acme'] })} />);
+    expect(card('Passive bullet').textContent).toMatch(/quoted text that is not in your resume/);
+    expect(label()).toBe('Apply — I confirm this is true');
+  });
+  it('a faithful rewrite with real evidence and nothing declared keeps the plain button', () => {
+    render(<Harness onGoToStep={() => {}} list={one({ after: 'Produced weekly reports' })} />);
+    expect(label()).toBe('Apply');
+    expect(card('Passive bullet').textContent).not.toMatch(/The AI says/);
+  });
+  it('the declaration stays on the card after it is applied', () => {
+    render(<Harness onGoToStep={() => {}} list={one({ unsupported: ['Salesforce team'] })} />);
+    fireEvent.click(within(card('Passive bullet'), /^apply/i));
+    expect(card('Passive bullet').textContent).toMatch(/The AI says this suggestion adds: Salesforce team/);
+  });
+  it('a suggestion saved before the two fields existed still works', () => {
+    render(<Harness onGoToStep={() => {}} list={one({ evidence: undefined, unsupported: undefined, after: 'Produced weekly reports' })} />);
+    expect(label()).toBe('Apply');
+  });
+});
