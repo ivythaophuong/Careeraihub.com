@@ -8,7 +8,7 @@ import { serverScoringOn, reviewStarOnServer, saveStarOnServer } from '../../lib
 import { GetReadyTabStrip } from '../Landing/LandingPage';
 import '../../styles/featurePage.css';
 import { copyToClipboard } from '../CoverLetterGen/coverLetter';
-import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, findInventedNumbers } from './star';
+import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeStarResult, findInventedNumbers, findClaimWarnings } from './star';
 import { STAR_STORIES_KEPT } from '../../lib/historyLimits';
 
 const fc = [C.accent, C.gold, C.purple, C.green];
@@ -34,6 +34,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
   const [analysed, setAnalysed] = useState(null); // the exact input the result was generated from
   const [receipt, setReceipt] = useState(null); // server proof that this result was graded by the server (server scoring only)
   const [invented, setInvented] = useState([]);
+  const [claimNotes, setClaimNotes] = useState([]); // warnings about claims the polish added (role, scope, names); never blocks
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState(false);
@@ -66,6 +67,7 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
       setResult(parsed);
       setAnalysed(input);
       setInvented(findInventedNumbers(input, parsed));
+      setClaimNotes(findClaimWarnings(input, parsed));
     } catch (e) {
       if (e.status === 401 && setAuthModal) {
         setErr('Create a free account or sign in to refine your stories.');
@@ -214,6 +216,16 @@ export default function STARBuilder({ memory, updateMemory, setAuthModal, user, 
               <div role="alert" style={{ color: C.gold, fontWeight: 900, fontSize: 12, marginBottom: 6 }}>⚠️ Check these numbers before you use this story</div>
               <div style={{ color: C.text, fontSize: 12, lineHeight: 1.6 }}>
                 The polished version contains numbers that are not in what you wrote: <strong>{invented.join(', ')}</strong>. Remove them or replace them with your real figures. Never claim a number you can't back up in an interview.
+              </div>
+            </Card>
+          )}
+
+          {claimNotes.length > 0 && (
+            <Card style={{ border: `1px solid ${C.gold}66`, background: C.gold + "0D" }}>
+              <div role="note" style={{ color: C.text, fontSize: 12, lineHeight: 1.6 }}>
+                <div style={{ color: C.gold, fontWeight: 900, fontSize: 12, marginBottom: 6 }}>⚠️ Check these claims before you use this story</div>
+                {claimNotes.map((m, i) => <div key={i}>• {m}</div>)}
+                <div style={{ color: C.muted, fontSize: 11, marginTop: 6 }}>This check compares word lists. It can miss claims and cannot know what is true, so read the polished story against what you really did.</div>
               </div>
             </Card>
           )}

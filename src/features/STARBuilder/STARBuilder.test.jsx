@@ -74,6 +74,22 @@ describe('STARBuilder', () => {
     expect(screen.getByText(/not in what you wrote/).textContent).not.toContain('15%');
   });
 
+  it('warns, without blocking, when the polish raises the user\'s role', async () => {
+    const mine = { Situation: 'Our support team had a backlog.', Task: 'I assisted the team with triage.', Action: 'I helped sort tickets.', Result: 'The backlog went down.' };
+    callLLM.mockResolvedValue(JSON.stringify({ ...REPLY, refined: { situation: 'Our support team had a backlog.', task: 'I led the triage process.', action: 'I directed ticket sorting.', result: 'The backlog went down.' }, oneLiner: 'Led triage and cleared the backlog.' }));
+    setup(); fill(mine); refine();
+    const note = await screen.findByText(/Check these claims before you use this story/);
+    expect(note.closest('[role="note"]').textContent).toMatch(/led|directed/);
+    expect(screen.getByText(/Save to Story Bank/).closest('button').disabled).toBe(false);
+  });
+
+  it('shows no claims warning for a faithful polish', async () => {
+    callLLM.mockResolvedValue(JSON.stringify(REPLY));
+    setup(); fill(); refine();
+    await screen.findByText(/Refined STAR Output/);
+    expect(screen.queryByText(/Check these claims/)).toBeNull();
+  });
+
   it('does not bank anything automatically; saving is an explicit action', async () => {
     callLLM.mockResolvedValue(JSON.stringify(REPLY));
     const p = setup(); fill(); refine();
