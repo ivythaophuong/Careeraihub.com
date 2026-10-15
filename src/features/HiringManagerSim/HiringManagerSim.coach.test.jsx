@@ -186,6 +186,7 @@ describe('how a practice score is shown (it is not an official score)', () => {
     ai([LONG(61)]); setup(); await start(); answerWith(ANSWER); await submit();
     fireEvent.click(screen.getByText(/Finish & see results/));
     await screen.findByText(/Interview Results/);
-    expect(screen.queryByText(/practice/i)).toBeNull();
+    // No retry wording. (The next-step card may say "practice" in its own words; what must not appear is the retry disclaimer.)
+    expect(screen.queryByText(/practice attempt|practice score|only the first attempt|not counted/i)).toBeNull();
   });
 });

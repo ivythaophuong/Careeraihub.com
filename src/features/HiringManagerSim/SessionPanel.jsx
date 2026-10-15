@@ -6,7 +6,7 @@ const head = { color: C.muted, fontSize: 10, textTransform: 'uppercase', letterS
 
 // Side panel of the active interview: where the user is, derived from the question list and the results held on screen.
 // Nothing here is invented: no remaining-token count, no budget, no estimate of how long it will take.
-export default function SessionPanel({ questions, idx, results, color, deviceKept }) {
+export default function SessionPanel({ questions, idx, results, color, deviceKept, challenge }) {
   const answered = results.filter(r => !r.skipped).length;
   const skipped = results.filter(r => r.skipped).length;
   return (
@@ -33,7 +33,7 @@ export default function SessionPanel({ questions, idx, results, color, deviceKep
       <Card>
         <div style={head}>About this practice</div>
         <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
-          There is no time limit. Scores are AI estimates for your own practice, not verified evidence of skill.
+          {challenge === 'timed' ? 'Each question has a soft limit of 3 minutes. It never cuts your answer and never changes your score.' : 'There is no time limit.'} Scores are AI estimates for your own practice, not verified evidence of skill.
           {deviceKept && ' Your progress is kept on this device only; it is saved to your account when you finish.'}
         </div>
       </Card>
