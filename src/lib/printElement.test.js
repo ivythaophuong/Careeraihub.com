@@ -20,6 +20,12 @@ describe('buildPrintDocument', () => {
     expect(html).toMatch(/\.print-root\s+\*[^{]*{[^}]*letter-spacing:\s*normal\s*!important/);
   });
 
+  it('keeps the reading order: positioned boxes are painted after the rest, so their text (the bullets) would land after Skills in the PDF', () => {
+    const html = buildPrintDocument('<div class="resume-preview">x</div>', 't');
+    expect(html).toMatch(/\[style\*="position:relative"\][^{]*{[^}]*position:\s*static\s*!important/);
+    expect(html).toMatch(/\[style\*="position:absolute"\][^{]*{[^}]*position:\s*static\s*!important/);
+  });
+
   it('escapes the title so a name cannot inject markup', () => {
     const html = buildPrintDocument('<p>x</p>', '</title><script>alert(1)</script>');
     expect(html).not.toContain('<script>alert(1)</script>');

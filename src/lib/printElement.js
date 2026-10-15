@@ -13,6 +13,10 @@ export function buildPrintDocument(markup, title) {
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   /* The templates carry their own print rules (position: fixed), which would show only the first page. */
   .resume-preview.resume-preview { position: static !important; left: auto !important; top: auto !important; width: 100% !important; box-shadow: none !important; transform: none !important; }
+  /* A browser paints positioned boxes after the plain ones, so the bullets (position: relative, with an absolute marker) came out of the PDF after Skills:
+     the text was read as skills and the experience looked empty. Plain flow keeps the reading order of the page. */
+  .print-root [style*="position:relative"], .print-root [style*="position: relative"] { position: static !important; }
+  .print-root [style*="position:absolute"], .print-root [style*="position: absolute"] { position: static !important; margin-right: 6px; }
   /* Letter-spaced capitals are read back as "W O R K  E X P E R I E N C E", so the section headings and the name are not recognised. */
   .print-root, .print-root * { letter-spacing: normal !important; }
 </style></head><body><div class="print-root">${markup}</div></body></html>`;
