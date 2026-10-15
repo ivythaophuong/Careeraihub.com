@@ -11,11 +11,27 @@ const SUPPORT = /^(assist\w*|help(?:ed|s|ing)?|support(?:ed|s|ing)?|contribut\w*
 
 const levelOf = (w) => (LEAD.test(w) ? 3 : DO.test(w) ? 2 : SUPPORT.test(w) ? 1 : 0);
 
+// "the lead", "my manager", "the hiring manager", "the director" name ANOTHER person, not what the user did. They look like leading verbs to the lists
+// above, so "I assisted the lead" would count as already leading and a later "led" would never be flagged. A role word after one of these words is
+// skipped, unless the user says it is their own role ("as a manager", "was the lead"). A bare title ("Team Lead", "Product Manager") is still a claim.
+const ROLE_NOUN = /^(lead|leads|manager|managers|director|directors|head|owner|owners|supervisor|supervisors)$/;
+const ANOTHER_PERSON = new Set(['the', 'a', 'an', 'my', 'our', 'your', 'their', 'his', 'her', 'its', 'this', 'that', 'hiring', 'line', 'reporting']);
+const OWN_ROLE = new Set(['as', 'was', 'were', 'am', 'be', 'been', 'being', 'became', 'become', 'becoming', 'served', 'acting', 'role']);
+
+// [{ word, level }] in order, with a role noun that names another person set to level 0.
+function levelsIn(text) {
+  const ws = words(text);
+  return ws.map((w, i) => {
+    const another = ROLE_NOUN.test(w) && i > 0 && ANOTHER_PERSON.has(ws[i - 1]) && !(i > 1 && OWN_ROLE.has(ws[i - 2]));
+    return { word: w, level: another ? 0 : levelOf(w) };
+  });
+}
+
 // 0 = no contribution verb, 1 = supported, 2 = did, 3 = led/owned. The highest level found.
 export function contributionLevel(text) {
-  return words(text).reduce((m, w) => Math.max(m, levelOf(w)), 0);
+  return levelsIn(text).reduce((m, x) => Math.max(m, x.level), 0);
 }
-const firstVerbAt = (text, level) => words(text).find(w => levelOf(w) === level);
+const firstVerbAt = (text, level) => levelsIn(text).find(x => x.level === level)?.word;
 
 const SCOPE = ['company-wide', 'organization-wide', 'organisation-wide', 'enterprise', 'global', 'globally', 'worldwide', 'nationwide', 'cross-functional',
   'executive', 'executives', 'c-suite', 'board', 'stakeholder', 'stakeholders', 'strategic', 'strategy', 'decision', 'decisions', 'budget', 'budgets', 'p&l'];
