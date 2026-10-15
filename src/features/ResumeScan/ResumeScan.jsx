@@ -354,7 +354,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
   const canScan = !!jd.trim() && !!resumeCtx && jd.length <= JD_MAX_CHARS;
   const phase = loading ? 'scanning' : editMode ? 'edit' : result ? 'results' : 'input';
   const scoreColor = 'var(--lp-text)'; // an AI estimate is not graded by value (same rule as the STAR score)
-  const barColor = (s) => s >= 80 ? '#00E5A0' : s >= 60 ? '#FFB84D' : '#FF5A5A';
+  const barColor = () => 'var(--lp-text)'; // the bars are not graded by value: apart from keywords they are AI estimates (same rule as the main score)
 
   /* ─── Hidden PDF render target — always mounted so ref is valid ─── */
   const pdfModal = (
@@ -807,6 +807,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                   </div>
                 ))}
               </div>
+              <div style={{ fontSize: 10, color: 'var(--lp-text3)' }}>These bars are AI estimates, except the keyword bar when keywords were found: code counts those in your resume.</div>
             </div>
           </div>
         </div>

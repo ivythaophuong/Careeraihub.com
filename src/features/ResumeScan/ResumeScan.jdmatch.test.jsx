@@ -71,4 +71,12 @@ describe('ResumeScan (live JD-match path only)', () => {
     expect(screen.getByText(/Fix suggestions/)).toBeTruthy();
     expect(screen.queryByText(/I understand, show fixes anyway/)).toBeNull();
   });
+  it('the bars are one neutral colour whatever the value, and say which are AI estimates', async () => {
+    const bars = [{ label: 'Skills alignment', score: 90 }, { label: 'Format score', score: 55 }, { label: 'Tone', score: 20 }];
+    await runScan({ matchScore: 70, roleTitle: 'PM', bars, jdKeywords: [], aiInsight: 'x', issues: [] });
+    const fill = (label) => screen.getByText(label).parentElement.children[1].firstChild.style.background; // label, track(fill), value
+    expect(fill('Skills alignment')).toBe(fill('Format score'));
+    expect(fill('Format score')).toBe(fill('Tone'));
+    expect(screen.getByText(/bars are AI estimates/i)).toBeTruthy();
+  });
 });
