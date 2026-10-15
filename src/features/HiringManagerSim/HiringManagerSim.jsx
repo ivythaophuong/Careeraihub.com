@@ -14,6 +14,8 @@ import { SESSIONS_KEPT } from '../../lib/historyLimits';
 import { saveDeviceSession, loadDeviceSession, clearDeviceSession } from './deviceSession';
 import { formatElapsed, describeEvaluationFailure } from './sessionUi';
 import SessionPanel from './SessionPanel';
+import NextStepCard from './NextStepCard';
+import { TIMED_SECONDS, nextStep, loadTimedTried, markTimedTried } from './guidance';
 
 const scoreColor = (s) => (s >= 75 ? C.green : s >= 60 ? C.gold : C.red);
 const label = { color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 };
@@ -66,6 +68,9 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [showTimer, setShowTimer] = useState(false);
   const [deviceKept, setDeviceKept] = useState(false); // true only after the browser confirmed it stored this session
   const [kept, setKept] = useState(() => loadDeviceSession(user?.id)); // an earlier session of this tab that can be continued
+  const [challenge, setChallenge] = useState('untimed'); // 'untimed' | 'timed' (a soft limit per question: it never cuts an answer or changes a score)
+  const [secondsLeft, setSecondsLeft] = useState(TIMED_SECONDS);
+  const reviewRef = useRef(null);
   const headingRef = useRef(null);
   const elapsedRef = useRef(0);
 
@@ -84,11 +89,19 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     return () => clearInterval(t);
   }, [phase]);
 
+  // Timed challenge: a count-down for the first attempt at a question. At zero it only says so; the answer is kept and can still be sent.
+  useEffect(() => { setSecondsLeft(TIMED_SECONDS); }, [idx, phase, challenge]);
+  useEffect(() => {
+    if (phase !== 'interview' || challenge !== 'timed' || current || attempt !== 1 || busy) return undefined;
+    const t = setInterval(() => setSecondsLeft(sec => (sec > 0 ? sec - 1 : 0)), 1000);
+    return () => clearInterval(t);
+  }, [phase, challenge, current, attempt, busy, idx]);
+
   // Keep the session on this device (not on the server) so a refresh or a visit to another module does not lose it.
   useEffect(() => {
     if (phase !== 'interview' || !questions.length) return;
-    setDeviceKept(saveDeviceSession(user?.id, { personaId, role: role.trim(), questions, idx, results, answer, elapsedMs: elapsedRef.current }));
-  }, [phase, personaId, role, questions, idx, results, answer, user?.id]);
+    setDeviceKept(saveDeviceSession(user?.id, { personaId, role: role.trim(), questions, idx, results, answer, elapsedMs: elapsedRef.current, challenge }));
+  }, [phase, personaId, role, questions, idx, results, answer, challenge, user?.id]);
 
   // Closing or reloading the tab with work in progress asks first.
   useEffect(() => {
@@ -114,9 +127,11 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   };
 
   const continueKept = () => {
-    const k = kept; if (!k) return;
+    // Read it again: the 2 hour window may have passed while this screen was open, and the card must not promise a session that is gone.
+    const k = loadDeviceSession(user?.id);
+    if (!k) { setKept(null); return; }
     const done = k.results.length > k.idx && !k.results[k.idx]?.skipped ? k.results[k.idx] : null;
-    setPersonaId(k.personaId); setRole(k.role || ''); setQuestions(k.questions); setIdx(k.idx); setResults(k.results);
+    setChallenge(k.challenge === 'timed' ? 'timed' : 'untimed'); setPersonaId(k.personaId); setRole(k.role || ''); setQuestions(k.questions); setIdx(k.idx); setResults(k.results);
     setAnswer(k.answer || ''); setCurrent(done); setWarnings([]); setErr(''); setSaved(false); setAttempt(1); setLastShown(done ? { fb: done, warnings: [] } : null);
     setFailureKind(null); elapsedRef.current = k.elapsedMs; setElapsedMs(k.elapsedMs); setKept(null);
     setPhase('interview');
@@ -124,14 +139,15 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
   const discardKept = () => { clearDeviceSession(user?.id); setKept(null); };
 
-  const start = async (id) => {
+  const start = async (id, how) => {
     if (busy) return;
+    const chosen = how === 'timed' || how === 'untimed' ? how : challenge;
     if (!role.trim() && resume.kind === 'none') { setErr('Enter the role you are interviewing for, or add your resume, so the questions fit you.'); return; }
     setBusy('questions'); setErr('');
     try {
       const raw = await callLLMFor('mock_questions', resume)([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
       setQuestions(normalizeQuestions(extractJSON(raw)));
-      setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false); setAttempt(1); setLastShown(null);
+      setChallenge(chosen); setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false); setAttempt(1); setLastShown(null);
       setFailureKind(null); elapsedRef.current = 0; setElapsedMs(0); setKept(null);
       setPhase('interview');
     } catch (e) {
@@ -206,6 +222,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         );
         setSaved(true);
       }
+      if (challenge === 'timed') markTimedTried(user?.id);
       if (saveErr) { setErr(saveErr); saveFailed = true; }
     }
     // Only drop the copy kept on this device once the session is safely saved (or there was nothing to save).
@@ -274,6 +291,17 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       </Card>
 
       <Card>
+        <div style={label}>Challenge</div>
+        <div role="group" aria-label="Challenge" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => setChallenge('untimed')} aria-pressed={challenge === 'untimed'} style={{ ...ghostBtn, padding: '8px 14px', ...(challenge === 'untimed' ? { color: C.text, borderColor: C.accent } : {}) }}>Untimed · at your own pace</button>
+          <button type="button" onClick={() => setChallenge('timed')} aria-pressed={challenge === 'timed'} style={{ ...ghostBtn, padding: '8px 14px', ...(challenge === 'timed' ? { color: C.text, borderColor: C.accent } : {}) }}>Timed: 3 minutes per question</button>
+        </div>
+        <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
+          Timed practice is optional. When time is up your answer is kept and you can still send it; time never changes your score. You can switch back to your own pace at any time.
+        </div>
+      </Card>
+
+      <Card>
         <div style={label}>Role You're Interviewing For</div>
         <input
           aria-label="Role"
@@ -317,6 +345,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   // ── Summary ─────────────────────────────────────────────────────────────────
   if (phase === 'summary') {
     const s = summarize(results);
+    const step = nextStep({ challenge, answered: s.answered, skipped: s.skipped });
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
@@ -354,7 +383,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         )}
 
         <Card>
-          <div style={{ color: C.text, fontWeight: 900, fontSize: 13, marginBottom: 10 }}>Question by question</div>
+          <div ref={reviewRef} tabIndex={-1} style={{ color: C.text, fontWeight: 900, fontSize: 13, marginBottom: 10, outline: 'none' }}>Question by question</div>
           {results.map((r, i) => (
             <div key={i} style={{ borderTop: i ? `1px solid ${C.border}` : "none", padding: "10px 0" }}>
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -368,6 +397,11 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             </div>
           ))}
         </Card>
+
+        <NextStepCard step={step} color={pColor} busy={busy}
+          onPrimary={() => start(personaId, step.challenge)}
+          onOwnPace={() => start(personaId, 'untimed')}
+          onReview={() => { reviewRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); reviewRef.current?.focus?.(); }} />
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <Btn onClick={() => start(personaId)} color={pColor} dark disabled={!!busy} style={{ flex: 1 }}>{busy ? 'Preparing…' : '🔁 New Interview, Same Persona'}</Btn>
@@ -390,6 +424,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           <div style={{ color: C.muted, fontSize: 12 }}>Mock interview in progress</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {challenge === 'timed' && attempt === 1 && !current && <span role="timer" aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`} style={{ color: secondsLeft === 0 ? C.gold : C.text, fontSize: 12, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>Time left {formatElapsed(secondsLeft * 1000)}</span>}
           {showTimer && <span role="timer" aria-label="Elapsed time, for your information only" style={{ color: C.muted, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>Elapsed {formatElapsed(elapsedMs)}</span>}
           <button type="button" onClick={() => setShowTimer(v => !v)} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
           {answeredCount > 0 && !busy && <button onClick={() => finish(results)} style={ghostBtn}>Finish & see results</button>}
@@ -429,6 +464,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           <div aria-live="polite" style={{ color: C.muted, fontSize: 11 }}>
             {busy === 'feedback' ? 'Sending your answer for evaluation. It is not saved to your account yet.' : answer.trim() && deviceKept ? 'Draft kept on this device. It is not saved to your account.' : ''}
           </div>
+          {challenge === 'timed' && attempt === 1 && secondsLeft === 0 && <div role="status" style={{ color: C.gold, fontSize: 12, lineHeight: 1.6 }}>Time is up. Your answer is kept, so you can finish your thought and get feedback. Time does not change your score.</div>}
           {err && <div role="alert" style={{ color: failureKind === 'unknown' ? C.gold : C.red, fontSize: 12, lineHeight: 1.6 }}>⚠️ {err}</div>}
           <div style={{ display: "flex", gap: 12 }}>
             <Btn onClick={submit} disabled={!!busy} color={pColor} dark style={{ flex: 1 }}>{busy === 'feedback' ? 'Evaluating…' : '🧠 Get AI Feedback'}</Btn>
@@ -479,7 +515,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       )}
       </div>
       <div style={{ flex: '0 1 260px', minWidth: 220 }}>
-        <SessionPanel questions={questions} idx={idx} results={results} color={pColor} deviceKept={deviceKept} />
+        <SessionPanel questions={questions} idx={idx} results={results} color={pColor} deviceKept={deviceKept} challenge={challenge} />
       </div>
       </div>
     </div>

@@ -24,6 +24,7 @@ export function validateSnapshot(s, now = Date.now()) {
   if (!Array.isArray(s.results) || s.results.length > s.questions.length) return null;
   if (!isStr(s.answer ?? '', MAX_ANSWER_CHARS)) return null;
   if (!Number.isFinite(s.elapsedMs) || s.elapsedMs < 0) return null;
+  if (s.challenge !== undefined && s.challenge !== 'untimed' && s.challenge !== 'timed') return null;
   return s;
 }
 
