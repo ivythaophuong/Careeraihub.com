@@ -20,6 +20,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
   userRef.current = user;
   const queueRef = useRef(Promise.resolve());
   const timerRef = useRef(null);
+  const dirtyRef = useRef(new Set()); // keys this tab changed since its last good backup write
   const syncLockedRef = useRef(true); // Atomic lock to prevent race conditions during initial load
   const pendingWhileLockedRef = useRef(false); // A change was made during boot; save it once boot finishes
   const relationalFailedRef = useRef(false); // A relational insert failed since the last fully successful save
@@ -118,7 +119,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
         // snapshot, which would overwrite the stored memory that was just loaded).
         if (pendingWhileLockedRef.current) {
           pendingWhileLockedRef.current = false;
-          await writeBackup();
+          await writeBackup(dbMem?.[0]?.data ?? null); // the row was read a moment ago: no second read
         }
 
         setIsRestoring(false);
@@ -148,6 +149,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
     const prev = memoryRef.current;
     const patch = typeof updater === 'function' ? updater(prev) : updater;
     const next = { ...prev, ...(patch || {}) };
+    Object.keys(patch || {}).forEach(k => dirtyRef.current.add(k));
     memoryRef.current = next;
     setMemory(next);
 
@@ -182,15 +184,25 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
     return queueRef.current;
   };
 
-  const writeBackup = () => {
+  // `loaded` is the stored row the caller has just read (null: there is no row); without it the stored row is read here.
+  const writeBackup = (loaded) => {
     const u = userRef.current;
     if (!u || syncLockedRef.current) return Promise.resolve();
     return enqueue(async () => {
       setIsSyncing(true);
+      const dirty = dirtyRef.current;
+      dirtyRef.current = new Set();
       try {
+        // Another tab may have saved since this one loaded. Start from what is stored now and overwrite only the keys this tab changed,
+        // so a stale copy cannot erase them. If the stored row cannot be read, nothing is written (same rule as a failed load, ADR-006).
+        const stored = loaded !== undefined ? loaded : (await sb.select("user_memory", { user_id: `eq.${u.id}` }, u.token))?.[0]?.data;
+        const mem = memoryRef.current;
+        const merged = stored && typeof stored === 'object'
+          ? { ...stored, ...Object.fromEntries([...dirty].filter(k => k in mem).map(k => [k, mem[k]])) }
+          : mem;
         await sb.upsert("user_memory", {
           user_id: u.id,
-          data: toBackup(memoryRef.current),
+          data: toBackup(merged),
           updated_at: new Date().toISOString(),
         }, u.token);
         if (relationalFailedRef.current) {
@@ -202,6 +214,7 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
         }
       } catch (e) {
         console.error("[Sync] Memory backup failed:", e.message);
+        dirty.forEach(k => dirtyRef.current.add(k)); // not saved: the next write must still carry these keys
         setSyncError({ message: e.message || 'Save failed', at: Date.now() });
       } finally {
         setIsSyncing(false);
