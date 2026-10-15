@@ -161,6 +161,8 @@ function UploadAndParseTab({ user, memory, resumeText: globalResumeText, initial
       if (onResumeExtracted) onResumeExtracted(text);
       // The ATS Readiness score appears at once (computed by code from rawText). The AI runs only when the user asks for issues and fixes.
     } catch (err) {
+      // The person sees one sentence; the real cause (pdf.js, its worker, saving the file) goes to the console so it can be found.
+      console.error('[ATS Builder] file read failed', err, { name: file?.name, size: file?.size });
       setError('Could not read file — try a DOCX or paste your resume below.');
     }
   };
