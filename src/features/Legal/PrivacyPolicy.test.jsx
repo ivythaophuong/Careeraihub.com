@@ -26,7 +26,7 @@ describe('Privacy Policy', () => {
     const t = text();
     expect(t).toMatch(/30 days/);
     expect(t).toMatch(/Clear memory/i);
-    expect(t).toMatch(/hello@careeraihub\.com/);
+    expect(t).toMatch(/hello\.careeraihub@gmail\.com/);
   });
 
   it('mentions the job-search provider and the technical logs', () => {

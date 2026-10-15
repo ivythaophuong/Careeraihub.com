@@ -7,6 +7,8 @@ import './landing-v10.css';
 import './landing-v36.css';
 import { OrbitMark } from '../../components/OrbitMark';
 import { MODULES } from '../../styles/theme';
+import LegalDocument from '../Legal/LegalDocument.jsx';
+import { PRIVACY_SECTIONS, TERMS_SECTIONS } from '../Legal/legalContent.js';
 import { PERSONAS } from '../HiringManagerSim/interview';
 import { l1Html, l1HtmlHeight, l2Html, l2HtmlHeight, l3Html, l3HtmlHeight, l4Html, l4HtmlHeight } from './demoHtml';
 
@@ -2606,10 +2608,10 @@ const TRUST_QA = [
   {
     q: 'Is my resume data safe with you?',
     points: [
-      'AES-256 encryption at rest, TLS 1.3 in transit — your resume is encrypted from the moment it lands.',
-      'We never sell or share your data with recruiters, job boards, or any third party. Your data powers only your own modules.',
-      'Delete anytime: request full deletion from account settings, processed within 24 hours and purged from backups within 30 days.',
-      'PDPA compliant (Singapore) with GDPR compliance planned for our European expansion.',
+      'Your resume travels over an encrypted HTTPS connection, and you sign in to reach it. Our AI keys stay on our servers, never in your browser.',
+      'We do not sell your data and we do not share your resume with employers. To answer your request it is sent to our AI providers (OpenAI, with Groq as a backup); the Privacy Policy says what each of them states about it.',
+      'Delete anytime: clear your saved data in the Memory Dashboard, or email hello.careeraihub@gmail.com to delete your account and data.',
+      'We aim to follow the data protection laws of Vietnam, Singapore and Malaysia. A company is not registered yet; the Privacy Policy will be updated when it is.',
     ],
   },
   {
@@ -2643,23 +2645,23 @@ function DataProtectedSection({ onPrivacy, onTerms }) {
       <div className="lp-trust-grid reveal d1">
         <div className="lp-trust-item">
           <div className="lp-trust-icon">🔒</div>
-          <div className="lp-trust-title">Encrypted in transit and at rest</div>
-          <div className="lp-trust-desc">Your resume is encrypted with AES-256 the moment it's uploaded. It travels over TLS 1.3 and is stored in encrypted form. Only you can access it.</div>
+          <div className="lp-trust-title">Sent over HTTPS</div>
+          <div className="lp-trust-desc">Your resume travels over an encrypted HTTPS connection. You sign in to reach it, and our AI keys stay on our servers, never in your browser.</div>
         </div>
         <div className="lp-trust-item">
           <div className="lp-trust-icon">🚫</div>
-          <div className="lp-trust-title">Never sold. Never shared.</div>
-          <div className="lp-trust-desc">We do not sell your data to recruiters, job boards, or third parties. Ever. Your resume is used only to power your own CareerAiHub modules — nothing else.</div>
+          <div className="lp-trust-title">Never sold.</div>
+          <div className="lp-trust-desc">We do not sell your data, and we do not share your resume with employers. It is sent to our AI providers only to answer your request.</div>
         </div>
         <div className="lp-trust-item">
           <div className="lp-trust-icon">🗑️</div>
           <div className="lp-trust-title">Delete anytime</div>
-          <div className="lp-trust-desc">Delete your resume, profile, and all data from account settings at any time. We process deletion within 24 hours and purge backups within 30 days.</div>
+          <div className="lp-trust-desc">Clear your saved data yourself in the Memory Dashboard, or email hello.careeraihub@gmail.com to delete your account and data.</div>
         </div>
         <div className="lp-trust-item">
-          <div className="lp-trust-icon">🇸🇬</div>
-          <div className="lp-trust-title">PDPA compliant · Singapore</div>
-          <div className="lp-trust-desc">CareerAiHub is built to comply with Singapore's Personal Data Protection Act (PDPA). GDPR compliance planned for our European expansion.</div>
+          <div className="lp-trust-icon">📄</div>
+          <div className="lp-trust-title">Clear about the details</div>
+          <div className="lp-trust-desc">Our Privacy Policy names the providers that see your data (OpenAI, Groq, Adzuna) and what each one states about it.</div>
         </div>
       </div>
       <div className="lp-trust-links reveal d2">
@@ -2723,7 +2725,7 @@ function GrowthSection({ onJoin }) {
                 />
                 <button className="lp-lead-btn" onClick={sendGuide}>Send me the guide →</button>
               </div>
-              <div className="lp-lead-note">No spam. Unsubscribe anytime. PDPA compliant.</div>
+              <div className="lp-lead-note">No spam. Unsubscribe anytime.</div>
             </>
           ) : (
             <div style={{ padding: '14px 18px', background: 'var(--lp-teal-dim)', border: '1px solid var(--lp-teal-b)', borderRadius: 'var(--lp-r)', fontSize: 13, color: 'var(--lp-teal)' }}>
@@ -2992,7 +2994,7 @@ function FooterSection({ onJoin, onPrivacy, onTerms }) {
         </nav>
       </div>
       <div className="fbot">
-        <span>© 2026 CareerAiHub Pte. Ltd. · Singapore</span>
+        <span>© 2026 CareerAiHub</span>
         <div className="fbot-links">
           <button style={{background:'none',border:'none',color:'inherit',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit'}} onClick={onPrivacy}>Privacy</button>
           <button style={{background:'none',border:'none',color:'inherit',cursor:'pointer',fontFamily:'inherit',fontSize:'inherit'}} onClick={onTerms}>Terms</button>
@@ -3424,80 +3426,6 @@ function SampleReportModal({ onClose }) {
   );
 }
 
-// ── PRIVACY MODAL ─────────────────────────────────────────────────────────────
-
-function PrivacyModal({ onClose }) {
-  return (
-    <div className="lp-modal-overlay" onClick={onClose}>
-      <div className="lp-modal-box" onClick={e => e.stopPropagation()}>
-        <div className="lp-modal-hd">
-          <div className="lp-modal-title">Privacy Policy — CareerAiHub</div>
-          <button className="lp-modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="lp-modal-body">
-          <div className="lp-legal-content">
-            <p style={{fontSize:11,color:'var(--lp-text3)',marginBottom:16}}>Last updated: April 2026 · CareerAiHub Pte. Ltd. · Singapore</p>
-            <h3>1. What data we collect</h3>
-            <p>We collect your resume file (PDF or DOCX), your email address when you create an account, and your usage data within the platform (modules used, scores generated, sessions completed). We do not collect payment card data directly — this is handled by our payment processor.</p>
-            <h3>2. How we use your data</h3>
-            <p>Your resume is used solely to power your CareerAiHub modules — ATS scoring, cover letter generation, interview coaching, and salary benchmarking. It is never shared with recruiters, employers, or third-party advertisers without your explicit consent.</p>
-            <h3>3. Data storage and security</h3>
-            <p>All data is encrypted at rest (AES-256) and in transit (TLS 1.3). Your resume is stored on secure cloud infrastructure in Singapore. We conduct regular security audits and access is restricted to essential engineering staff only.</p>
-            <h3>4. Your rights (PDPA)</h3>
-            <ul>
-              <li>Access your personal data at any time from your account settings</li>
-              <li>Request correction of inaccurate data</li>
-              <li>Request deletion of your data — processed within 24 hours</li>
-              <li>Withdraw consent for data processing at any time</li>
-            </ul>
-            <h3>5. Cookies</h3>
-            <p>We use essential cookies for session management and optional analytics cookies (Google Analytics 4) to understand platform usage. You can decline optional cookies via the consent banner.</p>
-            <h3>6. Contact</h3>
-            <p>For any privacy questions: privacy@careeraihub.com · CareerAiHub Pte. Ltd. · Singapore</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── TERMS OF SERVICE MODAL ────────────────────────────────────────────────────
-
-function ToSModal({ onClose }) {
-  return (
-    <div className="lp-modal-overlay" onClick={onClose}>
-      <div className="lp-modal-box" onClick={e => e.stopPropagation()}>
-        <div className="lp-modal-hd">
-          <div className="lp-modal-title">Terms of Service — CareerAiHub</div>
-          <button className="lp-modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="lp-modal-body">
-          <div className="lp-legal-content">
-            <p style={{fontSize:11,color:'var(--lp-text3)',marginBottom:16}}>Last updated: April 2026 · CareerAiHub Pte. Ltd. · Singapore</p>
-            <h3>1. Acceptance of terms</h3>
-            <p>By using CareerAiHub, you agree to these Terms of Service. If you do not agree, please do not use the platform.</p>
-            <h3>2. Service description</h3>
-            <p>CareerAiHub provides AI-powered career tools including resume scanning, ATS scoring, mock interview coaching, salary benchmarking, and related services. Features marked "Building next" or "Planned" are roadmap items and not currently available.</p>
-            <h3>3. User obligations</h3>
-            <ul>
-              <li>You must be 18 years or older to use the platform</li>
-              <li>You may only upload resumes and documents you have the right to share</li>
-              <li>You may not use the platform for any unlawful purpose</li>
-              <li>You may not attempt to reverse-engineer or copy the platform</li>
-            </ul>
-            <h3>4. Subscription and billing</h3>
-            <p>Premium subscriptions are billed monthly at $19 USD (Premium) or $24.99 USD (Pro · Get Ready), or annually at $180 USD / $239 USD respectively. You may cancel at any time. Refunds are available within 7 days of initial purchase if you are unsatisfied.</p>
-            <h3>5. Limitation of liability</h3>
-            <p>CareerAiHub provides career guidance tools, not guaranteed employment outcomes. AI-generated scores and suggestions are for informational purposes. We are not liable for employment decisions made by third parties.</p>
-            <h3>6. Governing law</h3>
-            <p>These terms are governed by the laws of Singapore. Disputes shall be resolved in Singapore courts.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── COOKIE BANNER ─────────────────────────────────────────────────────────────
 
 function CookieBanner({ onPrivacy, onTerms }) {
@@ -3535,10 +3463,10 @@ function SuccessSnack({ msg, visible }) {
 
 /* ── legal content ── */
 const LEGAL_CONTENT = {
-  privacy: { title: 'Privacy Policy', body: 'CareerAiHub collects only the data necessary to provide the platform. We never sell personal data. Data is encrypted at rest and in transit. You can request deletion at any time by emailing hello.careeraihub@gmail.com.' },
-  tos: { title: 'Terms of Service', body: 'By using CareerAiHub you agree to use the platform for lawful purposes only. You retain ownership of your uploaded content. We may terminate accounts that violate these terms. Full terms available at careeraihub.com/terms.' },
-  security: { title: 'Security', body: 'We use industry-standard TLS encryption, SOC 2-aligned practices, and regular penetration testing. Credentials are stored using bcrypt hashing. API keys are never logged or exposed to the client.' },
-  deletion: { title: 'Data Deletion', body: 'To permanently delete your account and all associated data, email hello.careeraihub@gmail.com with subject "Data Deletion Request". We process requests within 30 days in compliance with PDPA.' },
+  privacy: { title: 'Privacy Policy', body: <LegalDocument sections={PRIVACY_SECTIONS} headColor="var(--text)" textColor="var(--text2)" /> },
+  tos: { title: 'Terms of Service', body: <LegalDocument sections={TERMS_SECTIONS} headColor="var(--text)" textColor="var(--text2)" /> },
+  security: { title: 'Security', body: 'Your data is sent over an encrypted HTTPS connection, and you must sign in to reach it. Our AI keys stay on our servers and are never in your browser. No online service can promise absolute security. To report a security concern, email hello.careeraihub@gmail.com.' },
+  deletion: { title: 'Data Deletion', body: 'You can clear your saved data yourself in the Memory Dashboard. To delete your account and all associated data, email hello.careeraihub@gmail.com with the subject "Data Deletion Request". We answer as soon as we reasonably can and within the time that applicable law requires.' },
 };
 
 const ATS_STEPS = [
@@ -4193,10 +4121,9 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             </div>
           </div>
           <div className="v36-footer-bottom">
-            <div style={{fontSize:11,color:'var(--text3)',fontFamily:"'DM Mono',monospace"}}>© 2026 CareerAiHub Pte. Ltd. · Singapore</div>
+            <div style={{fontSize:11,color:'var(--text3)',fontFamily:"'DM Mono',monospace"}}>© 2026 CareerAiHub</div>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <span style={{fontSize:11,color:'var(--text3)',display:'flex',alignItems:'center',gap:5}}><span style={{width:5,height:5,borderRadius:'50%',background:'#10b981',display:'inline-block',boxShadow:'0 0 5px rgba(16,185,129,.6)'}}></span>All systems operational</span>
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:'11px',padding:'2px 8px',borderRadius:20,background:'rgba(16,185,129,.06)',color:'#10b981',border:'1px solid rgba(16,185,129,.15)'}}>PDPA Compliant</span>
             </div>
           </div>
         </div>
