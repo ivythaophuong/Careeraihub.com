@@ -87,6 +87,8 @@ VERIFIED: `describeEvaluationFailure` already separates a known failure from an 
 | Situation | Rule |
 |---|---|
 | Refresh or switch module mid-session | The device snapshot offers "Continue practice"; a timed session resumes with a fresh count-down on the same question; nothing is called saved |
+| The kept session expires (2 hours) while the select screen is open | "Continue practice" re-reads the stored snapshot; if it is gone the card disappears and nothing opens |
+| Sign out | Every kept session in this tab is removed (it holds the person's answers) |
 | Time runs out | Status message, answer kept and sendable, no score effect |
 | Send fails (known) | Answer stays; says it was not evaluated |
 | Send fails (unknown) | Answer stays; says it is not confirmed; a retry is a new request |

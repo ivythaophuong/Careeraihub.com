@@ -98,3 +98,37 @@ describe('after a finished round', () => {
     expect(localStorage.getItem('careerai_mock_timed:u1')).toBeTruthy();
   });
 });
+
+describe('the session on this device (refresh, other module, expiry)', () => {
+  it('remembers that the round was timed when the person comes back and continues', async () => {
+    ai(); const first = setup(); await startWith('Timed: 3 minutes per question');
+    first.unmount();
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue practice' }));
+    await screen.findByText(/Question 1\/5/);
+    expect(screen.getByRole('timer', { name: /Time left/ })).toBeTruthy();
+  });
+
+  it('does not offer to continue something that is gone: if the kept session expired while the page was open, the card goes away', async () => {
+    ai(); const first = setup(); await startWith();
+    fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: ANSWER } });
+    first.unmount();
+    setup();
+    expect(screen.getByRole('button', { name: 'Continue practice' })).toBeTruthy();
+    // The 2 hour window passes while the select screen is still open.
+    const key = Object.keys(sessionStorage).find(k => k.startsWith('careerai_mock_session'));
+    const snap = JSON.parse(sessionStorage.getItem(key));
+    sessionStorage.setItem(key, JSON.stringify({ ...snap, savedAt: Date.now() - 3 * 60 * 60 * 1000 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue practice' }));
+    expect(screen.queryByText(/Question 1\/5/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Continue practice' })).toBeNull();
+  });
+
+  it('stops showing the count-down once feedback is on screen', async () => {
+    ai(); setup(); await startWith('Timed: 3 minutes per question');
+    fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: ANSWER } });
+    fireEvent.click(screen.getByText(/Get AI Feedback/));
+    await screen.findByLabelText('Answer score');
+    expect(screen.queryByRole('timer', { name: /Time left/ })).toBeNull();
+  });
+});

@@ -127,7 +127,9 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   };
 
   const continueKept = () => {
-    const k = kept; if (!k) return;
+    // Read it again: the 2 hour window may have passed while this screen was open, and the card must not promise a session that is gone.
+    const k = loadDeviceSession(user?.id);
+    if (!k) { setKept(null); return; }
     const done = k.results.length > k.idx && !k.results[k.idx]?.skipped ? k.results[k.idx] : null;
     setChallenge(k.challenge === 'timed' ? 'timed' : 'untimed'); setPersonaId(k.personaId); setRole(k.role || ''); setQuestions(k.questions); setIdx(k.idx); setResults(k.results);
     setAnswer(k.answer || ''); setCurrent(done); setWarnings([]); setErr(''); setSaved(false); setAttempt(1); setLastShown(done ? { fb: done, warnings: [] } : null);
@@ -422,7 +424,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           <div style={{ color: C.muted, fontSize: 12 }}>Mock interview in progress</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          {challenge === 'timed' && <span role="timer" aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`} style={{ color: secondsLeft === 0 ? C.gold : C.text, fontSize: 12, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>Time left {formatElapsed(secondsLeft * 1000)}</span>}
+          {challenge === 'timed' && attempt === 1 && !current && <span role="timer" aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`} style={{ color: secondsLeft === 0 ? C.gold : C.text, fontSize: 12, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>Time left {formatElapsed(secondsLeft * 1000)}</span>}
           {showTimer && <span role="timer" aria-label="Elapsed time, for your information only" style={{ color: C.muted, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>Elapsed {formatElapsed(elapsedMs)}</span>}
           <button type="button" onClick={() => setShowTimer(v => !v)} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
           {answeredCount > 0 && !busy && <button onClick={() => finish(results)} style={ghostBtn}>Finish & see results</button>}
