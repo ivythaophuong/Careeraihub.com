@@ -290,3 +290,31 @@ describe('warningsForIssue: the messages for one suggestion, with what the model
     expect(warningsForIssue({}, R)).toEqual([]);
   });
 });
+
+describe('role words that name another person are not a claim of leading', () => {
+  it('"the lead", "my manager", "the hiring manager", "the director" are not leading verbs', () => {
+    expect(contributionLevel('I assisted the lead with triage')).toBe(1);
+    expect(contributionLevel('I supported my manager with reporting')).toBe(1);
+    expect(contributionLevel('Dear Hiring Manager')).toBe(0);
+    expect(contributionLevel('I helped the director prepare slides')).toBe(2); // "prepare" is doing; the director is someone else
+    expect(contributionLevel('Reported to the line manager and assisted two colleagues')).toBe(1);
+  });
+
+  it('a title or a role the user says they held is still a claim', () => {
+    expect(contributionLevel('Team Lead at Acme')).toBe(3);
+    expect(contributionLevel('Product Manager, Acme Corp')).toBe(3);
+    expect(contributionLevel('I was the lead on the migration')).toBe(3);
+    expect(contributionLevel('I worked as a manager of the support desk')).toBe(3);
+    expect(contributionLevel('I lead the weekly stand-up')).toBe(3);
+    expect(contributionLevel('Asked to lead the project')).toBe(3);
+  });
+
+  it('raising "assisted the lead" to "led" is now flagged (it was hidden by the noun)', () => {
+    expect(types('I assisted the lead with triage', 'I led the triage process')).toContain('ownership');
+    expect(types('Supported my manager with weekly reports', 'Managed the weekly reporting')).toContain('ownership');
+  });
+
+  it('a greeting no longer makes a letter look like it already led', () => {
+    expect(types('Dear Hiring Manager,\nI assisted the team.', 'Dear Hiring Manager,\nI led the team.')).toContain('ownership');
+  });
+});
