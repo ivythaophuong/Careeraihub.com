@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { TONES, buildCoverLetterPrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount, MAX_JD_CHARS } from './coverLetter';
+import { TONES, buildCoverLetterPrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount, toneChangeClaimWarnings, MAX_JD_CHARS } from './coverLetter';
 
 const resume = { kind: 'text', text: 'Frontend engineer at Acme. Cut latency 40%.' };
 
@@ -110,5 +110,34 @@ describe('buildToneChangePrompt', () => {
   it('falls back to the professional tone for an unknown tone', async () => {
     const { buildToneChangePrompt, TONES } = await import('./coverLetter');
     expect(buildToneChangePrompt({ letter: 'x'.repeat(100), tone: 'nope' })).toContain(TONES.professional.style);
+  });
+});
+
+describe('toneChangeClaimWarnings (a tone rewrite must not claim more than the letter already did)', () => {
+  const letter = 'Dear Hiring Manager,\n\nAt Acme I assisted the team with onboarding and supported two colleagues. I helped write the guides.\n\nSincerely,\nAnn Lee';
+
+  it('a tone-only rewrite, even with many new adjectives, has no warnings', () => {
+    const after = letter.replace('I assisted the team with onboarding', 'I eagerly and enthusiastically assisted the team with onboarding').replace('Dear Hiring Manager', 'Dear Hiring Team');
+    expect(toneChangeClaimWarnings(letter, after)).toEqual([]);
+  });
+
+  it('a rewrite that raises "assisted" to "led" is warned about', () => {
+    const w = toneChangeClaimWarnings(letter, letter.replace('I assisted the team', 'I led the team'));
+    expect(w.join(' ')).toMatch(/led/);
+  });
+
+  it('a rewrite that adds company-wide scope is warned about', () => {
+    const w = toneChangeClaimWarnings(letter, letter.replace('onboarding', 'company-wide onboarding'));
+    expect(w.join(' ')).toMatch(/company-wide/);
+  });
+
+  it('a rewrite that names a tool the letter never mentioned is warned about', () => {
+    const w = toneChangeClaimWarnings(letter, letter.replace('write the guides', 'write the guides in Notion'));
+    expect(w.join(' ')).toMatch(/Notion/);
+  });
+
+  it('does not throw on empty input', () => {
+    expect(toneChangeClaimWarnings('', '')).toEqual([]);
+    expect(toneChangeClaimWarnings(undefined, undefined)).toEqual([]);
   });
 });

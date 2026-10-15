@@ -1,3 +1,4 @@
+import { claimWarnings } from '../../lib/claimGuard.js';
 // Pure helpers for the Cover Letter Generator: tone rules, prompt, and output validation.
 
 export const MAX_JD_CHARS = 12000;
@@ -116,4 +117,19 @@ export async function copyToClipboard(text) {
     document.body.removeChild(ta);
     return ok;
   } catch { return false; }
+}
+
+// Claims a tone rewrite added to the letter: a higher role (assisted -> led), a wider scope, a tool or name the letter never mentioned.
+// The only source is the letter being rewritten (the resume is not sent for a tone change). A tone change is meant to reword, so the "talks about
+// new things" rule is left out: it would fire on every change of adjectives. Warning only: a word list cannot know what is true.
+// The greeting and the sign-off are left out of the comparison: "Dear Hiring Manager" contains "manager", which the role-level rule reads as a leading
+// verb, so with it in the text no letter could ever be flagged for raising the role.
+const letterBody = (t) => String(t ?? '')
+  .replace(/^\s*(?:dear|hello|hi|to)\b[^\n]*\n/i, '')
+  .replace(/\n\s*(?:sincerely|best regards|kind regards|regards|best|thank you|thanks|yours (?:sincerely|faithfully))\b[\s\S]*$/i, '');
+
+export function toneChangeClaimWarnings(before, after) {
+  const b = letterBody(before), a = letterBody(after);
+  if (!b.trim() || !a.trim()) return [];
+  return claimWarnings({ before: b, after: a, resumeText: '' }).filter(w => w.type !== 'new_content').map(w => w.message);
 }

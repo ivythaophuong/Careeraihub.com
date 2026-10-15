@@ -113,3 +113,32 @@ describe('what to do next', () => {
     expect(p.setActiveModule).toHaveBeenCalledWith('ats');
   });
 });
+
+describe('a tone rewrite that claims more than the letter did', () => {
+  const MODEST = 'Dear Hiring Manager,\n\n' + 'At Acme I assisted the team with checkout fixes and supported two colleagues. '.repeat(3) + '\n\nSincerely,\nAnn Lee';
+  const BOLD = MODEST.replace(/I assisted the team/g, 'I led the team');
+
+  it('applies the rewrite and warns, and the warning follows that tone only', async () => {
+    callLLM.mockResolvedValueOnce(JSON.stringify({ ...REPLY, coverLetter: MODEST }));
+    setup(); await generate();
+    callLLM.mockResolvedValueOnce(JSON.stringify({ coverLetter: BOLD }));
+    tone('Confident');
+    await waitFor(() => expect(letterBox().value).toBe(BOLD)); // warning only: the rewrite is still applied
+    const note = await screen.findByText(/Check these claims before you use this letter/);
+    expect(note.closest('[role="note"]').textContent).toMatch(/led/);
+    tone('Professional');
+    expect(letterBox().value).toBe(MODEST);
+    expect(screen.queryByText(/Check these claims before you use this letter/)).toBeNull();
+    tone('Confident');
+    expect(screen.queryByText(/Check these claims before you use this letter/)).toBeTruthy();
+  });
+
+  it('shows no claims note for a rewrite that only changes the tone', async () => {
+    callLLM.mockResolvedValueOnce(JSON.stringify(REPLY));
+    setup(); await generate();
+    callLLM.mockResolvedValueOnce(JSON.stringify({ coverLetter: CONFIDENT }));
+    tone('Confident');
+    await waitFor(() => expect(letterBox().value).toBe(CONFIDENT));
+    expect(screen.queryByText(/Check these claims/)).toBeNull();
+  });
+});
