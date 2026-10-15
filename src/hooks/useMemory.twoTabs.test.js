@@ -84,3 +84,49 @@ describe('two tabs of the same user', () => {
     expect(c.result.current.memory.targetRole).toBe('PM');
   });
 });
+
+describe('what counts as a change made by this tab', () => {
+  it('a caller that returns the whole memory spread ({ ...m, key }) only changes that key', async () => {
+    // AICoach, VerifyCreds and others write like this: updateMemory(m => ({ ...m, credentials: [...] })). Both tabs already hold an older aiChat.
+    store.user_memory = [{ user_id: 'u1', data: { aiChat: [{ role: 'user', content: 'old', ts: 0 }] } }];
+    const a = await openTab();
+    const b = await openTab();
+    await save(b, () => ({ aiChat: [{ role: 'user', content: 'new', ts: 1 }] }));
+    await save(a, (m) => ({ ...m, credentials: [{ id: 'c1' }] }));
+    const c = await openTab();
+    expect(c.result.current.memory.aiChat).toEqual([{ role: 'user', content: 'new', ts: 1 }]);
+    expect(c.result.current.memory.credentials).toEqual([{ id: 'c1' }]);
+  });
+
+  it('clearing a key on purpose (empty list, null, 0) is saved, not mistaken for "unchanged"', async () => {
+    const a = await openTab();
+    await save(a, () => ({ aiChat: [{ role: 'user', content: 'hi', ts: 1 }], profile: { x: 1 }, totalSessions: 5 }));
+    const b = await openTab();
+    await save(b, (m) => ({ ...m, aiChat: [], profile: null, totalSessions: 0 }));
+    const c = await openTab();
+    expect(c.result.current.memory).toMatchObject({ aiChat: [], profile: null, totalSessions: 0 });
+  });
+
+  it('two tabs changing the same key: the later save wins as a whole value (no deep merge)', async () => {
+    const a = await openTab();
+    const b = await openTab();
+    await save(b, () => ({ credentials: [{ id: 'from-b' }] }));
+    await save(a, () => ({ credentials: [{ id: 'from-a' }] }));
+    const c = await openTab();
+    expect(c.result.current.memory.credentials).toEqual([{ id: 'from-a' }]); // known limit: not a merge of the two lists
+  });
+
+  it('a change made while a save is in flight is kept for the next save', async () => {
+    const a = await openTab();
+    let releaseUpsert;
+    const real = sb.upsert.getMockImplementation();
+    sb.upsert.mockImplementationOnce(async (...args) => { await new Promise(r => { releaseUpsert = r; }); return real(...args); });
+    let first;
+    await act(async () => { a.result.current.updateMemory(() => ({ credentials: [{ id: 'c1' }] })); first = a.result.current.flushMemory(); });
+    await waitFor(() => expect(releaseUpsert).toBeTypeOf('function'));
+    await act(async () => { a.result.current.updateMemory(() => ({ targetRole: 'PM' })); });
+    await act(async () => { releaseUpsert(); await first; await a.result.current.flushMemory(); });
+    const c = await openTab();
+    expect(c.result.current.memory).toMatchObject({ credentials: [{ id: 'c1' }], targetRole: 'PM' });
+  });
+});

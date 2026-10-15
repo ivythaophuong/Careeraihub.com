@@ -149,7 +149,9 @@ export function useMemory(user, isRestoring, setIsRestoring, setRestoreError) {
     const prev = memoryRef.current;
     const patch = typeof updater === 'function' ? updater(prev) : updater;
     const next = { ...prev, ...(patch || {}) };
-    Object.keys(patch || {}).forEach(k => dirtyRef.current.add(k));
+    // A key counts as changed by this tab only when its value is not the one it already held. Callers that return the whole memory
+    // ({ ...m, key: value }, as AICoach and VerifyCreds do) would otherwise mark every key and write this tab's older copy over the other tab's.
+    Object.keys(patch || {}).forEach(k => { if (!Object.is(prev[k], patch[k])) dirtyRef.current.add(k); });
     memoryRef.current = next;
     setMemory(next);
 
