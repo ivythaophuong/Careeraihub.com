@@ -31,3 +31,10 @@ describe('Dashboard does not report a resume score that nothing records', () => 
     expect(container.textContent).toMatch(/Earlier AI estimate/);
   });
 });
+
+describe('Dashboard shows a JD match percentage as an AI estimate', () => {
+  it('the recent-activity line says AI estimate', () => {
+    const { container } = show({ memory: { jdAnalyses: [{ roleTitle: 'Product Manager', matchScore: 72, date: '2026-10-01' }] } });
+    expect(container.textContent).toMatch(/JD match: Product Manager · AI estimate 72%/);
+  });
+});
