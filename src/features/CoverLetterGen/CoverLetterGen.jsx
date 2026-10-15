@@ -5,7 +5,7 @@ import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { pickResumeSource } from '../../lib/resumeSource';
 import '../../styles/featurePage.css';
-import { TONES, buildCoverLetterPrompt, buildToneChangePrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount } from './coverLetter';
+import { TONES, buildCoverLetterPrompt, buildToneChangePrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount, toneChangeClaimWarnings } from './coverLetter';
 import { findUnsupportedNumbers } from '../../lib/numberGuard';
 
 const label = { color: C.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 };
@@ -23,6 +23,7 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
   const [versions, setVersions] = useState({});   // tone -> the letter text for that tone (edits included), kept while this page is open
   const [toneBusy, setToneBusy] = useState(false);
   const [toneErr, setToneErr] = useState("");
+  const [toneNotes, setToneNotes] = useState({});  // tone -> warnings about claims that tone's rewrite added (never blocks)
 
   const resume = pickResumeSource({ memory, resumeText });
   const blocked = blockReason({ resumeKind: resume.kind, resumeText });
@@ -41,6 +42,7 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
       setLetter(parsed.coverLetter);
       setVersions({ [tone]: parsed.coverLetter });
       setToneErr("");
+      setToneNotes({});
       // Newest first, keep the 20 most recent.
       updateMemory?.(
         m => ({
@@ -81,6 +83,7 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
       const added = findUnsupportedNumbers(letter, text);
       if (added.length) { setToneErr(`The rewrite added figures that are not in your letter (${added.join(', ')}), so it was not applied.`); return; }
       setVersions({ ...kept, [id]: text });
+      setToneNotes(n => ({ ...n, [id]: toneChangeClaimWarnings(letter, text) }));
       setTone(id);
       setLetter(text);
     } catch (e) {
@@ -131,6 +134,13 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
           <div style={{ color: C.muted, fontSize: 11, margin: "-12px 0 16px" }}>
             Changing the tone rewrites only this letter: your resume and the job description are not sent again. Each tone you open is kept while this page is open.
             {toneBusy && <span> Rewriting…</span>}
+          </div>
+        )}
+        {(toneNotes[tone] || []).length > 0 && (
+          <div role="note" style={{ color: C.text, fontSize: 12, lineHeight: 1.6, marginBottom: 12, padding: "10px 12px", border: `1px solid ${C.gold}66`, borderRadius: 8, background: C.gold + "0D" }}>
+            <div style={{ color: C.gold, fontWeight: 900, marginBottom: 4 }}>⚠️ Check these claims before you use this letter</div>
+            {toneNotes[tone].map((m, i) => <div key={i}>• {m}</div>)}
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>This check compares word lists. It can miss claims and cannot know what is true, so read the letter against what you really did.</div>
           </div>
         )}
         {toneErr && <div role="alert" style={{ color: C.red, fontSize: 12, marginBottom: 12 }}>⚠️ {toneErr}</div>}
