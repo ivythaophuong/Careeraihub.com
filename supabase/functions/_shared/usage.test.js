@@ -32,8 +32,7 @@ describe('extractUsage: what each provider reports (nothing is estimated)', () =
 describe('cost: only from a versioned price entry that was in force that day', () => {
   const entry = (o = {}) => ({ provider: 'gemini', model: 'm', effective_from: '2026-10-01', effective_to: null, input_per_million_usd: 1, output_per_million_usd: 4, thinking_billed_as: 'output', free_tier: false, ...o });
   const usage = { input: 1_000_000, output: 500_000, thinking: 100_000, total: null };
-  it('the shipped price table is empty on purpose: no cost is invented', () => {
-    expect(PRICE_TABLE.entries).toEqual([]);
+  it('a model with no entry in the shipped price table gets no cost: nothing is invented', () => {
     expect(computeCost(usage, priceFor(PRICE_TABLE, 'gemini', 'm', '2026-10-10'))).toEqual({ cost_usd: null, cost_status: 'price_unknown' });
   });
   it('computes from the entry, counting thinking tokens as output only when the entry says so', () => {
@@ -189,5 +188,44 @@ describe('the ai function', () => {
     const body = await res.json();
     expect(res.status).toBe(400);
     expect(body.error.requestId).toBe(events[0].correlation_id);
+  });
+});
+
+describe('the shipped price table (prices read from the providers\' own pages on 2026-10-15)', () => {
+  const day = '2026-10-15';
+  it('every entry names its source page, the date it was read, and valid numbers', () => {
+    expect(PRICE_TABLE.entries.length).toBeGreaterThan(0);
+    for (const e of PRICE_TABLE.entries) {
+      expect(e.source).toMatch(/^https:\/\//);
+      expect(e.read_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(e.effective_from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Number.isFinite(e.input_per_million_usd) && e.input_per_million_usd > 0).toBe(true);
+      expect(Number.isFinite(e.output_per_million_usd) && e.output_per_million_usd > 0).toBe(true);
+    }
+  });
+
+  it('openai gpt-6-luna: 0.10 in / 0.50 out per million, reasoning tokens already inside the output count', () => {
+    const p = priceFor(PRICE_TABLE, 'openai', 'gpt-6-luna', day);
+    expect(p).toMatchObject({ input_per_million_usd: 0.10, output_per_million_usd: 0.50, thinking_billed_as: 'included_in_output', free_tier: false });
+    // the call seen in the production log on 2026-10-14: 2,389 in, 3,406 out of which 1,656 reasoning
+    const c = computeCost({ input: 2389, output: 3406, thinking: 1656, total: null }, p);
+    expect(c.cost_status).toBe('computed');
+    expect(c.cost_usd).toBeCloseTo((2389 * 0.10 + 3406 * 0.50) / 1e6, 8); // reasoning is not added a second time
+  });
+
+  it('groq openai/gpt-oss-120b: 0.15 in / 0.60 out per million; a call that reports reasoning tokens gets no cost because their accounting is not verified', () => {
+    const p = priceFor(PRICE_TABLE, 'groq', 'openai/gpt-oss-120b', day);
+    expect(p).toMatchObject({ input_per_million_usd: 0.15, output_per_million_usd: 0.60 });
+    expect(computeCost({ input: 1000, output: 2000, thinking: null, total: null }, p).cost_usd).toBeCloseTo((1000 * 0.15 + 2000 * 0.60) / 1e6, 8);
+    expect(computeCost({ input: 1000, output: 2000, thinking: 500, total: null }, p)).toEqual({ cost_usd: null, cost_status: 'thinking_billing_unknown' });
+  });
+
+  it('a PDF call is never priced from these entries (PDF billing is not described)', () => {
+    const p = priceFor(PRICE_TABLE, 'openai', 'gpt-6-luna', day);
+    expect(computeCost({ input: 1000, output: 1000, thinking: null, total: null }, p, true)).toEqual({ cost_usd: null, cost_status: 'pdf_billing_unknown' });
+  });
+
+  it('no entry for a model whose billing is unverified (Gemini: free or paid tier of the key is unknown)', () => {
+    expect(priceFor(PRICE_TABLE, 'gemini', 'gemini-3.8-flash', day)).toBeNull();
   });
 });

@@ -9,12 +9,25 @@
 
 export const USAGE_EVENT_VERSION = 1;
 
-// Versioned provider prices (USD per million tokens). EMPTY ON PURPOSE: the prices were not verified from the providers' own pages when this was
-// written, and a wrong price is worse than none. Add entries from the provider's pricing page, with the date you read it. Shape:
-//   { provider: 'gemini', model: 'gemini-3.8-flash', effective_from: '2026-10-10', effective_to: null, input_per_million_usd: 0.0, output_per_million_usd: 0.0,
-//     thinking_billed_as: 'output' | 'included_in_output' | null, free_tier: false, source: 'https://...', read_on: '2026-10-10' }
-// Billing quirks (thinking tokens, cached input, PDF pages, free tiers) are described by the entry; if an entry cannot describe a quirk, leave the entry out.
-export const PRICE_TABLE = Object.freeze({ version: '0', entries: Object.freeze([]) });
+// Versioned provider prices (USD per million tokens), copied from the providers' own pages on `read_on`. Shape of an entry:
+//   { provider, model, effective_from, effective_to, input_per_million_usd, output_per_million_usd,
+//     thinking_billed_as: 'output' | 'included_in_output' | null, free_tier, source, read_on }
+// Only models the production chain uses are listed. An entry that cannot describe a billing quirk (thinking tokens, cached input, PDF pages, a free tier whose
+// tier the key is on) is left out: a wrong price is worse than none, and no entry means cost_status "price_unknown".
+//  - openai gpt-6-luna, Standard tier. Reasoning tokens are billed as output and are part of the output count (OpenAI reasoning guide), so they are not added
+//    again. Cached input ($0.01) is not separated by `extractUsage`, so a call that hit the cache is priced slightly high. A PDF call is not priced here.
+//  - groq openai/gpt-oss-120b, on-demand list price. If the Groq key is on the free tier the real bill is 0; this is what the same tokens would cost on the paid
+//    plan. Groq's reasoning-token accounting was not found on its pages, so a call that reports reasoning tokens gets no cost ("thinking_billing_unknown").
+//  - Not listed: Gemini gemini-3.8-flash (kept only for rollback). Its price is $0.75 in / $3.75 out per million to 2026-12-31 and $1.50 / $7.50 from 2027-01-01 on the
+//    paid tier, free on the free tier, and which tier the key is on is UNKNOWN. Add entries once that is known.
+//  - effective_from is the day of the first production call that used the model (2026-10-14); the prices were read on 2026-10-15 and are assumed in force since then.
+export const PRICE_TABLE = Object.freeze({
+  version: '1',
+  entries: Object.freeze([
+    Object.freeze({ provider: 'openai', model: 'gpt-6-luna', effective_from: '2026-10-14', effective_to: null, input_per_million_usd: 0.10, output_per_million_usd: 0.50, thinking_billed_as: 'included_in_output', free_tier: false, source: 'https://developers.openai.com/api/docs/pricing', read_on: '2026-10-15' }),
+    Object.freeze({ provider: 'groq', model: 'openai/gpt-oss-120b', effective_from: '2026-10-14', effective_to: null, input_per_million_usd: 0.15, output_per_million_usd: 0.60, thinking_billed_as: null, free_tier: false, source: 'https://console.groq.com/docs/model/openai/gpt-oss-120b', read_on: '2026-10-15' }),
+  ]),
+});
 
 export const sanitizeFeature = (f) => (typeof f === 'string' && /^[a-z0-9_]{1,40}$/.test(f) ? f : 'unknown');
 

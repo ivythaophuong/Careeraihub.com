@@ -30,7 +30,7 @@ One-page control board. ✅ verified in source or tests · ⚠️ partial · �
 | Database reproducibility | 🔴 no migrations; one script applied by hand | `docs/database/README.md` | High |
 | RLS policies in repo | 🔴 not in repo | | High |
 | Observability † | ⚠️ one `[usage]` JSON line per provider attempt with `correlation_id`, `provider`, `fallback`, `outcome`; error responses carry `requestId`; `scripts/usage-report.mjs`. No alert, runbook or SLO found in the repo (❔ outside it) | `ai/handler.js`, `_shared/usage.js`, `ai/README.md` | Medium–High |
-| AI cost tracking † | ⚠️ tokens and time are logged per attempt; cost needs `PRICE_TABLE`, which is empty on purpose, so `cost_status` is `price_unknown` | `_shared/usage.js`, `ai/README.md` | Medium |
+| AI cost tracking † | ⚠️ tokens and time are logged per attempt; cost comes from `PRICE_TABLE`, which has entries for OpenAI `gpt-6-luna` and Groq `openai/gpt-oss-120b` (read 2026-10-15); other models, PDF calls and Groq calls that report reasoning tokens stay `price_unknown` | `_shared/usage.js`, `ai/README.md` | Medium |
 | AI quality evaluation (golden data, real model) | 🔴 not in the repo: tests use mocks / fixed strings. One-off measurements with real models (read by hand and counted by the product's guards, invented data only) were made on 2026-10-14 outside the repo, with scripts that are not in it | tests | High |
 | Persistence of failed saves | ✅ shown to user | `useMemory.syncError`, `App.jsx` toast, `useMemory.test.js` (15) | Low |
 | Boot read failure cannot wipe memory | ✅ `critical` fetch keeps writes locked | `useMemory.js` | Low |
