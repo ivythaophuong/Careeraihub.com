@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildStarPrompt, normalizeStarResult, overallScore, numberKeys, findInventedNumbers, MAX_FIELD_CHARS, WEIGHTS, SECTIONS } from './star';
+import { buildStarPrompt, normalizeStarResult, overallScore, numberKeys, findInventedNumbers, findClaimWarnings, MAX_FIELD_CHARS, WEIGHTS, SECTIONS } from './star';
 
 const story = {
   situation: 'Our checkout team had to migrate to a new platform while 2 million users shopped daily.',
@@ -108,5 +108,44 @@ describe('findInventedNumbers (the guard against made-up metrics)', () => {
   it('reports each invented number once', () => {
     const r = result({ refined: { situation: '40% faster', task: '40% faster', action: 'A', result: 'R' } });
     expect(findInventedNumbers(story, r)).toEqual(['40%']);
+  });
+});
+
+describe('findClaimWarnings (a polished story must not claim more than the user wrote)', () => {
+  const mine = {
+    situation: 'Our support team had a backlog of tickets.',
+    task: 'I assisted the team with the triage process.',
+    action: 'I helped sort tickets and supported two colleagues.',
+    result: 'The backlog went down.',
+  };
+  const refined = (over = {}) => ({ refined: { situation: 'Our support team had a backlog.', task: 'I assisted with triage.', action: 'I helped sort tickets.', result: 'The backlog went down.', ...over }, oneLiner: 'Helped clear a ticket backlog.' });
+
+  it('a faithful polish has no warnings', () => {
+    expect(findClaimWarnings(mine, refined())).toEqual([]);
+  });
+
+  it('a polish that turns "assisted" into "led" is warned about', () => {
+    const w = findClaimWarnings(mine, refined({ task: 'I led the triage process.', action: 'I directed the team that sorted tickets.' }));
+    expect(w.join(' ')).toMatch(/led|directed/);
+  });
+
+  it('does not warn about "led" when the user already wrote a leading verb', () => {
+    const own = { ...mine, task: 'I led the triage process.' };
+    expect(findClaimWarnings(own, refined({ task: 'I led the triage process.' }))).toEqual([]);
+  });
+
+  it('a polish that adds company-wide scope is warned about', () => {
+    const w = findClaimWarnings(mine, refined({ result: 'The backlog went down across the company-wide support organisation.' }));
+    expect(w.join(' ')).toMatch(/company-wide/);
+  });
+
+  it('a polish that names a tool the user never mentioned is warned about', () => {
+    const w = findClaimWarnings(mine, refined({ action: 'I helped sort tickets in Zendesk.' }));
+    expect(w.join(' ')).toMatch(/Zendesk/);
+  });
+
+  it('returns nothing for a missing story or result instead of throwing', () => {
+    expect(findClaimWarnings(null, null)).toEqual([]);
+    expect(findClaimWarnings(mine, { refined: null })).toEqual([]);
   });
 });
