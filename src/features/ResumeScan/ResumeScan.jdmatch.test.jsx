@@ -32,4 +32,14 @@ describe('ResumeScan (live JD-match path only)', () => {
     expect(tables).not.toContain('resume_scans');
     expect(updateMemory.mock.calls.find(c => c[1]?.table === 'jd_analyses')[1].data.match_score).toBe(72);
   });
+
+  it('an unreadable AI reply shows an error and saves nothing', async () => {
+    callLLM.mockResolvedValue('this is not JSON at all');
+    const updateMemory = vi.fn();
+    render(<ResumeScan resumeText={{ type: 'text', content: 'Jane Doe\nPM at Acme using SQL', fileName: 'cv.docx' }} setResumeText={vi.fn()} form={{}} memory={{}} updateMemory={updateMemory} setActiveModule={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/Paste the full job description/), { target: { value: 'We need a Product Manager who knows SQL.' } });
+    fireEvent.click(screen.getAllByRole('button').find(b => /scan|analy|match/i.test(b.textContent) && !b.disabled));
+    await waitFor(() => expect(screen.getByText(/couldn't read the AI's reply/i)).toBeTruthy());
+    expect(updateMemory).not.toHaveBeenCalled();
+  });
 });

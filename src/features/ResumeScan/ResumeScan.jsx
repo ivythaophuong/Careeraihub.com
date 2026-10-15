@@ -263,6 +263,8 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
             { table: 'jd_analyses', data: { role_title: parsed.roleTitle || form?.role || '', company: parsed.company || '', match_score: parsed.matchScore, keywords: finalResult.bars || [], gaps: finalResult.missingKeywords || [], advice: parsed.aiInsight || '' } }
           );
         }
+      } else {
+        setScanErr("We couldn't read the AI's reply. Please try again.");
       }
     } catch (e) {
       setScanErr(e?.message || 'Scan failed. Try again.');
