@@ -237,7 +237,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
     const rows = [
       ...(memory.scanHistory?.slice(0, 3).map(s => ({ type: 'scan', time: s.date || s.created_at, label: `Resume scanned · ATS ${s.score ?? '—'}` })) || []),
       ...(memory.starBank?.slice(0, 2).map(s => ({ type: 'star', time: s.date || s.created_at, label: `STAR saved: ${s.bankAs || s.oneLiner?.slice(0, 36) || 'Story'}` })) || []),
-      ...(memory.jdAnalyses?.slice(0, 2).map(j => ({ type: 'jd', time: j.date || j.created_at, label: `JD match: ${j.roleTitle || 'Role'} · ${j.matchScore ?? '—'}%` })) || []),
+      ...(memory.jdAnalyses?.slice(0, 2).map(j => ({ type: 'jd', time: j.date || j.created_at, label: `JD match: ${j.roleTitle || 'Role'} · ${j.matchScore == null ? '—' : `AI estimate ${j.matchScore}%`}` })) || []),
       ...(memory.mockSessions?.slice(0, 1).map(m => ({ type: 'mock', time: m.date || m.created_at, label: `Interview session · ${m.questionsCount ?? '—'} questions` })) || []),
       ...(memory.coverLetters?.slice(0, 1).map(c => ({ type: 'cover', time: c.date || c.created_at, label: `Cover letter: ${c.roleTitle || 'Role'}` })) || []),
     ];

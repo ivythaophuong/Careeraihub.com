@@ -24,7 +24,7 @@ describe('buildMemoryContext: missing data is left out, never a number', () => {
 
   it('does not count a JD analysis without a resume as a 0% match', () => {
     const t = buildMemoryContext({ jdAnalyses: [{ matchScore: 80 }, { matchScore: null }, { matchScore: 60 }] }, form);
-    expect(t).toContain('3 analyzed, avg match score 70%');
+    expect(t).toContain('3 analyzed, avg match score 70% (AI estimates)');
   });
 
   it('shows no match average when none was scored against a resume', () => {

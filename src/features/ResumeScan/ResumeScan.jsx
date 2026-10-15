@@ -82,7 +82,6 @@ function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMe
   const [loading, setLoading] = useState(false);
   const [scanErr, setScanErr] = useState('');
   const [result, setResult]   = useState(null);
-  const [prevMatchScore, setPrevMatchScore] = useState(null);
   const [scanNotice, setScanNotice] = useState(null);
   const [showVersionPicker, setShowVersionPicker] = useState(false);
   const [appliedFixes, setAppliedFixes]       = useState({});
@@ -144,7 +143,6 @@ function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMe
   const [pdfDownloading, setPdfDownloading]   = useState(false);
   const [pdfExported, setPdfExported]         = useState(false);
   const [showRawEditor, setShowRawEditor]     = useState(false);
-  const [failDismissed, setFailDismissed]     = useState(false);
   const [uploadParsing, setUploadParsing]     = useState(false);
   const [uploadErr, setUploadErr]             = useState('');
   const [uploadDragOver, setUploadDragOver]   = useState(false);
@@ -217,11 +215,9 @@ ${src.slice(0, TEMPLATE_PARSE.maxChars)}` }], TEMPLATE_PARSE.maxTokens);
 
   const scan = async () => {
     if (!jd.trim() || jd.length > JD_MAX_CHARS) return;
-    const lastAnalysis = (memory?.jdAnalyses || []).find(a => a.matchScore > 0);
-    setPrevMatchScore(lastAnalysis?.matchScore ?? null);
     const prepared = prepareJdMatch(resumeCtx, jd);
     setScanNotice(prepared.notice);
-    setLoading(true); setResult(null); setScanErr('');  setAppliedFixes({}); setEditingIdx(null); setEditDraft(''); setEditMode(false); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false);
+    setLoading(true); setResult(null); setScanErr('');  setAppliedFixes({}); setEditingIdx(null); setEditDraft(''); setEditMode(false); setEditorPatchStatus({}); setPatchRecords({}); setPdfExported(false);
     try {
       const raw = await callLLMFor('scan_jd_match', { kind: 'text', chars: (prepared.resume || '').length })([{ role: 'user', content:
         `Compare this resume against the job description and return a match analysis.
@@ -357,9 +353,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
 
   const canScan = !!jd.trim() && !!resumeCtx && jd.length <= JD_MAX_CHARS;
   const phase = loading ? 'scanning' : editMode ? 'edit' : result ? 'results' : 'input';
-  const scoreColor = result
-    ? result.matchScore >= 80 ? '#00E5A0' : result.matchScore >= 60 ? '#FFB84D' : '#FF5A5A'
-    : '#EC4899';
+  const scoreColor = 'var(--lp-text)'; // an AI estimate is not graded by value (same rule as the STAR score)
   const barColor = (s) => s >= 80 ? '#00E5A0' : s >= 60 ? '#FFB84D' : '#FF5A5A';
 
   /* ─── Hidden PDF render target — always mounted so ref is valid ─── */
@@ -741,7 +735,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
       {/* ── Context bar ── */}
       <div style={{ padding: '14px 36px', borderBottom: '1px solid var(--lp-bdr)', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
-          onClick={() => { setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditMode(false); setEditorText(''); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false); }}
+          onClick={() => { setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditMode(false); setEditorText(''); setEditorPatchStatus({}); setPatchRecords({}); setPdfExported(false); }}
           style={{ background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text3)', borderRadius: 7, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
         >← New scan</button>
         <div style={{ fontSize: 12, color: 'var(--lp-text3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -792,17 +786,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
               <div style={{ fontFamily: 'var(--lp-ff)', fontSize: 64, fontWeight: 900, color: scoreColor, lineHeight: 1, letterSpacing: -2 }}>
                 {result.matchScore}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--lp-text3)', marginTop: 2 }}>/100 match</div>
-              {prevMatchScore !== null && (() => {
-                const delta = result.matchScore - prevMatchScore;
-                if (delta === 0) return null;
-                const up = delta > 0;
-                return (
-                  <div style={{ marginTop: 6, display: 'inline-block', background: up ? 'rgba(0,229,160,.12)' : 'rgba(255,90,90,.1)', border: `1px solid ${up ? 'rgba(0,229,160,.3)' : 'rgba(255,90,90,.25)'}`, borderRadius: 20, padding: '2px 10px', fontSize: 10, fontWeight: 700, color: up ? '#00E5A0' : '#FF5A5A' }}>
-                    {up ? `↑ +${delta}` : `↓ ${delta}`} vs last
-                  </div>
-                );
-              })()}
+              <div style={{ fontSize: 12, color: 'var(--lp-text3)', marginTop: 2 }}>/100 · AI estimate of the match</div>
             </div>
 
             {/* Divider */}
@@ -829,7 +813,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
 
         {/* Scan another job */}
         <button
-          onClick={() => { setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditMode(false); setEditorText(''); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false); }}
+          onClick={() => { setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditMode(false); setEditorText(''); setEditorPatchStatus({}); setPatchRecords({}); setPdfExported(false); }}
           style={{ alignSelf: 'flex-start', background: 'transparent', border: '1px solid var(--lp-bdr)', borderRadius: 8, color: 'var(--lp-text3)', fontSize: 12, fontWeight: 600, padding: '7px 16px', cursor: 'pointer' }}
         >Scan another job</button>
 
@@ -861,9 +845,9 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
         )}
 
         {/* Low score gate */}
-        {result.matchScore < 40 && !failDismissed && (
+        {result.matchScore < 40 && (
           <div style={{ background: 'rgba(255,90,90,.06)', border: '1px solid rgba(255,90,90,.3)', borderRadius: 14, padding: '18px 22px' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: '#FF5A5A', marginBottom: 10 }}>⚠ Incompatible match — major gaps found</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#FF5A5A', marginBottom: 10 }}>⚠ AI estimate suggests low alignment — major gaps found</div>
             <ul style={{ margin: '0 0 14px', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {(result.issues || []).filter(iss => iss.severity === 'critical').map((iss, i) => (
                 <li key={i} style={{ fontSize: 12, color: 'var(--lp-text3)' }}>{iss.type} — <span style={{ color: '#FF5A5A' }}>{iss.original}</span></li>
@@ -872,16 +856,11 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                 <li key={'kw' + i} style={{ fontSize: 12, color: 'var(--lp-text3)' }}>Missing keyword: <span style={{ color: '#FFB84D' }}>{kw}</span></li>
               ))}
             </ul>
-            <button onClick={() => setFailDismissed(true)} style={{
-              width: '100%', padding: '10px 0', background: 'transparent',
-              border: '1px solid rgba(255,90,90,.4)', borderRadius: 8,
-              color: '#FF5A5A', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            }}>I understand, show fixes anyway →</button>
           </div>
         )}
 
         {/* Fix cards */}
-        {(result.matchScore >= 40 || failDismissed) && result.issues?.length > 0 && (
+        {result.issues?.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--lp-text3)' }}>

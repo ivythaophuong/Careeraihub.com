@@ -38,7 +38,7 @@ export function buildMemoryContext(mem, form) {
   if (mem.jdAnalyses?.length) {
     // JD-only analyses (no resume to compare) have no match score and must not count as 0.
     const avgMatch = average(mem.jdAnalyses, 'matchScore');
-    lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed${avgMatch == null ? '' : `, avg match score ${avgMatch}%`}`);
+    lines.push(`JD analyses: ${mem.jdAnalyses.length} analyzed${avgMatch == null ? '' : `, avg match score ${avgMatch}% (AI estimates)`}`);
   }
   lines.push(`Target: ${[form.level, form.role].filter(Boolean).join(' ')} in ${form.industry}, ${form.market}`);
   return lines.length ? "\n\nUSER HISTORY CONTEXT:\n" + lines.join("\n") : "";

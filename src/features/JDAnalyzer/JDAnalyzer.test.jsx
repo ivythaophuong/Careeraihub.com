@@ -155,4 +155,18 @@ describe('JDAnalyzer', () => {
     await screen.findByText('Grab');
     expect(screen.getByText(/Analyze This Job/).closest('button').disabled).toBe(false);
   });
+  it('labels the match score as an AI estimate and gives high and low scores the same neutral colour', async () => {
+    const colorFor = async (matchScore) => {
+      callLLM.mockResolvedValue(JSON.stringify({ ...REPLY, matchScore }));
+      setup();
+      paste(); analyze();
+      await screen.findByText('Senior Frontend Engineer');
+      expect(screen.getByText(/AI estimate of the match/)).toBeTruthy();
+      const card = screen.getByText(/AI estimate of the match/).parentElement;
+      const border = card.style.border;
+      cleanup();
+      return border;
+    };
+    expect(await colorFor(90)).toBe(await colorFor(20));
+  });
 });

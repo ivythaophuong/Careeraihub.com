@@ -42,4 +42,33 @@ describe('ResumeScan (live JD-match path only)', () => {
     await waitFor(() => expect(screen.getByText(/couldn't read the AI's reply/i)).toBeTruthy());
     expect(updateMemory).not.toHaveBeenCalled();
   });
+  const runScan = async (reply, memory = {}) => {
+    callLLM.mockResolvedValue(JSON.stringify(reply));
+    const utils = render(<ResumeScan resumeText={{ type: 'text', content: 'Jane Doe\nPM at Acme using SQL', fileName: 'cv.docx' }} setResumeText={vi.fn()} form={{}} memory={memory} updateMemory={vi.fn()} setActiveModule={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/Paste the full job description/), { target: { value: 'We need a Product Manager who knows SQL.' } });
+    fireEvent.click(screen.getAllByRole('button').find(b => /scan|analy|match/i.test(b.textContent) && !b.disabled));
+    await waitFor(() => expect(screen.getAllByText(/AI estimate/).length).toBeGreaterThan(0));
+    return utils;
+  };
+  const issue = { severity: 'critical', type: 'Missing Metric', original: 'Led the team', fix: 'Led a team of [X] engineers' };
+
+  it('shows the match score as an AI estimate in one colour, whatever the value', async () => {
+    const hi = await runScan({ matchScore: 90, roleTitle: 'PM', bars: [], jdKeywords: [], aiInsight: 'x', issues: [] });
+    const hiColor = screen.getByText('90').style.color;
+    hi.unmount();
+    await runScan({ matchScore: 55, roleTitle: 'PM', bars: [], jdKeywords: [], aiInsight: 'x', issues: [] });
+    expect(screen.getByText('55').style.color).toBe(hiColor);
+  });
+
+  it('does not compare with the previous estimate ("vs last")', async () => {
+    await runScan({ matchScore: 70, roleTitle: 'PM', bars: [], jdKeywords: [], aiInsight: 'x', issues: [] }, { jdAnalyses: [{ matchScore: 50 }] });
+    expect(screen.queryByText(/vs last/)).toBeNull();
+  });
+
+  it('a low estimate warns but still shows the fix suggestions without a click', async () => {
+    await runScan({ matchScore: 30, roleTitle: 'PM', bars: [], jdKeywords: [], aiInsight: 'x', issues: [issue] });
+    expect(screen.getByText(/AI estimate suggests low alignment/i)).toBeTruthy();
+    expect(screen.getByText(/Fix suggestions/)).toBeTruthy();
+    expect(screen.queryByText(/I understand, show fixes anyway/)).toBeNull();
+  });
 });

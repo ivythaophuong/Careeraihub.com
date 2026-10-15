@@ -71,7 +71,7 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory, set
   };
 
   const score = result?.matchScore;
-  const mc = score == null ? C.pink : score >= 75 ? C.green : score >= 50 ? C.gold : C.red;
+  const mc = C.accent; // an AI estimate is not graded by value (same rule as the STAR score)
   const tooShort = jd.trim().length < MIN_JD_CHARS;
 
   return (
@@ -101,7 +101,7 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory, set
         <>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
             <Card style={{ textAlign: "center", border: `1px solid ${mc}44` }}>
-              <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Match Score</div>
+              <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>AI estimate of the match</div>
               {score == null ? (
                 <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
                   No resume to compare against.
