@@ -10,7 +10,7 @@ const src = fs.readFileSync(path.resolve(__dirname, '../Landing/LandingPage.jsx'
 describe('LandingPage legal and trust claims', () => {
   it.each([
     'AES-256', 'TLS 1.3', 'SOC 2', 'penetration', 'bcrypt', 'PDPA compliant', 'PDPA Compliant', 'GDPR',
-    'within 24 hours', 'CareerAiHub Pte. Ltd.', 'hello.careeraihub@gmail.com', 'privacy@careeraihub.com',
+    'within 24 hours', 'CareerAiHub Pte. Ltd.', 'hello@careeraihub.com', 'privacy@careeraihub.com',
     'never sell or share your data with recruiters',
   ])('does not contain %s', (claim) => {
     expect(src).not.toContain(claim);

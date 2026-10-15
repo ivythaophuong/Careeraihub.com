@@ -692,7 +692,7 @@ function App() {
               <div style={{ display: 'flex', gap: 16 }}>
                 <button onClick={() => navigate('privacy')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--lp-text3)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}>Privacy</button>
                 <button onClick={() => navigate('terms')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--lp-text3)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}>Terms</button>
-                <a href="mailto:hello@careeraihub.com" style={{ color: 'var(--lp-text3)', fontSize: 11, textDecoration: 'none', fontWeight: 600 }}>Support</a>
+                <a href="mailto:hello.careeraihub@gmail.com" style={{ color: 'var(--lp-text3)', fontSize: 11, textDecoration: 'none', fontWeight: 600 }}>Support</a>
               </div>
             </footer>
           </div>

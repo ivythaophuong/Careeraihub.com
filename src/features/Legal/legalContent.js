@@ -2,7 +2,7 @@
 // landing-page legal sheet (LandingPage.jsx) all render from here, so they cannot say different things again.
 // Only state what the product does today (see docs/DATA_LINEAGE.md). Needs a legal review before it is relied on.
 export const LEGAL_UPDATED = 'October 2026';
-export const LEGAL_EMAIL = 'hello@careeraihub.com';
+export const LEGAL_EMAIL = 'hello.careeraihub@gmail.com';
 
 // section = { heading, paras?: string[], bullets?: string[] }; a bullet may be [boldLead, rest].
 export const PRIVACY_SECTIONS = [

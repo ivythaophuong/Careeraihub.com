@@ -2610,7 +2610,7 @@ const TRUST_QA = [
     points: [
       'Your resume travels over an encrypted HTTPS connection, and you sign in to reach it. Our AI keys stay on our servers, never in your browser.',
       'We do not sell your data and we do not share your resume with employers. To answer your request it is sent to our AI providers (OpenAI, with Groq as a backup); the Privacy Policy says what each of them states about it.',
-      'Delete anytime: clear your saved data in the Memory Dashboard, or email hello@careeraihub.com to delete your account and data.',
+      'Delete anytime: clear your saved data in the Memory Dashboard, or email hello.careeraihub@gmail.com to delete your account and data.',
       'We aim to follow the data protection laws of Vietnam, Singapore and Malaysia. A company is not registered yet; the Privacy Policy will be updated when it is.',
     ],
   },
@@ -2656,7 +2656,7 @@ function DataProtectedSection({ onPrivacy, onTerms }) {
         <div className="lp-trust-item">
           <div className="lp-trust-icon">🗑️</div>
           <div className="lp-trust-title">Delete anytime</div>
-          <div className="lp-trust-desc">Clear your saved data yourself in the Memory Dashboard, or email hello@careeraihub.com to delete your account and data.</div>
+          <div className="lp-trust-desc">Clear your saved data yourself in the Memory Dashboard, or email hello.careeraihub@gmail.com to delete your account and data.</div>
         </div>
         <div className="lp-trust-item">
           <div className="lp-trust-icon">📄</div>
@@ -3465,8 +3465,8 @@ function SuccessSnack({ msg, visible }) {
 const LEGAL_CONTENT = {
   privacy: { title: 'Privacy Policy', body: <LegalDocument sections={PRIVACY_SECTIONS} headColor="var(--text)" textColor="var(--text2)" /> },
   tos: { title: 'Terms of Service', body: <LegalDocument sections={TERMS_SECTIONS} headColor="var(--text)" textColor="var(--text2)" /> },
-  security: { title: 'Security', body: 'Your data is sent over an encrypted HTTPS connection, and you must sign in to reach it. Our AI keys stay on our servers and are never in your browser. No online service can promise absolute security. To report a security concern, email hello@careeraihub.com.' },
-  deletion: { title: 'Data Deletion', body: 'You can clear your saved data yourself in the Memory Dashboard. To delete your account and all associated data, email hello@careeraihub.com with the subject "Data Deletion Request". We answer as soon as we reasonably can and within the time that applicable law requires.' },
+  security: { title: 'Security', body: 'Your data is sent over an encrypted HTTPS connection, and you must sign in to reach it. Our AI keys stay on our servers and are never in your browser. No online service can promise absolute security. To report a security concern, email hello.careeraihub@gmail.com.' },
+  deletion: { title: 'Data Deletion', body: 'You can clear your saved data yourself in the Memory Dashboard. To delete your account and all associated data, email hello.careeraihub@gmail.com with the subject "Data Deletion Request". We answer as soon as we reasonably can and within the time that applicable law requires.' },
 };
 
 const ATS_STEPS = [
@@ -4001,7 +4001,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
                   </div>
                 ))}
               </div>
-              <a href="mailto:hello@careeraihub.com" style={{display:'block',textAlign:'center',padding:10,borderRadius:8,border:'1px solid rgba(6,182,212,.3)',fontSize:'12.5px',fontWeight:600,color:'var(--cyan)',textDecoration:'none',letterSpacing:'-.01em'}}>Contact us →</a>
+              <a href="mailto:hello.careeraihub@gmail.com" style={{display:'block',textAlign:'center',padding:10,borderRadius:8,border:'1px solid rgba(6,182,212,.3)',fontSize:'12.5px',fontWeight:600,color:'var(--cyan)',textDecoration:'none',letterSpacing:'-.01em'}}>Contact us →</a>
             </div>
           </div>
         </div>
@@ -4048,7 +4048,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.16em',textTransform:'uppercase',color:'#f59e0b',marginBottom:14}}>FAQ</div>
               <h2 className="v36-s-title" style={{fontSize:26,textAlign:'left',marginBottom:12,lineHeight:1.12}}>Questions,<br /><em style={{color:'#f59e0b',fontStyle:'italic'}}>answered.</em></h2>
               <p style={{fontSize:13,color:'var(--text2)',lineHeight:1.7,fontWeight:300,marginBottom:20}}>Everything you need to know before signing up.</p>
-              <a href="mailto:hello@careeraihub.com" style={{fontSize:12,color:'var(--blue)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:5,opacity:.8}}>Still curious? Email us →</a>
+              <a href="mailto:hello.careeraihub@gmail.com" style={{fontSize:12,color:'var(--blue)',textDecoration:'none',display:'inline-flex',alignItems:'center',gap:5,opacity:.8}}>Still curious? Email us →</a>
             </div>
           </div>
         </div>
@@ -4106,7 +4106,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
                 {['About','Blog','Careers','Press'].map(l=>(
                   <a key={l} href="#" onClick={e=>e.preventDefault()}>{l}</a>
                 ))}
-                <a href="mailto:hello@careeraihub.com">Contact</a>
+                <a href="mailto:hello.careeraihub@gmail.com">Contact</a>
               </div>
             </div>
             <div>
