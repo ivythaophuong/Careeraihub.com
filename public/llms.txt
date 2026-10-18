@@ -16,6 +16,14 @@ Site: https://careeraihub.com/
 - Job Search: search live job listings.
 - AI Career Coach: ask career questions in chat.
 
+## Pages
+
+- ATS Resume Checker: https://careeraihub.com/ats-resume-checker/
+- Mock interview practice: https://careeraihub.com/mock-interview-ai/
+- Salary negotiation preparation: https://careeraihub.com/salary-negotiation/
+- For job seekers in Singapore: https://careeraihub.com/singapore/
+- For job seekers in Malaysia: https://careeraihub.com/malaysia/
+
 ## For employers
 
 - Employer Portal and TrustMatch: post roles and review candidates with verified skills.
