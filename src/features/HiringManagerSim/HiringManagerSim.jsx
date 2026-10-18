@@ -15,6 +15,8 @@ import { saveDeviceSession, loadDeviceSession, clearDeviceSession } from './devi
 import { formatElapsed, describeEvaluationFailure } from './sessionUi';
 import SessionPanel from './SessionPanel';
 import NextStepCard from './NextStepCard';
+import StructurePanel from './StructurePanel';
+import { structurePanelEnabledFor, previewStructure } from './structurePreview';
 import { TIMED_SECONDS, nextStep, loadTimedTried, markTimedTried } from './guidance';
 
 const scoreColor = (s) => (s >= 75 ? C.green : s >= 60 ? C.gold : C.red);
@@ -517,6 +519,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
               {current.betterAnswerOutline.length > 0 && <Outline items={current.betterAnswerOutline} />}
             </div>
           </Card>
+          {structurePanelEnabledFor(user?.id) && <StructurePanel result={previewStructure({ question: q.question, answer })} />}
           {warnings.length > 0 && (
             <Card style={{ border: `1px solid ${C.gold}66`, background: C.gold + "0D" }}>
               <div role="alert" style={{ color: C.gold, fontWeight: 900, fontSize: 12, marginBottom: 6 }}>⚠️ Check these numbers</div>
