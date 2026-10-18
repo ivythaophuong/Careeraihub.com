@@ -64,7 +64,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [attempt, setAttempt] = useState(1); // 1 = first try at this question; more = practice retries
   const [lastShown, setLastShown] = useState(null); // { fb, warnings } of the newest attempt, to go back to
   const [failureKind, setFailureKind] = useState(null); // 'known' | 'unknown' | 'limit' after a failed feedback request
-  const [elapsedMs, setElapsedMs] = useState(0); // informational only: nothing is cut off or scored by it
+  const [questionMs, setQuestionMs] = useState(0); // time on the question on screen, informational only: nothing is cut off or scored by it
   const [showTimer, setShowTimer] = useState(false);
   const [deviceKept, setDeviceKept] = useState(false); // true only after the browser confirmed it stored this session
   const [kept, setKept] = useState(() => loadDeviceSession(user?.id)); // an earlier session of this tab that can be continued
@@ -72,7 +72,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [secondsLeft, setSecondsLeft] = useState(TIMED_SECONDS);
   const reviewRef = useRef(null);
   const headingRef = useRef(null);
-  const elapsedRef = useRef(0);
+  const questionRef = useRef(0);
 
   const resume = pickResumeSource({ memory, resumeText });
   const persona = personaId ? PERSONAS[personaId] : null;
@@ -82,12 +82,15 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
   const answeredNow = results.filter(r => !r.skipped).length;
 
-  // Informational elapsed time while an interview is on screen.
+  // Informational time, counted per question first: it runs while the first attempt at a question is still open and stops when the answer is submitted
+  // (or skipped), while feedback is being fetched, and during a practice retry. The session total is the sum of the questions.
+  const counting = phase === 'interview' && results.length <= idx && !busy;
   useEffect(() => {
-    if (phase !== 'interview') return undefined;
-    const t = setInterval(() => { elapsedRef.current += 1000; setElapsedMs(elapsedRef.current); }, 1000);
+    if (!counting) return undefined;
+    const t = setInterval(() => { questionRef.current += 1000; setQuestionMs(questionRef.current); }, 1000);
     return () => clearInterval(t);
-  }, [phase]);
+  }, [counting, idx]);
+  const sessionMs = results.reduce((n, r) => n + (r.ms || 0), 0) + (results.length > idx ? 0 : questionMs);
 
   // Timed challenge: a count-down for the first attempt at a question. At zero it only says so; the answer is kept and can still be sent.
   useEffect(() => { setSecondsLeft(TIMED_SECONDS); }, [idx, phase, challenge]);
@@ -100,7 +103,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   // Keep the session on this device (not on the server) so a refresh or a visit to another module does not lose it.
   useEffect(() => {
     if (phase !== 'interview' || !questions.length) return;
-    setDeviceKept(saveDeviceSession(user?.id, { personaId, role: role.trim(), questions, idx, results, answer, elapsedMs: elapsedRef.current, challenge }));
+    setDeviceKept(saveDeviceSession(user?.id, { personaId, role: role.trim(), questions, idx, results, answer, elapsedMs: sessionMs, questionMs: questionRef.current, challenge }));
   }, [phase, personaId, role, questions, idx, results, answer, challenge, user?.id]);
 
   // Closing or reloading the tab with work in progress asks first.
@@ -122,7 +125,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const reset = () => {
     setPhase('select'); setPersonaId(null); setQuestions([]); setIdx(0); setResults([]); setAnswer('');
     setCurrent(null); setWarnings([]); setErr(''); setSaved(false); setConfirmExit(false); setAttempt(1); setLastShown(null);
-    setFailureKind(null); setElapsedMs(0); elapsedRef.current = 0; setKept(null); setDeviceKept(false);
+    setFailureKind(null); setQuestionMs(0); questionRef.current = 0; setKept(null); setDeviceKept(false);
     clearDeviceSession(user?.id);
   };
 
@@ -133,7 +136,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     const done = k.results.length > k.idx && !k.results[k.idx]?.skipped ? k.results[k.idx] : null;
     setChallenge(k.challenge === 'timed' ? 'timed' : 'untimed'); setPersonaId(k.personaId); setRole(k.role || ''); setQuestions(k.questions); setIdx(k.idx); setResults(k.results);
     setAnswer(k.answer || ''); setCurrent(done); setWarnings([]); setErr(''); setSaved(false); setAttempt(1); setLastShown(done ? { fb: done, warnings: [] } : null);
-    setFailureKind(null); elapsedRef.current = k.elapsedMs; setElapsedMs(k.elapsedMs); setKept(null);
+    setFailureKind(null); questionRef.current = Number.isFinite(k.questionMs) ? k.questionMs : 0; setQuestionMs(questionRef.current); setKept(null);
     setPhase('interview');
   };
 
@@ -148,7 +151,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       const raw = await callLLMFor('mock_questions', resume)([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
       setQuestions(normalizeQuestions(extractJSON(raw)));
       setChallenge(chosen); setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false); setAttempt(1); setLastShown(null);
-      setFailureKind(null); elapsedRef.current = 0; setElapsedMs(0); setKept(null);
+      setFailureKind(null); questionRef.current = 0; setQuestionMs(0); setKept(null);
       setPhase('interview');
     } catch (e) {
       fail(e, 'Create a free account or sign in to start a mock interview.', 'Could not start the interview. Please try again.');
@@ -176,7 +179,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       setWarnings(found);
       setLastShown({ fb, warnings: found });
       if (attempt === 1) {
-        setResults(r => [...r, { question: q.question, focus: q.focus, answer, ...fb, receipt }]);
+        setResults(r => [...r, { question: q.question, focus: q.focus, answer, ...fb, receipt, ms: questionRef.current }]);
       } else {
         // A retry is practice: it is kept next to the first attempt, which is the only one that is scored and saved.
         setResults(r => r.map((x, i) => (i === r.length - 1 ? { ...x, retries: [...(x.retries || []), { answer, score: fb.score }] } : x)));
@@ -232,6 +235,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
   const advance = (finalResults) => {
     if (idx + 1 < questions.length) {
+      questionRef.current = 0; setQuestionMs(0);
       setIdx(idx + 1); setAnswer(''); setCurrent(null); setWarnings([]); setErr(''); setAttempt(1); setLastShown(null);
     } else {
       finish(finalResults);
@@ -246,7 +250,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
   const skip = () => {
     if (busy) return;
-    const next = [...results, { question: q.question, focus: q.focus, skipped: true }];
+    const next = [...results, { question: q.question, focus: q.focus, skipped: true, ms: questionRef.current }];
     setResults(next);
     advance(next);
   };
@@ -424,9 +428,6 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           <div style={{ color: C.muted, fontSize: 12 }}>Mock interview in progress</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          {challenge === 'timed' && attempt === 1 && !current && <span role="timer" aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`} style={{ color: secondsLeft === 0 ? C.gold : C.text, fontSize: 12, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>Time left {formatElapsed(secondsLeft * 1000)}</span>}
-          {showTimer && <span role="timer" aria-label="Elapsed time, for your information only" style={{ color: C.muted, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>Elapsed {formatElapsed(elapsedMs)}</span>}
-          <button type="button" onClick={() => setShowTimer(v => !v)} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
           {answeredCount > 0 && !busy && <button onClick={() => finish(results)} style={ghostBtn}>Finish & see results</button>}
           {confirmExit ? (
             <>
@@ -442,12 +443,19 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <div style={{ flex: '1 1 480px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card style={{ border: `1px solid ${pColor}44`, background: pColor + "05" }}>
+        <div data-testid="question-card">
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
           <div style={label}>Question {idx + 1}/{questions.length}</div>
           <span style={{ color: pColor, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Testing: {q.focus}</span>
         </div>
         <div style={{ color: C.text, fontWeight: 700, fontSize: 15, lineHeight: 1.6 }}>"{q.question}"</div>
         {q.why && <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>The interviewer is looking for: {q.why}</div>}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
+          {challenge === 'timed' && attempt === 1 && !current && <span role="timer" aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`} style={{ color: secondsLeft === 0 ? C.gold : C.text, fontSize: 12, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>Time left {formatElapsed(secondsLeft * 1000)}</span>}
+          {showTimer && <span role="timer" aria-label="Elapsed time, for your information only" style={{ color: C.muted, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>This question {formatElapsed(questionMs)} · Whole session {formatElapsed(sessionMs)}</span>}
+          <button type="button" onClick={() => setShowTimer(v => !v)} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
+        </div>
+        </div>
       </Card>
 
       {!current && (
