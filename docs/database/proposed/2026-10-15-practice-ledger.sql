@@ -129,6 +129,8 @@ declare
 begin
   if p_est_tokens < 0 then raise exception 'bad_estimate'; end if;
   perform pg_advisory_xact_lock(hashtextextended(p_user::text, 0));      -- one user's competing requests are serialised (tabs and devices share one limit)
+  -- A session id must belong to the caller: the foreign key only proves the session exists, so without this a request could be attached to another user's session and spend its cap.
+  if p_session is not null and not exists (select 1 from public.practice_sessions where id = p_session and user_id = p_user) then raise exception 'bad_session'; end if;
   pol := public._active_policy('global');
   lim := coalesce(pol.limits, '{}'::jsonb);
   mode := case when pol.version is null then 'observe' else 'enforce' end;
@@ -152,7 +154,7 @@ begin
     if lim ? 'max_tokens_per_day' and coalesce(w.reserved_tokens, 0) + coalesce(w.settled_tokens, 0) + p_est_tokens > (lim ->> 'max_tokens_per_day')::bigint then
       return query select 'limit_reached'::text, null::uuid, mode, 'tokens'::text; return; end if;
     if p_session is not null and lim ? 'max_session_tokens' then
-      select coalesce(sum(coalesce(settled_tokens, reserved_tokens)), 0) into sess_tokens from public.ai_requests where session_id = p_session;
+      select coalesce(sum(coalesce(settled_tokens, reserved_tokens)), 0) into sess_tokens from public.ai_requests where session_id = p_session and user_id = p_user;
       if sess_tokens + p_est_tokens > (lim ->> 'max_session_tokens')::bigint then
         return query select 'limit_reached'::text, null::uuid, mode, 'session_tokens'::text; return; end if;
     end if;

@@ -37,7 +37,7 @@ This is a product and cost trade-off, so it needs the owner's explicit yes. Unti
 
 ## 4. What the replica test proves, and what it does not
 
-VERIFIED: `s5-practice-ledger.mjs`, in-memory Postgres (PGlite), **56 of 56 checks pass**. Mutation check: breaking the SQL five ways makes the suite fail each time (revoking removed: 4 checks fail; stale sweep removed: Z2; unique counted index removed: crash; gate forced off: 5 checks; score averaging that counts failed answers: C3; idempotency removed: crash).
+VERIFIED: `s5-practice-ledger.mjs`, in-memory Postgres (PGlite), **58 of 58 checks pass** (re-run 2026-10-18; the first 56 were run 2026-10-15). Checks E6 and E7 were added on 2026-10-18: `reserve_ai_request` did not check that the session id belongs to the caller, so a request could be attached to another user's session and spend that session's token cap; it now raises `bad_session`, and the session sum counts only the caller's requests. The Edge Function must still never take a session id from the browser without checking it. Mutation check: breaking the SQL five ways makes the suite fail each time (revoking removed: 4 checks fail; stale sweep removed: Z2; unique counted index removed: crash; gate forced off: 5 checks; score averaging that counts failed answers: C3; idempotency removed: crash).
 It covers: privileges and RLS per role; limit validation; observe vs enforce; concurrency, daily and per-session caps; idempotency; settle once; unknown requests and expiry; zombie requests; one counted attempt per question; completing a session once and the Trust Score trigger; deletion and cascade; the down script and re-applying.
 
 NOT proved (UNKNOWN):

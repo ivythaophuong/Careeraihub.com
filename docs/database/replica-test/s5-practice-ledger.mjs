@@ -100,6 +100,15 @@ const sid = (await q(db, `insert into practice_sessions (user_id, persona, quest
 await reserve(db, U.a, 's1', 'h', 100, sid);
 x = await reserve(db, U.a, 's2', 'h', 100, sid);
 check('E5 the per-session token cap is enforced', x.outcome === 'limit_reached' && x.reason === 'session_tokens', JSON.stringify(x));
+// E6: a session id that belongs to someone else is refused, and it does not use up that person's session cap.
+let foreign; try { await reserve(db, U.b, 'b1', 'h', 10, sid); } catch (e) { foreign = e.message; }
+check('E6 a request that names another user\'s session is refused (bad_session)', /bad_session/.test(foreign || ''), foreign);
+db = await freshDb();
+await setPolicy(db, { max_session_tokens: 150 });
+const sid2 = (await q(db, `insert into practice_sessions (user_id, persona, questions) values ($1,'startup','[]') returning id`, [U.a]))[0].id;
+try { await reserve(db, U.b, 'b2', 'h', 140, sid2); } catch { /* refused */ }
+x = await reserve(db, U.a, 'a1', 'h', 100, sid2);
+check('E7 another user\'s refused request leaves the owner\'s session cap untouched', x.outcome === 'reserved', JSON.stringify(x));
 
 // ── Idempotency ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 db = await freshDb();
