@@ -211,10 +211,13 @@ describe('isolation: nothing depends on this folder yet (rollback is a plain rev
       }
     };
     for (const d of ['src', 'supabase', 'tests', 'scripts']) if (fs.existsSync(path.join(root, d))) walk(path.join(root, d));
-    // The offline calibration tooling (D1) is allowed to read the scorer: it measures it against human reviewers and is not product code.
-    // Nothing in src/, the Edge Functions or the database may depend on this folder, and removing the tooling does not touch the product.
+    // Two things are allowed to read the scorer, and nothing else:
+    //  - the offline calibration tooling (D1): it measures the scorer against human reviewers and is not product code;
+    //  - the owner-only preview in the Mock Interview (D2): off unless the build lists the user's id (VITE_STRUCTURE_PANEL_USERS), changes no score, saves nothing.
+    // The Edge Functions and the database must not depend on this folder, and removing either allowed reader does not touch the product's scoring.
     const OFFLINE_CALIBRATION = [/^scripts\/calibration\//, /^tests\/audit\/interviewCalibration\.test\.js$/];
-    expect(hits.filter((h) => !OFFLINE_CALIBRATION.some((re) => re.test(h)))).toEqual([]);
+    const OWNER_PREVIEW = [/^src\/features\/HiringManagerSim\/structurePreview\.js$/];
+    expect(hits.filter((h) => ![...OFFLINE_CALIBRATION, ...OWNER_PREVIEW].some((re) => re.test(h)))).toEqual([]);
   });
 });
 
