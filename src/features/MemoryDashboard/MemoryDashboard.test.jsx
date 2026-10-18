@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 
 vi.mock('../../lib/ai.jsx', () => ({ callLLM: vi.fn(), extractJSON: () => ({ error: true }) }));
+const planCall = vi.fn();
+vi.mock('../../lib/aiFeature.js', () => ({ callLLMFor: () => (...a) => planCall(...a) }));
 vi.mock('../../lib/supabase', async (orig) => ({ ...(await orig()), sb: { delete: vi.fn() } }));
 import MemoryDashboard, { buildMemoryContext } from './MemoryDashboard';
 
@@ -67,5 +69,24 @@ describe('MemoryDashboard rendering', () => {
     expect(screen.queryByText('No score recorded yet.')).toBeNull();
     expect(screen.getByText(/\+30 pts improvement/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/NaN/);
+  });
+});
+
+describe('the AI career plan says when it could not be produced', () => {
+  const busy = { applications: [{ status: 'Applied' }, { status: 'Applied' }] }; // two activities: the button is enabled
+  const open = () => render(<MemoryDashboard memory={busy} form={form} user={{ id: 'u', token: 't' }} updateMemory={vi.fn()} setActiveModule={vi.fn()} embedded />);
+
+  it('an unreadable reply shows a message instead of nothing', async () => {
+    planCall.mockResolvedValue('this is not JSON');
+    open();
+    fireEvent.click(screen.getByText(/Get AI Career Plan/));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/couldn't read the AI's reply/i));
+  });
+
+  it('a failed request shows its own message', async () => {
+    planCall.mockRejectedValue(new Error('The AI request timed out.'));
+    open();
+    fireEvent.click(screen.getByText(/Get AI Career Plan/));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/timed out/i));
   });
 });

@@ -197,6 +197,9 @@ Return ONLY raw JSON:
 
       {/* AI-Generated Career Plan */}
       {loadingSummary && <Card><Spinner label="AI analyzing your entire career journey..."/></Card>}
+      {aiSummary?.error && (
+        <Card><div role="alert" style={{color:C.red,fontSize:12}}>⚠️ {typeof aiSummary.error === 'string' ? aiSummary.error : "We couldn't read the AI's reply. Please try again."}</div></Card>
+      )}
       {aiSummary && !aiSummary.error && (
         <>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
