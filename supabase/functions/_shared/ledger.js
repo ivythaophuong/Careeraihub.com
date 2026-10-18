@@ -23,6 +23,18 @@ export async function payloadHash(messages, maxTokens, hasPdf) {
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// The SQL settles the sum of the three numbers it is given, so give it numbers that add up to what was used.
+// Providers differ: OpenAI counts thinking inside the output tokens (measured on production 2026-10-18: 1856 in + 3577 out of which 1835 thinking = 5433),
+// Gemini reports thinking apart. So the provider's own total is the amount, when it is readable (not below the input); the thinking figure then stays only in the usage log.
+// With no readable total the reported numbers are added: that can only over-count, which is the safe side for a budget.
+export function settledParts(usage) {
+  if (!usage) return { p_in: null, p_out: null, p_think: null };
+  const input = Number.isFinite(usage.input) ? usage.input : null;
+  const total = Number.isFinite(usage.total) && usage.total >= (input ?? 0) ? usage.total : null;
+  if (total !== null) return { p_in: input, p_out: total - (input ?? 0), p_think: null };
+  return { p_in: input, p_out: Number.isFinite(usage.output) ? usage.output : null, p_think: Number.isFinite(usage.thinking) ? usage.thinking : null };
+}
+
 export function makeLedger({ env, fetchImpl = fetch, timeoutMs = GATE_TIMEOUT_MS }) {
   const rpc = async (fn, args) => {
     const r = await fetchImpl(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
@@ -45,7 +57,8 @@ export function makeLedger({ env, fetchImpl = fetch, timeoutMs = GATE_TIMEOUT_MS
       } catch { return { outcome: 'gate_error' }; }
     },
     async settle({ id, state, usage = null, provider = null, model = null }) {
-      try { await rpc('settle_ai_request', { p_id: id, p_state: state, p_in: usage?.input ?? null, p_out: usage?.output ?? null, p_think: usage?.thinking ?? null, p_provider: provider, p_model: model }); } catch { /* the ledger must never break a request */ }
+      const { p_in, p_out, p_think } = settledParts(usage);
+      try { await rpc('settle_ai_request', { p_id: id, p_state: state, p_in, p_out, p_think, p_provider: provider, p_model: model }); } catch { /* the ledger must never break a request */ }
     },
     async markUnknown(id) {
       try { await rpc('mark_unknown', { p_id: id }); } catch { /* same */ }
