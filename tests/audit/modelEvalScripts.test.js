@@ -40,7 +40,7 @@ describe('the scripts that call models', () => {
 });
 
 describe('dry runs (no network, no keys)', () => {
-  const run = (args) => execFileSync('npx', ['vite-node', ...args], { cwd: path.resolve(DIR, '../..'), encoding: 'utf8', env: { ...process.env, GROQ_API_KEY: '', ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '', GEMINI_API_KEY: '' }, timeout: 90_000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const run = (args) => execFileSync('npx', ['--no-install', 'vite-node', ...args], { cwd: path.resolve(DIR, '../..'), encoding: 'utf8', env: { ...process.env, GROQ_API_KEY: '', ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '', GEMINI_API_KEY: '' }, timeout: 90_000, stdio: ['ignore', 'pipe', 'pipe'] });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'model-eval-'));
 
   it('providerCompare scores 36 invented resumes with a pretend model', () => {
