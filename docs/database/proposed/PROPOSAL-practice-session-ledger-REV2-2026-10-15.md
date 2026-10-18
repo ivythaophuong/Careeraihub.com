@@ -1,6 +1,6 @@
 # Practice session ledger, revision 2 (2026-10-15)
 
-Status: **PROPOSAL. Nothing here is applied. No production change.** Replaces the SQL drafts of `PROPOSAL-practice-session-ledger-2026-10-13.md` with an executable pair that passed the in-memory replica test.
+Status: **The SQL of this proposal is on production and the gate is on in observe mode (read-only check 2026-10-18, see `docs/database/README.md`); the patch `2026-10-18-ledger-session-owner.sql` is proposed and NOT applied.** (This line said "Nothing here is applied" until 2026-10-18 and was out of date.) Replaces the SQL drafts of `PROPOSAL-practice-session-ledger-2026-10-13.md` with an executable pair that passed the in-memory replica test.
 Files: `2026-10-15-practice-ledger.sql`, `2026-10-15-practice-ledger.down.sql`, `docs/database/replica-test/s5-practice-ledger.mjs`.
 Project: CareerAiHub (`ruibdsvrcctxgxctaxwe`) only. Never ZenDMS (`obtmsvhejvcfrkfyucev`).
 Labels: VERIFIED · UNKNOWN · PROPOSED · APPROVAL.

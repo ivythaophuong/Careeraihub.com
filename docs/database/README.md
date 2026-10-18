@@ -163,3 +163,12 @@ Conclusion of the drift check: S1, S2, S3b and Phase 1 are as recorded; only S4 
 
 ### Drift check 2026-10-13, part 4: `trg_lock_trust_columns` definition (owner)
 Enabled (`O`), `BEFORE INSERT OR UPDATE ... FOR EACH ROW`, function `lock_trust_columns()` (not SECURITY DEFINER, fixed `search_path`). For `current_user` in (`anon`, `authenticated`): on INSERT the four score columns are forced to 0; on UPDATE they are restored to the old values. `recompute_trust_score` is SECURITY DEFINER, so inside it `current_user` is the function owner and the lock does not apply: the trigger-driven recompute can write the scores, the browser roles cannot. Not covered by this lock: roles other than `anon`/`authenticated` (service role writes are allowed by design). The remaining browser-writable columns (`is_visible`, profile text, salary range) are as intended. Drift check complete: no drift except S4 (fixed).
+
+## 2026-10-18: practice ledger is on production, and the gate observes (read-only check by Claude, CLI)
+
+State found, not a change made today. `ledger.js` (PR #149) says `2026-10-15-practice-ledger.sql` was applied on 2026-10-15; that date is the owner's record and was not re-verified here. What was read on 2026-10-18 (project `ruibdsvrcctxgxctaxwe`):
+- `reserve_ai_request`, `settle_ai_request` and `mark_unknown` exist. `anon` and `authenticated` cannot execute them; `service_role` can. `reserve_ai_request` has **no** session-owner check (`bad_session` is not in its body): the patch `proposed/2026-10-18-ledger-session-owner.sql` is proposed and not applied.
+- `ai_policies` has 0 rows, so every request is recorded with `gate_mode = 'observe'` and nothing is limited. No limit value has been set.
+- The function secret `AI_LEDGER` exists (updated 2026-10-18 09:50 UTC; its value is not shown). `ai_requests` has 3 rows, all created from 09:53 UTC that day, all `completed` and `observe`: 1 `ats_parse`, 2 `mock_questions`; `user_usage_windows` has 1 row. That is too little to set any limit from.
+- Not read: the row counts of `practice_sessions` and `practice_submissions`, the policies and grants on the five tables, and the `[usage]` logs.
+
