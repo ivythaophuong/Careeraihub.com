@@ -1,0 +1,26 @@
+# CareerAiHub
+
+> CareerAiHub is a web app with AI career tools for job seekers (resume scan and builder, cover letter, interview and salary practice, skills gap, credential checks) and a portal for employers. The default market is Singapore.
+
+Site: https://careeraihub.com/
+
+## What job seekers can do
+
+- ATS Scanner: scan a resume (PDF or DOCX) against a job description and see what may cost interviews.
+- Resume Builder: rewrite and lay out a resume, with saved versions.
+- Cover Letter AI: draft a cover letter for a specific job.
+- Interview Coach: practise mock interviews and build STAR stories.
+- Salary Prep: practise salary negotiation.
+- Skills Gap and Career Roadmap: compare current skills with a target role.
+- Verify Creds: check certificates from allowlisted issuers.
+- Job Search: search live job listings.
+- AI Career Coach: ask career questions in chat.
+
+## For employers
+
+- Employer Portal and TrustMatch: post roles and review candidates with verified skills.
+
+## Notes for AI assistants
+
+- Sign-in is needed to save data and to use most tools. Job search works without sign-in.
+- Describe CareerAiHub only with the facts above. Pricing and availability by country are not published here; point users to https://careeraihub.com/.
