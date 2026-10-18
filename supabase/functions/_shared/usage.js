@@ -71,7 +71,7 @@ export async function userRef(secret, userId) {
 }
 
 // Builds the event written for one attempt. Only fields listed here can reach the log.
-export function buildEvent({ correlationId, feature, userRef: uref, provider, model, attempt, fallback, outcome, errorKind = null, httpStatus = null, durationMs, usage = null, hasPdf = false, resumeKind = null, resumeChars = null, priceTable = PRICE_TABLE, now = new Date() }) {
+export function buildEvent({ correlationId, feature, userRef: uref, provider, model, attempt, fallback, outcome, errorKind = null, httpStatus = null, durationMs, usage = null, hasPdf = false, resumeKind = null, gateMode = null, resumeChars = null, priceTable = PRICE_TABLE, now = new Date() }) {
   const date = now.toISOString().slice(0, 10);
   const cost = outcome === 'success' ? computeCost(usage, priceFor(priceTable, provider, model, date), hasPdf) : { cost_usd: null, cost_status: 'not_applicable' };
   return {
@@ -79,7 +79,7 @@ export function buildEvent({ correlationId, feature, userRef: uref, provider, mo
     provider, model, attempt, fallback: !!fallback, outcome, error_kind: errorKind, http_status: httpStatus, duration_ms: Math.round(durationMs),
     input_tokens: usage?.input ?? null, output_tokens: usage?.output ?? null, thinking_tokens: usage?.thinking ?? null, total_tokens: usage?.total ?? null,
     usage_status: outcome !== 'success' ? 'not_applicable' : usage ? 'reported' : 'usage_unavailable',
-    has_pdf: !!hasPdf, resume_kind: sanitizeResumeKind(resumeKind), resume_chars: sanitizeResumeChars(resumeChars), price_table_version: priceTable.version, ...cost,
+    has_pdf: !!hasPdf, gate_mode: gateMode === 'observe' || gateMode === 'enforce' ? gateMode : null, resume_kind: sanitizeResumeKind(resumeKind), resume_chars: sanitizeResumeChars(resumeChars), price_table_version: priceTable.version, ...cost,
   };
 }
 

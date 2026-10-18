@@ -120,8 +120,13 @@ describe('events through callWithFallback', () => {
 describe('buildEvent and helpers', () => {
   it('only the listed fields exist', () => {
     const e = buildEvent({ correlationId: 'c', feature: 'f', userRef: 'u', provider: 'gemini', model: 'm', attempt: 1, fallback: false, outcome: 'success', durationMs: 12.6, usage: { input: 1, output: 2, thinking: null, total: 3 } });
-    expect(Object.keys(e).sort()).toEqual(['attempt', 'correlation_id', 'cost_status', 'cost_usd', 'duration_ms', 'error_kind', 'event', 'fallback', 'feature', 'has_pdf', 'http_status', 'input_tokens', 'model', 'outcome', 'output_tokens', 'price_table_version', 'provider', 'resume_chars', 'resume_kind', 'thinking_tokens', 'total_tokens', 'ts', 'usage_status', 'user_ref', 'v']);
+    expect(Object.keys(e).sort()).toEqual(['attempt', 'correlation_id', 'cost_status', 'cost_usd', 'duration_ms', 'error_kind', 'event', 'fallback', 'feature', 'gate_mode', 'has_pdf', 'http_status', 'input_tokens', 'model', 'outcome', 'output_tokens', 'price_table_version', 'provider', 'resume_chars', 'resume_kind', 'thinking_tokens', 'total_tokens', 'ts', 'usage_status', 'user_ref', 'v']);
     expect(e.duration_ms).toBe(13);
+  });
+  it('gate_mode is observe, enforce or null; anything else is dropped', () => {
+    const e = (g) => buildEvent({ correlationId: 'c', feature: 'f', provider: 'x', model: 'm', attempt: 1, fallback: false, outcome: 'success', durationMs: 1, gateMode: g });
+    expect(e('observe').gate_mode).toBe('observe'); expect(e('enforce').gate_mode).toBe('enforce');
+    for (const bad of ['block', '', undefined, 3, 'Jane Doe']) expect(e(bad).gate_mode).toBeNull();
   });
   it('resume counts are a kind from a fixed list and a number; anything else is dropped (never text)', () => {
     const e = (k, n) => buildEvent({ correlationId: 'c', feature: 'f', provider: 'gemini', model: 'm', attempt: 1, fallback: false, outcome: 'success', durationMs: 1, resumeKind: k, resumeChars: n });
