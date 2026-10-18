@@ -8,9 +8,11 @@ const REPO = process.env.REPO || path.resolve(process.cwd(), '../../..');
 const read = (p) => fs.readFileSync(path.join(REPO, p), 'utf8');
 const FIX = process.env.FIX || 'docs/database/proposed/2026-10-15-practice-ledger.sql';
 const DOWN = 'docs/database/proposed/2026-10-15-practice-ledger.down.sql';
+const PATCH = 'docs/database/proposed/2026-10-18-ledger-session-owner.sql';
+const PATCH_DOWN = 'docs/database/proposed/2026-10-18-ledger-session-owner.down.sql';
 const U = { a: '00000000-0000-0000-0000-00000000000a', b: '00000000-0000-0000-0000-00000000000b' };
 
-async function freshDb({ apply = true } = {}) {
+async function freshDb({ apply = true, patch = true } = {}) {
   const db = new PGlite();
   await db.exec(read('docs/database/replica-test/replica.sql'));
   await db.exec(read('docs/database/2026-10-05-lock-scores-and-verify-employers.sql'));
@@ -25,6 +27,7 @@ async function freshDb({ apply = true } = {}) {
     grant select, delete on public.mock_sessions to authenticated;`);
   for (const [k, id] of Object.entries(U)) await db.query('insert into auth.users values ($1,$2)', [id, `${k}@x.test`]);
   if (apply) await db.exec(read(FIX));
+  if (apply && patch) await db.exec(read(PATCH)); // production already has FIX (applied 2026-10-15); the patch is the proposed change on top of it
   return db;
 }
 async function as(db, role, uid, sql, params = []) {
@@ -100,6 +103,15 @@ const sid = (await q(db, `insert into practice_sessions (user_id, persona, quest
 await reserve(db, U.a, 's1', 'h', 100, sid);
 x = await reserve(db, U.a, 's2', 'h', 100, sid);
 check('E5 the per-session token cap is enforced', x.outcome === 'limit_reached' && x.reason === 'session_tokens', JSON.stringify(x));
+// E6: a session id that belongs to someone else is refused, and it does not use up that person's session cap.
+let foreign; try { await reserve(db, U.b, 'b1', 'h', 10, sid); } catch (e) { foreign = e.message; }
+check('E6 a request that names another user\'s session is refused (bad_session)', /bad_session/.test(foreign || ''), foreign);
+db = await freshDb();
+await setPolicy(db, { max_session_tokens: 150 });
+const sid2 = (await q(db, `insert into practice_sessions (user_id, persona, questions) values ($1,'startup','[]') returning id`, [U.a]))[0].id;
+try { await reserve(db, U.b, 'b2', 'h', 140, sid2); } catch { /* refused */ }
+x = await reserve(db, U.a, 'a1', 'h', 100, sid2);
+check('E7 another user\'s refused request leaves the owner\'s session cap untouched', x.outcome === 'reserved', JSON.stringify(x));
 
 // ── Idempotency ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 db = await freshDb();
@@ -214,6 +226,13 @@ const again3 = await db.exec(read(FIX)).then(() => true).catch(() => false);
 check('D3 the up script applies again after the down script', again3);
 
 for (const t of results) console.log(`${t.ok ? 'PASS' : 'FAIL'}  ${t.name}`);
+// D4: the patch's down script puts the 2026-10-15 function back and keeps its privileges.
+db = await freshDb();
+await db.exec(read(PATCH_DOWN));
+const sidD = (await q(db, `insert into practice_sessions (user_id, persona, questions) values ($1,'startup','[]') returning id`, [U.a]))[0].id;
+x = await reserve(db, U.b, 'd4', 'h', 10, sidD);
+check('D4 after the patch down script a foreign session is accepted again (the 2026-10-15 behaviour), and authenticated still cannot execute the function',
+  x.outcome === 'reserved' && (await as(db, 'authenticated', U.a, `select has_function_privilege('authenticated', 'reserve_ai_request(uuid,text,text,text,uuid,int)'::regprocedure, 'execute') x`)).rows[0].x === false, JSON.stringify(x));
 const bad = results.filter((t) => !t.ok);
 console.log(`\n${results.length - bad.length}/${results.length} passed`);
 for (const t of bad) console.log('  ', t.name, t.detail);
