@@ -19,13 +19,14 @@ Status: **plan, nothing here has been run.** Written 2026-10-09. Evidence marked
 | 2 | Click through the checklist in section 3 with the test account; report anything unexpected | owner | no |
 | 3 | `npm test`, `npm run build`, `docker build` on `main` | assistant | no |
 | 4 | On the VPS: tag the running image `career-ai-hub:s4-on-fix-session`; fetch `main`; `docker compose build` | VPS console | no (build only) |
-| 5 | Swap: stop `career-ai-hub`, rename it `career-ai-hub-before-main` (check the name is free first), `docker compose up -d`, check `HTTP 200` | VPS console | **yes, a few seconds** |
+| 5 | Swap: `docker compose up -d`, then check `HTTP 200`. Do **not** rename or stop the container first (see the correction below); the safety net is the tagged image from step 4 | VPS console | **yes, a few seconds** |
 | 6 | Repeat the checklist on careeraihub.com; look at the bundle for `consent` strings only when the flag is on (it must be off) | owner / assistant | no |
 | 7 | Record the result in `docs/VERIFICATION_STATUS.md` | assistant | no |
 
-Rollback at any point after step 5 (about 5 seconds):
-`docker stop career-ai-hub; docker rm career-ai-hub; docker rename career-ai-hub-before-main career-ai-hub && docker start career-ai-hub`
-(the same pattern was used for S4: the previous container is renamed, not deleted).
+Rollback at any point after step 5 (about 5 seconds), **by image**:
+`docker stop career-ai-hub; docker rm career-ai-hub; docker run -d --name career-ai-hub --restart unless-stopped -p 8081:80 --network npm_net career-ai-hub:<tag from step 4>`
+
+**Correction (2026-10-15, measured on the VPS):** the earlier plan renamed the running container to `career-ai-hub-before-main` and relied on renaming it back. That does **not** work when the container is managed by `docker compose`: the renamed container still carries the compose labels, so `docker compose up -d` **recreated it** and the old container was gone (`docker ps -a` showed no `career-ai-hub-before-main`). The old image survived because it had been tagged, which is why the rollback is now by image. Step 4 therefore must tag the image that is running (`docker tag career-ai-hub:latest career-ai-hub:before-<change>`) before `docker compose build`, which re-points `:latest`. Used in practice on 2026-10-15 with the tags `before-main`, `before-reading-order`, `before-privacy`, `before-legal` and `before-mock`. The same rule applies to any earlier mention of renaming a container in this document.
 
 ## 3. Checklist (test account, careeraihub.com or the local proxy run)
 
