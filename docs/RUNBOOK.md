@@ -34,9 +34,9 @@ Nothing in this file was run against production.
 
 - `docker ps -a`: is `career-ai-hub` stopped? `docker start career-ai-hub`, then `docker logs --tail 100 career-ai-hub`.
 - **Do not change the published port** `8081:80` (or bind it to `127.0.0.1`): the proxy forwards to the server's public IP on 8081 and the site goes down (ADR-009).
-- If the problem started with a new image, roll back by renaming (about 5 seconds), as in `docs/DEPLOY_MAIN_ROLLOUT.md` section 2:
-  `docker stop career-ai-hub; docker rm career-ai-hub; docker rename <previous-container> career-ai-hub && docker start career-ai-hub`
-  The previous container is renamed, never deleted, at swap time. Which previous containers exist now: UNKNOWN (check `docker ps -a`; `career-ai-hub-old` has unknown content, do not remove it).
+- If the problem started with a new image, roll back with the previous **image** (about 5 seconds):
+  `docker stop career-ai-hub; docker rm career-ai-hub; docker run -d --name career-ai-hub --restart unless-stopped -p 8081:80 --network npm_net career-ai-hub:before-<name>`
+  Renaming the old container does not work under `docker compose` (it is recreated), see the correction in `docs/DEPLOY_MAIN_ROLLOUT.md` section 2. Run `docker images career-ai-hub` to see which `before-...` tags exist now. The owner's session notes of 2026-10-15 name `before-main`, `before-reading-order`, `before-privacy`, `before-legal` and `before-mock` (each is the build that ran before that deploy); whether they are all still on the VPS: UNKNOWN. `career-ai-hub-old` has unknown content, do not remove it.
 - Proxy settings (Nginx Proxy Manager): UNKNOWN beyond what ADR-009 says.
 
 ## 4. AI features fail or are slow
@@ -44,7 +44,7 @@ Nothing in this file was run against production.
 - Read the error the user sees against `docs/FAILURE_MATRIX.md` (401 sign-in, 429 rate limit, 413 too large, 500 not configured or key rejected, 502 provider problem, 422 truncated or blocked reply).
 - In the `ai` logs, find the `[usage]` lines of the time window and look at `provider`, `outcome`, `fallback` and `correlation_id`. The error response also carries a `requestId` the user can quote. `node scripts/usage-report.mjs <exported-log-file>` summarises requests, errors and answers by fallback per feature.
 - **500 "not configured" or "misconfigured":** the provider key is missing or was rejected. Check which secrets exist with `supabase secrets list` (it shows names or digests, not values; `docs/architecture/EVIDENCE_PASS.md`). Never paste a key into chat or git.
-- **Provider outage or rate limit:** the function tries the next keyed provider (`AI_FALLBACKS`, or every keyed provider) within one overall budget of 90 s (`AI_DEADLINE_MS` changes it; ignored below 5000). Score features do not fall back, on purpose. Which providers are keyed in production, and whether `AI_FALLBACKS` is set: **UNKNOWN**.
+- **Provider outage or rate limit:** the function tries the next keyed provider (`AI_FALLBACKS`, or every keyed provider) within one overall budget of 90 s (`AI_DEADLINE_MS` changes it; ignored below 5000). Score features do not fall back, on purpose. Read on 2026-10-18 (`supabase secrets list`, names and digests only): `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`, `AI_MODEL` and `AI_FALLBACKS` exist; no Anthropic key. The values are not shown, but every request in `ai_requests` that day was answered by `openai` / `gpt-6-luna`. The fallback order and whether Gemini is still in the chain: **UNKNOWN** (the owner's note of 2026-10-15 says Groq is the fallback and Gemini is kept only for rollback).
 - To switch the main provider or model: `supabase secrets set AI_PROVIDER=... AI_MODEL=...` then redeploy as in `docs/DEPLOY_AND_ROTATE_KEYS.md` section 3. Whether a redeploy is needed after changing only a secret: UNKNOWN (that doc always redeploys).
 
 ## 5. Cost or usage jumps
@@ -53,7 +53,7 @@ Nothing in this file was run against production.
 - Export the `ai` logs for the window and run `scripts/usage-report.mjs` to see which feature and how many users. `user_ref` in a usage line is an HMAC of the user id, not the id.
 - Cost in the report comes from `PRICE_TABLE` in `supabase/functions/_shared/usage.js`: entries exist for OpenAI `gpt-6-luna` and Groq `openai/gpt-oss-120b` (prices read from the providers' pages on 2026-10-15). Any other model, a PDF call, or a Groq call that reports reasoning tokens shows `price unknown`. Re-read the prices before you rely on a figure.
 - Fast stop, with side effects: unset or rotate the provider key (all AI features stop). A narrower stop does not exist in the code today.
-- Provider-side spend caps and alerts: **UNKNOWN**; set them in each provider's console (**PROPOSED**).
+- Provider-side spend caps: the owner reported on 2026-10-15 a hard monthly limit of 5 USD at OpenAI (typed from its limits page; not verified here). Groq and Gemini caps and any alert thresholds: **UNKNOWN** (**PROPOSED**: set them in each provider's console).
 
 ## 6. A key may be exposed
 
