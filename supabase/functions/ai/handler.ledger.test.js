@@ -45,6 +45,13 @@ describe('with the ledger on', () => {
     expect(ledger.settle).toHaveBeenCalledWith(expect.objectContaining({ id: 'req-1', state: 'completed', usage: expect.objectContaining({ input: 11, output: 22, thinking: 3 }), provider: 'openai' }));
   });
 
+  it('settles the provider total (OpenAI counts thinking inside the output), not a second sum', async () => {
+    const ledger = fakeLedger();
+    const withTotal = () => ok({ choices: [{ message: { content: 'hello' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1856, completion_tokens: 3577, total_tokens: 5433, completion_tokens_details: { reasoning_tokens: 1835 } } });
+    await call({ ledger, fetchImpl: makeFetch(withTotal) });
+    expect(ledger.settle).toHaveBeenCalledWith(expect.objectContaining({ usage: expect.objectContaining({ total: 5433 }) }));
+  });
+
   it('refuses with 429 when the gate says the limit is reached, and never calls the provider', async () => {
     const ledger = fakeLedger({ reserve: vi.fn(async () => ({ outcome: 'limit_reached', requestId: null, gateMode: 'enforce', reason: 'tokens' })) });
     const fetchImpl = makeFetch();

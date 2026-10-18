@@ -161,7 +161,7 @@ export async function handleRequest(req, deps = {}) {
       pdfBase64: body.pdfBase64 || null,
       meter,
     }, fetchImpl);
-    if (holdsRow) await ledger.settle({ id: gate.requestId, state: 'completed', usage: lastSuccess ? { input: lastSuccess.input_tokens, output: lastSuccess.output_tokens, thinking: lastSuccess.thinking_tokens } : null, provider: lastSuccess?.provider ?? null, model: lastSuccess?.model ?? null }).catch(() => {});
+    if (holdsRow) await ledger.settle({ id: gate.requestId, state: 'completed', usage: lastSuccess ? { input: lastSuccess.input_tokens, output: lastSuccess.output_tokens, thinking: lastSuccess.thinking_tokens, total: lastSuccess.total_tokens } : null, provider: lastSuccess?.provider ?? null, model: lastSuccess?.model ?? null }).catch(() => {});
     return json(200, { text }, cors);
   } catch (e) {
     // Ledger: the provider answered but its output was unusable (cut off, blocked, empty) -> tokens were spent: completed, no usage, so the reservation stands as the cost.

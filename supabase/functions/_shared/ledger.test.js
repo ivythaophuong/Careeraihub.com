@@ -39,6 +39,34 @@ describe('payloadHash', () => {
   });
 });
 
+describe('settle counts a token once', () => {
+  // Measured on production 2026-10-18: OpenAI reported 1856 in and 3577 out, of which 1835 were thinking. Adding the thinking again gave 7268 instead of 5433.
+  it('uses the provider total when it reports one, so thinking that is already inside the output is not added twice', async () => {
+    const f = vi.fn(async () => ok(null));
+    await makeLedger({ env: ENV, fetchImpl: f }).settle({ id: 'r', state: 'completed', usage: { input: 1856, output: 3577, thinking: 1835, total: 5433 } });
+    const b = JSON.parse(f.mock.calls[0][1].body);
+    expect((b.p_in ?? 0) + (b.p_out ?? 0) + (b.p_think ?? 0)).toBe(5433);
+  });
+  it('when the thinking is billed apart (a provider total larger than input plus output) the total still wins', async () => {
+    const f = vi.fn(async () => ok(null));
+    await makeLedger({ env: ENV, fetchImpl: f }).settle({ id: 'r', state: 'completed', usage: { input: 100, output: 200, thinking: 50, total: 350 } });
+    const b = JSON.parse(f.mock.calls[0][1].body);
+    expect((b.p_in ?? 0) + (b.p_out ?? 0) + (b.p_think ?? 0)).toBe(350);
+  });
+  it('with no total, counts what was reported (on the safe, higher side)', async () => {
+    const f = vi.fn(async () => ok(null));
+    await makeLedger({ env: ENV, fetchImpl: f }).settle({ id: 'r', state: 'completed', usage: { input: 10, output: 20, thinking: 5 } });
+    const b = JSON.parse(f.mock.calls[0][1].body);
+    expect((b.p_in ?? 0) + (b.p_out ?? 0) + (b.p_think ?? 0)).toBe(35);
+  });
+  it('a total smaller than the input is ignored as unreadable', async () => {
+    const f = vi.fn(async () => ok(null));
+    await makeLedger({ env: ENV, fetchImpl: f }).settle({ id: 'r', state: 'completed', usage: { input: 100, output: 20, thinking: null, total: 50 } });
+    const b = JSON.parse(f.mock.calls[0][1].body);
+    expect((b.p_in ?? 0) + (b.p_out ?? 0) + (b.p_think ?? 0)).toBe(120);
+  });
+});
+
 describe('makeLedger', () => {
   it('reserve calls the reserve_ai_request function with the service key and maps the first row', async () => {
     const f = vi.fn(async () => ok([{ outcome: 'reserved', request_id: 'r-1', gate_mode: 'observe', reason: null }]));
