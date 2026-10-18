@@ -65,7 +65,9 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [lastShown, setLastShown] = useState(null); // { fb, warnings } of the newest attempt, to go back to
   const [failureKind, setFailureKind] = useState(null); // 'known' | 'unknown' | 'limit' after a failed feedback request
   const [questionMs, setQuestionMs] = useState(0); // time on the question on screen, informational only: nothing is cut off or scored by it
-  const [showTimer, setShowTimer] = useState(false);
+  // The timer is on by default and easy to see; the person can hide it and the choice is remembered on this device. It only informs.
+  const [showTimer, setShowTimer] = useState(() => { try { return localStorage.getItem('careerai_mock_timer_hidden') !== '1'; } catch { return true; } });
+  const toggleTimer = () => setShowTimer(v => { try { localStorage.setItem('careerai_mock_timer_hidden', v ? '1' : '0'); } catch { /* storage blocked: the choice lasts for this visit only */ } return !v; });
   const [deviceKept, setDeviceKept] = useState(false); // true only after the browser confirmed it stored this session
   const [kept, setKept] = useState(() => loadDeviceSession(user?.id)); // an earlier session of this tab that can be continued
   const [challenge, setChallenge] = useState('untimed'); // 'untimed' | 'timed' (a soft limit per question: it never cuts an answer or changes a score)
@@ -448,13 +450,20 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           <div style={label}>Question {idx + 1}/{questions.length}</div>
           <span style={{ color: pColor, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Testing: {q.focus}</span>
         </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 12px' }}>
+          {challenge === 'timed' && attempt === 1 && !current && (() => {
+            const urgency = secondsLeft === 0 ? 'over' : secondsLeft <= 30 ? 'soon' : 'calm';
+            return <span role="timer" data-urgency={urgency} aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: urgency === 'calm' ? C.surface : C.gold + '22', border: `1px solid ${urgency === 'calm' ? pColor + '66' : C.gold}`, color: urgency === 'calm' ? C.text : C.gold, borderRadius: 999, padding: '6px 14px', fontSize: 16, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+              <span aria-hidden="true">⏳</span>Time left {formatElapsed(secondsLeft * 1000)}</span>;
+          })()}
+          {showTimer && <span role="timer" aria-label="Elapsed time, for your information only"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: C.surface, border: `1px solid ${pColor}66`, color: C.text, borderRadius: 999, padding: '6px 14px', fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+            <span aria-hidden="true">⏱</span>This question {formatElapsed(questionMs)}<span style={{ color: C.muted, fontWeight: 600 }}>·</span><span style={{ color: C.muted, fontWeight: 700 }}>Whole session {formatElapsed(sessionMs)}</span></span>}
+          <button type="button" onClick={toggleTimer} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
+        </div>
         <div style={{ color: C.text, fontWeight: 700, fontSize: 15, lineHeight: 1.6 }}>"{q.question}"</div>
         {q.why && <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>The interviewer is looking for: {q.why}</div>}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
-          {challenge === 'timed' && attempt === 1 && !current && <span role="timer" aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`} style={{ color: secondsLeft === 0 ? C.gold : C.text, fontSize: 12, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>Time left {formatElapsed(secondsLeft * 1000)}</span>}
-          {showTimer && <span role="timer" aria-label="Elapsed time, for your information only" style={{ color: C.muted, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>This question {formatElapsed(questionMs)} · Whole session {formatElapsed(sessionMs)}</span>}
-          <button type="button" onClick={() => setShowTimer(v => !v)} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
-        </div>
         </div>
       </Card>
 

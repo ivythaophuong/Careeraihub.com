@@ -22,34 +22,56 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 const start = async () => { ai(); setup(); fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/); };
 const tick = (s) => act(async () => { vi.advanceTimersByTime(s * 1000); });
 const timerText = () => screen.getByRole('timer', { name: /Elapsed/ }).textContent;
-const showTimer = () => fireEvent.click(within(screen.getByTestId('question-card')).getByRole('button', { name: 'Show timer' }));
 const answerAndSubmit = async () => {
   fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: ANSWER } });
   fireEvent.click(screen.getByText(/Get AI Feedback/));
   await screen.findByLabelText('Answer score');
 };
 
-describe('where the timer is', () => {
-  it('the Show timer button sits in the question card, next to the question, not in the page header', async () => {
+describe('where the timer is, and how visible', () => {
+  it('shows the timer by default, in the question card, above the question text', async () => {
     await start();
     const card = screen.getByTestId('question-card');
-    expect(within(card).getByText(/Interview question number 1/)).toBeTruthy();
-    expect(within(card).getByRole('button', { name: 'Show timer' })).toBeTruthy();
-    fireEvent.click(within(card).getByRole('button', { name: 'Show timer' }));
-    expect(within(card).getByRole('timer', { name: /Elapsed/ })).toBeTruthy();
+    const timer = within(card).getByRole('timer', { name: /Elapsed/ });
+    const question = within(card).getByText(/Interview question number 1/);
+    expect(timer.compareDocumentPosition(question) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // the timer comes before the question text
     expect(within(card).getByRole('button', { name: 'Hide timer' })).toBeTruthy();
+  });
+
+  it('lets the person hide it, shows it again, and remembers the choice on this device', async () => {
+    await start();
+    const card = () => within(screen.getByTestId('question-card'));
+    fireEvent.click(card().getByRole('button', { name: 'Hide timer' }));
+    expect(screen.queryByRole('timer', { name: /Elapsed/ })).toBeNull();
+    cleanup(); setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue practice' })); await screen.findByText(/Question 1\/5/);
+    expect(screen.queryByRole('timer', { name: /Elapsed/ })).toBeNull();
+    fireEvent.click(card().getByRole('button', { name: 'Show timer' }));
+    expect(card().getByRole('timer', { name: /Elapsed/ })).toBeTruthy();
+  });
+
+  it('turns the time-left count-down gold for the last 30 seconds, as a quiet cue rather than an alarm', async () => {
+    ai(); setup();
+    fireEvent.click(screen.getByRole('button', { name: /^Timed: 3 minutes/ }));
+    fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/);
+    const left = () => screen.getByRole('timer', { name: /Time left/ });
+    expect(left().getAttribute('data-urgency')).toBe('calm');
+    await tick(155);
+    expect(left().getAttribute('data-urgency')).toBe('soon');
+    await tick(30);
+    expect(left().getAttribute('data-urgency')).toBe('over');
   });
 });
 
 describe('time is counted per question first, then for the session', () => {
   it('shows this question and the whole session, both starting at zero', async () => {
-    await start(); showTimer();
+    await start();
     expect(timerText()).toMatch(/This question 00:00/);
     expect(timerText()).toMatch(/Whole session 00:00/);
   });
 
   it('stops counting this question once the answer is submitted', async () => {
-    await start(); showTimer();
+    await start();
     await tick(5);
     await answerAndSubmit();
     const atSubmit = timerText();
@@ -59,7 +81,7 @@ describe('time is counted per question first, then for the session', () => {
   });
 
   it('starts the next question at zero and adds the finished question to the session total', async () => {
-    await start(); showTimer();
+    await start();
     await tick(5);
     await answerAndSubmit();
     fireEvent.click(screen.getByText(/Next Question/));
@@ -72,7 +94,7 @@ describe('time is counted per question first, then for the session', () => {
   });
 
   it('does not count a practice retry of an answer that was already submitted', async () => {
-    await start(); showTimer();
+    await start();
     await tick(4);
     await answerAndSubmit();
     const before = timerText();
@@ -82,16 +104,15 @@ describe('time is counted per question first, then for the session', () => {
   });
 
   it('a skipped question keeps the time spent on it in the session total', async () => {
-    await start(); showTimer();
+    await start();
     await tick(7);
     fireEvent.click(screen.getByText(/Skip/));
     await screen.findByText(/Question 2\/5/);
     expect(timerText()).toMatch(/Whole session 00:0[7-8]/);
   });
 
-  it('the time is only shown when asked, and never cuts an answer or changes a score', async () => {
+  it('the time never cuts an answer or changes a score', async () => {
     await start();
-    expect(screen.queryByRole('timer', { name: /Elapsed/ })).toBeNull();
     await tick(200);
     fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: ANSWER } });
     expect(screen.getByLabelText('Your answer').disabled).toBe(false);
@@ -107,7 +128,6 @@ describe('after coming back to a kept session', () => {
     setup();
     fireEvent.click(screen.getByRole('button', { name: 'Continue practice' }));
     await screen.findByText(/Question 1\/5/);
-    showTimer();
     expect(timerText()).toMatch(/This question 00:0[8-9]/);
     expect(timerText()).toMatch(/Whole session 00:0[8-9]/);
   });

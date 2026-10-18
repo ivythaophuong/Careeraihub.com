@@ -48,13 +48,13 @@ describe('practice mode', () => {
 });
 
 describe('the active interview', () => {
-  it('hides the timer until asked, and the timer only informs', async () => {
+  it('shows the timer by default, lets the person hide it, and the timer only informs', async () => {
     ai(); setup(); await start();
-    expect(screen.queryByRole('timer')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Show timer' }));
     expect(screen.getByRole('timer').textContent).toMatch(/This question 00:0\d/);
     fireEvent.click(screen.getByRole('button', { name: 'Hide timer' }));
     expect(screen.queryByRole('timer')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show timer' }));
+    expect(screen.getByRole('timer')).toBeTruthy();
   });
 
   it('shows progress from the real question list, with no invented figures', async () => {
