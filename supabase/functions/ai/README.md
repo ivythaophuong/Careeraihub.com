@@ -99,3 +99,15 @@ Credit prices must not be set from this alone: they also need a judgement of the
 ### Resume counts in the usage line (Stage 1 of the Resume Context design)
 
 Each `[usage]` event also carries `resume_kind` (`structured`, `text`, `pdf`, `none` or null) and `resume_chars` (a whole number or null): what kind of resume source the call carried and how many characters of it. Counts only, never text. The app sends them as the optional request fields `resumeKind` and `resumeChars` (set by `callLLMFor` in `src/lib/aiFeature.js`); `score-interview` sets them itself. Anything that is not on the fixed list or not a sensible number is recorded as null. The same change gives every call site its own feature label (a test fails if a bare `callLLM(` appears).
+
+### Usage ledger (off by default)
+
+`ai` can reserve a row in the usage ledger before it calls a provider and settle it afterwards (`supabase/functions/_shared/ledger.js`; tables in `docs/database/proposed/2026-10-15-practice-ledger.sql`, applied 2026-10-15).
+
+- **Switch:** the secret `AI_LEDGER=on` (and `SUPABASE_SERVICE_ROLE_KEY`, which the platform provides). Without it nothing changes: deploying this code is not enough to turn it on.
+- **Gate mode:** with no row in `ai_policies` the ledger only records (`gate_mode: observe`); once the owner inserts a policy row it enforces (`gate_mode: enforce`) and a refused request gets HTTP 429. Every `[usage]` line carries `gate_mode`.
+- **Fail-open (owner decision D-7):** if the ledger cannot be reached or answers badly, the AI request goes through and `[ai] ledger gate_error` is logged. The gate has a 2.5 s time limit.
+- **Settling:** the provider answered with usable output: `completed` with the reported tokens; answered but output cut off, blocked or empty: `completed` with no usage, so the reservation stands as the cost; answered with an error status: `failed`; no status (timeout, network, unexpected): `unknown_pending` (the slot is freed, the reserved tokens stay counted).
+- **Content:** only a hash of the request, counts and ids reach the ledger; never a prompt, a CV or an answer.
+- **Estimate:** the reservation is about 4 characters a token for the prompt plus the output ceiling, plus a fixed 3000-token allowance for an attached PDF (its size in tokens is not known before the call).
+- **Rollback:** `supabase secrets unset AI_LEDGER`.
