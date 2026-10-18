@@ -172,3 +172,11 @@ State found, not a change made today. `ledger.js` (PR #149) says `2026-10-15-pra
 - The function secret `AI_LEDGER` exists (updated 2026-10-18 09:50 UTC; its value is not shown). `ai_requests` has 3 rows, all created from 09:53 UTC that day, all `completed` and `observe`: 1 `ats_parse`, 2 `mock_questions`; `user_usage_windows` has 1 row. That is too little to set any limit from.
 - Not read: the row counts of `practice_sessions` and `practice_submissions`, the policies and grants on the five tables, and the `[usage]` logs.
 
+## 2026-10-18: ledger patch applied (owner, SQL Editor) and read back (Claude, read-only CLI)
+
+Applied: `proposed/2026-10-18-ledger-session-owner.sql` (replaces `reserve_ai_request`; down script: `proposed/2026-10-18-ledger-session-owner.down.sql`). The owner ran it in the SQL Editor of project `ruibdsvrcctxgxctaxwe` and the editor answered "Success. No rows returned". Claude could not run it itself (writes to production are blocked for it).
+- Before: the function on production was compared with the repo original and was identical, apart from Postgres printing `search_path` as `to 'public','pg_temp'`.
+- Read back at 11:37 UTC: `reserve_ai_request` has one copy, contains `bad_session`, is `security definer`; `anon` and `authenticated` cannot execute it, `service_role` can. `ai_policies` still has 0 rows (observe mode), so nothing is limited.
+- The ledger also has rows from `score-star` and `score-interview` (`score_star_review`, `score_interview_evaluate`, both `openai` / `gpt-6-luna`, observe, completed). Neither row reports thinking tokens, so they do not show whether the double count of reasoning tokens (fixed in #155) is gone: still to be confirmed with a row that has thinking tokens.
+- Not read: other functions' bodies, grants on the tables, and that the down script restores the previous body on production (it passed on the replica only).
+
