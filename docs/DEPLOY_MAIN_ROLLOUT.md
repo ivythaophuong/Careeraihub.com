@@ -23,9 +23,9 @@ Status: **plan, nothing here has been run.** Written 2026-10-09. Evidence marked
 | 6 | Repeat the checklist on careeraihub.com; look at the bundle for `consent` strings only when the flag is on (it must be off) | owner / assistant | no |
 | 7 | Record the result in `docs/VERIFICATION_STATUS.md` | assistant | no |
 
-Rollback at any point after step 5 (about 5 seconds):
-`docker stop career-ai-hub; docker rm career-ai-hub; docker rename career-ai-hub-before-main career-ai-hub && docker start career-ai-hub`
-(the same pattern was used for S4: the previous container is renamed, not deleted).
+Rollback at any point after step 5 (about 5 seconds). **Correction 2026-10-18:** the rename-based rollback this section used to give does NOT work when `docker compose` manages the container: on the 2026-10-15 rollout `docker compose up -d` recreated the renamed container, so no `career-ai-hub-before-main` container remained (observed by the owner's session, not re-tested). Roll back with the previous IMAGE instead, which is why step 4 must tag the running image first (`docker tag career-ai-hub:latest career-ai-hub:before-<name>`) and never rename the container:
+`docker stop career-ai-hub; docker rm career-ai-hub; docker run -d --name career-ai-hub --restart unless-stopped -p 8081:80 --network npm_net career-ai-hub:before-<name>`
+The flags repeat `docker-compose.yml` (port 8081:80, network `npm_net`, restart policy). A container started this way is no longer managed by compose; the next `docker compose up -d` recreates it from the repository.
 
 ## 3. Checklist (test account, careeraihub.com or the local proxy run)
 
