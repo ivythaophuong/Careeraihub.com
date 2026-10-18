@@ -211,7 +211,10 @@ describe('isolation: nothing depends on this folder yet (rollback is a plain rev
       }
     };
     for (const d of ['src', 'supabase', 'tests', 'scripts']) if (fs.existsSync(path.join(root, d))) walk(path.join(root, d));
-    expect(hits).toEqual([]);
+    // The offline calibration tooling (D1) is allowed to read the scorer: it measures it against human reviewers and is not product code.
+    // Nothing in src/, the Edge Functions or the database may depend on this folder, and removing the tooling does not touch the product.
+    const OFFLINE_CALIBRATION = [/^scripts\/calibration\//, /^tests\/audit\/interviewCalibration\.test\.js$/];
+    expect(hits.filter((h) => !OFFLINE_CALIBRATION.some((re) => re.test(h)))).toEqual([]);
   });
 });
 
