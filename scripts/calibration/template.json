@@ -1,0 +1,4 @@
+[
+  { "id": "EXAMPLE-1", "language": "en", "question": "Tell me about a time you led a project under pressure.", "answer": "INVENTED, to show the shape only. I led a migration of our checkout flow, split the work into three phases and shipped it in six weeks, cutting payment errors by 30 percent.", "ratings": [{ "rater": "reviewer-a", "label": "complete" }, { "rater": "reviewer-b", "label": "complete" }] },
+  { "id": "EXAMPLE-2", "language": "vi", "question": "Hãy kể về một lần bạn dẫn dắt dự án dưới áp lực.", "answer": "ĐÂY LÀ VÍ DỤ BỊA, chỉ để minh họa định dạng. Tôi đã chia dự án thành ba giai đoạn, báo cáo hàng tuần cho các bên liên quan và hoàn thành đúng hạn.", "ratings": [{ "rater": "reviewer-a", "label": "partial" }, { "rater": "reviewer-b", "label": "partial" }] }
+]
