@@ -16,6 +16,7 @@ import { PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildEvaluationPrompt, no
 import { extractJSON } from '../_shared/extractJson.js';
 import { makeRecorder, userRef as makeUserRef } from '../_shared/usage.js';
 import { signingKey, hmacHex, sameText, rest, countLastDay } from '../_shared/receipt.js';
+import { callWithLedger, LedgerLimit, LIMIT_MESSAGE } from '../_shared/ledgerGate.js';
 
 export const LIMITS = {
   maxBodyBytes: 64 * 1024,
@@ -35,7 +36,7 @@ const text = (v) => (typeof v === 'string' ? v.trim() : '');
 // The same question however it is spaced, cased or punctuated at the end.
 const questionKey = (q) => q.toLowerCase().replace(/\s+/g, ' ').replace(/[\s.?!]+$/, '');
 
-async function evaluate(body, user, env, fetchImpl, cors, now) {
+async function evaluate(body, user, env, fetchImpl, cors, now, ledger) {
   const personaId = body.personaId;
   const question = text(body.question), answer = text(body.answer);
   if (!PERSONAS[personaId]) return fail(400, 'Unknown interview style.', cors);
@@ -48,9 +49,13 @@ async function evaluate(body, user, env, fetchImpl, cors, now) {
 
   let feedback;
   try {
-    const reply = await callWithFallback({ env, messages: [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }], maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_interview_evaluate', resumeKind: resume.kind, resumeChars: resume.kind === 'text' ? resume.text.length : 0, userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) } }, fetchImpl);
+    const messages = [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }];
+    const meter = { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_interview_evaluate', resumeKind: resume.kind, resumeChars: resume.kind === 'text' ? resume.text.length : 0, userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) };
+    const reply = await callWithLedger({ env, fetchImpl, ledger, userId: user.id, feature: meter.feature, messages, maxTokens: LIMITS.maxTokens, meter,
+      call: (m) => callWithFallback({ env, messages, maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: m }, fetchImpl) });
     feedback = normalizeEvaluation(extractJSON(reply));
   } catch (e) {
+    if (e instanceof LedgerLimit) return fail(429, LIMIT_MESSAGE, cors, { reason: e.reason });
     if (e instanceof ProviderError) {
       console.error(`[score-interview] Provider error ${e.status ?? ''} ${e.kind ?? ''}`);
       return fail(e.status === 429 ? 429 : e.kind === 'truncated' || e.kind === 'blocked' ? 422 : 502, 'The AI could not evaluate the answer. Please try again.', cors);
@@ -112,7 +117,7 @@ async function save(body, user, env, fetchImpl, cors, now) {
 }
 
 export async function handleRequest(req, deps = {}) {
-  const { env = {}, fetchImpl = fetch, limiter = defaultLimiter, now = Date.now } = deps;
+  const { env = {}, fetchImpl = fetch, limiter = defaultLimiter, now = Date.now, ledger = null } = deps;
   const cors = corsHeaders(req, env);
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method !== 'POST') return fail(405, 'Method not allowed.', cors);
@@ -131,7 +136,7 @@ export async function handleRequest(req, deps = {}) {
   } catch { return fail(400, 'Request body is not valid JSON.', cors); }
   if (!body || typeof body !== 'object') return fail(400, 'Request body must be a JSON object.', cors);
 
-  if (body.action === 'evaluate') return evaluate(body, user, env, fetchImpl, cors, now);
+  if (body.action === 'evaluate') return evaluate(body, user, env, fetchImpl, cors, now, ledger);
   if (body.action === 'save') return save(body, user, env, fetchImpl, cors, now);
   return fail(400, 'action must be "evaluate" or "save".', cors);
 }
