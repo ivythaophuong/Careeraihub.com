@@ -13,6 +13,7 @@ import { SECTIONS, MIN_FIELD_CHARS, MAX_FIELD_CHARS, buildStarPrompt, normalizeS
 import { extractJSON } from '../_shared/extractJson.js';
 import { makeRecorder, userRef as makeUserRef } from '../_shared/usage.js';
 import { signingKey, hmacHex, sameText, rest, countLastDay } from '../_shared/receipt.js';
+import { callWithLedger, LedgerLimit, LIMIT_MESSAGE } from '../_shared/ledgerGate.js';
 
 export const LIMITS = {
   maxBodyBytes: 64 * 1024,
@@ -41,7 +42,7 @@ function readStory(story) {
 
 const clipText = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 
-async function review(body, user, env, fetchImpl, cors, now) {
+async function review(body, user, env, fetchImpl, cors, now, ledger) {
   const { story, error } = readStory(body.story);
   if (error) return fail(400, error, cors);
   if (providerChain(env).length === 0) { console.error('[score-star] No provider key configured.'); return fail(500, 'AI service is not configured.', cors); }
@@ -49,9 +50,13 @@ async function review(body, user, env, fetchImpl, cors, now) {
   const prompt = buildStarPrompt(story, { role: clipText(ctx.role, 80), level: clipText(ctx.level, 40), industry: clipText(ctx.industry, 80) });
   let result;
   try {
-    const text = await callWithFallback({ env, messages: [{ role: 'user', content: prompt }], maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_star_review', userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) } }, fetchImpl);
+    const messages = [{ role: 'user', content: prompt }];
+    const meter = { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_star_review', userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) };
+    const text = await callWithLedger({ env, fetchImpl, ledger, userId: user.id, feature: meter.feature, messages, maxTokens: LIMITS.maxTokens, meter,
+      call: (m) => callWithFallback({ env, messages, maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: m }, fetchImpl) });
     result = normalizeStarResult(extractJSON(text));
   } catch (e) {
+    if (e instanceof LedgerLimit) return fail(429, LIMIT_MESSAGE, cors, { reason: e.reason });
     if (e instanceof ProviderError) {
       console.error(`[score-star] Provider error ${e.status ?? ''} ${e.kind ?? ''}`);
       return fail(e.status === 429 ? 429 : e.kind === 'truncated' || e.kind === 'blocked' ? 422 : 502, 'The AI could not review the story. Please try again.', cors);
@@ -110,7 +115,7 @@ async function save(body, user, env, fetchImpl, cors, now) {
 }
 
 export async function handleRequest(req, deps = {}) {
-  const { env = {}, fetchImpl = fetch, limiter = defaultLimiter, now = Date.now } = deps;
+  const { env = {}, fetchImpl = fetch, limiter = defaultLimiter, now = Date.now, ledger = null } = deps;
   const cors = corsHeaders(req, env);
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method !== 'POST') return fail(405, 'Method not allowed.', cors);
@@ -129,7 +134,7 @@ export async function handleRequest(req, deps = {}) {
   } catch { return fail(400, 'Request body is not valid JSON.', cors); }
   if (!body || typeof body !== 'object') return fail(400, 'Request body must be a JSON object.', cors);
 
-  if (body.action === 'review') return review(body, user, env, fetchImpl, cors, now);
+  if (body.action === 'review') return review(body, user, env, fetchImpl, cors, now, ledger);
   if (body.action === 'save') return save(body, user, env, fetchImpl, cors, now);
   return fail(400, 'action must be "review" or "save".', cors);
 }

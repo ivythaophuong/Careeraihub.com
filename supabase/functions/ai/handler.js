@@ -2,7 +2,7 @@
 // request, call the configured provider with a server-held key, return { text }.
 import { callWithFallback, providerChain, setting, KEY_ENV, ProviderError } from './providers.js';
 import { makeRecorder, sanitizeFeature, sanitizeResumeKind, sanitizeResumeChars, userRef as makeUserRef } from '../_shared/usage.js';
-import { ledgerEnabled, makeLedger, estimateTokens, payloadHash } from '../_shared/ledger.js';
+import { callWithLedger, LedgerLimit, LIMIT_MESSAGE } from '../_shared/ledgerGate.js';
 
 export const LIMITS = {
   maxBodyBytes: 12 * 1024 * 1024, // resume PDFs travel as base64
@@ -134,45 +134,24 @@ export async function handleRequest(req, deps = {}) {
   }
 
   let requestId = null;
-  let ledger = null, gate = null, holdsRow = false; // visible to the catch below, so a failed call can be settled
   try {
     // Usage metering (counts and metadata only, see _shared/usage.js). `feature` is an optional label from the app; anything odd becomes "unknown".
     const meter = { record: deps.recordUsage || makeRecorder(), correlationId: crypto.randomUUID(), feature: sanitizeFeature(body.feature), resumeKind: sanitizeResumeKind(body.resumeKind), resumeChars: sanitizeResumeChars(body.resumeChars), userRef: await makeUserRef(setting(env, 'USAGE_LOG_SALT') || setting(env, 'SUPABASE_SERVICE_ROLE_KEY'), user.id).catch(() => null), priceTable: deps.priceTable };
     requestId = meter.correlationId;
-    // Usage ledger (off unless AI_LEDGER=on). Fail-open: if the ledger itself fails, the request goes through (owner decision D-7).
-    ledger = ledgerEnabled(env) ? (deps.ledger || makeLedger({ env, fetchImpl })) : null;
-    if (ledger) {
-      try {
-        gate = await ledger.reserve({ userId: user.id, key: meter.correlationId, hash: await payloadHash(body.messages, body.maxTokens, !!body.pdfBase64), feature: meter.feature,
-          estTokens: estimateTokens({ messages: body.messages, maxTokens: Math.min(Math.floor(body.maxTokens ?? LIMITS.maxTokensCap), LIMITS.maxTokensCap), pdfBase64: body.pdfBase64 }) });
-      } catch { gate = { outcome: 'gate_error' }; }
-      if (gate.outcome === 'gate_error') console.error('[ai] ledger gate_error: the request goes through');
-      if (gate.outcome === 'limit_reached') return fail(429, 'You have reached the AI usage limit for now. Please try again later.', cors, { reason: gate.reason || null, requestId });
-      meter.gateMode = gate.gateMode ?? null;
-    }
-    let lastSuccess = null;
-    const baseRecord = meter.record;
-    meter.record = (ev) => { if (ev?.outcome === 'success') lastSuccess = ev; baseRecord?.(ev); };
-    holdsRow = !!(gate && gate.requestId && (gate.outcome === 'reserved' || gate.outcome === 'existing'));
-    const text = await callWithFallback({
-      env,
-      messages: body.messages,
-      maxTokens: Math.min(Math.floor(body.maxTokens ?? LIMITS.maxTokensCap), LIMITS.maxTokensCap),
-      pdfBase64: body.pdfBase64 || null,
-      meter,
-    }, fetchImpl);
-    if (holdsRow) await ledger.settle({ id: gate.requestId, state: 'completed', usage: lastSuccess ? { input: lastSuccess.input_tokens, output: lastSuccess.output_tokens, thinking: lastSuccess.thinking_tokens, total: lastSuccess.total_tokens } : null, provider: lastSuccess?.provider ?? null, model: lastSuccess?.model ?? null }).catch(() => {});
+    const text = await callWithLedger({
+      env, fetchImpl, ledger: deps.ledger, userId: user.id, feature: meter.feature, messages: body.messages, maxTokens: Math.min(Math.floor(body.maxTokens ?? LIMITS.maxTokensCap), LIMITS.maxTokensCap),
+      pdfBase64: body.pdfBase64 || null, meter,
+      call: (m) => callWithFallback({
+        env,
+        messages: body.messages,
+        maxTokens: Math.min(Math.floor(body.maxTokens ?? LIMITS.maxTokensCap), LIMITS.maxTokensCap),
+        pdfBase64: body.pdfBase64 || null,
+        meter: m,
+      }, fetchImpl),
+    });
     return json(200, { text }, cors);
   } catch (e) {
-    // Ledger: the provider answered but its output was unusable (cut off, blocked, empty) -> tokens were spent: completed, no usage, so the reservation stands as the cost.
-    // The provider answered with an error status -> failed (nothing was billed). No status (timeout, network, unexpected) -> the server cannot know: unknown.
-    if (holdsRow) {
-      const answered = e instanceof ProviderError && ['truncated', 'blocked', 'empty'].includes(e.kind);
-      const errorStatus = e instanceof ProviderError && Number.isFinite(e.status) && e.status > 0;
-      if (answered) await ledger.settle({ id: gate.requestId, state: 'completed' }).catch(() => {});
-      else if (errorStatus) await ledger.settle({ id: gate.requestId, state: 'failed' }).catch(() => {});
-      else await ledger.markUnknown(gate.requestId).catch(() => {});
-    }
+    if (e instanceof LedgerLimit) return fail(429, LIMIT_MESSAGE, cors, { reason: e.reason, ...(requestId ? { requestId } : {}) });
     if (!(e instanceof ProviderError)) {
       console.error('[ai] Unexpected error:', e?.message);
       return fail(500, 'AI service error.', cors);

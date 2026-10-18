@@ -104,6 +104,7 @@ Each `[usage]` event also carries `resume_kind` (`structured`, `text`, `pdf`, `n
 
 `ai` can reserve a row in the usage ledger before it calls a provider and settle it afterwards (`supabase/functions/_shared/ledger.js`; tables in `docs/database/proposed/2026-10-15-practice-ledger.sql`, applied 2026-10-15).
 
+- **Where it applies:** every function that spends AI money, through one helper (`_shared/ledgerGate.js`): `ai`, `score-interview` (feature `score_interview_evaluate`) and `score-star` (feature `score_star_review`). The other `score-*` actions only save and call no model. One secret switches all three on.
 - **Switch:** the secret `AI_LEDGER=on` (and `SUPABASE_SERVICE_ROLE_KEY`, which the platform provides). Without it nothing changes: deploying this code is not enough to turn it on.
 - **Gate mode:** with no row in `ai_policies` the ledger only records (`gate_mode: observe`); once the owner inserts a policy row it enforces (`gate_mode: enforce`) and a refused request gets HTTP 429. Every `[usage]` line carries `gate_mode`.
 - **Fail-open (owner decision D-7):** if the ledger cannot be reached or answers badly, the AI request goes through and `[ai] ledger gate_error` is logged. The gate has a 2.5 s time limit.
