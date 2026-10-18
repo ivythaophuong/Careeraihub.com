@@ -1,4 +1,4 @@
--- PATCH to the practice ledger (2026-10-15-practice-ledger.sql, applied to production 2026-10-15). STATUS: PROPOSED, NOT APPLIED. Written 2026-10-18.
+-- PATCH to the practice ledger (2026-10-15-practice-ledger.sql, applied to production 2026-10-15). STATUS: APPLIED to production on 2026-10-18 by the owner in the SQL Editor ("Success. No rows returned"); read back the same day, see docs/database/README.md. Written 2026-10-18.
 -- Project: CareerAiHub (ruibdsvrcctxgxctaxwe) only. Never ZenDMS (obtmsvhejvcfrkfyucev).
 -- Fix: reserve_ai_request relied on the foreign key for p_session, which proves a session exists, not that it belongs to p_user. A request could be attached
 -- to another user's session and spend its token cap. It now raises 'bad_session', and the per-session sum counts only the caller's requests.
