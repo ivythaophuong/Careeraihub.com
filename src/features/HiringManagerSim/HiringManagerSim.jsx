@@ -17,6 +17,8 @@ import SessionPanel from './SessionPanel';
 import NextStepCard from './NextStepCard';
 import StructurePanel from './StructurePanel';
 import VoiceRecorder from './VoiceRecorder';
+import SpeakingRateNote from './SpeakingRateNote';
+import { estimateWpm } from '../../lib/speakingRate.js';
 import { voiceEnabled } from '../../lib/voice.js';
 import { structurePanelEnabledFor, previewStructure } from './structurePreview';
 import { TIMED_SECONDS, nextStep, loadTimedTried, markTimedTried } from './guidance';
@@ -65,6 +67,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  const [voiceRate, setVoiceRate] = useState(null); // { key: 'idx:attempt', result } of the last recording; in memory only, never saved or scored
   const [attempt, setAttempt] = useState(1); // 1 = first try at this question; more = practice retries
   const [lastShown, setLastShown] = useState(null); // { fb, warnings } of the newest attempt, to go back to
   const [failureKind, setFailureKind] = useState(null); // 'known' | 'unknown' | 'limit' after a failed feedback request
@@ -484,7 +487,11 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             placeholder={attempt > 1 ? 'Improve your answer, then ask for feedback again.' : 'Type your answer here. A STAR structure (Situation, Task, Action, Result) works well for behavioural questions...'}
             style={{ width: "100%", minHeight: 140, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: 16, fontSize: 13, outline: "none", lineHeight: 1.7, fontFamily: "inherit", resize: "vertical" }}
           />
-          {voiceEnabled() && <VoiceRecorder disabled={!!busy} onTranscript={(t) => { setAnswer(a => ((a.trim() ? a.trimEnd() + ' ' : '') + t).slice(0, MAX_ANSWER_CHARS)); setErr(''); }} />}
+          {voiceEnabled() && <VoiceRecorder disabled={!!busy} onTranscript={(t, meta) => {
+            setAnswer(a => ((a.trim() ? a.trimEnd() + ' ' : '') + t).slice(0, MAX_ANSWER_CHARS)); setErr('');
+            try { setVoiceRate({ key: `${idx}:${attempt}`, result: estimateWpm({ text: t, durationSec: meta?.durationSec }) }); } catch { setVoiceRate(null); }
+          }} />}
+          {voiceEnabled() && voiceRate?.key === `${idx}:${attempt}` && <SpeakingRateNote result={voiceRate.result} />}
           <div aria-live="polite" style={{ color: C.muted, fontSize: 11 }}>
             {busy === 'feedback' ? 'Sending your answer for evaluation. It is not saved to your account yet.' : answer.trim() && deviceKept ? 'Draft kept on this device. It is not saved to your account.' : ''}
           </div>

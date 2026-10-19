@@ -23,6 +23,7 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
   const timer = useRef(null);
   const chunks = useRef([]);
   const secs = useRef(0);
+  const startedAt = useRef(0);
   const gone = useRef(false);
 
   const release = () => {
@@ -58,19 +59,21 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
     rec.current = r; chunks.current = []; secs.current = 0; setElapsed(0);
     r.ondataavailable = (e) => { if (e.data?.size) chunks.current.push(e.data); };
     r.onstop = async () => {
+      const durationSec = (Date.now() - startedAt.current) / 1000; // the whole recording, silence included
       const blob = new Blob(chunks.current, { type: r.mimeType || mimeType || 'audio/webm' });
       chunks.current = []; release(); rec.current = null;
       if (gone.current) return;
       setStage('transcribing');
       try {
-        const text = await transcribeAudio(blob, secs.current);
+        const text = await transcribeAudio(blob, durationSec);
         if (gone.current) return;
-        setStage('idle'); setFresh(true); onTranscript(text);
+        setStage('idle'); setFresh(true); onTranscript(text, { durationSec });
       } catch (e) {
         if (gone.current) return;
         setStage('idle'); setErr(e?.message || 'Transcription failed. Please try again, or type your answer.');
       }
     };
+    startedAt.current = Date.now();
     r.start();
     setStage('recording');
     timer.current = setInterval(() => {
