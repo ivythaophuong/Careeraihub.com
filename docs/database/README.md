@@ -212,10 +212,19 @@ Not checked: signing in to the app and using it after the change.
 - `anon` and `authenticated` are members of no other role and have no `BYPASSRLS`; column privileges equal the table privileges on `candidate_trust_profiles`, `profiles` and `user_memory`.
 - On 2026-10-13 the privileges of an applied script were found back to their old state for a reason that was never found (section "Re-applied to production" above). These two scripts can drift in the same way. **Recommended:** repeat the grants comparison of section 2 on a regular schedule.
 
-## Proposed, NOT applied: default privileges of schema public (2026-10-19)
+## Proposed 2026-10-19, APPLIED 2026-10-19 (see the last section): default privileges of schema public
 
 `proposed/2026-10-19-default-privileges.sql` (undo: `proposed/2026-10-19-default-privileges.down.sql`). Found by a read-only check on 2026-10-19: every object in `public` is owned by `postgres`, and `pg_default_acl` gives `anon`, `authenticated` and `service_role` all table privileges, `rwU` on sequences and `EXECUTE` on functions for each object created later by `postgres`. The ledger tables are tight only because their scripts revoke by hand; a table created later without that revoke is open to the browser roles (RLS permitting).
 The script removes those default grants for `anon` and `authenticated` (tables, sequences, functions) for objects created from now on. It changes no existing object and not `service_role`'s defaults.
 **Limit, tested:** PostgreSQL gives `PUBLIC` execute on every new function, and a schema-level default cannot remove it, so a function script must still end with `revoke execute ... from public`. Removing it everywhere would need the same statement without `in schema public`, which affects every schema: not proposed.
 **Consequence:** a table created later gives "permission denied" to the browser until a script grants exactly what the app needs; forgetting fails closed.
-Tested only on the in-memory replica: `replica-test/s7-default-privileges.mjs` (13 of 13: new table closed, `service_role` kept, sequence closed, existing objects unchanged, not retroactive, twice-applicable, down restores). Not applied to production. Before applying, read `pg_default_acl` again and compare with the baseline in the test.
+Tested only on the in-memory replica: `replica-test/s7-default-privileges.mjs` (13 of 13: new table closed, `service_role` kept, sequence closed, existing objects unchanged, not retroactive, twice-applicable, down restores). Before applying, `pg_default_acl` was read again and matched the baseline in the test.
+
+## 2026-10-19: default privileges of schema public applied (owner, SQL Editor) and read back (Claude, read-only CLI)
+
+Applied: `proposed/2026-10-19-default-privileges.sql` (undo: `proposed/2026-10-19-default-privileges.down.sql`). The owner ran it in the SQL Editor of project `ruibdsvrcctxgxctaxwe`; the editor answered "Success". Claude could not run it (writes to production are blocked for it).
+- Before: `pg_default_acl` for `postgres` in `public` matched the baseline (tables `arwdDxtm`, sequences `rwU`, functions `X` for `postgres`, `anon`, `authenticated`, `service_role`); 35 objects, all owned by `postgres`.
+- Read back about 20 seconds after the "Success": for `postgres` in `public` the defaults are now `postgres` and `service_role` only (tables `arwdDxtm`, sequences `rwU`, functions `X`); `anon` and `authenticated` are gone. The table grants of the existing objects are unchanged compared with the read taken after the revoke of the same day (36 grant rows before and after, 0 differences); still 35 objects, RLS on for 32 tables.
+- Still true, not changed: the defaults of role `supabase_admin` in `public` still grant `anon` and `authenticated` (the script cannot change another role's defaults; objects made through the SQL Editor or the CLI are owned by `postgres`, so they are covered). `PUBLIC` still executes a new function until its script revokes it (tested limit, see the proposal section).
+- Not checked: creating a real table on production to see the grants it receives (no test object was created); the result follows from `pg_default_acl` and from the replica test.
+- Rule for new objects: a table needs explicit grants after its RLS policies; a function script ends with `revoke execute on function ... from public`.
