@@ -241,6 +241,7 @@ function App() {
   useEffect(() => {
     if (!authLink) return;
     if (authLink.kind === 'recovery') setAuthModal('reset');
+    else if (authLink.kind === 'recovery-link' || authLink.kind === 'confirm-link') setAuthModal('link');
     else if (authLink.kind === 'confirmed') { setAuthModal('login'); showToast('Your email is confirmed. Sign in to continue.', 'success'); }
     else { setAuthModal('login'); showToast('That email link has expired or was already used. Request a new one.', 'error'); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -665,6 +666,7 @@ function App() {
       {authModal && <AuthModal
         initialMode={authModal}
         recoveryToken={recoveryToken}
+        emailLink={authLink?.kind === 'recovery-link' || authLink?.kind === 'confirm-link' ? authLink : null}
         onSuccess={(session) => { setRecoveryToken(null); login(session); }}
         onClose={() => { setAuthModal(null); if (authModal === 'reset') setRecoveryToken(null); }}
         onViewLegal={(m) => { navigate(m); setAuthModal(null); }}

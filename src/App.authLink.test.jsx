@@ -3,10 +3,11 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 
-vi.mock('./lib/supabase', async (orig) => ({ ...(await orig()), sb: { select: vi.fn(async () => []), upsert: vi.fn(async () => null), insert: vi.fn(async () => []), signIn: vi.fn(), signUp: vi.fn(), recover: vi.fn(), updatePassword: vi.fn(), getUser: vi.fn(), refreshToken: vi.fn() } }));
+vi.mock('./lib/supabase', async (orig) => ({ ...(await orig()), sb: { select: vi.fn(async () => []), upsert: vi.fn(async () => null), insert: vi.fn(async () => []), signIn: vi.fn(), signUp: vi.fn(), recover: vi.fn(), updatePassword: vi.fn(), verifyOtp: vi.fn(), getUser: vi.fn(), refreshToken: vi.fn() } }));
 import App from './App';
+import { sb } from './lib/supabase';
 
-const openFrom = (fragment) => { window.history.replaceState(null, '', `/${fragment}`); return render(<App />); };
+const openFrom = (suffix) => { window.history.replaceState(null, '', `/${suffix}`); return render(<App />); };
 beforeEach(() => {
   vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} });
   window.scrollTo = vi.fn();
@@ -38,5 +39,21 @@ describe('opening the site from an email link', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText('Choose a new password')).toBeNull();
     expect(screen.queryByText('Welcome Back')).toBeNull();
+  });
+});
+
+
+describe('opening the site from a link that carries a token_hash', () => {
+  it('a recovery link shows a button, uses nothing up on load, and removes the hash from the address bar', async () => {
+    openFrom('?token_hash=SECRET-HASH&type=recovery');
+    await waitFor(() => expect(screen.getByText('Choose a new password →')).toBeTruthy());
+    expect(sb.verifyOtp).not.toHaveBeenCalled();
+    expect(window.location.href).not.toContain('SECRET-HASH');
+  });
+
+  it('a confirmation link shows a "Confirm my email" button', async () => {
+    openFrom('?token_hash=H&type=email');
+    await waitFor(() => expect(screen.getByText('Confirm my email →')).toBeTruthy());
+    expect(sb.verifyOtp).not.toHaveBeenCalled();
   });
 });

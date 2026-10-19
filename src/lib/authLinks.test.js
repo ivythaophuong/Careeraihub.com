@@ -36,3 +36,18 @@ describe('readAuthLink: what the page was opened with after an email link', () =
     expect(readAuthLink(undefined, undefined)).toBeNull();
   });
 });
+
+describe('readAuthLink: links that point straight at this site (token_hash)', () => {
+  it('a recovery link carries only the one-time hash', () => {
+    expect(readAuthLink('', '?token_hash=HASH123&type=recovery')).toEqual({ kind: 'recovery-link', tokenHash: 'HASH123' });
+  });
+  it('a sign-up or e-mail confirmation link is a confirm-link with its type', () => {
+    expect(readAuthLink('', '?token_hash=H&type=email')).toEqual({ kind: 'confirm-link', tokenHash: 'H', type: 'email' });
+    expect(readAuthLink('', '?token_hash=H&type=signup')).toEqual({ kind: 'confirm-link', tokenHash: 'H', type: 'signup' });
+  });
+  it('a hash without a known type is not trusted', () => {
+    expect(readAuthLink('', '?token_hash=H')).toBeNull();
+    expect(readAuthLink('', '?token_hash=H&type=magiclink')).toBeNull();
+    expect(readAuthLink('', '?type=recovery')).toBeNull();
+  });
+});

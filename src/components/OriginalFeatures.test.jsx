@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 
-vi.mock('../lib/supabase', async (orig) => ({ ...(await orig()), sb: { signIn: vi.fn(), signUp: vi.fn(), recover: vi.fn(), updatePassword: vi.fn() } }));
+vi.mock('../lib/supabase', async (orig) => ({ ...(await orig()), sb: { signIn: vi.fn(), signUp: vi.fn(), recover: vi.fn(), updatePassword: vi.fn(), verifyOtp: vi.fn() } }));
 import { sb } from '../lib/supabase';
 import { AuthModal } from './OriginalFeatures';
 
@@ -92,5 +92,55 @@ describe('AuthModal: set a new password from the email link', () => {
     fireEvent.click(screen.getByText('Set new password →'));
     expect(document.body.textContent).toMatch(/link has expired|request a new/i);
     expect(sb.updatePassword).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthModal: a link that points straight at this site (token_hash)', () => {
+  const link = (props = {}) => open({ initialMode: 'link', emailLink: { kind: 'recovery-link', tokenHash: 'HASH123' }, ...props });
+
+  it('asks the person to press a button and does not use up the link by itself', () => {
+    link();
+    expect(screen.getByText('Choose a new password →')).toBeTruthy();
+    expect(sb.verifyOtp).not.toHaveBeenCalled();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it('on the button, checks the hash, then shows the new-password form and sets the password with the returned token', async () => {
+    sb.verifyOtp.mockResolvedValue({ data: { access_token: 'ACCESS-FROM-VERIFY', user: { id: 'u' } }, error: null });
+    sb.updatePassword.mockResolvedValue({ data: { id: 'u' }, error: null });
+    link();
+    fireEvent.click(screen.getByText('Choose a new password →'));
+    await waitFor(() => expect(sb.verifyOtp).toHaveBeenCalledWith('recovery', 'HASH123'));
+    await waitFor(() => expect(document.querySelectorAll('input[type="password"]')).toHaveLength(2));
+    const [p1, p2] = document.querySelectorAll('input[type="password"]');
+    fireEvent.change(p1, { target: { value: 'a-new-password' } }); fireEvent.change(p2, { target: { value: 'a-new-password' } });
+    fireEvent.click(screen.getByText('Set new password →'));
+    await waitFor(() => expect(sb.updatePassword).toHaveBeenCalledWith('ACCESS-FROM-VERIFY', 'a-new-password'));
+  });
+
+  it('an expired link says so, offers the way back, and never shows the password form', async () => {
+    sb.verifyOtp.mockResolvedValue({ data: null, error: { message: 'Email link is invalid or has expired' } });
+    link();
+    fireEvent.click(screen.getByText('Choose a new password →'));
+    await waitFor(() => expect(document.body.textContent).toMatch(/expired or was already used/i));
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it('a verify answer without a token is treated as a failure, not as success', async () => {
+    sb.verifyOtp.mockResolvedValue({ data: { user: { id: 'u' } }, error: null });
+    link();
+    fireEvent.click(screen.getByText('Choose a new password →'));
+    await waitFor(() => expect(document.body.textContent).toMatch(/expired or was already used/i));
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it('a confirmation link: the button confirms the email, then asks the person to sign in', async () => {
+    sb.verifyOtp.mockResolvedValue({ data: { access_token: 'A', user: { id: 'u' } }, error: null });
+    link({ emailLink: { kind: 'confirm-link', tokenHash: 'H2', type: 'email' } });
+    expect(sb.verifyOtp).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Confirm my email →'));
+    await waitFor(() => expect(sb.verifyOtp).toHaveBeenCalledWith('email', 'H2'));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/email is confirmed/i));
+    expect(screen.getByText('Sign In →')).toBeTruthy();
   });
 });

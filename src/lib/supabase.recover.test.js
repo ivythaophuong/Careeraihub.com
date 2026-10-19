@@ -51,3 +51,27 @@ describe('sb.updatePassword (set the new password with the recovery token)', () 
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('sb.verifyOtp (check the one-time hash from an email link)', () => {
+  it('posts the type and the hash to /auth/v1/verify and returns the session', async () => {
+    fetchMock.mockResolvedValue(json({ access_token: 'ACC', refresh_token: 'REF', user: { id: 'u1' } }));
+    const out = await sb.verifyOtp('recovery', 'HASH123');
+    expect(out.error).toBeNull();
+    expect(out.data.access_token).toBe('ACC');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(`${SUPABASE_URL}/auth/v1/verify`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ type: 'recovery', token_hash: 'HASH123' });
+  });
+  it('an expired or used hash comes back as an error, and a network error does not throw', async () => {
+    fetchMock.mockResolvedValue(json({ code: 403, error_code: 'otp_expired', msg: 'Email link is invalid or has expired' }, 403));
+    expect((await sb.verifyOtp('recovery', 'x')).error.message).toMatch(/invalid or has expired/);
+    fetchMock.mockRejectedValue(new Error('offline'));
+    expect((await sb.verifyOtp('recovery', 'x')).error.message).toMatch(/network/i);
+  });
+  it('refuses to call the server without a type and a hash', async () => {
+    expect((await sb.verifyOtp('', 'h')).error).toBeTruthy();
+    expect((await sb.verifyOtp('recovery', '')).error).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
