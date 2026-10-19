@@ -16,6 +16,8 @@ import { formatElapsed, describeEvaluationFailure } from './sessionUi';
 import SessionPanel from './SessionPanel';
 import NextStepCard from './NextStepCard';
 import StructurePanel from './StructurePanel';
+import VoiceRecorder from './VoiceRecorder';
+import { voiceEnabled } from '../../lib/voice.js';
 import { structurePanelEnabledFor, previewStructure } from './structurePreview';
 import { TIMED_SECONDS, nextStep, loadTimedTried, markTimedTried } from './guidance';
 
@@ -291,10 +293,12 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         <div style={label}>Practice mode</div>
         <div role="group" aria-label="Practice mode" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" aria-pressed="true" style={{ ...ghostBtn, color: C.text, borderColor: C.accent, padding: '8px 14px' }}>Text practice</button>
-          <button type="button" disabled aria-disabled="true" aria-describedby="voice-note" style={{ ...ghostBtn, padding: '8px 14px', opacity: 0.55, cursor: 'not-allowed' }}>Voice practice</button>
+          {!voiceEnabled() && <button type="button" disabled aria-disabled="true" aria-describedby="voice-note" style={{ ...ghostBtn, padding: '8px 14px', opacity: 0.55, cursor: 'not-allowed' }}>Voice practice</button>}
         </div>
         <div id="voice-note" style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
-          Voice practice is not available yet. You type your answers; no microphone is used and nothing is recorded.
+          {voiceEnabled()
+            ? 'Voice practice (preview): on each question you can record your answer instead of typing it. It is turned into text that you check and correct before you send it for feedback. The recording is not kept. If it says voice is not available for your account, type your answer.'
+            : 'Voice practice is not available yet. You type your answers; no microphone is used and nothing is recorded.'}
         </div>
       </Card>
 
@@ -480,6 +484,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             placeholder={attempt > 1 ? 'Improve your answer, then ask for feedback again.' : 'Type your answer here. A STAR structure (Situation, Task, Action, Result) works well for behavioural questions...'}
             style={{ width: "100%", minHeight: 140, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: 16, fontSize: 13, outline: "none", lineHeight: 1.7, fontFamily: "inherit", resize: "vertical" }}
           />
+          {voiceEnabled() && <VoiceRecorder disabled={!!busy} onTranscript={(t) => { setAnswer(a => ((a.trim() ? a.trimEnd() + ' ' : '') + t).slice(0, MAX_ANSWER_CHARS)); setErr(''); }} />}
           <div aria-live="polite" style={{ color: C.muted, fontSize: 11 }}>
             {busy === 'feedback' ? 'Sending your answer for evaluation. It is not saved to your account yet.' : answer.trim() && deviceKept ? 'Draft kept on this device. It is not saved to your account.' : ''}
           </div>
