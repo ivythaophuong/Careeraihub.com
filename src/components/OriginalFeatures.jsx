@@ -97,7 +97,7 @@ export function CommandPalette({ modules, setActiveModule, setAuthModal, user, o
 }
 
 // ── Auth Modal (Standardized Original UI) ────────────────────────────────────
-export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recoveryToken = null, emailLink = null }) {
+export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recoveryToken = null, emailLink = null, onLinkConsumed = () => {} }) {
   const [mode, setMode] = useState(initialMode || "login");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
@@ -118,6 +118,7 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
         // The person pressed the button: only now is the one-time hash spent.
         const isRecovery = emailLink?.kind === 'recovery-link';
         const { data, error } = await sb.verifyOtp(isRecovery ? 'recovery' : emailLink?.type, emailLink?.tokenHash);
+        onLinkConsumed(); // the one-time hash is spent whatever the answer: do not offer it again after a reload
         if (error || !data?.access_token) throw new Error("This link has expired or was already used. Please request a new one.");
         if (isRecovery) { setResetToken(data.access_token); setMode("reset"); }
         else { setMode("login"); setNotice("Your email is confirmed. Sign in to continue."); }
@@ -135,6 +136,7 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
         if (pass !== pass2) throw new Error("The two passwords do not match.");
         const { error } = await sb.updatePassword(resetToken, pass);
         if (error) throw new Error(error.message || "Could not change the password. Please try again.");
+        onLinkConsumed();
         setPass(""); setPass2(""); setMode("login");
         setNotice("Your password was updated. Sign in with your new password.");
         return;
@@ -224,7 +226,7 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
       <div style={{ background: LP.card, border: `1px solid ${LP.border}`, borderRadius: 22, padding: '38px 32px 32px', width: '100%', maxWidth: 420, boxShadow: `0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(236,72,153,0.06), 0 0 80px rgba(236,72,153,0.05)`, position: 'relative', backdropFilter: 'blur(20px)' }}>
 
         {/* Close */}
-        <button onClick={onClose} style={{ position: 'absolute', right: 18, top: 18, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: LP.muted, cursor: 'pointer', fontSize: 16, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, transition: 'all 0.15s' }}>×</button>
+        <button onClick={onClose} aria-label="Close" style={{ position: 'absolute', right: 18, top: 18, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: LP.muted, cursor: 'pointer', fontSize: 16, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, transition: 'all 0.15s' }}>×</button>
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
