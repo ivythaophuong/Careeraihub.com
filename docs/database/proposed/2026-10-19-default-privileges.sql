@@ -1,4 +1,4 @@
--- PROPOSED, NOT APPLIED. Written 2026-10-19. Project: CareerAiHub (ruibdsvrcctxgxctaxwe) only. Never ZenDMS (obtmsvhejvcfrkfyucev).
+-- APPLIED to production 2026-10-19 by the owner in the SQL Editor (see docs/database/README.md, section 2026-10-19 default privileges applied). Written 2026-10-19. Project: CareerAiHub (ruibdsvrcctxgxctaxwe) only. Never ZenDMS (obtmsvhejvcfrkfyucev).
 -- Why (read-only check 2026-10-19): in schema public every object is owned by role postgres (32 tables, 2 views, 1 sequence), and pg_default_acl gives anon,
 -- authenticated and service_role every table privilege (arwdDxtm), rwU on sequences and EXECUTE on functions for each NEW object created by postgres.
 -- Today's tables are tight only because their scripts revoked by hand; a table or function created later without that revoke is open to the browser roles.
