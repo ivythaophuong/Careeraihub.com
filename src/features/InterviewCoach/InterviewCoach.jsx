@@ -7,6 +7,7 @@ import ReadinessScore from '../ReadinessScore/ReadinessScore';
 import MemoryDashboard from '../MemoryDashboard/MemoryDashboard';
 import { nextActions } from '../CareerRoadmap/roadmapNext';
 import { SESSIONS_KEPT, STAR_STORIES_KEPT } from '../../lib/historyLimits';
+import { latestSessionScore } from '../../lib/interviewFigures';
 
 const TABS = [
   { id: 'dashboard',  label: 'Overview' },
@@ -55,7 +56,7 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
   const next = nextActions({
     hasResume: !!memory?.resumeText,
     sessionsCount: sessions.length,
-    readiness: Number.isFinite(sessions[0]?.avgScore) ? sessions[0].avgScore : null,
+    readiness: latestSessionScore(sessions),
     starCount: stories.length,
     hasSkillsGap: !!memory?.skillsGap?.result,
     trustScore: null, // this tab does not load the practice score: the Career Roadmap does

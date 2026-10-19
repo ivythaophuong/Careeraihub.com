@@ -101,3 +101,22 @@ describe('Career Roadmap "what to do next"', () => {
     expect(screen.queryByRole('region', { name: /what to do next/i })).toBeNull();
   });
 });
+
+describe('Career Roadmap names the interview figure and does not turn "no session" into a score', () => {
+  it('no session: no "0/100" and no "readiness" figure; the milestone shows no number', () => {
+    const { container } = render1({ memory: {} });
+    const text = container.textContent;
+    expect(text).not.toMatch(/readiness\s*0\/100/i);
+    expect(text).not.toMatch(/0\/75/);
+    expect(text).toMatch(/Latest interview session/);
+  });
+
+  it('the figure is called the latest session; the milestone rule (75 and 5 stories) is unchanged', () => {
+    const done = render1({ memory: { resumeText: 'x'.repeat(30), mockSessions: [{ avgScore: 80 }, { avgScore: 20 }], starBank: [{}, {}, {}, {}, {}] } });
+    expect(done.container.textContent).toMatch(/Latest session 80\/100/);
+    done.unmount();
+    const notYet = render1({ memory: { resumeText: 'x'.repeat(30), mockSessions: [{ avgScore: 74 }], starBank: [{}, {}, {}, {}, {}] } });
+    expect(notYet.container.textContent).not.toMatch(/interview-ready/i);
+    expect(notYet.container.textContent).toMatch(/74\/75/);
+  });
+});

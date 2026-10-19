@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { sb } from '../../lib/supabase';
 import { nextActions } from './roadmapNext';
+import { latestSessionScore } from '../../lib/interviewFigures';
 
 function SectionLabel({ children }) {
   return <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--lp-text3)', fontFamily: 'var(--lp-ffm)', marginBottom: 10 }}>{children}</div>;
@@ -48,13 +49,13 @@ function RoadmapStep({ num, state, title, desc, cta, onCta, isLast }) {
 }
 
 function MilestoneRow({ done, label, current, target }) {
-  const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+  const pct = target > 0 && Number.isFinite(current) ? Math.min(100, Math.round((current / target) * 100)) : 0;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid var(--lp-bdr)' }}>
       <span style={{ fontSize: 14, color: done ? '#00E5A0' : 'var(--lp-text3)', flexShrink: 0 }}>{done ? '✓' : '○'}</span>
       <span style={{ fontSize: 12.5, color: done ? 'var(--lp-text)' : 'var(--lp-text2)', flex: 1 }}>{label}</span>
       <span style={{ fontSize: 11, fontFamily: 'var(--lp-ffm)', color: done ? '#00E5A0' : 'var(--lp-text3)', flexShrink: 0, minWidth: 60, textAlign: 'right' }}>
-        {done ? '✓ Done' : target > 0 ? `${current}/${target}` : '—'}
+        {done ? '✓ Done' : target > 0 && Number.isFinite(current) ? `${current}/${target}` : '—'}
       </span>
     </div>
   );
@@ -75,12 +76,12 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
   }, [user, syncedAt]);
 
   // Step states derived from memory
-  const readiness     = memory.mockSessions?.[0]?.avgScore ?? 0;
+  const latest        = latestSessionScore(memory.mockSessions); // null when there is no readable session; never 0
   const starCount     = memory.starBank?.length ?? 0;
   const hasResume     = !!memory.resumeText; // step 1 is "resume added": no scan score is recorded anywhere, so none can be required
   const hasSkillsGap  = !!memory.skillsGap?.result;
   const s1Done  = hasResume;
-  const s2Done  = readiness >= 75 && starCount >= 5;
+  const s2Done  = latest !== null && latest >= 75 && starCount >= 5;
   const s3Done  = hasSkillsGap;
   const s4Done  = trustScore >= 65;
   const s5Done  = trustVisible;
@@ -98,7 +99,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
   const targetRole = form?.role || 'Senior role';
   const sessions = memory.mockSessions || [];
   const next = nextActions({
-    hasResume, sessionsCount: sessions.length, readiness: Number.isFinite(sessions[0]?.avgScore) ? sessions[0].avgScore : null,
+    hasResume, sessionsCount: sessions.length, readiness: latest,
     starCount, hasSkillsGap, trustScore, trustVisible,
   });
 
@@ -145,8 +146,8 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
             isLast={false} />
 
           <RoadmapStep num={2} state={stepState(s2Done, s1Done)}
-            title="Interview ready · readiness 75+ · 5 STAR stories"
-            desc={s2Done ? `Readiness ${readiness}/100 · ${starCount} STAR stories banked — interview-ready.` : `Current: readiness ${readiness > 0 ? readiness + '/100' : '—'} · ${starCount} STAR ${starCount === 1 ? 'story' : 'stories'}. Run mock sessions and build your STAR bank.`}
+            title="Practice interviews · latest session 75+ · 5 STAR stories"
+            desc={s2Done ? `Latest session ${latest}/100 · ${starCount} STAR stories banked.` : `Current: latest session ${latest !== null ? latest + '/100' : 'none yet'} · ${starCount} STAR ${starCount === 1 ? 'story' : 'stories'}. Run mock sessions and build your STAR bank.`}
             cta={!s2Done ? 'Start session →' : null}
             onCta={() => setActiveModule('simulate')}
             isLast={false} />
@@ -191,7 +192,7 @@ export default function CareerRoadmap({ memory, form, user, setActiveModule, syn
           <div style={{ background: 'var(--lp-bg2)', border: '1px solid var(--lp-bdr)', borderRadius: 10, padding: '16px 18px' }}>
             <SectionLabel>Milestone tracker</SectionLabel>
             <MilestoneRow done={hasResume} label="Resume added" current={0} target={0} />
-            <MilestoneRow done={readiness >= 75} label="Interview readiness > 75" current={readiness} target={75} />
+            <MilestoneRow done={latest !== null && latest >= 75} label="Latest interview session > 75" current={latest} target={75} />
             <MilestoneRow done={starCount >= 5}  label="STAR bank 5+ stories"   current={starCount} target={5} />
             <MilestoneRow done={hasSkillsGap}    label="Skills gap analysis run" current={hasSkillsGap ? 1 : 0} target={1} />
             <MilestoneRow done={trustScore >= 65} label="Practice score 65+"     current={trustScore} target={65} />

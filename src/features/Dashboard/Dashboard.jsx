@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { sb } from '../../lib/supabase';
+import { latestSessionScore } from '../../lib/interviewFigures';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(dateStr) {
@@ -25,12 +26,13 @@ function pill(color) {
   return { fontSize: 9, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 20, padding: '2px 8px', fontFamily: 'var(--lp-ffm)', letterSpacing: '.06em', textTransform: 'uppercase' };
 }
 
-function ReadinessArc({ readiness, aiInsight, setActiveModule }) {
+function ReadinessArc({ latest, aiInsight, setActiveModule }) {
   const r = 34;
   const circ = 2 * Math.PI * r;
-  const pct = Math.min(100, readiness || 0);
+  const hasSession = latest !== null;
+  const pct = hasSession ? Math.min(100, latest) : 0;
   const offset = circ - (pct / 100) * circ;
-  const color = pct >= 70 ? '#00E5A0' : pct >= 40 ? '#FFB84D' : pct > 0 ? '#FF5A5A' : 'rgba(255,255,255,.1)';
+  const color = !hasSession ? 'rgba(255,255,255,.1)' : pct >= 70 ? '#00E5A0' : pct >= 40 ? '#FFB84D' : '#FF5A5A';
 
   return (
     <div style={{ ...cardStyle, display: 'flex', alignItems: 'flex-start', gap: 18 }}>
@@ -46,18 +48,18 @@ function ReadinessArc({ readiness, aiInsight, setActiveModule }) {
           />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ fontFamily: 'var(--lp-ff)', fontSize: 19, fontWeight: 800, color, lineHeight: 1 }}>{pct > 0 ? pct : '—'}</div>
-          <div style={{ fontSize: 8, color: 'var(--lp-text3)', letterSpacing: '.06em', textTransform: 'uppercase', marginTop: 2 }}>ready</div>
+          <div style={{ fontFamily: 'var(--lp-ff)', fontSize: 19, fontWeight: 800, color, lineHeight: 1 }}>{hasSession ? pct : '—'}</div>
+          <div style={{ fontSize: 8, color: 'var(--lp-text3)', letterSpacing: '.06em', textTransform: 'uppercase', marginTop: 2 }}>latest</div>
         </div>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--lp-text)', marginBottom: 5 }}>Interview Readiness</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--lp-text)', marginBottom: 5 }}>Latest interview session</div>
         <div style={{ fontSize: 11.5, color: 'var(--lp-text2)', lineHeight: 1.65, marginBottom: 10 }}>{aiInsight}</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-          {pct >= 70
-            ? <span style={pill('#00E5A0')}>✓ Interview Ready</span>
-            : pct > 0
-              ? <span style={pill('#FFB84D')}>Building Readiness</span>
+          {hasSession && pct >= 70
+            ? <span style={pill('#00E5A0')}>✓ Strong latest session</span>
+            : hasSession
+              ? <span style={pill('#FFB84D')}>Keep practising</span>
               : <span style={pill('#8B7CF6')}>Start first session</span>}
         </div>
         <button onClick={() => setActiveModule('simulate')} style={btnStyle('primary')}>Start session →</button>
@@ -228,7 +230,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
   const atsScore   = validScans[0]?.score ?? 0;
   const prevAtsScore = validScans[1]?.score ?? null;
   const atsDelta   = prevAtsScore !== null ? atsScore - prevAtsScore : null;
-  const readiness  = memory.mockSessions?.[0]?.avgScore ?? 0;
+  const latest     = latestSessionScore(memory.mockSessions); // null when there is no readable session; never 0
   const starCount  = memory.starBank?.length ?? 0;
   const jdCount    = memory.jdAnalyses?.length ?? 0;
   const coverCount = memory.coverLetters?.length ?? 0;
@@ -249,34 +251,35 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
     if (!hasAts)         gaps.push('your CV has not been checked yet — open ATS Builder');
     else if (atsScore < 70) gaps.push(`earlier AI estimate of your resume ${atsScore}/100 — paste a JD to close keyword gaps`);
     if (starCount < 3)   gaps.push(`${starCount} STAR ${starCount === 1 ? 'story' : 'stories'} saved — aim for 8+`);
-    if (readiness < 70)  gaps.push(`interview readiness ${readiness}/100 — run a mock session`);
+    if (latest === null) gaps.push('no mock interview session yet — run one');
+    else if (latest < 70) gaps.push(`latest interview session ${latest}/100 — run another mock session`);
     if (trustScore < 65) gaps.push(`practice score ${trustScore}/100 — practise interview answers and STAR stories`);
     if (gaps.length === 0) {
       if (atsDelta > 0) return `ATS score improved +${atsDelta} pts since last scan. Keep running mock sessions to stay sharp.`;
       return 'Profile looks strong. Keep running mock sessions to stay sharp.';
     }
     return `Top priority: ${gaps[0]}.${gaps[1] ? ` Also: ${gaps[1]}.` : ''}`;
-  }, [hasAts, atsScore, atsDelta, starCount, readiness, trustScore]);
+  }, [hasAts, atsScore, atsDelta, starCount, latest, trustScore]);
 
   const weeklyPlan = useMemo(() => {
     const steps = [];
     if (!hasAts)         steps.push('Check your CV in ATS Builder');
     else if (atsScore < 70) steps.push('Scan resume against your target JD — close keyword gaps');
     if (starCount < 8)   steps.push(`Add ${8 - starCount} STAR ${8 - starCount === 1 ? 'story' : 'stories'} to cover behavioral questions`);
-    if (readiness < 80)  steps.push('Complete 2 mock interview sessions this week');
+    if (latest === null || latest < 80)  steps.push('Complete 2 mock interview sessions this week');
     if (trustScore < 65) steps.push('Raise your practice score with interview answers and STAR stories');
     steps.push('Review AI feedback and refine target role keywords');
     return steps.slice(0, 4);
-  }, [hasAts, atsScore, starCount, readiness, trustScore]);
+  }, [hasAts, atsScore, starCount, latest, trustScore]);
 
   const actionItems = useMemo(() => [
     !hasAts         && { label: 'Check your CV',      why: 'See which sections a reader finds, how many bullets carry numbers, and whether dates are consistent', color: '#FF5A5A', id: 'ats'  },
     hasAts && atsScore < 70 && { label: 'Improve your resume', why: `Earlier AI estimate ${atsScore}/100 — add missing keywords from your target JD`, color: '#FF5A5A', id: 'scan' },
     starCount < 5   && { label: 'Build STAR Bank',     why: `${starCount} of 8 stories saved — cover all behavioral categories`,         color: '#FFB84D', id: 'star'       },
-    readiness < 70  && { label: 'Run Mock Interview',  why: `Readiness ${readiness}/100 — simulate to sharpen your answers`,             color: '#EC4899', id: 'simulate'   },
+    (latest === null || latest < 70)  && { label: 'Run Mock Interview',  why: latest === null ? 'No session yet — simulate to see where you stand' : `Latest session ${latest}/100 — simulate to sharpen your answers`,             color: '#EC4899', id: 'simulate'   },
     trustScore < 65 && { label: 'Raise Practice Score', why: `Practice score ${trustScore}/100 — it builds from your interview and STAR practice`, color: '#8B7CF6', id: 'simulate' },
     jdCount < 3     && { label: 'Analyze More JDs',   why: `${jdCount} JD${jdCount !== 1 ? 's' : ''} scanned — tailor prep to each role`, color: '#00E5A0', id: 'jd'        },
-  ].filter(Boolean).slice(0, 4), [hasAts, atsScore, starCount, readiness, trustScore, jdCount]);
+  ].filter(Boolean).slice(0, 4), [hasAts, atsScore, starCount, latest, trustScore, jdCount]);
 
   const atsDeltaLabel = atsDelta !== null
     ? atsDelta > 0 ? `↑ +${atsDelta} since last scan` : atsDelta < 0 ? `↓ ${atsDelta} since last scan` : '→ no change'
@@ -286,7 +289,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
     hasAts
       ? { iconLabel: 'Earlier ATS estimate', value: atsScore, label: 'AI estimate, earlier scan', delta: atsDeltaLabel, color: '#EC4899', pct: atsScore, onClick: () => setActiveModule('ats') }
       : { iconLabel: 'ATS Readiness', value: '—', label: 'Rule-based check', delta: 'Check your CV in ATS Builder', color: '#EC4899', pct: 0, onClick: () => setActiveModule('ats') },
-    { iconLabel: 'Readiness',   value: readiness > 0 ? readiness : '—',  label: 'Interview prep',    delta: readiness > 0 ? `${100 - readiness} pts to go` : 'Start a session',                      color: '#FFB84D', pct: readiness,                       onClick: () => setActiveModule('simulate')   },
+    { iconLabel: 'Latest session', value: latest !== null ? latest : '—',  label: 'Interview prep (AI estimate)',    delta: latest !== null ? `${Math.max(0, 100 - latest)} pts to go` : 'Start a session',                      color: '#FFB84D', pct: latest ?? 0,                       onClick: () => setActiveModule('simulate')   },
     { iconLabel: 'STAR Bank',   value: starCount,                         label: 'Stories saved',     delta: starCount >= 8 ? '✓ Solid bank' : `target: 8`,                                            color: '#FFB800', pct: Math.min(100, starCount * 12.5), onClick: () => setActiveModule('star')       },
     { iconLabel: 'Practice Score', value: trustScore > 0 ? trustScore : '—', label: 'From your practice', delta: trustScore >= 65 ? '✓ Strong' : 'Practise to raise it',                                 color: trustScore >= 65 ? '#00E5A0' : '#FF5A5A', pct: trustScore, onClick: () => setActiveModule('trustmatch') },
     { iconLabel: 'JDs Scanned', value: jdCount,                           label: 'Roles analyzed',   delta: jdCount > 0 ? `${jdCount} role${jdCount !== 1 ? 's' : ''} analyzed` : 'Scan a JD →',     color: '#8B7CF6', pct: Math.min(100, jdCount * 20),   onClick: () => setActiveModule('jd')         },
@@ -376,7 +379,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
 
       {/* Hero: Readiness Arc + Streak */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12, marginBottom: 12 }}>
-        <ReadinessArc readiness={readiness} aiInsight={aiInsight} setActiveModule={setActiveModule} />
+        <ReadinessArc latest={latest} aiInsight={aiInsight} setActiveModule={setActiveModule} />
         <StreakBar activities={activities} topGap={topGap} />
       </div>
 
