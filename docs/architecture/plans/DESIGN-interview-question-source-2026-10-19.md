@@ -37,17 +37,46 @@ Each question is an object with these fields. Fields marked "code" can be checke
 | `intent` | One of: `experience`, `reasoning`, `knowledge`, `situation` | code |
 | `level` | `entry`, `mid`, `senior`, taken from the user's input or `unspecified` | code |
 | `why` | What the interviewer is really testing (as today) | code (length) |
-| `assumes` | What the question assumes about the candidate. Must be empty or appear in the resume. | code + person |
+| `assumes` | Typed list of what the question takes for granted, each tagged `claim` (about the candidate), `hypothetical` (a scenario stated as imaginary) or `role_context` (background of the job). See 4.2. | code (tags) + person (meaning) |
 | `criteria` | 2 to 4 short statements of what a strong answer shows. No single "correct" answer for open questions. | person |
-| `origin` | `ai_generated`, `reviewed_bank` or `ai_from_sources` | code |
+| `origin` | Where the text came from; defined in 4.1 | code |
+| `quality_status` | `unchecked`, `sampled_ok`, `sampled_failed`. Kept apart from `origin`. Starts as `unchecked`; only a person's review changes it. | code (enum) + person |
 | `sources` | For `ai_from_sources` only: list of `{ url, retrievedAt, excerpt }` | code (present) + person (fit) |
 | `promptVersion` | The version of the prompt that produced it | code |
+
+### 4.1 Meaning of `origin` and `quality_status`
+
+| `origin` | Meaning | What it does NOT mean |
+|---|---|---|
+| `ai_generated` | The AI wrote it from the prompt and context; no outside source is recorded for it | Nothing about quality |
+| `reviewed_bank` | Taken from an internal bank that went through a defined review. **No such bank exists today.** | That it predicts job performance |
+| `ai_from_sources` | The AI wrote it from outside sources that were retrieved and recorded | That it is a good question |
+
+`origin` says where a question came from; `quality_status` says how far it has been checked. The screen may show both, and must never infer one from the other.
+
+### 4.2 Rules for `assumes`
+
+- `claim`: a statement about the candidate's experience, action or result. Must be supported by the resume or an earlier answer. "How did you increase activation by 25% in your last launch?" is a claim and fails without that evidence.
+- `hypothetical`: a scenario stated as imaginary ("How would you prioritise competing requests with limited capacity?"). It needs no support in the resume.
+- `role_context`: background of the job. It must fit the role and must not be used to infer personal achievements.
+Code can check that the tags exist and that a `claim` shares its key terms with the resume. It cannot prove the meaning is right; that stays in the quality review.
+
+### 4.3 Rules for writing a question (PROPOSED)
+
+The schema says what a question must carry, not what makes it good. The generator prompt and the review use these rules:
+- One main thing is assessed per question.
+- The question fits its `competency` and `intent`.
+- It never turns an assumption into a fact about the candidate (4.2).
+- Within a session, questions differ in purpose, not only in wording.
+- A question about specialist knowledge rests on knowledge that fits the role; if that is missing, the system falls back (section 7) instead of guessing.
 
 Rule: the screen must show the `origin` so the user can tell an AI-written question from a reviewed one. No screen says "evidence-based" until `sources` exist for that question.
 
 ## 5. Shared competencies (PROPOSED, a starting set, not validated)
 
 `problem_solving`, `communication`, `ownership`, `analytical_thinking`, `collaboration`, `motivation`. Technical or craft knowledge is a seventh slot, `domain_knowledge`, whose content depends on the role and is the only place where outside sources are really needed.
+
+The common list is not forced on every career. The structure is shared, the list can grow, and specialist criteria (for example SQL and statistics for a data analyst, or design critique for a designer) are separate sets added when needed. `domain_knowledge` alone is too broad to carry them.
 
 These are examples for design; no evidence yet shows this list covers the careers the product will serve. Adding a competency needs a person's decision.
 
@@ -72,11 +101,13 @@ These are examples for design; no evidence yet shows this list covers the career
 | Evidence | Is the subject knowledge supported by the listed sources? | A person on a sample; an AI check may flag but is **not independent** of the generator and must not be called verification |
 | Quality | Is it clear, right for the level, does it separate strong from weak candidates? | Two independent raters on a sample, using the same procedure as D1 (`D1-interview-structure-calibration-standard-2026-10-18.md`) |
 
-If the evidence is not enough, the system uses a reviewed general question instead of pretending it was checked. A question that has not passed the quality sample is not described as good in any text shown to users.
+If the evidence is not enough, the system must not pretend it was checked. **There is no reviewed bank today, so this fallback does not exist yet.** Until one does, either a minimal set of reviewed general questions is built first, or today's behaviour stays as the fallback and the limit is stated plainly. A question that has not passed the quality sample is not described as good in any text shown to users.
 
 ## 8. Build order (PROPOSED; each step needs its own approval to merge or deploy)
 
-1. **Question structure v1 in code, no retrieval.** Extend the prompt and `normalizeQuestions` to the fields marked "code" in section 4, with `origin = ai_generated`. Tests first (fail, then pass). Old stored sessions must still load. A flag allows the old behaviour. This is the only step that touches production behaviour and it is small.
+1. **Contract and tests (no production change).** Fix the schema in section 4, the rules in 4.2 and 4.3, and tests for missing fields, wrong enum values, duplicates, malformed output and loading of old stored sessions. Tests first (fail, then pass).
+1b. **Offline evaluation.** Run the new prompt on a set of varied roles and levels and look at the questions themselves, not only whether the JSON is valid. Acceptance criteria are written before the run.
+1c. **Behind a flag.** Only if 1b meets those criteria. The flag returns to today's behaviour; old data is not changed. This is the first step that touches production behaviour.
 2. Shared competency list, kept short.
 3. Source policy and the knowledge layer: where it is stored, who reviews it, how old entries are retired. **Any database change is a separate APPROVAL** (the Supabase Free plan has no backups or point-in-time recovery).
 4. Retrieval from the layer during a session, then live search only when the layer lacks coverage.
@@ -90,13 +121,22 @@ If the evidence is not enough, the system uses a reviewed general question inste
 - Whether the shared competency list fits careers outside software and business roles.
 - Source terms (Adzuna and any website), and any legal view on storing excerpts.
 - Whether "Study Modules" should differ from "Live Session".
+- Cost, latency and the share of retries or fallbacks of the new design must be measured separately for generation, retrieval, extra checks and regeneration before any cost target is set. Today's 0.002 USD is an estimate for the current design only.
 
 ## 10. Decisions the owner needs to make
 
 | # | Decision | Recommendation |
 |---|---|---|
 | Q1 | Knowledge layer first, live search only when needed | **Yes** |
-| Q2 | Start with step 1 (structure v1, no retrieval, behind a flag) | **Yes** |
+| Q2 | Start with steps 1 and 1b (contract, tests, offline evaluation); flag in 1c only after the criteria are met; no retrieval yet | **Yes, with these conditions** |
 | Q3 | Who writes and reviews the competency rubrics and the source list | UNKNOWN: owner to name people. This decides how fast steps 2 and 3 can go |
 | Q4 | How many independent raters are available for the quality sample | Needs at least 2 (same need as D1) |
-| Q5 | Which careers and languages come first | Owner's choice; English first is the lowest effort |
+| Q5 | Which careers and languages come first | English first, and at least one career group outside software and business in the test set, so the structure is not judged on two families only |
+
+## 11. Documents to write next (PROPOSED)
+
+1. `Question Structure v1`: the schema, the generation rules and the validity conditions.
+2. `Question Quality Rubric v1`: the quality criteria and the independent rating procedure.
+3. `Interview Coach Evaluation Plan`: test cases, acceptance criteria, fallback and rollback.
+
+No code, SQL, push, merge or deploy follows until the owner approves the scope.
