@@ -97,7 +97,7 @@ export function CommandPalette({ modules, setActiveModule, setAuthModal, user, o
 }
 
 // ── Auth Modal (Standardized Original UI) ────────────────────────────────────
-export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recoveryToken = null }) {
+export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recoveryToken = null, emailLink = null }) {
   const [mode, setMode] = useState(initialMode || "login");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
@@ -108,11 +108,21 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [pass2, setPass2] = useState("");
+  const [resetToken, setResetToken] = useState(recoveryToken); // from a #access_token link, or from verifying a ?token_hash link
   const [notice, setNotice] = useState(""); // a calm message (not an error): the reset email was requested, the password was changed
 
   const handleSubmit = async (e) => {
     e.preventDefault(); setErr(""); setNotice(""); setLoading(true);
     try {
+      if (mode === "link") {
+        // The person pressed the button: only now is the one-time hash spent.
+        const isRecovery = emailLink?.kind === 'recovery-link';
+        const { data, error } = await sb.verifyOtp(isRecovery ? 'recovery' : emailLink?.type, emailLink?.tokenHash);
+        if (error || !data?.access_token) throw new Error("This link has expired or was already used. Please request a new one.");
+        if (isRecovery) { setResetToken(data.access_token); setMode("reset"); }
+        else { setMode("login"); setNotice("Your email is confirmed. Sign in to continue."); }
+        return;
+      }
       if (mode === "forgot") {
         // Same answer whether or not the address has an account; a failure says so in general terms and keeps the server's reason out of the page.
         const { error } = await sb.recover(email.trim());
@@ -121,9 +131,9 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
         return;
       }
       if (mode === "reset") {
-        if (!recoveryToken) throw new Error("This link has expired or was already used. Please request a new one.");
+        if (!resetToken) throw new Error("This link has expired or was already used. Please request a new one.");
         if (pass !== pass2) throw new Error("The two passwords do not match.");
-        const { error } = await sb.updatePassword(recoveryToken, pass);
+        const { error } = await sb.updatePassword(resetToken, pass);
         if (error) throw new Error(error.message || "Could not change the password. Please try again.");
         setPass(""); setPass2(""); setMode("login");
         setNotice("Your password was updated. Sign in with your new password.");
@@ -162,6 +172,13 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
       btn: "Create Account", 
       toggle: "Already have an account? Sign in", 
       mode: "login" 
+    },
+    link: {
+      title: emailLink?.kind === 'recovery-link' ? "Reset your password" : "Confirm your email",
+      sub: emailLink?.kind === 'recovery-link' ? "Press the button to choose a new password" : "Press the button to confirm your email address",
+      btn: emailLink?.kind === 'recovery-link' ? "Choose a new password" : "Confirm my email",
+      toggle: "Changed your mind? Back to sign in",
+      mode: "login"
     },
     forgot: {
       title: "Reset your password",
@@ -249,12 +266,12 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
             </>
           )}
 
-          {mode !== 'reset' && <div>
+          {mode !== 'reset' && mode !== 'link' && <div>
             <div style={{ color: LP.muted, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6, fontWeight: 700 }}>Email Address</div>
             <input type="email" placeholder="you@email.com" value={email} onChange={e => { setEmail(e.target.value); setErr(''); }} required style={inputStyle} onFocus={e => { e.target.style.borderColor = LP.borderFocus; e.target.style.boxShadow = `0 0 0 3px rgba(236,72,153,0.08)`; }} onBlur={e => { e.target.style.borderColor = LP.border; e.target.style.boxShadow = 'none'; }} />
           </div>}
 
-          {mode !== 'forgot' && <div>
+          {mode !== 'forgot' && mode !== 'link' && <div>
             <div style={{ color: LP.muted, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6, fontWeight: 700 }}>{mode === 'reset' ? 'New password' : 'Password'}</div>
             <div style={{ position: 'relative' }}>
               <input type={showPass ? 'text' : 'password'} placeholder="••••••••" value={pass} onChange={e => { setPass(e.target.value); setErr(''); }} required style={{ ...inputStyle, paddingRight: 42 }} onFocus={e => { e.target.style.borderColor = LP.borderFocus; e.target.style.boxShadow = `0 0 0 3px rgba(236,72,153,0.08)`; }} onBlur={e => { e.target.style.borderColor = LP.border; e.target.style.boxShadow = 'none'; }} />

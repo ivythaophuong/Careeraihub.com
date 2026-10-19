@@ -76,6 +76,21 @@ export const sb = {
     }
   },
 
+  // Check the one-time hash from an email link (the type is 'recovery', 'email', 'signup'...). For a recovery link the answer carries the session
+  // whose access token authorises setting the new password. The hash is spent by this call.
+  async verifyOtp(type, tokenHash) {
+    if (!type || !tokenHash) return { data: null, error: { message: 'Missing link details.' } };
+    try {
+      const r = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+        method: "POST", headers: sb._au(),
+        body: JSON.stringify({ type, token_hash: tokenHash })
+      });
+      return sb._parseAuth(r);
+    } catch (e) {
+      return { data: null, error: { message: 'Network error — check your connection.' } };
+    }
+  },
+
   // Set a new password with the access token from a recovery link (not the stored session).
   async updatePassword(accessToken, password) {
     if (!accessToken || !password) return { data: null, error: { message: 'Missing token or password.' } };
