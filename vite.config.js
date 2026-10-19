@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       globals: false,
+      env: { VITE_TURNSTILE_SITE_KEY: '' },   // no CAPTCHA widget in the tests, unless a test turns it on on purpose
       include: ['src/**/*.test.{js,jsx}', 'tests/**/*.test.{js,jsx}', 'supabase/**/*.test.js'],
     },
   }

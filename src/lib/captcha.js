@@ -1,9 +1,12 @@
 // Cloudflare Turnstile, the CAPTCHA that Supabase Auth can check (Authentication > Bot and Abuse Protection).
-// OFF until a site key is set: the site key is public by design (it is sent to every browser), the secret key lives only in the Supabase dashboard.
-// The Docker build does not read .env files (see .dockerignore), so the key is committed here; VITE_TURNSTILE_SITE_KEY overrides it for a local run.
-// While it is empty no widget is shown and every request is exactly as before, so this code can be deployed before the check is switched on in Supabase.
-const COMMITTED_SITE_KEY = '';
-export const TURNSTILE_SITE_KEY = (import.meta.env?.VITE_TURNSTILE_SITE_KEY || COMMITTED_SITE_KEY || '').trim();
+// The site key is public by design (every browser receives it); the SECRET key lives only in the Supabase dashboard and must never be put in this repository.
+// The Docker build does not read .env files (see .dockerignore), so the key is committed here. VITE_TURNSTILE_SITE_KEY overrides it when it is DEFINED, even
+// when empty: an empty value turns the widget off (the tests do this, see vite.config.js), and Cloudflare's dummy key 1x00000000000000000000AA (always passes)
+// lets a local run on localhost work, because the real key only allows the production hostnames.
+// While the key is empty no widget is shown and every request is exactly as before.
+export const COMMITTED_SITE_KEY = '0x4AAAAAAFbMnrySwRvLIJVj';
+const fromEnv = import.meta.env?.VITE_TURNSTILE_SITE_KEY;
+export const TURNSTILE_SITE_KEY = String(fromEnv !== undefined ? fromEnv : COMMITTED_SITE_KEY).trim();
 export const captchaEnabled = () => !!TURNSTILE_SITE_KEY;
 
 // Cloudflare: the script must be fetched from exactly this URL; proxying or caching it makes Turnstile fail.

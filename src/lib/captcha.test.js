@@ -38,8 +38,23 @@ describe('loadTurnstile', () => {
     expect(document.head.querySelectorAll('script')).toHaveLength(0);
   });
 
-  it('is off while no site key is set', () => {
+  it('is off in the tests: an empty VITE_TURNSTILE_SITE_KEY overrides the committed key', () => {
     expect(mod.TURNSTILE_SITE_KEY).toBe('');
     expect(mod.captchaEnabled()).toBe(false);
+  });
+
+  it('the committed key has the shape of a Turnstile site key, is not a dummy test key, and is not a secret key', () => {
+    expect(mod.COMMITTED_SITE_KEY).toMatch(/^0x4[A-Za-z0-9_-]{20,30}$/);   // a site key; a secret key is longer
+    expect(mod.COMMITTED_SITE_KEY).not.toMatch(/^[123]x0{20}/);
+  });
+
+  it('a defined VITE_TURNSTILE_SITE_KEY wins over the committed key, an undefined one does not', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    vi.resetModules();
+    expect((await import('./captcha')).TURNSTILE_SITE_KEY).toBe('1x00000000000000000000AA');
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    const again = await import('./captcha');
+    expect(again.TURNSTILE_SITE_KEY).toBe('');   // the config's empty value is back
   });
 });
