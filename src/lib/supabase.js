@@ -62,6 +62,34 @@ export const sb = {
     }
   },
 
+  // Ask for a password-reset email. The link comes back to this site (it must be in the project's Redirect URLs, otherwise Supabase uses the Site URL).
+  // The API answers the same way whether or not the address has an account, so the caller must not tell the two apart either.
+  async recover(email) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(window.location.origin)}`, {
+        method: "POST", headers: sb._au(),
+        body: JSON.stringify({ email })
+      });
+      return sb._parseAuth(r);
+    } catch (e) {
+      return { data: null, error: { message: 'Network error — check your connection.' } };
+    }
+  },
+
+  // Set a new password with the access token from a recovery link (not the stored session).
+  async updatePassword(accessToken, password) {
+    if (!accessToken || !password) return { data: null, error: { message: 'Missing token or password.' } };
+    try {
+      const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: "PUT", headers: { ...sb._au(), Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ password })
+      });
+      return sb._parseAuth(r);
+    } catch (e) {
+      return { data: null, error: { message: 'Network error — check your connection.' } };
+    }
+  },
+
   async signOut(token) {
     await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
       method: "POST", headers: { ...sb._au(), "Authorization": `Bearer ${token}` }

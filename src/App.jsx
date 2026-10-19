@@ -48,6 +48,7 @@ import { Ticker, UserMenu, AuthGate } from './components/OriginalUIOverlays';
 import { AuthModal, CommandPalette } from './components/OriginalFeatures';
 import EmployerPortal from './features/EmployerPortal/EmployerPortal';
 import { saveSession } from './lib/session';
+import { readAuthLink } from './lib/authLinks';
 import { resumeContent } from './lib/resumeText';
 
 // ── Main App Shell ───────────────────────────────────────────────────────────
@@ -65,6 +66,10 @@ function App() {
     setShowLanding(false);
   };
   const [authModal, setAuthModal] = useState(null);
+  // What the page was opened with after an email link (password reset, sign-up confirmation, an expired link). It is read while rendering, because the
+  // history effect below replaces the URL on mount and would drop the fragment. The recovery token stays in memory only and is never stored.
+  const [authLink] = useState(() => readAuthLink(window.location.hash, window.location.search));
+  const [recoveryToken, setRecoveryToken] = useState(() => (authLink?.kind === 'recovery' ? authLink.accessToken : null));
   const [proModal, setProModal] = useState(null);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
@@ -232,6 +237,14 @@ function App() {
     setSetupDone(false);
     window.location.reload();
   };
+
+  useEffect(() => {
+    if (!authLink) return;
+    if (authLink.kind === 'recovery') setAuthModal('reset');
+    else if (authLink.kind === 'confirmed') { setAuthModal('login'); showToast('Your email is confirmed. Sign in to continue.', 'success'); }
+    else { setAuthModal('login'); showToast('That email link has expired or was already used. Request a new one.', 'error'); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const showToast = (msg, type = "info") => {
     setToast({ msg, type });
@@ -651,8 +664,9 @@ function App() {
       {/* Modals */}
       {authModal && <AuthModal
         initialMode={authModal}
-        onSuccess={login}
-        onClose={() => setAuthModal(null)}
+        recoveryToken={recoveryToken}
+        onSuccess={(session) => { setRecoveryToken(null); login(session); }}
+        onClose={() => { setAuthModal(null); if (authModal === 'reset') setRecoveryToken(null); }}
         onViewLegal={(m) => { navigate(m); setAuthModal(null); }}
       />}
       {cmdOpen && <CommandPalette modules={MODULES} setActiveModule={navigate} setAuthModal={setAuthModal} user={user} onClose={() => setCmdOpen(false)} />}

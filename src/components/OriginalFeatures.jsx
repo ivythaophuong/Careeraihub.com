@@ -97,7 +97,7 @@ export function CommandPalette({ modules, setActiveModule, setAuthModal, user, o
 }
 
 // ── Auth Modal (Standardized Original UI) ────────────────────────────────────
-export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal }) {
+export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recoveryToken = null }) {
   const [mode, setMode] = useState(initialMode || "login");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
@@ -107,10 +107,28 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal }) {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [pass2, setPass2] = useState("");
+  const [notice, setNotice] = useState(""); // a calm message (not an error): the reset email was requested, the password was changed
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); setErr(""); setLoading(true);
+    e.preventDefault(); setErr(""); setNotice(""); setLoading(true);
     try {
+      if (mode === "forgot") {
+        // Same answer whether or not the address has an account; a failure says so in general terms and keeps the server's reason out of the page.
+        const { error } = await sb.recover(email.trim());
+        if (error) throw new Error("We couldn't send the email right now. Please try again in a few minutes.");
+        setNotice("If an account exists for that email, we've sent a link to reset the password. It can take a few minutes; check the spam folder too.");
+        return;
+      }
+      if (mode === "reset") {
+        if (!recoveryToken) throw new Error("This link has expired or was already used. Please request a new one.");
+        if (pass !== pass2) throw new Error("The two passwords do not match.");
+        const { error } = await sb.updatePassword(recoveryToken, pass);
+        if (error) throw new Error(error.message || "Could not change the password. Please try again.");
+        setPass(""); setPass2(""); setMode("login");
+        setNotice("Your password was updated. Sign in with your new password.");
+        return;
+      }
       if (mode === "register") {
         const signupSource = localStorage.getItem('careerai_signup_source') || 'organic';
         const { data, error } = await sb.signUp(email, pass, name, { role: accountType, company: accountType === 'recruiter' ? company : null, source: signupSource, is_beta: signupSource !== 'organic' });
@@ -144,6 +162,20 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal }) {
       btn: "Create Account", 
       toggle: "Already have an account? Sign in", 
       mode: "login" 
+    },
+    forgot: {
+      title: "Reset your password",
+      sub: "Enter your email and we'll send you a link",
+      btn: "Send reset link",
+      toggle: "Remembered it? Back to sign in",
+      mode: "login"
+    },
+    reset: {
+      title: "Choose a new password",
+      sub: "Choose a password you have not used on another site",
+      btn: "Set new password",
+      toggle: "Changed your mind? Back to sign in",
+      mode: "login"
     }
   };
 
@@ -217,20 +249,27 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal }) {
             </>
           )}
 
-          <div>
+          {mode !== 'reset' && <div>
             <div style={{ color: LP.muted, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6, fontWeight: 700 }}>Email Address</div>
             <input type="email" placeholder="you@email.com" value={email} onChange={e => { setEmail(e.target.value); setErr(''); }} required style={inputStyle} onFocus={e => { e.target.style.borderColor = LP.borderFocus; e.target.style.boxShadow = `0 0 0 3px rgba(236,72,153,0.08)`; }} onBlur={e => { e.target.style.borderColor = LP.border; e.target.style.boxShadow = 'none'; }} />
-          </div>
+          </div>}
 
-          <div>
-            <div style={{ color: LP.muted, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6, fontWeight: 700 }}>Password</div>
+          {mode !== 'forgot' && <div>
+            <div style={{ color: LP.muted, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6, fontWeight: 700 }}>{mode === 'reset' ? 'New password' : 'Password'}</div>
             <div style={{ position: 'relative' }}>
               <input type={showPass ? 'text' : 'password'} placeholder="••••••••" value={pass} onChange={e => { setPass(e.target.value); setErr(''); }} required style={{ ...inputStyle, paddingRight: 42 }} onFocus={e => { e.target.style.borderColor = LP.borderFocus; e.target.style.boxShadow = `0 0 0 3px rgba(236,72,153,0.08)`; }} onBlur={e => { e.target.style.borderColor = LP.border; e.target.style.boxShadow = 'none'; }} />
               <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: LP.muted, cursor: 'pointer', fontSize: 13 }}>
                 {showPass ? '🙈' : '👁'}
               </button>
             </div>
-          </div>
+          </div>}
+
+          {mode === 'reset' && <div>
+            <div style={{ color: LP.muted, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6, fontWeight: 700 }}>Repeat the new password</div>
+            <input type={showPass ? 'text' : 'password'} placeholder="••••••••" value={pass2} onChange={e => { setPass2(e.target.value); setErr(''); }} required autoComplete="new-password" style={inputStyle} />
+          </div>}
+
+          {notice && <div role="status" style={{ color: '#4ADE80', fontSize: 12, textAlign: 'center', background: 'rgba(74,222,128,0.08)', padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(74,222,128,0.25)', lineHeight: 1.5 }}>✓ {notice}</div>}
 
           {err && <div style={{ color: LP.red, fontSize: 12, textAlign: 'center', background: `${LP.red}12`, padding: '9px 12px', borderRadius: 9, border: `1px solid ${LP.red}30` }}>⚠ {err}</div>}
 
@@ -250,11 +289,11 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal }) {
 
         <div style={{ textAlign: 'center', marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {mode === 'login' && (
-            <button onClick={() => setErr("Password reset isn't available yet.")} style={{ background: 'transparent', border: 'none', color: LP.muted, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
+            <button type="button" onClick={() => { setMode('forgot'); setErr(''); setNotice(''); }} style={{ background: 'transparent', border: 'none', color: LP.muted, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
               Forgot your password?
             </button>
           )}
-          <button onClick={() => { setMode(config.mode); setErr(''); }} style={{ background: 'transparent', border: 'none', color: LP.muted, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button type="button" onClick={() => { setMode(config.mode); setErr(''); setNotice(''); }} style={{ background: 'transparent', border: 'none', color: LP.muted, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
             {config.toggle.split('?')[0]}?{' '}
             <span style={{ color: LP.teal, fontWeight: 700 }}>{config.toggle.split('?')[1]} →</span>
           </button>
