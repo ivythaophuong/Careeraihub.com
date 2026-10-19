@@ -1,3 +1,5 @@
+import CaptchaBox from './CaptchaBox';
+import { captchaEnabled } from '../lib/captcha';
 import React, { useState, useEffect, useRef } from 'react';
 import { sb } from '../lib/supabase';
 import { sessionFromAuthResponse } from '../lib/session';
@@ -108,12 +110,20 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [pass2, setPass2] = useState("");
+  const [captchaToken, setCaptchaToken] = useState(null);   // the Turnstile result for the next sign-in / sign-up / forgot-password request
+  const [captchaReset, setCaptchaReset] = useState(0);      // bumped after each attempt: a token can be used once
   const [resetToken, setResetToken] = useState(recoveryToken); // from a #access_token link, or from verifying a ?token_hash link
   const [notice, setNotice] = useState(""); // a calm message (not an error): the reset email was requested, the password was changed
 
+  // Supabase asks for the check on sign-in, sign-up and password reset only (not on the new-password or email-link steps).
+  const needsCaptcha = captchaEnabled() && (mode === 'login' || mode === 'register' || mode === 'forgot');
+  useEffect(() => { setCaptchaToken(null); }, [mode]);
+
   const handleSubmit = async (e) => {
     e.preventDefault(); setErr(""); setNotice(""); setLoading(true);
+    const cap = needsCaptcha ? [captchaToken] : [];   // no extra argument at all when the check is off: requests stay exactly as before
     try {
+      if (needsCaptcha && !captchaToken) throw new Error("Please complete the security check first.");
       if (mode === "link") {
         // The person pressed the button: only now is the one-time hash spent.
         const isRecovery = emailLink?.kind === 'recovery-link';
@@ -126,7 +136,7 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
       }
       if (mode === "forgot") {
         // Same answer whether or not the address has an account; a failure says so in general terms and keeps the server's reason out of the page.
-        const { error } = await sb.recover(email.trim());
+        const { error } = await sb.recover(email.trim(), ...cap);
         if (error) throw new Error("We couldn't send the email right now. Please try again in a few minutes.");
         setNotice("If an account exists for that email, we've sent a link to reset the password. It can take a few minutes; check the spam folder too.");
         return;
@@ -143,7 +153,7 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
       }
       if (mode === "register") {
         const signupSource = localStorage.getItem('careerai_signup_source') || 'organic';
-        const { data, error } = await sb.signUp(email, pass, name, { role: accountType, company: accountType === 'recruiter' ? company : null, source: signupSource, is_beta: signupSource !== 'organic' });
+        const { data, error } = await sb.signUp(email, pass, name, { role: accountType, company: accountType === 'recruiter' ? company : null, source: signupSource, is_beta: signupSource !== 'organic' }, ...cap);
         if (error) throw error;
         // With "Confirm email" on, no session comes back: the person has to press the button in the email first. That is the normal path, not an error, and
         // the answer is the same when the address already has an account (the server hides that too).
@@ -155,14 +165,17 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
         }
         onSuccess(session);
       } else {
-        const { data, error } = await sb.signIn(email, pass);
+        const { data, error } = await sb.signIn(email, pass, ...cap);
         if (error) throw error;
         if (!data?.user) throw new Error("Could not retrieve user data.");
         const session = sessionFromAuthResponse(data);
         if (!session) throw new Error("Could not start your session. Please try again.");
         onSuccess(session);
       }
-    } catch (err) { setErr(err.message); } finally { setLoading(false); }
+    } catch (err) { setErr(err.message); } finally {
+      setLoading(false);
+      if (needsCaptcha) { setCaptchaToken(null); setCaptchaReset((n) => n + 1); }   // a used token is spent: ask for a fresh check
+    }
   };
 
   const modeConfig = {
@@ -297,7 +310,9 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
 
           {err && <div style={{ color: LP.red, fontSize: 12, textAlign: 'center', background: `${LP.red}12`, padding: '9px 12px', borderRadius: 9, border: `1px solid ${LP.red}30` }}>⚠ {err}</div>}
 
-          <button type="submit" disabled={loading} style={{ width: '100%', background: loading ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg,${LP.teal},#0086BB)`, color: loading ? LP.muted : '#04080F', border: 'none', borderRadius: 11, padding: '14px', fontWeight: 900, fontSize: 14, fontFamily: 'inherit', cursor: loading ? 'not-allowed' : 'pointer', marginTop: 6, transition: 'all 0.2s', boxShadow: loading ? 'none' : `0 6px 24px rgba(236,72,153,0.25)`, letterSpacing: '0.01em' }}>
+          {needsCaptcha && <CaptchaBox key={mode} onToken={setCaptchaToken} resetKey={captchaReset} />}
+
+          <button type="submit" disabled={loading || (needsCaptcha && !captchaToken)} style={{ width: '100%', background: loading ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg,${LP.teal},#0086BB)`, color: loading ? LP.muted : '#04080F', border: 'none', borderRadius: 11, padding: '14px', fontWeight: 900, fontSize: 14, fontFamily: 'inherit', cursor: loading ? 'not-allowed' : 'pointer', marginTop: 6, transition: 'all 0.2s', boxShadow: loading ? 'none' : `0 6px 24px rgba(236,72,153,0.25)`, letterSpacing: '0.01em' }}>
             {loading ? 'Connecting…' : config.btn + ' →'}
           </button>
 

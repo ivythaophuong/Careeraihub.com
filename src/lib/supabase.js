@@ -38,11 +38,12 @@ export const sb = {
     return { data: d, error: null };
   },
 
-  async signUp(email, password, name, extraMeta = {}) {
+  // `captchaToken` (optional) is the Cloudflare Turnstile result; Supabase reads it from gotrue_meta_security, the same field @supabase/auth-js sends.
+  async signUp(email, password, name, extraMeta = {}, captchaToken = null) {
     try {
       const r = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
         method: "POST", headers: sb._au(),
-        body: JSON.stringify({ email, password, data: { full_name: name, ...extraMeta } })
+        body: JSON.stringify({ email, password, data: { full_name: name, ...extraMeta }, ...(captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}) })
       });
       return sb._parseAuth(r);
     } catch (e) {
@@ -50,11 +51,11 @@ export const sb = {
     }
   },
 
-  async signIn(email, password) {
+  async signIn(email, password, captchaToken = null) {
     try {
       const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: "POST", headers: sb._au(),
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, ...(captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}) })
       });
       return sb._parseAuth(r);
     } catch (e) {
@@ -64,11 +65,11 @@ export const sb = {
 
   // Ask for a password-reset email. The link comes back to this site (it must be in the project's Redirect URLs, otherwise Supabase uses the Site URL).
   // The API answers the same way whether or not the address has an account, so the caller must not tell the two apart either.
-  async recover(email) {
+  async recover(email, captchaToken = null) {
     try {
       const r = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(window.location.origin)}`, {
         method: "POST", headers: sb._au(),
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email, ...(captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}) })
       });
       return sb._parseAuth(r);
     } catch (e) {
