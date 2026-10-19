@@ -56,7 +56,7 @@ Tested only on the in-memory replica: `replica-test/s1-recompute-on-delete.mjs` 
 idempotence and the down script) and `replica-test/s0-integrity-findings.mjs --desired --apply=<this script>` (F-5 flips to FIXED, the other findings stay OPEN).
 The replica adds the four foreign keys to `auth.users` that production has (evidence query 1.8). Not run against the real database.
 
-## Proposed, NOT applied: recruiters read a candidate only with consent (2026-10-09, finding F-4)
+## Proposed 2026-10-09, APPLIED 2026-10-19 (see the last section): recruiters read a candidate only with consent (finding F-4)
 
 `proposed/2026-10-09-consent-only-recruiter-access.sql` (undo: `.down.sql`, which restores the three policies exactly as read from production). Owner decision:
 a recruiter may read a candidate only with that candidate's consent.
@@ -180,3 +180,34 @@ Applied: `proposed/2026-10-18-ledger-session-owner.sql` (replaces `reserve_ai_re
 - The ledger also has rows from `score-star` and `score-interview` (`score_star_review`, `score_interview_evaluate`, both `openai` / `gpt-6-luna`, observe, completed). Neither row reports thinking tokens, so they do not show whether the double count of reasoning tokens (fixed in #155) is gone: still to be confirmed with a row that has thinking tokens.
 - Not read: other functions' bodies, grants on the tables, and that the down script restores the previous body on production (it passed on the replica only).
 
+
+## 2026-10-19: consent-only recruiter access and the privilege revoke applied (owner, SQL Editor) and read back (Claude, read-only CLI)
+
+Both scripts were run by the owner in the SQL Editor of project `ruibdsvrcctxgxctaxwe`, one run each, answer "Success. No rows returned". Claude could not run them (writes to production are blocked for it). Each read-back below is a read-only query through the CLI.
+
+### 1. `proposed/2026-10-09-consent-only-recruiter-access.sql` (finding F-4)
+Undo: `proposed/2026-10-09-consent-only-recruiter-access.down.sql`. Before the run (read the same day): the policy `recruiters can read visible profiles` existed, the two functions did not, and both insert policies used `candidate_is_visible`; the down script matched that state.
+Read back after the run:
+- `candidate_trust_profiles` has one policy, `candidate owns profile`; `recruiters can read visible profiles` is gone, so a recruiter has no direct read of the table.
+- `employer_has_consent` and `employer_view_candidates` exist, are `SECURITY DEFINER`, executable by `authenticated` and not by `anon`.
+- The insert policies of `trust_matches` and `pipeline_entries` now use `employer_has_consent(candidate_id, employer_id, 'profile')`.
+- Data unchanged: 7 profiles, 1 visible.
+**Timing note:** a first read-back made right after the owner's "Success" still showed the old state (old policy present, functions absent). A second read about ten minutes later showed the new state. The cause is UNKNOWN (the run may simply not have finished when the first read was made). Read back again before relying on any single read.
+Context read at the time: 1 employer, 0 verified (`verified_at` empty), 1 member, 0 rows in `consents`. With no verified employer the old policy granted nothing in practice; the risk was latent, not active.
+Not checked: calling `employer_view_candidates` with a real signed-in user (no verified employer exists to test with). The web build live at the time did not turn on `VITE_CONSENT_FLOW` (not confirmed from the build; the repo test forbids it in env files), so the Employer Portal branch that reads `candidate_trust_profiles` directly now returns no rows to recruiters.
+**Rule that follows:** do not set `verified_at` on any employer before the consent screen and the flag are live, otherwise that employer sees no candidates.
+
+### 2. `proposed/2026-10-18-revoke-excess-privileges.sql` (RLS audit findings 3 and 4)
+Undo: `proposed/2026-10-18-revoke-excess-privileges.down.sql`. Before the run: the grants of `anon` and `authenticated` on the 20 tables were compared by script with the baseline used by `replica-test/s6-privilege-hardening.mjs`: 20 tables, 0 differences. That test passed 14 of 14 on the replica.
+Read back after the run (about 20 seconds after the owner's "Success"):
+- `anon` holds no privilege on the 16 private tables.
+- No role has `TRUNCATE`, `TRIGGER` or `REFERENCES` on any `public` table.
+- `anon` keeps `SELECT` on `job_listings`, and `SELECT`, `INSERT`, `UPDATE`, `DELETE` on `waitlist`, `culture_leads`, `culture_quiz_events` (their writer is not in this repository: UNKNOWN, left as it was).
+- `authenticated` keeps `SELECT`, `INSERT`, `UPDATE`, `DELETE` on `user_memory` and `candidate_trust_profiles`, and `SELECT`, `DELETE` on `mock_sessions`.
+- Row level security is on for all 32 `public` tables.
+Not checked: signing in to the app and using it after the change.
+
+### Found, not changed: default privileges and drift
+- `pg_default_acl` for schema `public` gives `anon`, `authenticated` and `service_role` all table privileges (and execute on functions) on every new object created by `postgres` or `supabase_admin`. The ledger tables are tight only because their scripts revoke by hand. A table created later without a revoke is open to the browser roles (RLS permitting). Nothing was changed; a fix needs its own script, replica test and approval.
+- `anon` and `authenticated` are members of no other role and have no `BYPASSRLS`; column privileges equal the table privileges on `candidate_trust_profiles`, `profiles` and `user_memory`.
+- On 2026-10-13 the privileges of an applied script were found back to their old state for a reason that was never found (section "Re-applied to production" above). These two scripts can drift in the same way. **Recommended:** repeat the grants comparison of section 2 on a regular schedule.

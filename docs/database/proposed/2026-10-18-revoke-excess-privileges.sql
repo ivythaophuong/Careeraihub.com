@@ -1,4 +1,4 @@
--- PROPOSED, NOT APPLIED. Written 2026-10-18. Project: CareerAiHub (ruibdsvrcctxgxctaxwe) only. Never ZenDMS (obtmsvhejvcfrkfyucev).
+-- APPLIED to production 2026-10-19 by the owner in the SQL Editor (see docs/database/README.md, section 2026-10-19). Written 2026-10-18. Project: CareerAiHub (ruibdsvrcctxgxctaxwe) only. Never ZenDMS (obtmsvhejvcfrkfyucev).
 -- Why: the project's default privileges gave anon and authenticated every privilege on the 20 older public tables (read-only audit 2026-10-18,
 -- docs/audits/RLS-AUDIT-2026-10-18.md, findings 3 and 4). Rows are protected by RLS today; this takes away privileges nobody uses, so that one wrong policy
 -- can no longer expose or destroy a table by itself.

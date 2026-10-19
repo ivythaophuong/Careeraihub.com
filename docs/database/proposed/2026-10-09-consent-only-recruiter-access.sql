@@ -1,4 +1,4 @@
--- PROPOSED, NOT APPLIED. Tested only on the in-memory replica (docs/database/replica-test/s3-consent-only-access.mjs).
+-- APPLIED to production 2026-10-19 by the owner in the SQL Editor (see docs/database/README.md, section 2026-10-19). Tested on the in-memory replica (docs/database/replica-test/s3-consent-only-access.mjs).
 -- Review it, then apply it yourself in the Supabase SQL Editor. Plan: docs/architecture/plans/PLAN-score-and-consent-integrity.md (S3, finding F-4).
 -- Owner decision (2026-10-09): a recruiter may read a candidate only with that candidate's consent.
 --
