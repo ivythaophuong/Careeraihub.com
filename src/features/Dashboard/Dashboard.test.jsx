@@ -38,3 +38,26 @@ describe('Dashboard shows a JD match percentage as an AI estimate', () => {
     expect(container.textContent).toMatch(/JD match: Product Manager · AI estimate 72%/);
   });
 });
+
+describe('Dashboard names the interview figure and does not turn "no session" into a score', () => {
+  it('a user with no session sees no "0/100" interview readiness and no "Interview Ready" badge', () => {
+    const { container } = show();
+    const text = container.textContent;
+    expect(text).not.toMatch(/readiness 0\/100/i);
+    expect(text).not.toMatch(/Interview Ready/);
+    expect(text).toMatch(/Start first session/);
+  });
+
+  it('with sessions, the figure is called the latest session and is not an unqualified readiness', () => {
+    const { container } = show({ memory: { mockSessions: [{ avgScore: 85, questionsCount: 5 }, { avgScore: 40, questionsCount: 5 }] } });
+    const text = container.textContent;
+    expect(text).toMatch(/Latest session/);
+    expect(text).toMatch(/85/);
+    expect(text).not.toMatch(/Interview Ready/);
+  });
+
+  it('a latest session that really scored 0 is shown as 0, not as "no session"', () => {
+    const { container } = show({ memory: { mockSessions: [{ avgScore: 0, questionsCount: 5 }] } });
+    expect(container.textContent).not.toMatch(/Start first session/);
+  });
+});
