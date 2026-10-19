@@ -30,3 +30,26 @@ export function readAuthLink(hash = '', search = '') {
   if ((type === 'signup' || type === 'email_change') && token) return { kind: 'confirmed' };
   return null;
 }
+
+// The session restore in App.jsx can refresh an expired stored token and then reload the page, and the address bar has already been cleaned by then, so a link
+// that was not used yet would be lost. The actionable kinds are therefore kept for this tab only (sessionStorage), and forgotten as soon as the link is used or
+// the dialog is closed. A recovery link holds a one-time hash or a short-lived token; nothing else is stored.
+export const PENDING_LINK_KEY = 'careerai_pending_auth_link';
+const ACTIONABLE = new Set(['recovery', 'recovery-link', 'confirm-link']);
+
+export function rememberAuthLink(link) {
+  try { if (link && ACTIONABLE.has(link.kind)) sessionStorage.setItem(PENDING_LINK_KEY, JSON.stringify(link)); } catch { /* private mode: the link just does not survive a reload */ }
+}
+export function forgetAuthLink() {
+  try { sessionStorage.removeItem(PENDING_LINK_KEY); } catch { /* nothing to do */ }
+}
+export function recallAuthLink() {
+  try {
+    const raw = sessionStorage.getItem(PENDING_LINK_KEY);
+    if (!raw) return null;
+    const l = JSON.parse(raw);
+    if (!l || !ACTIONABLE.has(l.kind)) return null;
+    const ok = l.kind === 'recovery' ? typeof l.accessToken === 'string' && l.accessToken : typeof l.tokenHash === 'string' && l.tokenHash;
+    return ok ? l : null;
+  } catch { return null; }
+}

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { readAuthLink } from './authLinks';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { readAuthLink, rememberAuthLink, recallAuthLink, forgetAuthLink, PENDING_LINK_KEY } from './authLinks';
 
 describe('readAuthLink: what the page was opened with after an email link', () => {
   it('a password-recovery link gives the access token', () => {
@@ -49,5 +49,36 @@ describe('readAuthLink: links that point straight at this site (token_hash)', ()
     expect(readAuthLink('', '?token_hash=H')).toBeNull();
     expect(readAuthLink('', '?token_hash=H&type=magiclink')).toBeNull();
     expect(readAuthLink('', '?type=recovery')).toBeNull();
+  });
+});
+
+describe('keeping a link that was not used yet, for a reload of this tab', () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it('keeps and gives back a recovery-link, a recovery token and a confirm-link', () => {
+    for (const link of [{ kind: 'recovery-link', tokenHash: 'H' }, { kind: 'recovery', accessToken: 'A' }, { kind: 'confirm-link', tokenHash: 'H', type: 'email' }]) {
+      rememberAuthLink(link);
+      expect(recallAuthLink()).toEqual(link);
+    }
+  });
+
+  it('does not keep a message-only kind (expired, confirmed) or nothing at all', () => {
+    rememberAuthLink({ kind: 'error', code: 'otp_expired' });
+    rememberAuthLink({ kind: 'confirmed' });
+    rememberAuthLink(null);
+    expect(sessionStorage.getItem(PENDING_LINK_KEY)).toBeNull();
+  });
+
+  it('forgets on request', () => {
+    rememberAuthLink({ kind: 'recovery-link', tokenHash: 'H' });
+    forgetAuthLink();
+    expect(recallAuthLink()).toBeNull();
+  });
+
+  it('ignores a stored value that is damaged, of an unknown kind, or without its token', () => {
+    for (const raw of ['not json', JSON.stringify({ kind: 'admin', tokenHash: 'x' }), JSON.stringify({ kind: 'recovery-link' }), JSON.stringify({ kind: 'recovery', accessToken: '' }), JSON.stringify(null)]) {
+      sessionStorage.setItem(PENDING_LINK_KEY, raw);
+      expect(recallAuthLink()).toBeNull();
+    }
   });
 });
