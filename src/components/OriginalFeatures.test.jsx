@@ -144,3 +144,46 @@ describe('AuthModal: a link that points straight at this site (token_hash)', () 
     expect(screen.getByText('Sign In →')).toBeTruthy();
   });
 });
+
+describe('AuthModal: creating an account', () => {
+  const register = (props = {}) => open({ initialMode: 'register', ...props });
+  const fillAndSubmit = () => {
+    fireEvent.change(screen.getByPlaceholderText('Your full name'), { target: { value: 'Ann Lee' } });
+    typeEmail('ann@example.com');
+    fireEvent.change(document.querySelector('input[type="password"]'), { target: { value: 'a-good-password' } });
+    fireEvent.click(screen.getByText('Create Account →'));
+  };
+
+  it('when the project asks for the email to be confirmed (no session comes back), it says so calmly, not as an error, and shows the sign-in form', async () => {
+    sb.signUp.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+    const onSuccess = vi.fn();
+    register({ onSuccess }); fillAndSubmit();
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/check your email/i));
+    expect(screen.getByRole('status').textContent).toMatch(/spam/i);
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText('Sign In →')).toBeTruthy();                    // the person confirms, then signs in
+    expect(document.body.textContent).not.toMatch(/⚠/);                    // no red error
+  });
+
+  it('answers the same way when the server returns no user at all (an address that already has an account)', async () => {
+    sb.signUp.mockResolvedValue({ data: {}, error: null });
+    register(); fillAndSubmit();
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/check your email/i));
+    expect(document.body.textContent).not.toMatch(/already|exists|registered/i);
+  });
+
+  it('when a session comes back (confirmation off), the person is signed in as before', async () => {
+    const future = Math.floor(Date.now() / 1000) + 3600;
+    sb.signUp.mockResolvedValue({ data: { user: { id: 'u1', email: 'ann@example.com' }, access_token: 'a.b.c', refresh_token: 'r', expires_at: future, expires_in: 3600 }, error: null });
+    const onSuccess = vi.fn();
+    register({ onSuccess }); fillAndSubmit();
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+  });
+
+  it('a real error from the server is still shown as an error', async () => {
+    sb.signUp.mockResolvedValue({ data: null, error: { message: 'Password should be at least 6 characters.' } });
+    register(); fillAndSubmit();
+    await waitFor(() => expect(document.body.textContent).toMatch(/at least 6 characters/));
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+});

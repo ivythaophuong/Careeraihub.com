@@ -145,9 +145,14 @@ export function AuthModal({ initialMode, onSuccess, onClose, onViewLegal, recove
         const signupSource = localStorage.getItem('careerai_signup_source') || 'organic';
         const { data, error } = await sb.signUp(email, pass, name, { role: accountType, company: accountType === 'recruiter' ? company : null, source: signupSource, is_beta: signupSource !== 'organic' });
         if (error) throw error;
-        if (!data?.user) throw new Error("Registration started. Please check your email for confirmation.");
-        const session = sessionFromAuthResponse(data);
-        if (!session) throw new Error("Registration started. Please check your email for confirmation.");
+        // With "Confirm email" on, no session comes back: the person has to press the button in the email first. That is the normal path, not an error, and
+        // the answer is the same when the address already has an account (the server hides that too).
+        const session = data?.user ? sessionFromAuthResponse(data) : null;
+        if (!session) {
+          setPass(""); setPass2(""); setMode("login");
+          setNotice("Check your email: we've sent you a message. Press the button in it to confirm your address, then sign in here. It can take a few minutes; look in the spam folder too.");
+          return;
+        }
         onSuccess(session);
       } else {
         const { data, error } = await sb.signIn(email, pass);
