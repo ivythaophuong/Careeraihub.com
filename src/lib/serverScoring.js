@@ -39,6 +39,7 @@ export const reviewStarOnServer = (story, context) => post('score-star', { actio
 export const saveStarOnServer = (story, result, receipt) => post('score-star', { action: 'save', story, result, receipt });
 
 // Mock interview: grade one answer, then save the session from the receipts of the graded answers.
-export const evaluateAnswerOnServer = ({ personaId, role, question, answer, resumeText }) =>
-  post('score-interview', { action: 'evaluate', personaId, role, question, answer, resumeText });
+// delivery (optional, spoken answers only): six measured numbers (see sanitizeDelivery on the server). It never changes the score.
+export const evaluateAnswerOnServer = ({ personaId, role, question, answer, resumeText, delivery }) =>
+  post('score-interview', { action: 'evaluate', personaId, role, question, answer, resumeText, ...(delivery ? { delivery } : {}) });
 export const saveInterviewOnServer = (personaId, role, items) => post('score-interview', { action: 'save', personaId, role, items });

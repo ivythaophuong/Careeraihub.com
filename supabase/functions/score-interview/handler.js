@@ -12,7 +12,7 @@
 // a valid session can be saved again (capped at 10 sessions per user per 24 hours) because mock_sessions has no column to remember it.
 import { callWithFallback, providerChain, ProviderError } from '../ai/providers.js';
 import { corsHeaders, json, fail, authenticate, createRateLimiter } from '../ai/handler.js';
-import { PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildEvaluationPrompt, normalizeEvaluation } from '../_shared/interviewScoring.js';
+import { PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildEvaluationPrompt, normalizeEvaluation, sanitizeDelivery } from '../_shared/interviewScoring.js';
 import { extractJSON } from '../_shared/extractJson.js';
 import { makeRecorder, userRef as makeUserRef } from '../_shared/usage.js';
 import { signingKey, hmacHex, sameText, rest, countLastDay } from '../_shared/receipt.js';
@@ -46,14 +46,16 @@ async function evaluate(body, user, env, fetchImpl, cors, now, ledger) {
   if (providerChain(env).length === 0) { console.error('[score-interview] No provider key configured.'); return fail(500, 'AI service is not configured.', cors); }
   const resumeText = text(body.resumeText).slice(0, LIMITS.maxResumeChars);
   const resume = resumeText ? { kind: 'text', text: resumeText } : { kind: 'none' };
+  // Figures measured in the browser for a spoken answer: numbers only, checked again here. Anything else is ignored. They never change the score.
+  const delivery = sanitizeDelivery(body.delivery);
 
   let feedback;
   try {
-    const messages = [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume }) }];
+    const messages = [{ role: 'user', content: buildEvaluationPrompt({ personaId, role: text(body.role).slice(0, 80), question, answer, resume, delivery }) }];
     const meter = { record: makeRecorder(), correlationId: crypto.randomUUID(), feature: 'score_interview_evaluate', resumeKind: resume.kind, resumeChars: resume.kind === 'text' ? resume.text.length : 0, userRef: await makeUserRef(env.USAGE_LOG_SALT || env.SUPABASE_SERVICE_ROLE_KEY, user.id).catch(() => null) };
     const reply = await callWithLedger({ env, fetchImpl, ledger, userId: user.id, feature: meter.feature, messages, maxTokens: LIMITS.maxTokens, meter,
       call: (m) => callWithFallback({ env, messages, maxTokens: LIMITS.maxTokens, pdfBase64: null, meter: m }, fetchImpl) });
-    feedback = normalizeEvaluation(extractJSON(reply));
+    feedback = normalizeEvaluation(extractJSON(reply), { delivery });
   } catch (e) {
     if (e instanceof LedgerLimit) return fail(429, LIMIT_MESSAGE, cors, { reason: e.reason });
     if (e instanceof ProviderError) {

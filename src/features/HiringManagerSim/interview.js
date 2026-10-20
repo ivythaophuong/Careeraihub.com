@@ -3,10 +3,10 @@
 
 import { findUnsupportedNumbers } from '../../lib/numberGuard';
 import {
-  MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, PERSONAS, verdictFor, buildEvaluationPrompt, normalizeEvaluation, summarize,
+  MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, PERSONAS, verdictFor, buildEvaluationPrompt, normalizeEvaluation, summarize, sanitizeDelivery,
 } from '../../../supabase/functions/_shared/interviewScoring.js';
 
-export { MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, PERSONAS, verdictFor, buildEvaluationPrompt, normalizeEvaluation, summarize };
+export { MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, PERSONAS, verdictFor, buildEvaluationPrompt, normalizeEvaluation, summarize, sanitizeDelivery };
 
 export const QUESTIONS_PER_SESSION = 5;
 const clip = (s, n) => (s.length > n ? s.slice(0, n) : s);
