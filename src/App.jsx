@@ -37,6 +37,7 @@ import TermsOfService from './features/Legal/TermsOfService';
 import LandingPage, { GuestNav, AppHubNav, LogoMark, StudyPlanModal, GetReadyTabStrip } from './features/Landing/LandingPage';
 import { AppLoader, OrbitSpinner } from './components/OrbitMark';
 import AppSidebar from './components/AppSidebar';
+import { useFocusMode } from './hooks/useFocusMode.js';
 import Dashboard from './features/Dashboard/Dashboard';
 import SkillsGap from './features/SkillsGap/SkillsGap';
 import CareerRoadmap from './features/CareerRoadmap/CareerRoadmap';
@@ -80,6 +81,7 @@ function App() {
   const [toast, setToast] = useState(null);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { focus: focusMode, onFocusChange } = useFocusMode(sidebarCollapsed, setSidebarCollapsed); // a module (the mock interview) can ask for a quieter screen while the person works
   const [isRecruiter, setIsRecruiter] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   const [grModalOpen, setGrModalOpen] = useState(false);
@@ -299,6 +301,7 @@ function App() {
       onProTrigger: setProModal,
       user, setAuthModal, showToast, setActiveModule: navigate,
       onStudyPlan: (tab) => { setGrModalTab(tab); setGrModalOpen(true); },
+      onFocusChange,
     };
     
     switch (activeModule) {
@@ -708,14 +711,14 @@ function App() {
               </button>
             </div>
             {renderMainContent()}
-            <footer style={{ borderTop: `1px solid var(--lp-bdr)`, padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            {!focusMode && <footer style={{ borderTop: `1px solid var(--lp-bdr)`, padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div style={{ color: 'var(--lp-text3)', fontSize: 11 }}>© 2026 CareerAiHub. All rights reserved.</div>
               <div style={{ display: 'flex', gap: 16 }}>
                 <button onClick={() => navigate('privacy')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--lp-text3)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}>Privacy</button>
                 <button onClick={() => navigate('terms')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--lp-text3)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}>Terms</button>
                 <a href="mailto:hello.careeraihub@gmail.com" style={{ color: 'var(--lp-text3)', fontSize: 11, textDecoration: 'none', fontWeight: 600 }}>Support</a>
               </div>
-            </footer>
+            </footer>}
           </div>
         </>
       ) : (

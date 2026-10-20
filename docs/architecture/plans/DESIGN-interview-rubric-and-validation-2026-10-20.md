@@ -43,6 +43,8 @@ This plan changes nothing about the live score. The owner decides what users see
 | b. Hide the numbers until section 6 is done | Honest, but users lose a figure they are used to; the Trust Score still receives the saved averages unless that is changed separately |
 | c. Leave as is | The per-answer score looks more certain than the summary says |
 
+**Status (2026-10-20):** option a was taken, by the owner's "ok" to the recommended defaults. Every per-answer score now carries "AI estimate, not verified evidence" (the session summary already did). No number was removed and no scoring changed.
+
 ## 4. Rubric v0 (PROPOSED)
 
 **Scope of v0: questions about past experience only** ("tell me about a time ..."). Of the five questions in a session only about two are of this kind (the prompt asks for one opening, two behavioural, one role-depth and one curveball question), and a question has no recorded type today (only a free-text `focus`). The question type is assigned in advance by whoever writes the question (for the reference set: the author), never by the reviewer. Hypothetical, knowledge and opening questions get **no labels** until a rubric for them exists; they keep plain guidance. Criteria B and D are therefore always applicable in v0, and `n/a` is not used.

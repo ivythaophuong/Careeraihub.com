@@ -57,7 +57,7 @@ function Outline({ items }) {
   );
 }
 
-export default function HiringManagerSim({ resumeText, form, memory, updateMemory, setAuthModal, setActiveModule, user }) {
+export default function HiringManagerSim({ resumeText, form, memory, updateMemory, setAuthModal, setActiveModule, user, onFocusChange }) {
   const [phase, setPhase] = useState('select'); // select | interview | summary
   const [personaId, setPersonaId] = useState(null);
   const [role, setRole] = useState(form?.role || '');
@@ -105,6 +105,10 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const q = questions[idx];
 
   const answeredNow = results.filter(r => !r.skipped).length;
+
+  // While questions are on screen the page can be quiet: the parent hides what is not needed. It is asked again for the normal page when this ends.
+  const inInterview = phase === 'interview';
+  useEffect(() => { onFocusChange?.(inInterview); return () => { onFocusChange?.(false); }; }, [inInterview]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Informational time, counted per question first: it runs while the first attempt at a question is still open and stops when the answer is submitted
   // (or skipped), while feedback is being fetched, and during a practice retry. The session total is the sum of the questions.
@@ -551,6 +555,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
               <div style={{ textAlign: "right" }}>
                 {attempt > 1 && <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Practice score (not counted)</div>}
                 <div style={{ color: scoreColor(current.score), fontSize: attempt > 1 ? 18 : 24, fontWeight: 900 }} aria-label="Answer score">{current.score}%</div>
+                <div style={{ color: C.muted, fontSize: 10.5, marginTop: 2 }}>AI estimate, not verified evidence</div>
               </div>
             </div>
             {attempt > 1 && Number.isFinite(firstScore) && (

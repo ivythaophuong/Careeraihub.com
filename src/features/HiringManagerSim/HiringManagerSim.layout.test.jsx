@@ -60,6 +60,29 @@ describe('text answers', () => {
   });
 });
 
+describe('the score of one answer', () => {
+  const feedback = async () => {
+    setup(); await open();
+    fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: ANSWER } });
+    fireEvent.click(bar().getByRole('button', { name: /Get AI Feedback/ }));
+    await screen.findByLabelText('Answer score');
+  };
+  it('says right under the number that it is an AI estimate and not verified evidence', async () => {
+    await feedback();
+    const score = screen.getByLabelText('Answer score');
+    expect(score.parentElement.textContent).toMatch(/AI estimate/i);
+    expect(score.parentElement.textContent).toMatch(/not verified evidence/i);
+  });
+  it('keeps saying so on a practice retry, next to the practice label', async () => {
+    await feedback();
+    fireEvent.click(bar().getByRole('button', { name: /Try this answer again/ }));
+    fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: ANSWER + ' I also reported progress every week.' } });
+    fireEvent.click(bar().getByRole('button', { name: /Get AI Feedback/ }));
+    await waitFor(() => expect(screen.getByText(/Practice score \(not counted\)/)).toBeTruthy());
+    expect(screen.getByLabelText('Answer score').parentElement.textContent).toMatch(/AI estimate/i);
+  });
+});
+
 describe('voice answers', () => {
   it('shows the tabs with Voice answer locked until the unlock, and the typed box still works', async () => {
     await voiceSetup({ unlocked: false });
