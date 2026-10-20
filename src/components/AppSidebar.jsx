@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LogoMark } from '../features/Landing/LandingPage';
+import { subsOf, isSub, defaultSub } from '../lib/subNav.js';
 
 // ── SVG icon set — 16×16 viewBox, stroke-based ───────────────────────────────
 function Icon({ id, size = 15, color = 'currentColor' }) {
@@ -127,7 +128,7 @@ function MobNavIcon({ id, active }) {
   }
 }
 
-export default function AppSidebar({ activeModule, onNavigate, user, onLogout, collapsed, onToggle }) {
+export default function AppSidebar({ activeModule, activeSub, onNavigate, user, onLogout, collapsed, onToggle }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const allItems   = NAV_GROUPS.flatMap(g => g.items);
   const mobileItems = allItems.filter(i => MOBILE_ITEMS.includes(i.id));
@@ -173,14 +174,18 @@ export default function AppSidebar({ activeModule, onNavigate, user, onLogout, c
               )}
               {group.items.map(item => {
                 const active = activeModule === item.id || (item.id === 'simulate' && INTERVIEW_COACH_IDS.includes(activeModule));
+                const subs = subsOf(item.id);
+                const subOpen = subs.length > 0 && activeModule === item.id && !collapsed; // a feature's parts show while it is the open feature
+                const inPart = subs.length > 0 && activeModule === item.id && isSub(item.id, activeSub);
                 return (
+                  <React.Fragment key={item.id}>
                   <button
-                    key={item.id}
                     className={`app-sidebar-item${active ? ' active' : ''}`}
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => onNavigate(item.id, defaultSub(item.id) ?? undefined)}
                     title={collapsed ? item.label : undefined}
                     aria-label={collapsed ? item.label : undefined}
-                    aria-current={active ? 'page' : undefined}
+                    aria-current={active && !inPart ? 'page' : undefined}
+                    aria-expanded={subs.length > 0 && !collapsed ? subOpen : undefined}
                     data-mobile-hide={!MOBILE_ITEMS.includes(item.id) ? '' : undefined}
                   >
                     <span className="app-sidebar-icon">
@@ -197,6 +202,17 @@ export default function AppSidebar({ activeModule, onNavigate, user, onLogout, c
                       </>
                     )}
                   </button>
+                  {subOpen && (
+                    <div role="group" aria-label={`${item.label} sections`} className="app-sidebar-subgroup">
+                      {subs.map(sub => {
+                        const here = activeSub === sub.id;
+                        return (
+                          <button key={sub.id} className={`app-sidebar-subitem${here ? ' active' : ''}`} onClick={() => onNavigate(item.id, sub.id)} aria-current={here ? 'page' : undefined}>{sub.label}</button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </React.Fragment>
