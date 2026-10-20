@@ -37,6 +37,7 @@ import TermsOfService from './features/Legal/TermsOfService';
 import LandingPage, { GuestNav, AppHubNav, LogoMark, StudyPlanModal, GetReadyTabStrip } from './features/Landing/LandingPage';
 import { AppLoader, OrbitSpinner } from './components/OrbitMark';
 import AppSidebar from './components/AppSidebar';
+import PageHeading from './components/PageHeading';
 import { useFocusMode } from './hooks/useFocusMode.js';
 import { tabUrl, isSub, defaultSub } from './lib/subNav.js';
 import Dashboard from './features/Dashboard/Dashboard';
@@ -668,6 +669,7 @@ function App() {
 
     return (
       <div key={activeModule} style={{ animation: "fadeIn 0.4s ease" }}>
+        <PageHeading moduleId={activeModule} />
         {renderActiveModule()}
       </div>
     );
@@ -714,7 +716,7 @@ function App() {
               <button onClick={() => setDarkMode(d => !d)} title="Toggle theme" aria-label={darkMode ? "Switch to light theme" : "Switch to dark theme"} style={{ background: 'transparent', border: `1px solid var(--lp-bdr2)`, color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', lineHeight: 1 }}>
                 {darkMode ? 'Light' : 'Dark'}
               </button>
-              <button onClick={() => setCmdOpen(true)} title="Command palette (⌘K)" aria-label="Open command palette" style={{ background: 'transparent', border: `1px solid var(--lp-bdr2)`, color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={() => setCmdOpen(true)} title="Command palette (⌘K)" aria-label="⌘K open command palette" style={{ background: 'transparent', border: `1px solid var(--lp-bdr2)`, color: 'var(--lp-text2)', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                 ⌘K
               </button>
             </div>

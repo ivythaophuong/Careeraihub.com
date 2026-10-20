@@ -144,13 +144,13 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
               <div>
                 <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontWeight: 800 }}>Experience Level</div>
-                <select value={expLevel} onChange={e => setExpLevel(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: "12px 10px", fontSize: 13, outline: "none", cursor: "pointer" }}>
+                <select aria-label="Experience level" value={expLevel} onChange={e => setExpLevel(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: "12px 10px", fontSize: 13, outline: "none", cursor: "pointer" }}>
                   {["Any", "Entry", "Mid", "Senior", "Executive"].map(o => <option key={o}>{o}</option>)}
                 </select>
               </div>
               <div>
                 <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontWeight: 800 }}>Type</div>
-                <select value={jobType} onChange={e => setJobType(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: "12px 10px", fontSize: 13, outline: "none", cursor: "pointer" }}>
+                <select aria-label="Job type" value={jobType} onChange={e => setJobType(e.target.value)} style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: "12px 10px", fontSize: 13, outline: "none", cursor: "pointer" }}>
                   {["all", "Full-time", "Contract", "Intern"].map(o=> <option key={o}>{o}</option>)}
                 </select>
               </div>
@@ -403,7 +403,7 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <select value={j.status} onChange={e => updateStatus(j.id, e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "4px 8px", fontSize: 11 }}>
+                      <select aria-label={`Status for ${j.role} at ${j.company}`} value={j.status} onChange={e => updateStatus(j.id, e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "4px 8px", fontSize: 11 }}>
                         {Object.keys(statusColors).map(s => <option key={s}>{s}</option>)}
                       </select>
                       <button onClick={() => deleteJob(j.id)} style={{ background: "transparent", border: "none", color: C.red, cursor: "pointer" }}>✕</button>
