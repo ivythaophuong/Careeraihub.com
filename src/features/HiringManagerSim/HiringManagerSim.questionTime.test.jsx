@@ -19,7 +19,9 @@ const setup = () => render(<HiringManagerSim resumeText={resumeText} form={{ rol
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); vi.clearAllMocks(); vi.spyOn(console, 'error').mockImplementation(() => {}); vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] }); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-const start = async () => { ai(); setup(); fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/); };
+// The clock starts when the person is ready, so these tests press "I'm ready" where they mean to start counting.
+const ready = () => fireEvent.click(screen.getByRole('button', { name: /i'?m ready/i }));
+const start = async () => { ai(); setup(); fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/); ready(); };
 const tick = (s) => act(async () => { vi.advanceTimersByTime(s * 1000); });
 const timerText = () => screen.getByRole('timer', { name: /Elapsed/ }).textContent;
 const answerAndSubmit = async () => {
@@ -54,6 +56,7 @@ describe('where the timer is, and how visible', () => {
     ai(); setup();
     fireEvent.click(screen.getByRole('button', { name: /^Timed: 3 minutes/ }));
     fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/);
+    ready();
     const left = () => screen.getByRole('timer', { name: /Time left/ });
     expect(left().getAttribute('data-urgency')).toBe('calm');
     await tick(155);
@@ -88,6 +91,7 @@ describe('time is counted per question first, then for the session', () => {
     await screen.findByText(/Question 2\/5/);
     expect(timerText()).toMatch(/This question 00:00/);
     expect(timerText()).toMatch(/Whole session 00:0[5-6]/);
+    ready();
     await tick(3);
     expect(timerText()).toMatch(/This question 00:03/);
     expect(timerText()).toMatch(/Whole session 00:0[8-9]/);

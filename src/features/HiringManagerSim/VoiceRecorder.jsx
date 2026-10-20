@@ -20,7 +20,7 @@ const MicIcon = () => (<svg width="26" height="26" viewBox="0 0 24 24" fill="non
 const StopIcon = () => (<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5" /></svg>);
 const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-export default function VoiceRecorder({ onTranscript, disabled = false }) {
+export default function VoiceRecorder({ onTranscript, onStart, disabled = false }) {
   const [stage, setStage] = useState('idle'); // idle | consent | recording | transcribing
   const [elapsed, setElapsed] = useState(0);
   const [err, setErr] = useState('');
@@ -97,6 +97,7 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
     };
     startedAt.current = Date.now();
     r.start();
+    try { onStart?.(); } catch { /* the parent's clock is not our concern */ }
     setStage('recording');
     if (meter.current) {
       sampler.current = setInterval(() => {
