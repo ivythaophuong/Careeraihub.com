@@ -17,6 +17,7 @@ import SessionPanel from './SessionPanel';
 import NextStepCard from './NextStepCard';
 import StructurePanel from './StructurePanel';
 import VoiceRecorder from './VoiceRecorder';
+import QuestionCard from './QuestionCard';
 import SpeakingRateNote from './SpeakingRateNote';
 import RhythmNote from './RhythmNote';
 import { analyzeRhythm } from '../../lib/rhythm.js';
@@ -476,34 +477,8 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <div style={{ flex: '1 1 480px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card style={{ border: `1px solid ${pColor}44`, background: pColor + "05" }}>
-        <div data-testid="question-card">
-        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-          <div style={label}>Question {idx + 1}/{questions.length}</div>
-          <span style={{ color: pColor, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Testing: {q.focus}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 12px' }}>
-          {challenge === 'timed' && attempt === 1 && !current && (() => {
-            const urgency = secondsLeft === 0 ? 'over' : secondsLeft <= 30 ? 'soon' : 'calm';
-            return <span role="timer" data-urgency={urgency} aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: urgency === 'calm' ? C.surface : C.gold + '22', border: `1px solid ${urgency === 'calm' ? pColor + '66' : C.gold}`, color: urgency === 'calm' ? C.text : C.gold, borderRadius: 999, padding: '6px 14px', fontSize: 16, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
-              <span aria-hidden="true">⏳</span>Time left {formatElapsed(secondsLeft * 1000)}</span>;
-          })()}
-          {showTimer && <span role="timer" aria-label="Elapsed time, for your information only"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: C.surface, border: `1px solid ${pColor}66`, color: C.text, borderRadius: 999, padding: '6px 14px', fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-            <span aria-hidden="true">⏱</span>This question {formatElapsed(questionMs)}<span style={{ color: C.muted, fontWeight: 600 }}>·</span><span style={{ color: C.muted, fontWeight: 700 }}>Whole session {formatElapsed(sessionMs)}</span></span>}
-          <button type="button" onClick={toggleTimer} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
-        </div>
-        {!ready && attempt === 1 && !current && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '0 0 12px' }}>
-            <span style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>Take your time to read the question. The clock starts when you press "I'm ready", or when you start answering.</span>
-            <Btn onClick={() => setReadyIdx(idx)} color={pColor} dark style={{ padding: '8px 18px' }}>I'm ready</Btn>
-          </div>
-        )}
-        <div style={{ color: C.text, fontWeight: 700, fontSize: 15, lineHeight: 1.6 }}>"{q.question}"</div>
-        {q.why && <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>The interviewer is looking for: {q.why}</div>}
-        </div>
-      </Card>
+      <QuestionCard q={q} idx={idx} total={questions.length} color={pColor} challenge={challenge} attempt={attempt} current={current} secondsLeft={secondsLeft}
+        showTimer={showTimer} onToggleTimer={toggleTimer} questionMs={questionMs} sessionMs={sessionMs} ready={ready} onReady={() => setReadyIdx(idx)} />
 
       {!current && (
         <>
