@@ -22,6 +22,22 @@ export function barsOf(bytes, count) {
   return out;
 }
 
+// The waveform history: the loudest level of each group of `perColumn` frames, at most `count` columns. Odd values count as silence.
+export function columnsOf(levels, perColumn, count) {
+  if (!Array.isArray(levels) || !(perColumn > 0) || !(count > 0)) return [];
+  const n = Math.min(count, Math.ceil(levels.length / perColumn));
+  const out = [];
+  for (let c = 0; c < n; c++) {
+    let m = 0;
+    for (let i = c * perColumn; i < Math.min(levels.length, (c + 1) * perColumn); i++) {
+      const v = levels[i];
+      if (typeof v === 'number' && Number.isFinite(v) && v > m) m = Math.min(1, v);
+    }
+    out.push(m);
+  }
+  return out;
+}
+
 // True only for a known peak below the threshold: a missing or broken measurement never blocks a recording.
 export const isSilent = (peak) => typeof peak === 'number' && Number.isFinite(peak) && peak < SILENT_PEAK;
 
