@@ -6,7 +6,16 @@ import { getValidSession } from './session';
 export const MAX_RECORD_SECONDS = 180; // matches the timed challenge; the recorder stops by itself
 const TIMEOUT_MS = 60_000;
 
-export const voiceEnabled = () => import.meta.env.VITE_VOICE_PRACTICE === 'true';
+// Preview: the recorder is shown only to these accounts (the owner's). The Docker build does not read .env files, so this list is committed; ids are not secrets.
+// The transcribe function enforces its own allowlist (VOICE_ALLOWED_USER_IDS), so this only keeps the button from showing to people it would refuse.
+// VITE_VOICE_PRACTICE=true shows it to every account (local development); 'false' hides it for everyone.
+export const PREVIEW_USER_IDS = ['669f63cb-02f8-4eb9-9cd1-2f6015f6a4fd'];
+export const voiceEnabled = (userId) => {
+  const flag = import.meta.env.VITE_VOICE_PRACTICE;
+  if (flag === 'false') return false;
+  if (flag === 'true') return true;
+  return !!userId && PREVIEW_USER_IDS.includes(userId);
+};
 
 export class VoiceError extends Error {
   constructor(message, { status = 0 } = {}) { super(message); this.name = 'VoiceError'; this.status = status; }

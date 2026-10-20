@@ -32,7 +32,7 @@ const start = async () => { fireEvent.click(screen.getByText(/Series B/)); await
 const typeAnswer = (text = ANSWER) => fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: text } });
 const submit = () => fireEvent.click(screen.getByText(/Get AI Feedback/));
 
-beforeEach(() => { sessionStorage.clear(); vi.clearAllMocks(); delete globalThis.__serverScoring; vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => { vi.stubEnv('VITE_VOICE_PRACTICE', undefined); sessionStorage.clear(); vi.clearAllMocks(); delete globalThis.__serverScoring; vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(cleanup);
 
 describe('practice mode', () => {

@@ -24,6 +24,7 @@ class FakeRecorder {
 }
 
 beforeEach(() => {
+  vi.stubEnv('VITE_VOICE_PRACTICE', undefined); // a developer's .env.local must not change what these tests check
   transcript = 'I led the migration of our checkout service.';
   sessionStorage.clear(); localStorage.clear(); vi.clearAllMocks();
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -41,6 +42,12 @@ describe('voice practice flag', () => {
     expect(screen.getByText(/Voice practice is not available yet/)).toBeTruthy();
     await toQuestion();
     expect(screen.queryByRole('button', { name: /record your answer/i })).toBeNull();
+  });
+
+  it('with the flag off, a signed-in user on the preview list still sees the recorder', async () => {
+    render(<HiringManagerSim resumeText={resumeText} form={{ role: '' }} memory={{}} updateMemory={vi.fn()} setAuthModal={vi.fn()} setActiveModule={vi.fn()} user={{ id: '669f63cb-02f8-4eb9-9cd1-2f6015f6a4fd' }} />);
+    await toQuestion();
+    expect(screen.getByRole('button', { name: /record your answer/i })).toBeTruthy();
   });
 
   it('with the flag on the practice-mode note changes and a recorder sits under the answer box', async () => {
