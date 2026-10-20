@@ -31,12 +31,18 @@ export function analyzeRhythm(input) {
   if (first === -1) return { state: 'unavailable', reason: 'no_sound' };
 
   let speechFrames = 0; let pauseFrames = 0; let longest = 0; let longPauses = 0;
+  const segments = []; // the stretches in order, for the timeline on screen
+  const sec2 = (frames) => Math.round(frames * stepMs / 10) / 100;
   for (let i = first; i <= last;) {
-    if (speech[i]) { speechFrames++; i++; continue; }
-    let j = i; while (j <= last && !speech[j]) j++;
+    let j = i; while (j <= last && speech[j] === speech[i]) j++;
     const len = j - i;
-    pauseFrames += len; longest = Math.max(longest, len);
-    if (len * stepMs / 1000 >= LONG_PAUSE_SEC) longPauses++;
+    if (speech[i]) { speechFrames += len; segments.push({ type: 'speech', sec: sec2(len) }); }
+    else {
+      pauseFrames += len; longest = Math.max(longest, len);
+      const long = len * stepMs / 1000 >= LONG_PAUSE_SEC;
+      if (long) longPauses++;
+      segments.push({ type: 'pause', sec: sec2(len), long });
+    }
     i = j;
   }
   const total = last - first + 1;
@@ -45,7 +51,7 @@ export function analyzeRhythm(input) {
     state: 'ok',
     totalSec: sec(total), speechSec: sec(speechFrames), pauseSec: sec(pauseFrames),
     speechPercent: Math.round(speechFrames / total * 100),
-    longPauses, longestPauseSec: sec(longest),
+    longPauses, longestPauseSec: sec(longest), segments,
   };
   const words = countWords(text);
   if (words > 0 && speechFrames > 0) out.paceWhileSpeakingWpm = Math.round(words * 60 / (speechFrames * stepMs / 1000));

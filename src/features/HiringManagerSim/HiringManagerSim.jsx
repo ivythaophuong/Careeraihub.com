@@ -7,7 +7,7 @@ import { pickResumeSource } from '../../lib/resumeSource';
 import { serverScoringOn, evaluateAnswerOnServer, saveInterviewOnServer } from '../../lib/serverScoring';
 import {
   PERSONAS, MIN_ANSWER_CHARS, MAX_ANSWER_CHARS, buildQuestionsPrompt, normalizeQuestions, buildEvaluationPrompt,
-  normalizeEvaluation, findInventedInFeedback, summarize, buildSessionRecord, toSessionRow, verdictFor,
+  normalizeEvaluation, sanitizeDelivery, findInventedInFeedback, summarize, buildSessionRecord, toSessionRow, verdictFor,
 } from './interview';
 import { splitFirstSentence } from './feedbackDetail';
 import { SESSIONS_KEPT } from '../../lib/historyLimits';
@@ -180,15 +180,18 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     if (busy || current) return;
     if (answer.trim().length < MIN_ANSWER_CHARS) { setErr(`Answer a bit more fully (at least ${MIN_ANSWER_CHARS} characters) so there is something to evaluate.`); return; }
     setBusy('feedback'); setErr(''); setFailureKind(null);
+    // Rhythm figures of the recording for this attempt (numbers only), for a spoken answer. They never change the score.
+    const r = voiceOn && voiceRate?.key === `${idx}:${attempt}` && voiceRate.rhythm?.state === 'ok' ? voiceRate.rhythm : null;
+    const delivery = r ? { speechSec: r.speechSec, totalSec: r.totalSec, speechPercent: r.speechPercent, longPauses: r.longPauses, longestPauseSec: r.longestPauseSec, ...(typeof r.paceWhileSpeakingWpm === 'number' ? { paceWhileSpeakingWpm: r.paceWhileSpeakingWpm } : {}) } : null;
     try {
       let fb, receipt;
       if (serverScoringOn()) {
         // The server grades the answer; the receipt proves the score came from it and is needed to save the session.
-        const reply = await evaluateAnswerOnServer({ personaId, role: role.trim(), question: q.question, answer, resumeText: resume.kind === 'none' || resume.kind === 'pdf' ? '' : resume.text });
+        const reply = await evaluateAnswerOnServer({ personaId, role: role.trim(), question: q.question, answer, resumeText: resume.kind === 'none' || resume.kind === 'pdf' ? '' : resume.text, delivery });
         fb = reply.feedback; receipt = reply.receipt;
       } else {
-        const raw = await callLLMFor('mock_evaluate_legacy', resume)([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume }) }], 1800);
-        fb = normalizeEvaluation(extractJSON(raw));
+        const raw = await callLLMFor('mock_evaluate_legacy', resume)([{ role: 'user', content: buildEvaluationPrompt({ personaId, role: role.trim(), question: q.question, answer, resume, delivery }) }], 1800);
+        fb = normalizeEvaluation(extractJSON(raw), { delivery: sanitizeDelivery(delivery) });
       }
       const found = findInventedInFeedback({ question: q.question, answer }, fb);
       setCurrent(fb);
@@ -546,6 +549,13 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
               {current.worked && <div><div style={{ color: C.green, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>What Worked</div><Detail text={current.worked} /></div>}
               {current.missed && <div><div style={{ color: C.red, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>What Missed</div><Detail text={current.missed} /></div>}
               {current.tip && <div style={{ background: C.surface, padding: 12, borderRadius: 8, borderLeft: `3px solid ${C.accent}` }}><div style={{ color: C.accent, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 4 }}>Professional Tip</div><Detail text={current.tip} /></div>}
+              {current.delivery && (
+                <div data-testid="delivery-feedback" style={{ background: C.surface, padding: 12, borderRadius: 8, borderLeft: `3px solid ${C.gold}` }}>
+                  <div style={{ color: C.gold, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', marginBottom: 4 }}>How you delivered it</div>
+                  <div style={{ color: C.text, fontSize: 13, lineHeight: 1.7 }}>{current.delivery}</div>
+                  <div style={{ color: C.muted, fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>AI-generated from the figures in your Rhythm box. It does not change your score.</div>
+                </div>
+              )}
               {current.betterAnswerOutline.length > 0 && <Outline items={current.betterAnswerOutline} />}
             </div>
           </Card>
