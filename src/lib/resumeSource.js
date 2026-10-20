@@ -1,6 +1,8 @@
 // Shared by modules that need the user's resume as model input (JD Analyzer, Cover Letter, ...).
 // Pure helpers, no UI.
 
+import { resumeContent } from './resumeText';
+
 export const MAX_RESUME_CHARS = 12000;
 const clip = (s, n) => (s.length > n ? s.slice(0, n) : s);
 
@@ -30,7 +32,9 @@ export function resumeToText(data) {
 export function pickResumeSource({ memory = {}, resumeText } = {}) {
   const structured = resumeToText(memory.resumeData);
   if (structured.trim().length > 40) return { kind: 'structured', text: clip(structured, MAX_RESUME_CHARS), pdfBase64: null };
-  const pasted = typeof resumeText?.content === 'string' ? resumeText.content.trim() : '';
+  // `resumeText` is a plain string (pasted) or an object { content } (uploaded): resumeContent reads both. Reading only the object shape made every feature that
+  // calls this (Mock Interview, JD Analyzer, Cover Letter, Salary Prep) say "no resume" for someone who had pasted theirs.
+  const pasted = resumeContent(resumeText).trim();
   if (pasted.length > 40) return { kind: 'text', text: clip(pasted, MAX_RESUME_CHARS), pdfBase64: null };
   if (memory.scanPdfBase64) return { kind: 'pdf', text: '', pdfBase64: memory.scanPdfBase64 };
   return { kind: 'none', text: '', pdfBase64: null };
