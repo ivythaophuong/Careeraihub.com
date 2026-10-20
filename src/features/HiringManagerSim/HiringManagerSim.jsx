@@ -482,7 +482,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <div style={{ flex: '1 1 480px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <QuestionCard q={q} idx={idx} total={questions.length} color={pColor} challenge={challenge} attempt={attempt} current={current} secondsLeft={secondsLeft}
+      <QuestionCard q={q} idx={idx} total={questions.length} challenge={challenge} attempt={attempt} current={current} secondsLeft={secondsLeft}
         showTimer={showTimer} onToggleTimer={toggleTimer} questionMs={questionMs} sessionMs={sessionMs} ready={ready} onReady={() => setReadyIdx(idx)} />
 
       {!current && (
@@ -523,7 +523,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             {challenge === 'timed' && attempt === 1 && secondsLeft === 0 && <div role="status" style={{ color: C.gold, fontSize: 12, lineHeight: 1.6, marginTop: 8 }}>Time is up. Your answer is kept, so you can finish your thought and get feedback. Time does not change your score.</div>}
             {err && <div role="alert" style={{ color: failureKind === 'unknown' ? C.gold : C.red, fontSize: 12, lineHeight: 1.6, marginTop: 8 }}>⚠️ {err}</div>}
           </section>
-          {voiceOn && recStage !== 'recording' && (
+          {voiceOn && recStage !== 'recording' && voiceRate?.key === `${idx}:${attempt}` && (voiceRate.result?.state === 'ok' || voiceRate.rhythm?.state === 'ok') && (
             <SpeakingInsights rate={voiceRate?.key === `${idx}:${attempt}` ? voiceRate.result : null} rhythm={voiceRate?.key === `${idx}:${attempt}` ? voiceRate.rhythm : null} />
           )}
           {busy === 'feedback' && <Card><Spinner label={`Evaluating as ${persona.label}...`} /></Card>}
@@ -538,7 +538,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             const secondary = attempt === 1
               ? { label: 'Skip →', onClick: skip, disabled: !!busy || recStage === 'recording' || recStage === 'transcribing' }
               : { label: 'Back to feedback', onClick: backToFeedback, disabled: !!busy };
-            return <ActionBar status={status} detail={detail} primary={primary} secondary={secondary} color={pColor} />;
+            return <ActionBar status={status} detail={detail} primary={primary} secondary={secondary} />;
           })()}
         </>
       )}
@@ -583,12 +583,12 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           )}
           {attempt === 1 && <div style={{ color: C.muted, fontSize: 11 }}>Retrying is practice: only your first attempt counts toward your score and history, and practice attempts are not saved.</div>}
           <ActionBar status="Feedback is ready" detail={isLast ? 'That was the last question.' : 'Read it, then move on, or practise this answer again.'}
-            secondary={{ label: 'Try this answer again', onClick: tryAgain, disabled: !!busy }} primary={{ label: isLast ? 'See Results →' : 'Next Question →', onClick: () => advance(results) }} color={pColor} />
+            secondary={{ label: 'Try this answer again', onClick: tryAgain, disabled: !!busy }} primary={{ label: isLast ? 'See Results →' : 'Next Question →', onClick: () => advance(results) }} />
         </>
       )}
       </div>
       <div style={{ flex: '0 1 260px', minWidth: 220 }}>
-        <SessionPanel questions={questions} idx={idx} results={results} color={pColor} deviceKept={deviceKept} challenge={challenge} mode={voiceOn ? 'voice' : 'text'} />
+        <SessionPanel questions={questions} idx={idx} results={results} color={C.accent} deviceKept={deviceKept} challenge={challenge} mode={voiceOn ? 'voice' : 'text'} />
       </div>
       </div>
     </div>

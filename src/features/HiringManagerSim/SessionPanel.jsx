@@ -16,6 +16,7 @@ const TIPS = [
 // Nothing here is invented: no remaining-token count, no budget, no estimate of how long it will take.
 export default function SessionPanel({ questions, idx, results, color, deviceKept, challenge, mode = 'text' }) {
   const [tip, setTip] = useState(0);
+  const [helpOpen, setHelpOpen] = useState(false);
   const answered = results.filter(r => !r.skipped).length;
   const skipped = results.filter(r => r.skipped).length;
   const toGo = Math.max(0, questions.length - idx - (results.length > idx ? 1 : 0));
@@ -48,7 +49,12 @@ export default function SessionPanel({ questions, idx, results, color, deviceKep
           <div style={{ color: C.muted, fontSize: 12 }}>{questions[idx]?.focus || 'Question'}</div>
         </div>
       </Card>
-      <Card>
+      <div>
+        <button type="button" onClick={() => setHelpOpen(o => !o)} aria-expanded={helpOpen} style={{ background: 'transparent', border: 'none', color: C.accent, fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '2px 0', fontFamily: 'inherit' }}>
+          {helpOpen ? 'Hide help & tips' : 'Help & tips'}
+        </button>
+      </div>
+      {helpOpen && <Card>
         <div style={head}>Interview tips</div>
         <div data-testid="tip" aria-live="polite" style={{ background: `${color}14`, border: `1px solid ${color}33`, borderRadius: 10, padding: '12px 14px', minHeight: 96 }}>
           <div style={{ color: C.text, fontSize: 14, fontWeight: 800, marginBottom: 6 }}>{t.title}</div>
@@ -59,15 +65,14 @@ export default function SessionPanel({ questions, idx, results, color, deviceKep
           <div style={{ display: 'flex', gap: 6 }}>{TIPS.map((_, i) => <span key={i} data-testid="tip-dot" aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: i === tip ? color : C.border }} />)}</div>
           <button type="button" aria-label="Next tip" onClick={() => move(1)} style={{ background: 'transparent', border: 'none', color: C.muted, fontSize: 16, cursor: 'pointer' }}>›</button>
         </div>
-      </Card>
-      <Card>
-        <div style={head}>About this practice</div>
+      </Card>}
+      <div>
         <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
           {mode === 'voice' ? 'Voice answers: ' : 'Typed answers: '}
           {challenge === 'timed' ? 'each question has a soft limit of 3 minutes. It never cuts your answer and never changes your score.' : 'there is no time limit.'} Scores are AI estimates for your own practice, not verified evidence of skill.
           {deviceKept && ' Your progress is kept on this device only; it is saved to your account when you finish.'}
         </div>
-      </Card>
+      </div>
     </aside>
   );
 }

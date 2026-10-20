@@ -30,6 +30,12 @@ describe('ActionBar', () => {
     expect(screen.getByRole('button', { name: 'One' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Two' })).toBeTruthy();
   });
+  it('the primary action is one flat colour, not a gradient', () => {
+    show();
+    const b = screen.getByRole('button', { name: /Get AI Feedback/ });
+    expect(b.style.background).not.toMatch(/gradient/);
+    expect(b.style.background).toContain('rgb(236, 72, 153)');
+  });
   it('is a labelled group and its status is announced politely', () => {
     show();
     expect(screen.getByRole('group', { name: /actions/i })).toBeTruthy();
