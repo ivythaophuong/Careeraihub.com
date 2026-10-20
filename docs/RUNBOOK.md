@@ -51,6 +51,7 @@ Nothing in this file was run against production.
 
 - **There is no per-user quota or budget** for `ai` (ADR-012, finding R1). A usage ledger records each request in `ai_requests` (observe mode, `AI_LEDGER` secret) but refuses nothing until a policy row exists in `ai_policies` (`docs/database/README.md`). The limit is 20 requests per user per minute per function instance, and it is not global.
 - Export the `ai` logs for the window and run `scripts/usage-report.mjs` to see which feature and how many users. `user_ref` in a usage line is an HMAC of the user id, not the id.
+- Voice practice cost: export the `transcribe` logs and run the same script; it adds a table of audio minutes and an estimated cost (see `supabase/functions/transcribe/README.md`). The ledger does not yet count audio seconds.
 - Cost in the report comes from `PRICE_TABLE` in `supabase/functions/_shared/usage.js`: entries exist for OpenAI `gpt-6-luna` and Groq `openai/gpt-oss-120b` (prices read from the providers' pages on 2026-10-15). Any other model, a PDF call, or a Groq call that reports reasoning tokens shows `price unknown`. Re-read the prices before you rely on a figure.
 - Fast stop, with side effects: unset or rotate the provider key (all AI features stop). A narrower stop does not exist in the code today.
 - Provider-side spend caps: the owner reported on 2026-10-15 a hard monthly limit of 5 USD at OpenAI (typed from its limits page; not verified here). Groq and Gemini caps and any alert thresholds: **UNKNOWN** (**PROPOSED**: set them in each provider's console).

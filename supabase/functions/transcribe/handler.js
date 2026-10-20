@@ -110,7 +110,7 @@ export async function handleRequest(req, deps = {}) {
   const audioSec = Number.isFinite(body.durationSec) ? Math.round(body.durationSec) : null;
   for (const name of chain) {
     const r = await transcribeWith(name, env, fetchImpl, bytes, v.type);
-    log({ feature: 'voice_transcribe', provider: name, audioSec, outcome: r.kind === 'ok' ? 'success' : r.kind, ...(r.status ? { status: r.status } : {}) });
+    log({ event: 'voice_usage', feature: 'voice_transcribe', provider: name, audioSec, outcome: r.kind === 'ok' ? 'success' : r.kind, ...(r.status ? { status: r.status } : {}) });
     if (r.kind === 'retry') continue;
     if (r.kind === 'reject') return fail(422, 'We could not read that recording. Please try again, or type your answer.', cors);
     const text = r.text.trim().slice(0, LIMITS.maxTranscriptChars);

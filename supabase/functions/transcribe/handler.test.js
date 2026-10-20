@@ -152,6 +152,11 @@ describe('nothing is kept (V3)', () => {
     expect(all).not.toMatch(/user-1|SECRET|led a small team|fake-audio|AAAA/);
     expect(all).not.toContain(AUDIO);
   });
+  it('marks its log line so the usage report can read it', async () => {
+    const logs = [];
+    await send({ logs });
+    expect(logs[0]).toMatchObject({ event: 'voice_usage', feature: 'voice_transcribe', provider: 'groq', outcome: 'success', audioSec: 12 });
+  });
   it('never echoes the audio back', async () => {
     const r = await send();
     expect(r.raw).not.toContain(AUDIO);
