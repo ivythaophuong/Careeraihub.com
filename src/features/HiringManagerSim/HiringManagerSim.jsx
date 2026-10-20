@@ -13,7 +13,8 @@ import { splitFirstSentence } from './feedbackDetail';
 import { SESSIONS_KEPT } from '../../lib/historyLimits';
 import { saveDeviceSession, loadDeviceSession, clearDeviceSession } from './deviceSession';
 import { formatElapsed, describeEvaluationFailure } from './sessionUi';
-import SessionPanel from './SessionPanel';
+import ProgressStrip from './ProgressStrip';
+import AboutPractice from './AboutPractice';
 import NextStepCard from './NextStepCard';
 import StructurePanel from './StructurePanel';
 import VoiceRecorder from './VoiceRecorder';
@@ -484,8 +485,11 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-      <div style={{ flex: '1 1 480px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 320px' }}><ProgressStrip questions={questions} idx={idx} results={results} /></div>
+        <AboutPractice challenge={challenge} mode={voiceOn ? 'voice' : 'text'} deviceKept={deviceKept} />
+      </div>
       <QuestionCard q={q} idx={idx} total={questions.length} challenge={challenge} attempt={attempt} current={current} secondsLeft={secondsLeft}
         showTimer={showTimer} onToggleTimer={toggleTimer} questionMs={questionMs} sessionMs={sessionMs} ready={ready} onReady={() => setReadyIdx(idx)} />
 
@@ -591,10 +595,6 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             secondary={{ label: 'Try this answer again', onClick: tryAgain, disabled: !!busy }} primary={{ label: isLast ? 'See Results →' : 'Next Question →', onClick: () => advance(results) }} />
         </>
       )}
-      </div>
-      <div style={{ flex: '0 1 260px', minWidth: 220 }}>
-        <SessionPanel questions={questions} idx={idx} results={results} color={C.accent} deviceKept={deviceKept} challenge={challenge} mode={voiceOn ? 'voice' : 'text'} />
-      </div>
       </div>
     </div>
   );

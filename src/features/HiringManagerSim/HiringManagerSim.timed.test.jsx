@@ -59,9 +59,9 @@ describe('the timed challenge', () => {
     await screen.findByLabelText('Answer score');
   });
 
-  it('says on the side panel that the limit is soft', async () => {
+  it('says in the about note that the limit is soft', async () => {
     ai(); setup(); await startWith('Timed: 3 minutes per question');
-    expect(screen.getByRole('complementary', { name: 'Session progress' }).textContent).toMatch(/3 minutes.*never cuts/i);
+    expect(screen.getByTestId('about-content').textContent).toMatch(/3 minutes.*never cuts/i);
   });
 });
 
