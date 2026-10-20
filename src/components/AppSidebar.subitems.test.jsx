@@ -31,8 +31,8 @@ describe('sub-items in the sidebar', () => {
     fireEvent.click(nav().getByRole('button', { name: 'Weakness Radar' }));
     expect(p.onNavigate).toHaveBeenCalledWith('simulate', 'weakness');
   });
-  it('clicking the feature itself opens its first part', () => {
-    const p = setup({ activeSub: 'session' });
+  it('clicking the feature from another feature opens it on its first part', () => {
+    const p = setup({ activeModule: 'scan', activeSub: null });
     fireEvent.click(nav().getByRole('button', { name: /^Interview Coach/ }));
     expect(p.onNavigate).toHaveBeenCalledWith('simulate', 'dashboard');
   });
@@ -57,3 +57,55 @@ describe('sub-items in the sidebar', () => {
     expect(p.onNavigate).toHaveBeenCalledWith('salary', undefined);
   });
 });
+
+describe('the sub-items open and close like a real accordion', () => {
+  const parent = () => nav().getByRole('button', { name: /^Interview Coach/ });
+  it('the feature is a disclosure: it says whether its parts are shown, and points at them', () => {
+    setup();
+    expect(parent().getAttribute('aria-expanded')).toBe('true');
+    const group = nav().getByRole('group', { name: /Interview Coach sections/i });
+    expect(parent().getAttribute('aria-controls')).toBe(group.id);
+  });
+  it('shows an arrow that turns when it opens and closes', () => {
+    setup();
+    expect(parent().querySelector('[data-testid="sub-chevron"]')).toBeTruthy();
+    expect(parent().querySelector('[data-testid="sub-chevron"]').getAttribute('data-open')).toBe('true');
+    fireEvent.click(parent());
+    expect(parent().querySelector('[data-testid="sub-chevron"]').getAttribute('data-open')).toBe('false');
+  });
+  it('clicking the open feature closes its parts without leaving the page, and clicking again opens them', () => {
+    const p = setup({ activeSub: 'session' });
+    fireEvent.click(parent());
+    expect(p.onNavigate).not.toHaveBeenCalled();
+    expect(parent().getAttribute('aria-expanded')).toBe('false');
+    expect(nav().queryByRole('group', { name: /sections/i })).toBeNull();
+    fireEvent.click(parent());
+    expect(parent().getAttribute('aria-expanded')).toBe('true');
+    expect(nav().getByRole('button', { name: 'Live Session' })).toBeTruthy();
+    expect(p.onNavigate).not.toHaveBeenCalled();
+  });
+  it('closed, it still marks the open feature as the current page', () => {
+    setup({ activeSub: 'session' });
+    fireEvent.click(parent());
+    expect(parent().getAttribute('aria-current')).toBe('page');
+  });
+  it('is opened again when the person comes back to the feature from another one', () => {
+    const p = { activeModule: 'simulate', activeSub: 'dashboard', onNavigate: vi.fn(), user: { name: 'A' }, onLogout: vi.fn(), collapsed: false, onToggle: vi.fn() };
+    const { rerender } = render(<AppSidebar {...p} />);
+    fireEvent.click(parent()); // closed
+    rerender(<AppSidebar {...p} activeModule="scan" activeSub={null} />);
+    rerender(<AppSidebar {...p} activeModule="simulate" activeSub="dashboard" />);
+    expect(parent().getAttribute('aria-expanded')).toBe('true');
+  });
+  it('works from the keyboard: it is a button, so Enter and Space act like a click', () => {
+    setup();
+    expect(parent().tagName).toBe('BUTTON');
+  });
+  it('a feature without parts is a plain link-like button: no arrow and no aria-expanded', () => {
+    setup({ activeModule: 'scan', activeSub: null });
+    const salary = nav().getByRole('button', { name: /Salary Prep/ });
+    expect(salary.getAttribute('aria-expanded')).toBeNull();
+    expect(salary.querySelector('[data-testid="sub-chevron"]')).toBeNull();
+  });
+});
+
