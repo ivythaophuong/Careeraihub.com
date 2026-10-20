@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
 
 vi.mock('../../lib/ai.jsx', () => ({
   callLLM: vi.fn(),
@@ -74,8 +74,10 @@ describe('selecting and starting', () => {
     expect(prompt).toContain('Product manager at Acme.');
     expect(prompt).toContain('staff engineer or tech lead');
     expect(screen.getByText(/Interview question number 1/)).toBeTruthy();
-    expect(screen.getByText(/Testing: Focus 1/)).toBeTruthy();
-    expect(screen.getByText(/looking for: Why 1/)).toBeTruthy();
+    const card = within(screen.getByTestId('question-card'));
+    expect(card.getByText('Focus 1')).toBeTruthy();
+    expect(card.getByText('What the interviewer is assessing')).toBeTruthy();
+    expect(card.getByText('Why 1')).toBeTruthy();
     expect(screen.queryByText(/Interview question number 2/)).toBeNull();
   });
 

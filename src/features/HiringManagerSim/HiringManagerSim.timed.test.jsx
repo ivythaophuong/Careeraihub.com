@@ -47,9 +47,10 @@ describe('the timed challenge', () => {
     expect(screen.getByRole('timer', { name: /Time left/ }).textContent).toMatch(/03:00|02:59/);
     fireEvent.change(screen.getByLabelText('Your answer'), { target: { value: ANSWER } });
     await act(async () => { vi.advanceTimersByTime(181_000); });
-    expect(screen.getByRole('status').textContent).toMatch(/Time is up/);
-    expect(screen.getByRole('status').textContent).toMatch(/answer is kept/i);
-    expect(screen.getByRole('status').textContent).toMatch(/does not change your score/i);
+    const notice = screen.getByText(/Time is up/);
+    expect(notice.textContent).toMatch(/Time is up/);
+    expect(notice.textContent).toMatch(/answer is kept/i);
+    expect(notice.textContent).toMatch(/does not change your score/i);
     const box = screen.getByLabelText('Your answer');
     expect(box.disabled).toBe(false);
     expect(box.value).toBe(ANSWER);

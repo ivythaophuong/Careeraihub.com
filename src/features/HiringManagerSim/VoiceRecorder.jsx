@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { C } from '../../styles/theme';
 import { Btn } from '../../components/CommonUI';
 import { transcribeAudio, MAX_RECORD_SECONDS } from '../../lib/voice.js';
@@ -20,7 +20,7 @@ const MicIcon = () => (<svg width="26" height="26" viewBox="0 0 24 24" fill="non
 const StopIcon = () => (<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5" /></svg>);
 const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-export default function VoiceRecorder({ onTranscript, onStart, disabled = false }) {
+const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart, onStage, disabled = false }, ref) {
   const [stage, setStage] = useState('idle'); // idle | consent | recording | transcribing
   const [elapsed, setElapsed] = useState(0);
   const [err, setErr] = useState('');
@@ -54,6 +54,11 @@ export default function VoiceRecorder({ onTranscript, onStart, disabled = false 
     chunks.current = [];
     release();
   }, []);
+
+  // The action bar of the page reads the stage and can start and stop the recording; the buttons in this panel keep working as well.
+  useEffect(() => { onStage?.(stage); }, [stage]); // eslint-disable-line react-hooks/exhaustive-deps
+  const api = useRef({});
+  useImperativeHandle(ref, () => ({ start: () => api.current.start?.(), stop: () => api.current.stop?.() }), []);
 
   if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices) {
     return <div style={{ color: C.muted, fontSize: 11 }}>This browser cannot record audio. Please type your answer.</div>;
@@ -118,6 +123,7 @@ export default function VoiceRecorder({ onTranscript, onStart, disabled = false 
 
   const stop = () => { clearInterval(timer.current); timer.current = null; try { if (rec.current?.state === 'recording') rec.current.stop(); } catch { /* ignore */ } };
   const click = () => { if (readConsent()) begin(); else setStage('consent'); };
+  api.current = { start: () => { if (!disabled && stage === 'idle') click(); }, stop: () => { if (stage === 'recording') stop(); } };
 
   const recording = stage === 'recording';
   const busyText = stage === 'transcribing';
@@ -159,4 +165,6 @@ export default function VoiceRecorder({ onTranscript, onStart, disabled = false 
       {err && <div role="alert" style={{ color: C.red, fontSize: 12, lineHeight: 1.6 }}>{err}</div>}
     </div>
   );
-}
+});
+
+export default VoiceRecorder;

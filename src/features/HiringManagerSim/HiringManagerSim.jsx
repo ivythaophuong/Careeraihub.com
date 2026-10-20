@@ -17,8 +17,10 @@ import SessionPanel from './SessionPanel';
 import NextStepCard from './NextStepCard';
 import StructurePanel from './StructurePanel';
 import VoiceRecorder from './VoiceRecorder';
-import SpeakingRateNote from './SpeakingRateNote';
-import RhythmNote from './RhythmNote';
+import QuestionCard from './QuestionCard';
+import SpeakingInsights from './SpeakingInsights';
+import AnswerTabs from './AnswerTabs';
+import ActionBar from './ActionBar';
 import { analyzeRhythm } from '../../lib/rhythm.js';
 import { estimateWpm } from '../../lib/speakingRate.js';
 import { voiceEnabled, PREVIEW_USER_IDS } from '../../lib/voice.js';
@@ -70,11 +72,15 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [saved, setSaved] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const [practiceMode, setPracticeMode] = useState('text'); // 'text' | 'voice'
+  const recorderRef = useRef(null);
+  const [recStage, setRecStage] = useState('idle'); // the recorder's stage: idle | consent | recording | transcribing
+  const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [voiceUnlocked, setVoiceUnlocked] = useState(() => loadVoiceUnlocked(user?.id));
   const [voiceRate, setVoiceRate] = useState(null); // { key: 'idx:attempt', result } of the last recording; in memory only, never saved or scored
   useEffect(() => { setVoiceUnlocked(loadVoiceUnlocked(user?.id)); }, [user?.id]);
   const voiceAvailable = voiceEnabled(user?.id);
   const voiceOn = voiceAvailable && voiceUnlocked && practiceMode === 'voice';
+  useEffect(() => { if (!voiceOn) setRecStage('idle'); }, [voiceOn]);
   const [attempt, setAttempt] = useState(1); // 1 = first try at this question; more = practice retries
   const [lastShown, setLastShown] = useState(null); // { fb, warnings } of the newest attempt, to go back to
   const [failureKind, setFailureKind] = useState(null); // 'known' | 'unknown' | 'limit' after a failed feedback request
@@ -476,64 +482,64 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <div style={{ flex: '1 1 480px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card style={{ border: `1px solid ${pColor}44`, background: pColor + "05" }}>
-        <div data-testid="question-card">
-        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-          <div style={label}>Question {idx + 1}/{questions.length}</div>
-          <span style={{ color: pColor, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Testing: {q.focus}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 12px' }}>
-          {challenge === 'timed' && attempt === 1 && !current && (() => {
-            const urgency = secondsLeft === 0 ? 'over' : secondsLeft <= 30 ? 'soon' : 'calm';
-            return <span role="timer" data-urgency={urgency} aria-label={`Time left for this question: ${formatElapsed(secondsLeft * 1000)}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: urgency === 'calm' ? C.surface : C.gold + '22', border: `1px solid ${urgency === 'calm' ? pColor + '66' : C.gold}`, color: urgency === 'calm' ? C.text : C.gold, borderRadius: 999, padding: '6px 14px', fontSize: 16, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
-              <span aria-hidden="true">⏳</span>Time left {formatElapsed(secondsLeft * 1000)}</span>;
-          })()}
-          {showTimer && <span role="timer" aria-label="Elapsed time, for your information only"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: C.surface, border: `1px solid ${pColor}66`, color: C.text, borderRadius: 999, padding: '6px 14px', fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-            <span aria-hidden="true">⏱</span>This question {formatElapsed(questionMs)}<span style={{ color: C.muted, fontWeight: 600 }}>·</span><span style={{ color: C.muted, fontWeight: 700 }}>Whole session {formatElapsed(sessionMs)}</span></span>}
-          <button type="button" onClick={toggleTimer} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
-        </div>
-        {!ready && attempt === 1 && !current && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '0 0 12px' }}>
-            <span style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>Take your time to read the question. The clock starts when you press "I'm ready", or when you start answering.</span>
-            <Btn onClick={() => setReadyIdx(idx)} color={pColor} dark style={{ padding: '8px 18px' }}>I'm ready</Btn>
-          </div>
-        )}
-        <div style={{ color: C.text, fontWeight: 700, fontSize: 15, lineHeight: 1.6 }}>"{q.question}"</div>
-        {q.why && <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>The interviewer is looking for: {q.why}</div>}
-        </div>
-      </Card>
+      <QuestionCard q={q} idx={idx} total={questions.length} color={pColor} challenge={challenge} attempt={attempt} current={current} secondsLeft={secondsLeft}
+        showTimer={showTimer} onToggleTimer={toggleTimer} questionMs={questionMs} sessionMs={sessionMs} ready={ready} onReady={() => setReadyIdx(idx)} />
 
       {!current && (
         <>
-          <textarea
-            aria-label="Your answer"
-            value={answer}
-            maxLength={MAX_ANSWER_CHARS}
-            disabled={!!busy}
-            onChange={e => { setAnswer(e.target.value); setErr(''); if (!ready && attempt === 1) setReadyIdx(idx); }}
-            placeholder={attempt > 1 ? 'Improve your answer, then ask for feedback again.' : 'Type your answer here. A STAR structure (Situation, Task, Action, Result) works well for behavioural questions...'}
-            style={{ width: "100%", minHeight: 140, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: 16, fontSize: 13, outline: "none", lineHeight: 1.7, fontFamily: "inherit", resize: "vertical" }}
-          />
-          {voiceOn && <VoiceRecorder disabled={!!busy} onStart={() => { if (attempt === 1) setReadyIdx(idx); }} onTranscript={(t, meta) => {
-            setAnswer(a => ((a.trim() ? a.trimEnd() + ' ' : '') + t).slice(0, MAX_ANSWER_CHARS)); setErr('');
-            try { setVoiceRate({ key: `${idx}:${attempt}`, result: estimateWpm({ text: t, durationSec: meta?.durationSec }), rhythm: analyzeRhythm({ levels: meta?.levels, stepMs: meta?.stepMs, text: t }) }); } catch { setVoiceRate(null); }
-          }} />}
-          {voiceOn && voiceRate?.key === `${idx}:${attempt}` && <SpeakingRateNote result={voiceRate.result} />}
-          {voiceOn && voiceRate?.key === `${idx}:${attempt}` && <RhythmNote result={voiceRate.rhythm} />}
-          <div aria-live="polite" style={{ color: C.muted, fontSize: 11 }}>
-            {busy === 'feedback' ? 'Sending your answer for evaluation. It is not saved to your account yet.' : answer.trim() && deviceKept ? 'Draft kept on this device. It is not saved to your account.' : ''}
-          </div>
-          {challenge === 'timed' && attempt === 1 && secondsLeft === 0 && <div role="status" style={{ color: C.gold, fontSize: 12, lineHeight: 1.6 }}>Time is up. Your answer is kept, so you can finish your thought and get feedback. Time does not change your score.</div>}
-          {err && <div role="alert" style={{ color: failureKind === 'unknown' ? C.gold : C.red, fontSize: 12, lineHeight: 1.6 }}>⚠️ {err}</div>}
-          <div style={{ display: "flex", gap: 12 }}>
-            <Btn onClick={submit} disabled={!!busy} color={pColor} dark style={{ flex: 1 }}>{busy === 'feedback' ? 'Evaluating…' : '🧠 Get AI Feedback'}</Btn>
-            {attempt === 1
-              ? <Btn onClick={skip} disabled={!!busy} color={C.border} style={{ padding: "11px 20px" }}>Skip →</Btn>
-              : <Btn onClick={backToFeedback} disabled={!!busy} color={C.border} style={{ padding: "11px 20px" }}>Back to feedback</Btn>}
-          </div>
+          <section aria-label="Answer area" style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.surface, padding: '0 20px 20px' }}>
+            <AnswerTabs mode={voiceOn ? 'voice' : 'text'} onChange={setPracticeMode} voiceAvailable={voiceAvailable} voiceUnlocked={voiceUnlocked} draftKept={!!(answer.trim() && deviceKept)} />
+            {voiceOn && (
+              <div style={{ padding: '18px 0 8px' }}>
+                <VoiceRecorder ref={recorderRef} disabled={!!busy} onStage={setRecStage} onStart={() => { if (attempt === 1) setReadyIdx(idx); }} onTranscript={(t, meta) => {
+                  setAnswer(a => ((a.trim() ? a.trimEnd() + ' ' : '') + t).slice(0, MAX_ANSWER_CHARS)); setErr('');
+                  try { setVoiceRate({ key: `${idx}:${attempt}`, result: estimateWpm({ text: t, durationSec: meta?.durationSec }), rhythm: analyzeRhythm({ levels: meta?.levels, stepMs: meta?.stepMs, text: t }) }); } catch { setVoiceRate(null); }
+                }} />
+              </div>
+            )}
+            <div style={{ marginTop: 14 }}>
+              {voiceOn && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Transcript</div>
+                    <div style={{ color: C.muted, fontSize: 11 }}>Your transcript appears here after recording. Check and correct it before you send it for feedback.</div>
+                  </div>
+                  <button type="button" onClick={() => setTranscriptOpen(o => !o)} aria-expanded={transcriptOpen} style={ghostBtn}>{transcriptOpen ? 'Hide' : 'Show'}</button>
+                </div>
+              )}
+              <textarea
+                aria-label="Your answer"
+                value={answer}
+                maxLength={MAX_ANSWER_CHARS}
+                disabled={!!busy}
+                onChange={e => { setAnswer(e.target.value); setErr(''); if (!ready && attempt === 1) setReadyIdx(idx); }}
+                placeholder={attempt > 1 ? 'Improve your answer, then ask for feedback again.' : 'Type your answer here. A STAR structure (Situation, Task, Action, Result) works well for behavioural questions...'}
+                style={{ display: voiceOn && !transcriptOpen ? 'none' : 'block', width: "100%", minHeight: voiceOn ? 110 : 160, background: C.bg || 'transparent', border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: 16, fontSize: 13, outline: "none", lineHeight: 1.7, fontFamily: "inherit", resize: "vertical", boxSizing: 'border-box' }}
+              />
+            </div>
+            <div aria-live="polite" style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>
+              {busy === 'feedback' ? 'Sending your answer for evaluation. It is not saved to your account yet.' : ''}
+            </div>
+            {challenge === 'timed' && attempt === 1 && secondsLeft === 0 && <div role="status" style={{ color: C.gold, fontSize: 12, lineHeight: 1.6, marginTop: 8 }}>Time is up. Your answer is kept, so you can finish your thought and get feedback. Time does not change your score.</div>}
+            {err && <div role="alert" style={{ color: failureKind === 'unknown' ? C.gold : C.red, fontSize: 12, lineHeight: 1.6, marginTop: 8 }}>⚠️ {err}</div>}
+          </section>
+          {voiceOn && recStage !== 'recording' && (
+            <SpeakingInsights rate={voiceRate?.key === `${idx}:${attempt}` ? voiceRate.result : null} rhythm={voiceRate?.key === `${idx}:${attempt}` ? voiceRate.rhythm : null} />
+          )}
           {busy === 'feedback' && <Card><Spinner label={`Evaluating as ${persona.label}...`} /></Card>}
+          {(() => {
+            const hasAnswer = answer.trim().length > 0;
+            let status = 'Ready when you are'; let detail = voiceOn ? 'Record your answer, or type it out.' : 'Type your answer, then ask for feedback.';
+            let primary = { label: busy === 'feedback' ? 'Evaluating…' : '🧠 Get AI Feedback', onClick: submit, disabled: !!busy };
+            if (voiceOn && recStage === 'recording') { status = 'Recording in progress'; detail = 'Your answer is being captured. Press Finish recording when you are done.'; primary = { label: 'Finish recording', onClick: () => recorderRef.current?.stop() }; }
+            else if (voiceOn && recStage === 'transcribing') { status = 'Turning your voice into text'; detail = 'This takes a few seconds.'; primary = { label: 'Please wait…', onClick: () => {}, disabled: true }; }
+            else if (voiceOn && !hasAnswer) { status = 'Ready to record'; detail = 'Record your answer or type it out.'; primary = { label: 'Start recording', onClick: () => recorderRef.current?.start(), disabled: !!busy }; }
+            else if (hasAnswer) { status = busy === 'feedback' ? 'Evaluating your answer' : 'Ready for feedback'; detail = 'You can still edit your answer before you send it.'; }
+            const secondary = attempt === 1
+              ? { label: 'Skip →', onClick: skip, disabled: !!busy || recStage === 'recording' || recStage === 'transcribing' }
+              : { label: 'Back to feedback', onClick: backToFeedback, disabled: !!busy };
+            return <ActionBar status={status} detail={detail} primary={primary} secondary={secondary} color={pColor} />;
+          })()}
         </>
       )}
 
@@ -575,16 +581,14 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
               <div style={{ color: C.text, fontSize: 12, lineHeight: 1.6 }}>The suggestions mention figures you did not give: <strong>{warnings.join(', ')}</strong>. Only use numbers you can back up in a real interview.</div>
             </Card>
           )}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <Btn onClick={tryAgain} disabled={!!busy} color={C.border} style={{ padding: "11px 20px" }}>Try this answer again</Btn>
-            <Btn onClick={() => advance(results)} color={pColor} dark style={{ flex: 1 }}>{isLast ? 'See Results →' : 'Next Question →'}</Btn>
-          </div>
           {attempt === 1 && <div style={{ color: C.muted, fontSize: 11 }}>Retrying is practice: only your first attempt counts toward your score and history, and practice attempts are not saved.</div>}
+          <ActionBar status="Feedback is ready" detail={isLast ? 'That was the last question.' : 'Read it, then move on, or practise this answer again.'}
+            secondary={{ label: 'Try this answer again', onClick: tryAgain, disabled: !!busy }} primary={{ label: isLast ? 'See Results →' : 'Next Question →', onClick: () => advance(results) }} color={pColor} />
         </>
       )}
       </div>
       <div style={{ flex: '0 1 260px', minWidth: 220 }}>
-        <SessionPanel questions={questions} idx={idx} results={results} color={pColor} deviceKept={deviceKept} challenge={challenge} />
+        <SessionPanel questions={questions} idx={idx} results={results} color={pColor} deviceKept={deviceKept} challenge={challenge} mode={voiceOn ? 'voice' : 'text'} />
       </div>
       </div>
     </div>
