@@ -79,7 +79,7 @@ describe('recording and transcript', () => {
     render(<VoiceRecorder onTranscript={onTranscript} />);
     await start(); await consent();
     fireEvent.click(screen.getByRole('button', { name: /stop recording/i }));
-    await waitFor(() => expect(onTranscript).toHaveBeenCalledWith('I led the migration.', { durationSec: expect.any(Number) }));
+    await waitFor(() => expect(onTranscript).toHaveBeenCalledWith('I led the migration.', expect.objectContaining({ durationSec: expect.any(Number) })));
     expect(tracks[0].stop).toHaveBeenCalled();
     expect(transcribeAudio).toHaveBeenCalledTimes(1);
     expect(transcribeAudio.mock.calls[0][0]).toBeInstanceOf(Blob);
@@ -97,7 +97,7 @@ describe('recording and transcript', () => {
     expect(recorders[0].state).toBe('recording');
     await act(async () => { vi.advanceTimersByTime(2_000); });
     expect(recorders[0].state).toBe('inactive');
-    expect(onTranscript).toHaveBeenCalledWith('Done.', { durationSec: expect.any(Number) });
+    expect(onTranscript).toHaveBeenCalledWith('Done.', expect.objectContaining({ durationSec: expect.any(Number) }));
   });
   it('a failed transcription shows the reason, hands back nothing and lets the user record again', async () => {
     transcribeAudio.mockRejectedValue(new VoiceError('We could not hear any speech.', { status: 422 }));
@@ -145,7 +145,7 @@ describe('recording length handed to the parent (for the speaking-rate estimate)
     // the recorder stopped at once in the test; now check the number that was measured
     await waitFor(() => expect(onTranscript).toHaveBeenCalled());
     expect(onTranscript.mock.calls[0][0]).toBe('Some words here.');
-    expect(onTranscript.mock.calls[0][1]).toEqual({ durationSec: 0 });
+    expect(onTranscript.mock.calls[0][1]).toMatchObject({ durationSec: 0 });
   });
   it('measures with the clock, not by counting ticks', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -159,7 +159,7 @@ describe('recording length handed to the parent (for the speaking-rate estimate)
     vi.setSystemTime(30_400);
     fireEvent.click(stopBtn);
     await waitFor(() => expect(onTranscript).toHaveBeenCalled());
-    expect(onTranscript.mock.calls[0][1]).toEqual({ durationSec: 30.4 });
+    expect(onTranscript.mock.calls[0][1]).toMatchObject({ durationSec: 30.4 });
   });
 });
 

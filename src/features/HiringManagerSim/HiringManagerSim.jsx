@@ -18,6 +18,8 @@ import NextStepCard from './NextStepCard';
 import StructurePanel from './StructurePanel';
 import VoiceRecorder from './VoiceRecorder';
 import SpeakingRateNote from './SpeakingRateNote';
+import RhythmNote from './RhythmNote';
+import { analyzeRhythm } from '../../lib/rhythm.js';
 import { estimateWpm } from '../../lib/speakingRate.js';
 import { voiceEnabled } from '../../lib/voice.js';
 import { structurePanelEnabledFor, previewStructure } from './structurePreview';
@@ -489,9 +491,10 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
           />
           {voiceEnabled(user?.id) && <VoiceRecorder disabled={!!busy} onTranscript={(t, meta) => {
             setAnswer(a => ((a.trim() ? a.trimEnd() + ' ' : '') + t).slice(0, MAX_ANSWER_CHARS)); setErr('');
-            try { setVoiceRate({ key: `${idx}:${attempt}`, result: estimateWpm({ text: t, durationSec: meta?.durationSec }) }); } catch { setVoiceRate(null); }
+            try { setVoiceRate({ key: `${idx}:${attempt}`, result: estimateWpm({ text: t, durationSec: meta?.durationSec }), rhythm: analyzeRhythm({ levels: meta?.levels, stepMs: meta?.stepMs, text: t }) }); } catch { setVoiceRate(null); }
           }} />}
           {voiceEnabled(user?.id) && voiceRate?.key === `${idx}:${attempt}` && <SpeakingRateNote result={voiceRate.result} />}
+          {voiceEnabled(user?.id) && voiceRate?.key === `${idx}:${attempt}` && <RhythmNote result={voiceRate.rhythm} />}
           <div aria-live="polite" style={{ color: C.muted, fontSize: 11 }}>
             {busy === 'feedback' ? 'Sending your answer for evaluation. It is not saved to your account yet.' : answer.trim() && deviceKept ? 'Draft kept on this device. It is not saved to your account.' : ''}
           </div>
