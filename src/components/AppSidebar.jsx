@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LogoMark } from '../features/Landing/LandingPage';
 import { subsOf, isSub, defaultSub } from '../lib/subNav.js';
 
@@ -130,6 +130,9 @@ function MobNavIcon({ id, active }) {
 
 export default function AppSidebar({ activeModule, activeSub, onNavigate, user, onLogout, collapsed, onToggle }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  // A feature with parts is a disclosure. It opens when you arrive at it; clicking it again while you are in it closes or opens its parts without leaving the page.
+  const [closedSubs, setClosedSubs] = useState({});
+  useEffect(() => { setClosedSubs({}); }, [activeModule]);
   const allItems   = NAV_GROUPS.flatMap(g => g.items);
   const mobileItems = allItems.filter(i => MOBILE_ITEMS.includes(i.id));
   const mobActiveIdx = getMobActiveIdx(activeModule, moreOpen);
@@ -175,17 +178,23 @@ export default function AppSidebar({ activeModule, activeSub, onNavigate, user, 
               {group.items.map(item => {
                 const active = activeModule === item.id || (item.id === 'simulate' && INTERVIEW_COACH_IDS.includes(activeModule));
                 const subs = subsOf(item.id);
-                const subOpen = subs.length > 0 && activeModule === item.id && !collapsed; // a feature's parts show while it is the open feature
-                const inPart = subs.length > 0 && activeModule === item.id && isSub(item.id, activeSub);
+                const hasSubs = subs.length > 0;
+                const isOpenFeature = hasSubs && activeModule === item.id;
+                const subOpen = isOpenFeature && !collapsed && !closedSubs[item.id]; // a feature's parts show while it is the open feature and has not been closed
+                const inPart = isOpenFeature && isSub(item.id, activeSub);
                 return (
                   <React.Fragment key={item.id}>
                   <button
                     className={`app-sidebar-item${active ? ' active' : ''}`}
-                    onClick={() => onNavigate(item.id, defaultSub(item.id) ?? undefined)}
+                    onClick={() => {
+                      if (isOpenFeature && !collapsed) setClosedSubs(c => ({ ...c, [item.id]: !c[item.id] }));
+                      else onNavigate(item.id, defaultSub(item.id) ?? undefined);
+                    }}
                     title={collapsed ? item.label : undefined}
                     aria-label={collapsed ? item.label : undefined}
-                    aria-current={active && !inPart ? 'page' : undefined}
-                    aria-expanded={subs.length > 0 && !collapsed ? subOpen : undefined}
+                    aria-current={active && !(inPart && subOpen) ? 'page' : undefined}
+                    aria-expanded={hasSubs && !collapsed ? subOpen : undefined}
+                    aria-controls={hasSubs && !collapsed ? `sub-${item.id}` : undefined}
                     data-mobile-hide={!MOBILE_ITEMS.includes(item.id) ? '' : undefined}
                   >
                     <span className="app-sidebar-icon">
@@ -199,11 +208,15 @@ export default function AppSidebar({ activeModule, activeSub, onNavigate, user, 
                             {BADGE_LABEL[item.badge]}
                           </span>
                         )}
+                        {hasSubs && (
+                          <svg data-testid="sub-chevron" data-open={String(subOpen)} aria-hidden="true" focusable="false" viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+                            style={{ flexShrink: 0, transition: 'transform .15s ease', transform: subOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}><path d="M6 3l5 5-5 5"/></svg>
+                        )}
                       </>
                     )}
                   </button>
                   {subOpen && (
-                    <div role="group" aria-label={`${item.label} sections`} className="app-sidebar-subgroup">
+                    <div id={`sub-${item.id}`} role="group" aria-label={`${item.label} sections`} className="app-sidebar-subgroup">
                       {subs.map(sub => {
                         const here = activeSub === sub.id;
                         return (
