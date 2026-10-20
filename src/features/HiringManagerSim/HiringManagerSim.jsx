@@ -551,6 +551,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
               <div style={{ textAlign: "right" }}>
                 {attempt > 1 && <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>Practice score (not counted)</div>}
                 <div style={{ color: scoreColor(current.score), fontSize: attempt > 1 ? 18 : 24, fontWeight: 900 }} aria-label="Answer score">{current.score}%</div>
+                <div style={{ color: C.muted, fontSize: 10.5, marginTop: 2 }}>AI estimate, not verified evidence</div>
               </div>
             </div>
             {attempt > 1 && Number.isFinite(firstScore) && (
