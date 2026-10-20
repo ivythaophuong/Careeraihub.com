@@ -64,3 +64,25 @@ describe('analyzeRhythm', () => {
     for (const v of [undefined, null, 5, 'x', { levels: 'abc' }, { levels: [NaN, NaN, NaN], stepMs: STEP }]) expect(() => analyzeRhythm(v)).not.toThrow();
   });
 });
+
+describe('segments (for the timeline on screen)', () => {
+  const levels = [...run(10, 0.001), ...run(30, 0.3), ...run(20, 0.001), ...run(30, 0.3), ...run(6, 0.001), ...run(15, 0.3), ...run(10, 0.001)];
+  const r = analyzeRhythm({ levels, stepMs: STEP, text: words(30) });
+  it('lists the speaking and pausing stretches in order, from the first sound to the last', () => {
+    expect(r.segments.map(x => x.type)).toEqual(['speech', 'pause', 'speech', 'pause', 'speech']);
+    expect(r.segments.map(x => x.sec)).toEqual([3, 2, 3, 0.6, 1.5]);
+  });
+  it('adds up to the total, and the pause stretches add up to the pause time', () => {
+    expect(r.segments.reduce((n, x) => n + x.sec, 0)).toBeCloseTo(r.totalSec, 1);
+    expect(r.segments.filter(x => x.type === 'pause').reduce((n, x) => n + x.sec, 0)).toBeCloseTo(r.pauseSec, 1);
+  });
+  it('marks a pause of one second or more as long, and a shorter one as not', () => {
+    const pauses = r.segments.filter(x => x.type === 'pause');
+    expect(pauses.map(x => x.long)).toEqual([true, false]);
+    expect(r.longPauses).toBe(1);
+  });
+  it('speech stretches are never marked long', () => {
+    expect(r.segments.filter(x => x.type === 'speech').every(x => !x.long)).toBe(true);
+  });
+});
+
