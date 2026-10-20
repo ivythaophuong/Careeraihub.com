@@ -59,12 +59,12 @@ describe('the active interview', () => {
 
   it('shows progress from the real question list, with no invented figures', async () => {
     ai(); setup(); await start();
-    const panel = screen.getByRole('complementary', { name: 'Session progress' });
+    const panel = screen.getByRole('region', { name: 'Session progress' });
     expect(within(panel).getAllByRole('listitem')).toHaveLength(5);
     expect(within(panel).getByText(/0 answered/)).toBeTruthy();
-    expect(within(panel).getByText('Focus 1')).toBeTruthy();
-    expect(panel.textContent).toMatch(/no time limit/i);
-    expect(panel.textContent).not.toMatch(/token|budget|minutes left/i);
+    expect(within(screen.getByTestId('question-card')).getByText('Focus 1')).toBeTruthy();
+    expect(screen.getByTestId('about-content').textContent).toMatch(/no time limit/i);
+    expect(panel.textContent + screen.getByTestId('about-content').textContent).not.toMatch(/token|budget|minutes left/i);
   });
 
   it('calls a typed draft "kept on this device", not saved, and stores it only in this tab', async () => {
