@@ -89,6 +89,8 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const reviewRef = useRef(null);
   const headingRef = useRef(null);
   const questionRef = useRef(0);
+  // The clock (countdown and the time shown for information) starts when the person is ready, not when the question appears: reading time is not counted.
+  const [readyIdx, setReadyIdx] = useState(null); // the question index the person has started; any other index is still being read
 
   const resume = pickResumeSource({ memory, resumeText });
   const persona = personaId ? PERSONAS[personaId] : null;
@@ -100,7 +102,8 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
   // Informational time, counted per question first: it runs while the first attempt at a question is still open and stops when the answer is submitted
   // (or skipped), while feedback is being fetched, and during a practice retry. The session total is the sum of the questions.
-  const counting = phase === 'interview' && results.length <= idx && !busy;
+  const ready = readyIdx === idx;
+  const counting = phase === 'interview' && results.length <= idx && !busy && ready;
   useEffect(() => {
     if (!counting) return undefined;
     const t = setInterval(() => { questionRef.current += 1000; setQuestionMs(questionRef.current); }, 1000);
@@ -111,10 +114,10 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   // Timed challenge: a count-down for the first attempt at a question. At zero it only says so; the answer is kept and can still be sent.
   useEffect(() => { setSecondsLeft(TIMED_SECONDS); }, [idx, phase, challenge]);
   useEffect(() => {
-    if (phase !== 'interview' || challenge !== 'timed' || current || attempt !== 1 || busy) return undefined;
+    if (phase !== 'interview' || challenge !== 'timed' || current || attempt !== 1 || busy || !ready) return undefined;
     const t = setInterval(() => setSecondsLeft(sec => (sec > 0 ? sec - 1 : 0)), 1000);
     return () => clearInterval(t);
-  }, [phase, challenge, current, attempt, busy, idx]);
+  }, [phase, challenge, current, attempt, busy, idx, ready]);
 
   // Keep the session on this device (not on the server) so a refresh or a visit to another module does not lose it.
   useEffect(() => {
@@ -139,7 +142,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   };
 
   const reset = () => {
-    setPhase('select'); setPersonaId(null); setQuestions([]); setIdx(0); setResults([]); setAnswer('');
+    setPhase('select'); setPersonaId(null); setQuestions([]); setIdx(0); setReadyIdx(null); setResults([]); setAnswer('');
     setCurrent(null); setWarnings([]); setErr(''); setSaved(false); setConfirmExit(false); setAttempt(1); setLastShown(null);
     setFailureKind(null); setQuestionMs(0); questionRef.current = 0; setKept(null); setDeviceKept(false);
     clearDeviceSession(user?.id);
@@ -150,7 +153,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     const k = loadDeviceSession(user?.id);
     if (!k) { setKept(null); return; }
     const done = k.results.length > k.idx && !k.results[k.idx]?.skipped ? k.results[k.idx] : null;
-    setChallenge(k.challenge === 'timed' ? 'timed' : 'untimed'); setPersonaId(k.personaId); setRole(k.role || ''); setQuestions(k.questions); setIdx(k.idx); setResults(k.results);
+    setChallenge(k.challenge === 'timed' ? 'timed' : 'untimed'); setPersonaId(k.personaId); setRole(k.role || ''); setQuestions(k.questions); setIdx(k.idx); setReadyIdx((Number.isFinite(k.questionMs) && k.questionMs > 0) || (typeof k.answer === 'string' && k.answer.trim()) ? k.idx : null); setResults(k.results);
     setAnswer(k.answer || ''); setCurrent(done); setWarnings([]); setErr(''); setSaved(false); setAttempt(1); setLastShown(done ? { fb: done, warnings: [] } : null);
     setFailureKind(null); questionRef.current = Number.isFinite(k.questionMs) ? k.questionMs : 0; setQuestionMs(questionRef.current); setKept(null);
     setPhase('interview');
@@ -166,7 +169,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     try {
       const raw = await callLLMFor('mock_questions', resume)([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
       setQuestions(normalizeQuestions(extractJSON(raw)));
-      setChallenge(chosen); setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false); setAttempt(1); setLastShown(null);
+      setChallenge(chosen); setPersonaId(id); setIdx(0); setReadyIdx(null); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false); setAttempt(1); setLastShown(null);
       setFailureKind(null); questionRef.current = 0; setQuestionMs(0); setKept(null);
       setPhase('interview');
     } catch (e) {
@@ -491,6 +494,12 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             <span aria-hidden="true">⏱</span>This question {formatElapsed(questionMs)}<span style={{ color: C.muted, fontWeight: 600 }}>·</span><span style={{ color: C.muted, fontWeight: 700 }}>Whole session {formatElapsed(sessionMs)}</span></span>}
           <button type="button" onClick={toggleTimer} aria-pressed={showTimer} style={ghostBtn}>{showTimer ? 'Hide timer' : 'Show timer'}</button>
         </div>
+        {!ready && attempt === 1 && !current && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '0 0 12px' }}>
+            <span style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>Take your time to read the question. The clock starts when you press "I'm ready", or when you start answering.</span>
+            <Btn onClick={() => setReadyIdx(idx)} color={pColor} dark style={{ padding: '8px 18px' }}>I'm ready</Btn>
+          </div>
+        )}
         <div style={{ color: C.text, fontWeight: 700, fontSize: 15, lineHeight: 1.6 }}>"{q.question}"</div>
         {q.why && <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>The interviewer is looking for: {q.why}</div>}
         </div>
@@ -503,11 +512,11 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             value={answer}
             maxLength={MAX_ANSWER_CHARS}
             disabled={!!busy}
-            onChange={e => { setAnswer(e.target.value); setErr(''); }}
+            onChange={e => { setAnswer(e.target.value); setErr(''); if (!ready && attempt === 1) setReadyIdx(idx); }}
             placeholder={attempt > 1 ? 'Improve your answer, then ask for feedback again.' : 'Type your answer here. A STAR structure (Situation, Task, Action, Result) works well for behavioural questions...'}
             style={{ width: "100%", minHeight: 140, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: 16, fontSize: 13, outline: "none", lineHeight: 1.7, fontFamily: "inherit", resize: "vertical" }}
           />
-          {voiceOn && <VoiceRecorder disabled={!!busy} onTranscript={(t, meta) => {
+          {voiceOn && <VoiceRecorder disabled={!!busy} onStart={() => { if (attempt === 1) setReadyIdx(idx); }} onTranscript={(t, meta) => {
             setAnswer(a => ((a.trim() ? a.trimEnd() + ' ' : '') + t).slice(0, MAX_ANSWER_CHARS)); setErr('');
             try { setVoiceRate({ key: `${idx}:${attempt}`, result: estimateWpm({ text: t, durationSec: meta?.durationSec }), rhythm: analyzeRhythm({ levels: meta?.levels, stepMs: meta?.stepMs, text: t }) }); } catch { setVoiceRate(null); }
           }} />}
