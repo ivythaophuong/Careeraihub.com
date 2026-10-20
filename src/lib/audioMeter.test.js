@@ -1,6 +1,6 @@
 // Live sound level for the voice recorder: pure helpers plus a thin Web Audio wrapper. Nothing here stores or sends audio.
 import { describe, it, expect, vi } from 'vitest';
-import { levelOf, barsOf, isSilent, SILENT_PEAK, createAudioMeter } from './audioMeter.js';
+import { levelOf, barsOf, isSilent, SILENT_PEAK, createAudioMeter, columnsOf } from './audioMeter.js';
 
 const flat = (n, v = 128) => new Uint8Array(n).fill(v);
 const square = (n, amp) => Uint8Array.from({ length: n }, (_, i) => 128 + (i % 2 ? amp : -amp));
@@ -75,3 +75,21 @@ describe('createAudioMeter', () => {
     expect(f.closes).toHaveBeenCalled();
   });
 });
+
+describe('columnsOf (the waveform history)', () => {
+  it('takes the loudest level of each group of frames', () => {
+    expect(columnsOf([0.1, 0.5, 0.2, 0.05, 0.3, 0.3, 0.9], 3, 10)).toEqual([0.5, 0.3, 0.9]);
+  });
+  it('is empty for no levels and never longer than the number of columns asked for', () => {
+    expect(columnsOf([], 5, 10)).toEqual([]);
+    expect(columnsOf(null, 5, 10)).toEqual([]);
+    expect(columnsOf(new Array(100).fill(0.2), 2, 10)).toHaveLength(10);
+  });
+  it('treats odd values as silence and caps at 1', () => {
+    expect(columnsOf([NaN, -1, 'x', 4], 2, 5)).toEqual([0, 1]);
+  });
+  it('a bad group size gives nothing rather than an error', () => {
+    for (const n of [0, -2, NaN, undefined]) expect(columnsOf([0.3, 0.3], n, 5)).toEqual([]);
+  });
+});
+

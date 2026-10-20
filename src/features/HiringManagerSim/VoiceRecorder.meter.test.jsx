@@ -144,3 +144,49 @@ describe('loudness levels handed to the parent (for the rhythm figures)', () => 
   });
 });
 
+describe('live rhythm while recording', () => {
+  const start = async () => {
+    vi.useFakeTimers();
+    return render(<VoiceRecorder onTranscript={vi.fn()} />);
+  };
+  const begin = async () => { fireEvent.click(screen.getByRole('button', { name: /record your answer/i })); await act(async () => {}); };
+  const scripted = () => { let n = 0; meter.sample.mockImplementation(() => { n++; return n > 30 && n <= 50 ? 0.001 : 0.3; }); };
+
+  it('shows a Rhythm panel marked Live while recording, with dashes until there is enough to measure', async () => {
+    await start(); scripted(); await begin();
+    const panel = screen.getByTestId('live-rhythm');
+    expect(panel.textContent).toMatch(/Rhythm/);
+    expect(panel.textContent).toMatch(/Live/);
+    expect(panel.textContent).toMatch(/Speaking time\s*—/);
+    expect(panel.textContent).toMatch(/Long pauses\s*—/);
+  });
+  it('then shows speaking time and long pauses as they happen, and the pace as after you stop', async () => {
+    await start(); scripted(); await begin();
+    await act(async () => { vi.advanceTimersByTime(8_000); });
+    const t = screen.getByTestId('live-rhythm').textContent;
+    expect(t).toMatch(/Speaking time\s*6\.0 s/);
+    expect(t).toMatch(/Long pauses\s*1/);
+    expect(t).toMatch(/longest 2\.0 s/);
+    expect(t).toMatch(/Pace while speaking\s*—/);
+    expect(t).toMatch(/after you stop/i);
+    expect(screen.getAllByTestId('rhythm-long-pause')).toHaveLength(1);
+  });
+  it('says the figures are estimates that can change as the answer goes on', async () => {
+    await start(); scripted(); await begin();
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    expect(screen.getByTestId('live-rhythm').textContent).toMatch(/can change as you keep speaking/i);
+  });
+  it('goes away when recording stops', async () => {
+    await start(); scripted(); await begin();
+    await act(async () => { vi.advanceTimersByTime(3_000); });
+    fireEvent.click(screen.getByRole('button', { name: /stop recording/i }));
+    await act(async () => {});
+    expect(screen.queryByTestId('live-rhythm')).toBeNull();
+  });
+  it('is not shown without a working meter', async () => {
+    createAudioMeter.mockReturnValueOnce(null);
+    await start(); await begin();
+    expect(screen.queryByTestId('live-rhythm')).toBeNull();
+  });
+});
+

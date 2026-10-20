@@ -3,7 +3,9 @@ import { C } from '../../styles/theme';
 import { Btn } from '../../components/CommonUI';
 import { transcribeAudio, MAX_RECORD_SECONDS } from '../../lib/voice.js';
 import { createAudioMeter, isSilent, SILENT_PEAK } from '../../lib/audioMeter.js';
+import { analyzeRhythm } from '../../lib/rhythm.js';
 import Waveform from './Waveform';
+import LiveRhythmPanel from './LiveRhythmPanel';
 
 // Voice practice spike: record one answer, turn it into text on the server, hand the text back to the answer box so the user can correct it
 // before anything is graded. The audio lives in memory only until the transcript returns; it is never stored (decision V3).
@@ -33,6 +35,8 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
   const sampler = useRef(null);
   const quietMs = useRef(0);
   const levels = useRef([]);
+  const liveTimer = useRef(null);
+  const [liveRhythm, setLiveRhythm] = useState(null);
   const [meterNode, setMeterNode] = useState(null);
   const [quiet, setQuiet] = useState(false);
   const gone = useRef(false);
@@ -40,6 +44,7 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
   const release = () => {
     clearInterval(timer.current); timer.current = null;
     clearInterval(sampler.current); sampler.current = null;
+    clearInterval(liveTimer.current); liveTimer.current = null; setLiveRhythm(null);
     meter.current?.close(); meter.current = null; setMeterNode(null); setQuiet(false);
     stream.current?.getTracks().forEach(t => t.stop()); stream.current = null;
   };
@@ -101,6 +106,8 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
         if (level >= SILENT_PEAK) { quietMs.current = 0; setQuiet(q => (q ? false : q)); }
         else { quietMs.current += 100; if (quietMs.current >= 3000) setQuiet(true); }
       }, 100);
+      // Re-measure the rhythm of what has been said so far twice a second (loudness numbers only).
+      liveTimer.current = setInterval(() => { try { setLiveRhythm(analyzeRhythm({ levels: levels.current, stepMs: 100 })); } catch { /* the panel just keeps its last figures */ } }, 500);
     }
     timer.current = setInterval(() => {
       secs.current += 1; setElapsed(secs.current);
@@ -140,12 +147,13 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
           </div>
           <div style={{ flex: '1 1 200px', minWidth: 0 }}>
             <div role={recording ? 'timer' : 'status'} style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{status}</div>
-            {recording && meterNode && <div style={{ marginTop: 6 }}><Waveform analyser={meterNode} /></div>}
+            {recording && meterNode && <div style={{ marginTop: 6 }}><Waveform levelsRef={levels} /></div>}
             {recording && quiet && <div role="status" style={{ color: C.gold, fontSize: 12, marginTop: 4 }}>We can barely hear you. Move closer to the microphone or check that it is not muted.</div>}
             {!recording && !busyText && <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Tap the microphone and answer out loud, up to 3 minutes.</div>}
           </div>
         </div>
       )}
+      {recording && meterNode && <LiveRhythmPanel rhythm={liveRhythm} />}
       {fresh && stage === 'idle' && <div role="status" style={{ color: C.muted, fontSize: 11, lineHeight: 1.6 }}>Transcribed from your voice. Please check and correct it before you send it for feedback.</div>}
       {err && <div role="alert" style={{ color: C.red, fontSize: 12, lineHeight: 1.6 }}>{err}</div>}
     </div>
