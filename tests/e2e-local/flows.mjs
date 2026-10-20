@@ -31,7 +31,12 @@ const dev = await startDev();
 const browser = await launch();
 const fresh = async (seed, opts = {}) => { const a = await newApp(browser, { seed, ...opts }); await a.page.goto(BASE + '/', { waitUntil: 'domcontentloaded' }); await settle(a.page, 2500); return a; };
 const sidebar = (page, label) => page.locator('.app-sidebar-item', { hasText: new RegExp('^\\s*' + label, 'i') }).first().click();
-const sub = (page, label) => page.locator('.app-sidebar-subitem', { hasText: label }).first().click();
+// The parts of a feature are an accordion: clicking the feature while inside it closes them, so open them again when they are hidden.
+const sub = async (page, label) => {
+  const part = page.locator('.app-sidebar-subitem', { hasText: label }).first();
+  if (!(await part.isVisible())) await page.locator('.app-sidebar-item[aria-expanded]').first().click();
+  await part.click();
+};
 
 // ── F1 the resume flows from memory into the other features ───────────────────────────────────────────────────────────────────────────────────
 {
