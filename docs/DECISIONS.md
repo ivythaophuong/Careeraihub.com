@@ -62,6 +62,15 @@ Only decisions with evidence in code, comments, docs or git history. Dates are c
 - **Limits:** the production flag value of the running build is unknown; consent table RLS policies were not read; no RLS test was run. Zero verified employers is a current condition, not a lasting protection.
 - **Sequence (proposed, each step separately approved):** relabel and hide in the interface; apply and test consent-only access; replace dashboard indicators; decide the trigger and `candidate_trust_profiles`; then wire the Structure Score through its gates.
 
+## ADR-014: Voice practice: transcript first, one information-only speech figure (owner decisions, 2026-10-20)
+- **Decision:**
+  1. Voice practice is English only. Speech becomes text on the server (`transcribe` function: Groq first, OpenAI as fallback); no audio is kept (voice brief V1 to V3). The spike is limited to the owner's account by `VOICE_TRANSCRIBE` and `VOICE_ALLOWED_USER_IDS` (V7).
+  2. Voice adds **no score and no judgement**. The text goes through the same path as a typed answer (voice brief D1).
+  3. The first and only speech figure is **Estimated Speaking Rate (WPM)**: words x 60 / seconds, from the raw transcript and the length of the whole recording (`src/lib/speakingRate.js`). It is information only: no good/bad wording, no colour band, no target range, no AI, no storage, nothing sent to a recruiter or to the grading prompt, and no number when the transcript or the length is missing. It is shown as an estimate because silence is counted and the transcript may miss words.
+  4. Deferred, each needing its own evidence and approval: long-pause detection (feasibility on real audio first), filler words (speech-to-text often drops them, so a count from text is unreliable), tone, energy and pronunciation (need audio analysis by another provider), recruiter-facing voice analytics.
+- **Evidence:** `docs/architecture/plans/DECISION-voice-practice-2026-10-18.md`; `supabase/functions/transcribe/README.md`; the user story D1 given by the owner on 2026-10-20.
+- **Limits:** no measurement of WPM against hand-timed samples exists (backlog D1.2); no minimum recording length is set, so a very short clip gives a noisy figure; the usage ledger does not cover audio seconds; the privacy text does not yet mention voice and needs legal review before any user other than the owner.
+
 ## Superseded: ADR for hiding the computed score (commit c0463ec) is reversed by ADR-011.
 
 ## Not yet decided (no evidence of a choice)
