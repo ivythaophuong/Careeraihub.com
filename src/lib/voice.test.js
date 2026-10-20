@@ -4,19 +4,31 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('./session', () => ({ getValidSession: vi.fn(async () => ({ access_token: 'tok' })) }));
 vi.mock('./supabase', () => ({ FUNCTIONS_URL: 'https://proj.supabase.co', SUPABASE_ANON: 'anon' }));
 import { getValidSession } from './session';
-import { voiceEnabled, transcribeAudio, VoiceError, MAX_RECORD_SECONDS } from './voice.js';
+import { voiceEnabled, PREVIEW_USER_IDS, transcribeAudio, VoiceError, MAX_RECORD_SECONDS } from './voice.js';
 
 const blob = (type = 'audio/webm;codecs=opus') => new Blob([new Uint8Array([1, 2, 3, 4, 5])], { type });
 const reply = (status, body) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
 
-beforeEach(() => { vi.stubGlobal('fetch', reply(200, { text: 'Hello there.', provider: 'groq' })); getValidSession.mockResolvedValue({ access_token: 'tok' }); });
+beforeEach(() => { vi.stubEnv('VITE_VOICE_PRACTICE', undefined); vi.stubGlobal('fetch', reply(200, { text: 'Hello there.', provider: 'groq' })); getValidSession.mockResolvedValue({ access_token: 'tok' }); });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('voiceEnabled', () => {
-  it('is off unless VITE_VOICE_PRACTICE is exactly "true"', () => {
+  const OWNER = '669f63cb-02f8-4eb9-9cd1-2f6015f6a4fd';
+  it('is off for everyone by default, including a signed-in user who is not on the preview list', () => {
     expect(voiceEnabled()).toBe(false);
-    vi.stubEnv('VITE_VOICE_PRACTICE', 'on'); expect(voiceEnabled()).toBe(false);
-    vi.stubEnv('VITE_VOICE_PRACTICE', 'true'); expect(voiceEnabled()).toBe(true);
+    expect(voiceEnabled(null)).toBe(false);
+    expect(voiceEnabled('some-other-user')).toBe(false);
+  });
+  it('is on by default only for the preview accounts', () => {
+    expect(PREVIEW_USER_IDS).toContain(OWNER);
+    expect(voiceEnabled(OWNER)).toBe(true);
+  });
+  it('VITE_VOICE_PRACTICE=true turns it on for any account (local development)', () => {
+    vi.stubEnv('VITE_VOICE_PRACTICE', 'true'); expect(voiceEnabled('some-other-user')).toBe(true);
+    vi.stubEnv('VITE_VOICE_PRACTICE', 'on'); expect(voiceEnabled('some-other-user')).toBe(false);
+  });
+  it('VITE_VOICE_PRACTICE=false turns it off even for the preview account', () => {
+    vi.stubEnv('VITE_VOICE_PRACTICE', 'false'); expect(voiceEnabled(OWNER)).toBe(false);
   });
 });
 
