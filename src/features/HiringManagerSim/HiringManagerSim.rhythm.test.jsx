@@ -18,13 +18,14 @@ const words = (n) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
 beforeEach(() => {
   vi.stubEnv('VITE_VOICE_PRACTICE', 'true');
   sessionStorage.clear(); localStorage.clear(); vi.clearAllMocks();
+  localStorage.setItem('careerai_mock_voice:u1', '1'); // voice already unlocked; the unlock rule has its own tests
   vi.spyOn(console, 'error').mockImplementation(() => {});
   callLLM.mockImplementation(async () => JSON.stringify(QUESTIONS));
   handOver = { text: words(20), meta: { durationSec: 8, stepMs: 100, levels: [...run(30, 0.3), ...run(20, 0.001), ...run(30, 0.3)] } };
 });
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 
-const toQuestion = async () => { fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/); };
+const toQuestion = async () => { fireEvent.click(screen.getByRole('button', { name: /voice practice/i })); fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/); };
 
 describe('rhythm figures', () => {
   it('shows speaking time, long pauses and pace while speaking, with where they come from and no judgement', async () => {

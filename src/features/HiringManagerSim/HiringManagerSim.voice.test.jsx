@@ -27,6 +27,7 @@ beforeEach(() => {
   vi.stubEnv('VITE_VOICE_PRACTICE', undefined); // a developer's .env.local must not change what these tests check
   transcript = 'I led the migration of our checkout service.';
   sessionStorage.clear(); localStorage.clear(); vi.clearAllMocks();
+  localStorage.setItem('careerai_mock_voice:u1', '1'); localStorage.setItem('careerai_mock_voice:669f63cb-02f8-4eb9-9cd1-2f6015f6a4fd', '1'); // voice already unlocked; the unlock rule has its own tests
   vi.spyOn(console, 'error').mockImplementation(() => {});
   callLLM.mockImplementation(async () => JSON.stringify(QUESTIONS));
   vi.stubGlobal('MediaRecorder', FakeRecorder);
@@ -34,7 +35,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-const toQuestion = async () => { fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/); };
+const chooseVoice = () => { const v = screen.queryByRole('button', { name: /voice practice/i }); if (v && v.getAttribute('aria-disabled') !== 'true') fireEvent.click(v); };
+const toQuestion = async () => { chooseVoice(); fireEvent.click(screen.getByText(/Series B/)); await screen.findByText(/Question 1\/5/); };
 
 describe('voice practice flag', () => {
   it('is off by default: no recorder, and the screen still says voice is not available', async () => {
@@ -54,6 +56,7 @@ describe('voice practice flag', () => {
     vi.stubEnv('VITE_VOICE_PRACTICE', 'true');
     setup();
     expect(screen.queryByText(/Voice practice is not available yet/)).toBeNull();
+    chooseVoice();
     expect(screen.getByText(/Voice practice \(preview\)/)).toBeTruthy();
     await toQuestion();
     expect(screen.getByRole('button', { name: /record your answer/i })).toBeTruthy();
