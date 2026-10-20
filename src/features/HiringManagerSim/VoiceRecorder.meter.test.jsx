@@ -1,5 +1,6 @@
 // The recorder with a working audio meter: live waveform, a quiet-microphone hint, and no upload of a recording with no sound.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import React from 'react';
 import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
 
 vi.mock('../../lib/voice.js', async (orig) => ({ ...(await orig()), transcribeAudio: vi.fn() }));
@@ -187,6 +188,35 @@ describe('live rhythm while recording', () => {
     createAudioMeter.mockReturnValueOnce(null);
     await start(); await begin();
     expect(screen.queryByTestId('live-rhythm')).toBeNull();
+  });
+});
+
+describe('control from outside (the action bar)', () => {
+  const mount = (props = {}) => { const ref = React.createRef(); const stages = []; render(<VoiceRecorder ref={ref} onTranscript={vi.fn()} onStage={(s) => stages.push(s)} {...props} />); return { ref, stages }; };
+  it('reports its stage as it changes', async () => {
+    const { ref, stages } = mount();
+    expect(stages.at(-1)).toBe('idle');
+    await act(async () => { ref.current.start(); });
+    await screen.findByRole('button', { name: /stop recording/i });
+    expect(stages).toContain('recording');
+    let finish; transcribeAudio.mockImplementationOnce(() => new Promise((r) => { finish = r; })); // a real transcription takes seconds
+    await act(async () => { ref.current.stop(); });
+    await waitFor(() => expect(stages.at(-1)).toBe('transcribing'));
+    await act(async () => { finish('Some words here.'); });
+    await waitFor(() => expect(stages.at(-1)).toBe('idle'));
+  });
+  it('start() asks for consent first when it has not been given', async () => {
+    sessionStorage.clear();
+    const { ref, stages } = mount();
+    await act(async () => { ref.current.start(); });
+    expect(stages.at(-1)).toBe('consent');
+    expect(screen.getByRole('dialog', { name: /consent/i })).toBeTruthy();
+  });
+  it('start() and stop() do nothing at the wrong time and never throw', async () => {
+    const { ref } = mount({ disabled: true });
+    expect(() => { ref.current.stop(); }).not.toThrow();
+    await act(async () => { ref.current.start(); });
+    expect(screen.queryByRole('button', { name: /stop recording/i })).toBeNull();
   });
 });
 

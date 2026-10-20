@@ -31,7 +31,8 @@ describe('rhythm figures', () => {
   it('shows speaking time, long pauses and pace while speaking, with where they come from and no judgement', async () => {
     setup(); await toQuestion();
     fireEvent.click(screen.getByText('fake record'));
-    const note = await screen.findByTestId('rhythm');
+    await screen.findByTestId('rhythm');
+    const note = screen.getByTestId('speaking-insights');
     expect(note.textContent).toMatch(/Rhythm/);
     expect(note.textContent).toMatch(/6\.0 s/); expect(note.textContent).toMatch(/of 8\.0 s/); expect(note.textContent).toMatch(/75%/);
     expect(note.textContent).toMatch(/Long pauses/); expect(note.textContent).toMatch(/longest 2\.0 s/);
