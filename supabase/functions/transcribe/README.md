@@ -27,6 +27,14 @@ Nothing. The audio is held in memory for the request. The only log line is `[usa
 
 The browser flag is `VITE_VOICE_PRACTICE=true` at build time (public, not a secret).
 
+## Reading the cost
+
+Every attempt writes one `[usage]` line with `event: "voice_usage"` (provider, the length the browser reported in seconds, and the outcome). In the Supabase dashboard open Edge Functions, `transcribe`, Logs, copy the lines of the period into a text file and run:
+
+`node scripts/usage-report.mjs path/to/transcribe-logs.txt`
+
+It prints the answers, the audio minutes, the average length, an **estimated** cost (Groq 0.04 USD per hour with a 10 second minimum per request, read on Groq's page; OpenAI 0.003 USD per minute, from a third-party list), how many answers were served by OpenAI (the fallback, about four times dearer) and how many attempts failed. A request with no usable length is counted as unreported, never as zero. These are estimates from the length the browser reported, not an invoice: the providers' usage pages are the source of truth.
+
 ## Not done yet
 
 - Not gated by the usage ledger (it counts tokens; audio is billed in seconds). Needed before wide use (decision V6).
