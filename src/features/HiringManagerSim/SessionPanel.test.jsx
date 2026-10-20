@@ -31,8 +31,18 @@ describe('SessionPanel', () => {
     expect(screen.getByText('Focus 2')).toBeTruthy();
     expect(screen.getByText(/2 \/ 5/)).toBeTruthy();
   });
+  it('keeps the tips and the notes folded away until Help is opened', () => {
+    show();
+    const toggle = screen.getByRole('button', { name: /help & tips/i });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: /next tip/i })).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /next tip/i })).toBeTruthy();
+  });
   it('shows interview tips one at a time, with previous, next and dots', () => {
     show();
+    fireEvent.click(screen.getByRole('button', { name: /help & tips/i }));
     const first = screen.getByTestId('tip').textContent;
     fireEvent.click(screen.getByRole('button', { name: /next tip/i }));
     expect(screen.getByTestId('tip').textContent).not.toBe(first);
@@ -44,6 +54,7 @@ describe('SessionPanel', () => {
   });
   it('the tips are advice only: no figures, no claims about results', () => {
     show();
+    fireEvent.click(screen.getByRole('button', { name: /help & tips/i }));
     for (let i = 0; i < 6; i++) { expect(screen.getByTestId('tip').textContent).not.toMatch(/\d+\s?%|percent|studies show|recruiters? (say|prefer)/i); fireEvent.click(screen.getByRole('button', { name: /next tip/i })); }
   });
   it('keeps the plain words about the limit and the scores, and says which way you answer', () => {

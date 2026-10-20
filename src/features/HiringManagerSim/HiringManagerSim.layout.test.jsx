@@ -68,11 +68,11 @@ describe('voice answers', () => {
     expect(screen.queryByTestId('recorder')).toBeNull();
     expect(screen.getByLabelText('Your answer')).toBeTruthy();
   });
-  it('choosing the Voice tab shows the recorder, the transcript box and the speaking insights with dashes', async () => {
+  it('choosing the Voice tab shows the recorder and the transcript box, but no empty insights card before there is a recording', async () => {
     await voiceSetup();
     expect(screen.getByTestId('recorder')).toBeTruthy();
     expect(screen.getByText('Transcript')).toBeTruthy();
-    expect(within(screen.getByTestId('speaking-insights')).getAllByText('—')).toHaveLength(4);
+    expect(screen.queryByTestId('speaking-insights')).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: /type answer/i }));
     expect(screen.queryByTestId('recorder')).toBeNull();
     expect(screen.queryByTestId('speaking-insights')).toBeNull();

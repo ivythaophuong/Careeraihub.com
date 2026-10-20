@@ -76,6 +76,7 @@ describe('selecting and starting', () => {
     expect(screen.getByText(/Interview question number 1/)).toBeTruthy();
     const card = within(screen.getByTestId('question-card'));
     expect(card.getByText('Focus 1')).toBeTruthy();
+    fireEvent.click(card.getByRole('button', { name: /interview guidance/i }));
     expect(card.getByText('What the interviewer is assessing')).toBeTruthy();
     expect(card.getByText('Why 1')).toBeTruthy();
     expect(screen.queryByText(/Interview question number 2/)).toBeNull();

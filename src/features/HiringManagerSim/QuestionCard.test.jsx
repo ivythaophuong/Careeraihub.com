@@ -15,16 +15,30 @@ describe('QuestionCard', () => {
     expect(within(card).getByText('Product & Process')).toBeTruthy();
     expect(within(card).getByRole('heading', { name: /Tell me about a time you introduced a repeatable process/ })).toBeTruthy();
   });
-  it('says what the interviewer is assessing, and offers a structure as a hint, not a rule', () => {
+  it('keeps the guidance folded away until asked, as one item, and then says what the interviewer is assessing and offers a structure as a hint, not a rule', () => {
     show();
+    expect(screen.queryByText('What the interviewer is assessing')).toBeNull();
+    const toggle = screen.getByRole('button', { name: /interview guidance/i });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByText('What the interviewer is assessing')).toBeTruthy();
     expect(screen.getByText('Your ability to build structure.')).toBeTruthy();
     expect(screen.getByText(/Situation → Action → Outcome/)).toBeTruthy();
     expect(screen.getByText(/often works/i)).toBeTruthy();
   });
-  it('leaves the assessing panel out when there is no reason to show', () => {
+  it('leaves the assessing line out when there is no reason to show, but keeps the hint', () => {
     show({ q: { ...base.q, why: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /interview guidance/i }));
     expect(screen.queryByText('What the interviewer is assessing')).toBeNull();
+    expect(screen.getByText(/Situation → Action → Outcome/)).toBeTruthy();
+  });
+  it('is calm: a neutral border whatever the persona colour, and no coloured fill', () => {
+    show({ color: '#ec4899' });
+    const card = screen.getByTestId('question-card');
+    expect(card.style.border).toContain('rgb(30, 45, 69)');
+    expect(card.style.border).not.toContain('rgb(236, 72, 153)');
+    expect(card.style.background).not.toContain('rgb(236, 72, 153)');
   });
   it('puts the timers before the question text, as before', () => {
     show();
