@@ -8,6 +8,7 @@ import MemoryDashboard from '../MemoryDashboard/MemoryDashboard';
 import { nextActions } from '../CareerRoadmap/roadmapNext';
 import { SESSIONS_KEPT, STAR_STORIES_KEPT } from '../../lib/historyLimits';
 import { latestSessionScore } from '../../lib/interviewFigures';
+import { isSub } from '../../lib/subNav.js';
 
 const TABS = [
   { id: 'dashboard',  label: 'Overview' },
@@ -117,7 +118,11 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function InterviewCoach(props) {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [localTab, setLocalTab] = useState('dashboard');
+  // With the sidebar carrying the parts (signed-in desktop), the app decides which part is open; otherwise the strip below does, as before.
+  const controlled = props.subNav === 'sidebar';
+  const activeTab = controlled ? (isSub('simulate', props.activeSub) ? props.activeSub : 'dashboard') : localTab;
+  const setActiveTab = (t) => { if (controlled) props.onSubChange?.(t); else setLocalTab(t); };
   // While a session is being practised the tab strip is hidden (the page asks for quiet); it comes back when the session ends or the person leaves.
   const [focus, setFocus] = useState(false);
   const { onFocusChange } = props;
@@ -128,7 +133,7 @@ export default function InterviewCoach(props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* Tab strip */}
-      {!focus && <div ref={tabsRef} className="scroll-tabs" style={tabBarStyle}>
+      {!focus && <div className={`ic-tabstrip-wrap${controlled ? ' ic-tabstrip-wrap--in-sidebar' : ''}`}><div ref={tabsRef} className="scroll-tabs" style={tabBarStyle}>
         <span style={{
           fontSize: 9, fontWeight: 800, color: 'var(--lp-teal)',
           textTransform: 'uppercase', letterSpacing: '.12em',
@@ -147,7 +152,7 @@ export default function InterviewCoach(props) {
             {tab.label}
           </button>
         ))}
-      </div>}
+      </div></div>}
 
       {/* Tab content */}
       <div>

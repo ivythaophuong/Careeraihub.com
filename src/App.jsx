@@ -38,6 +38,7 @@ import LandingPage, { GuestNav, AppHubNav, LogoMark, StudyPlanModal, GetReadyTab
 import { AppLoader, OrbitSpinner } from './components/OrbitMark';
 import AppSidebar from './components/AppSidebar';
 import { useFocusMode } from './hooks/useFocusMode.js';
+import { tabUrl, isSub, defaultSub } from './lib/subNav.js';
 import Dashboard from './features/Dashboard/Dashboard';
 import SkillsGap from './features/SkillsGap/SkillsGap';
 import CareerRoadmap from './features/CareerRoadmap/CareerRoadmap';
@@ -61,9 +62,12 @@ function App() {
   const [user, setUser] = useState(null);
   const [activeModule, _setActiveModule] = useState("dashboard");
 
-  const navigate = (moduleId) => {
-    window.history.pushState({ module: moduleId, showLanding: false }, '', `?tab=${moduleId}`);
+  const [activeSub, setActiveSub] = useState(null); // the open part of the feature, for a feature that has parts (the Interview Coach)
+  const navigate = (moduleId, sub) => {
+    const s = isSub(moduleId, sub) ? sub : defaultSub(moduleId);
+    window.history.pushState({ module: moduleId, sub: s, showLanding: false }, '', tabUrl(moduleId, s));
     _setActiveModule(moduleId);
+    setActiveSub(s);
     setShowLanding(false);
   };
   const [authModal, setAuthModal] = useState(null);
@@ -130,7 +134,9 @@ function App() {
       if (!state || state.showLanding) {
         setShowLanding(true);
       } else {
-        _setActiveModule(state.module || 'dashboard');
+        const m = state.module || 'dashboard';
+        _setActiveModule(m);
+        setActiveSub(isSub(m, state.sub) ? state.sub : defaultSub(m));
         setShowLanding(false);
       }
     };
@@ -302,6 +308,7 @@ function App() {
       user, setAuthModal, showToast, setActiveModule: navigate,
       onStudyPlan: (tab) => { setGrModalTab(tab); setGrModalOpen(true); },
       onFocusChange,
+      activeSub, subNav: user ? 'sidebar' : undefined, onSubChange: (sub) => navigate(activeModule, sub),
     };
     
     switch (activeModule) {
@@ -693,6 +700,7 @@ function App() {
         <>
           <AppSidebar
             activeModule={activeModule}
+            activeSub={activeSub}
             onNavigate={navigate}
             user={user}
             onLogout={logout}

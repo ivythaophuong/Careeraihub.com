@@ -190,6 +190,46 @@
   border-color: rgba(236,72,153,.13);
 }
 
+.app-sidebar-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 1px 0 6px 17px;
+  padding-left: 10px;
+  border-left: 1px solid var(--lp-bdr, rgba(255,255,255,.08));
+}
+
+.app-sidebar-subitem {
+  text-align: left;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--lp-text3, #8B9DC3);
+  cursor: pointer;
+  font-family: var(--lp-ff, 'DM Sans', sans-serif);
+  transition: all .14s ease;
+}
+
+.app-sidebar-subitem:hover {
+  color: var(--lp-text, #F0F4FF);
+  background: rgba(255,255,255,.04);
+}
+
+.app-sidebar-subitem.active {
+  color: var(--lp-teal, #EC4899);
+  background: rgba(236,72,153,.07);
+  font-weight: 700;
+}
+
+/* The Interview Coach's parts live in the sidebar on large screens; the strip stays for small screens (the sidebar is hidden there) and for visitors without it. */
+@media (min-width: 769px) {
+  .ic-tabstrip-wrap--in-sidebar { display: none !important; }
+}
+
 .app-sidebar-icon {
   font-size: 14px;
   width: 18px;
