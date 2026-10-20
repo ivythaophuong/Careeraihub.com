@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useScrollTabs } from '../../hooks/useScrollTabs.js';
 import HiringManagerSim from '../HiringManagerSim/HiringManagerSim';
 import STARBuilder from '../STARBuilder/STARBuilder';
@@ -118,12 +118,17 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function InterviewCoach(props) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  // While a session is being practised the tab strip is hidden (the page asks for quiet); it comes back when the session ends or the person leaves.
+  const [focus, setFocus] = useState(false);
+  const { onFocusChange } = props;
+  const handleFocus = useCallback((on) => { setFocus(!!on); onFocusChange?.(!!on); }, [onFocusChange]);
+  useEffect(() => () => { onFocusChange?.(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const tabsRef = useScrollTabs(activeTab);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* Tab strip */}
-      <div ref={tabsRef} className="scroll-tabs" style={tabBarStyle}>
+      {!focus && <div ref={tabsRef} className="scroll-tabs" style={tabBarStyle}>
         <span style={{
           fontSize: 9, fontWeight: 800, color: 'var(--lp-teal)',
           textTransform: 'uppercase', letterSpacing: '.12em',
@@ -142,7 +147,7 @@ export default function InterviewCoach(props) {
             {tab.label}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* Tab content */}
       <div>
@@ -153,8 +158,8 @@ export default function InterviewCoach(props) {
             setActiveModule={props.setActiveModule}
           />
         )}
-        {activeTab === 'study'    && <HiringManagerSim {...props} />}
-        {activeTab === 'session'  && <HiringManagerSim {...props} />}
+        {activeTab === 'study'    && <HiringManagerSim {...props} onFocusChange={handleFocus} />}
+        {activeTab === 'session'  && <HiringManagerSim {...props} onFocusChange={handleFocus} />}
         {activeTab === 'weakness' && <WeaknessRadar {...props} embedded />}
         {activeTab === 'starbank' && <STARBuilder {...props} embedded />}
         {activeTab === 'aimemory' && <MemoryDashboard {...props} embedded />}
