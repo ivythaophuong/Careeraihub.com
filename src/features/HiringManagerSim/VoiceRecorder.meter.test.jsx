@@ -114,3 +114,33 @@ describe('without Web Audio', () => {
     await waitFor(() => expect(onTranscript).toHaveBeenCalled());
   });
 });
+
+describe('loudness levels handed to the parent (for the rhythm figures)', () => {
+  it('passes one loudness number per 100 ms, and no sound', async () => {
+    vi.useFakeTimers();
+    let n = 0;
+    meter.sample.mockImplementation(() => [0.3, 0.001][n++ % 2]);
+    const onTranscript = vi.fn();
+    render(<VoiceRecorder onTranscript={onTranscript} />);
+    fireEvent.click(screen.getByRole('button', { name: /record your answer/i }));
+    await act(async () => {});
+    await act(async () => { vi.advanceTimersByTime(1_000); });
+    fireEvent.click(screen.getByRole('button', { name: /stop recording/i }));
+    await act(async () => { vi.useRealTimers(); });
+    await waitFor(() => expect(onTranscript).toHaveBeenCalled());
+    const meta = onTranscript.mock.calls[0][1];
+    expect(meta.stepMs).toBe(100);
+    expect(meta.levels).toHaveLength(10);
+    expect(meta.levels.slice(0, 4)).toEqual([0.3, 0.001, 0.3, 0.001]);
+    expect(meta.levels.every(v => typeof v === 'number')).toBe(true);
+  });
+  it('passes an empty list when there is no meter', async () => {
+    createAudioMeter.mockReturnValueOnce(null);
+    const onTranscript = vi.fn();
+    render(<VoiceRecorder onTranscript={onTranscript} />);
+    fireEvent.click(await startRecording());
+    await waitFor(() => expect(onTranscript).toHaveBeenCalled());
+    expect(onTranscript.mock.calls[0][1].levels).toEqual([]);
+  });
+});
+

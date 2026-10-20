@@ -32,6 +32,7 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
   const meter = useRef(null);
   const sampler = useRef(null);
   const quietMs = useRef(0);
+  const levels = useRef([]);
   const [meterNode, setMeterNode] = useState(null);
   const [quiet, setQuiet] = useState(false);
   const gone = useRef(false);
@@ -69,10 +70,11 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
     const mimeType = TYPES.find(t => MediaRecorder.isTypeSupported?.(t));
     const r = new MediaRecorder(s, mimeType ? { mimeType } : undefined);
     rec.current = r; chunks.current = []; secs.current = 0; setElapsed(0);
-    meter.current = createAudioMeter(s); quietMs.current = 0; setMeterNode(meter.current?.analyser || null);
+    meter.current = createAudioMeter(s); quietMs.current = 0; levels.current = []; setMeterNode(meter.current?.analyser || null);
     r.ondataavailable = (e) => { if (e.data?.size) chunks.current.push(e.data); };
     r.onstop = async () => {
       const durationSec = (Date.now() - startedAt.current) / 1000; // the whole recording, silence included
+      const levelList = levels.current; levels.current = [];
       const blob = new Blob(chunks.current, { type: r.mimeType || mimeType || 'audio/webm' });
       const silent = meter.current ? isSilent(meter.current.peak()) : false; // read before the meter is closed
       chunks.current = []; release(); rec.current = null;
@@ -82,7 +84,7 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
       try {
         const text = await transcribeAudio(blob, durationSec);
         if (gone.current) return;
-        setStage('idle'); setFresh(true); onTranscript(text, { durationSec });
+        setStage('idle'); setFresh(true); onTranscript(text, { durationSec, levels: levelList, stepMs: 100 });
       } catch (e) {
         if (gone.current) return;
         setStage('idle'); setErr(e?.message || 'Transcription failed. Please try again, or type your answer.');
@@ -95,6 +97,7 @@ export default function VoiceRecorder({ onTranscript, disabled = false }) {
       sampler.current = setInterval(() => {
         let level = 1;
         try { level = meter.current ? meter.current.sample() : 1; } catch { /* a failing meter just shows no hint */ }
+        if (levels.current.length < 3000) levels.current.push(level); // loudness numbers only, 5 minutes at most; kept in memory until the transcript returns
         if (level >= SILENT_PEAK) { quietMs.current = 0; setQuiet(q => (q ? false : q)); }
         else { quietMs.current += 100; if (quietMs.current >= 3000) setQuiet(true); }
       }, 100);
