@@ -56,3 +56,38 @@ describe('SpeakingInsights', () => {
     expect(tile('active').getByText('—')).toBeTruthy();
   });
 });
+
+describe('SpeakingInsights, the fuller layout', () => {
+  const fuller = { ...rhythm, segments: [{ type: 'speech', sec: 6, startSec: 0, tier: 'steady' }, { type: 'pause', sec: 2.7, startSec: 6, long: true }, { type: 'speech', sec: 10, startSec: 8.7, tier: 'loud' }, { type: 'pause', sec: 1.4, startSec: 18.7, long: true }, { type: 'speech', sec: 16, startSec: 20.1, tier: 'soft' }] };
+  it('says it is information only', () => {
+    render(<SpeakingInsights rate={rate} rhythm={fuller} />);
+    expect(screen.getByText('Information only')).toBeTruthy();
+  });
+  it('draws the share of time spent speaking as a row of ticks, without a verdict', () => {
+    render(<SpeakingInsights rate={rate} rhythm={fuller} />);
+    const ticks = within(screen.getByTestId('insight-time')).getByTestId('time-ticks');
+    const on = ticks.querySelectorAll('[data-on="true"]').length;
+    expect(ticks.querySelectorAll('span').length).toBe(40);
+    expect(on).toBe(Math.round(fuller.speechPercent / 100 * 40));
+  });
+  it('puts both paces on one scale and says no target is set', () => {
+    render(<SpeakingInsights rate={rate} rhythm={fuller} />);
+    const scale = screen.getByTestId('pace-scale');
+    expect(scale.querySelectorAll('[data-marker]').length).toBe(2);
+    expect(scale.textContent).toMatch(/No target is set\. Pace is not a grade\./);
+  });
+  it('lists each pause of a second or more with when it started and how long it was', () => {
+    render(<SpeakingInsights rate={rate} rhythm={fuller} />);
+    const list = screen.getByTestId('pause-list');
+    expect(within(list).getAllByTestId('pause-row').map(r => r.textContent)).toEqual(['00:06 2.7 s', '00:18 1.4 s']);
+  });
+  it('leaves the list and the scale out when there is no rhythm', () => {
+    render(<SpeakingInsights rate={rate} rhythm={null} />);
+    expect(screen.queryByTestId('pause-list')).toBeNull();
+    expect(screen.queryByTestId('pace-scale')).toBeNull();
+  });
+  it('says so when there was no pause of a second or more', () => {
+    render(<SpeakingInsights rate={rate} rhythm={{ ...fuller, longPauses: 0, longestPauseSec: 0.4, segments: [{ type: 'speech', sec: 20, startSec: 0, tier: 'steady' }] }} />);
+    expect(screen.getByTestId('pause-list').textContent).toMatch(/None of 1 second or more/);
+  });
+});

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { C } from '../../styles/theme';
-import { columnsOf } from '../../lib/audioMeter.js';
+import { columnsOf, SILENT_PEAK } from '../../lib/audioMeter.js';
+import { tierCutoffs, tierOf } from '../../lib/rhythm.js';
+import { TIER_COLOR } from './RhythmTimeline';
 import { MAX_RECORD_SECONDS } from '../../lib/voice.js';
 
 // The recording so far, drawn left to right across the whole 3 minutes: the loudness of each stretch so far, faint dots for the time still to come and a line at
@@ -23,11 +25,12 @@ export default function Waveform({ levelsRef, height = 56 }) {
       const cols = columnsOf(levelsRef?.current || [], PER_COLUMN, COLUMNS);
       const w = canvas.width; const h = canvas.height; const step = w / COLUMNS; const bw = Math.max(1.5, step * 0.55);
       g.clearRect(0, 0, w, h);
+      const cut = tierCutoffs(cols.filter(v => v >= SILENT_PEAK / 2)); // colour: softer, steady or louder than the rest of this recording
       for (let i = 0; i < COLUMNS; i++) {
         const x = i * step + (step - bw) / 2;
         if (i < cols.length) {
           const bh = Math.max(3, Math.min(h, cols[i] * h * 3.2));
-          g.fillStyle = C.accent; g.globalAlpha = 0.45 + Math.min(0.55, cols[i] * 2);
+          g.fillStyle = cols[i] >= SILENT_PEAK / 2 ? TIER_COLOR[tierOf(cols[i], cut)] : C.muted; g.globalAlpha = 0.45 + Math.min(0.55, cols[i] * 2);
           pill(x, (h - bh) / 2, bw, bh);
         } else {
           g.fillStyle = C.muted; g.globalAlpha = 0.35;
