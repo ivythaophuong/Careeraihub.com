@@ -3,6 +3,7 @@ import './NewLanding.css';
 import dashCrop from './shots/dashboard-crop.png';
 import resumeFull from './shots/resume-real-full.png';
 import resumeRight from './shots/resume-real-right.png';
+import recordingShot from './shots/voice-recording.png';
 import insightsShot from './shots/speaking-insights.png';
 import deliveryShot from './shots/delivery-feedback.png';
 import salaryShot from './shots/salary-gap.png';
@@ -66,8 +67,9 @@ const MOMENTS = [
     stays: 'Finished sessions and saved stories show up on your Dashboard and Roadmap.',
     tools: 'Interview Coach, STAR Bank, Weakness Radar.',
     shots: [
-      { key: 'voice', src: insightsShot, w: 1360, h: 592, chip: 'Measured on your device', alt: 'Voice answer with the transcript, speaking pace, speaking time, long pauses and a rhythm timeline', caption: 'Your pace, your pauses and your rhythm. Voice practice is rolling out. Synthetic account and made-up data.' },
-      { key: 'delivery', src: deliveryShot, w: 1360, h: 946, chip: 'Does not change your score', alt: 'Feedback on a spoken answer: what worked, what was missed, a tip and how it was delivered', caption: 'What worked, what was missed, and how you delivered it, written from your own figures. Synthetic account and made-up data.' },
+      { key: 'recording', src: recordingShot, w: 1440, h: 1286, chip: 'Colour follows your voice', alt: 'Voice recording in progress: a live waveform and a rhythm timeline coloured by how loud each stretch was, with a pause of a second or more picked out', caption: 'While you speak, each stretch is coloured by how loud it is compared with your own voice: softer, steady or louder. It is not a grade. Voice practice is rolling out. Synthetic account and made-up data.' },
+      { key: 'voice', src: insightsShot, w: 1440, h: 816, chip: 'Measured on your device', alt: 'Speaking insights for a voice answer: pace, speaking time, long pauses, the pace on one scale, the pauses listed with their times and the rhythm timeline', caption: 'Your pace, your pauses and your rhythm, with no target and no score. Synthetic account and made-up data.' },
+      { key: 'delivery', src: deliveryShot, w: 1440, h: 946, chip: 'Does not change your score', alt: 'Feedback on a spoken answer: what worked, what was missed, a tip and how it was delivered', caption: 'What worked, what was missed, and how you delivered it, written from your own figures. Synthetic account and made-up data.' },
     ],
   },
   {

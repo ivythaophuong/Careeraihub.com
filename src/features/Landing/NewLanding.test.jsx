@@ -91,11 +91,11 @@ describe('the situation chooser', () => {
     expect(screen.getByRole('heading', { level: 3, name: /what you will say before you sit down/i })).toBeTruthy();
   });
 
-  it('the interview situation shows the voice screen and the delivery feedback, and says voice is rolling out', () => {
+  it('the interview situation shows the recording, the speaking insights and the delivery feedback, and says voice is rolling out', () => {
     show();
     fireEvent.click(screen.getByRole('button', { name: /I have an interview coming/i }));
     const imgs = screen.getAllByRole('img').filter(i => /voice|spoken|delivered/i.test(i.getAttribute('alt') || ''));
-    expect(imgs.length).toBe(2);
+    expect(imgs.length).toBe(3);
     expect(document.body.textContent).toMatch(/Voice practice is rolling out/);
   });
 
