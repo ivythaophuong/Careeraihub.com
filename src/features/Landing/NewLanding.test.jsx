@@ -70,12 +70,13 @@ describe('the situation panels show whole screens', () => {
       expect(panel.querySelector('.nl-panel-note').textContent).toMatch(/synthetic account and made-up data/i);
     }
   });
-  it('the applying panel shows the whole ATS Scanner screen, which can be enlarged', () => {
+  it('the applying panel shows the ATS Scanner result as a moving example, with bars coloured by their source', () => {
     const { container } = show();
     const panel = open(container, 0);
-    const z = panel.querySelectorAll('.nl-zoom');
-    expect(z).toHaveLength(1);
-    expect(z[0].querySelector('img').getAttribute('alt')).toMatch(/ATS Scanner/);
+    expect(panel.querySelector('.nl-zoom')).toBeNull();
+    const demo = panel.querySelector('[data-testid="scan-demo"]');
+    expect(demo).toBeTruthy();
+    expect([...demo.querySelectorAll('[data-testid="scan-bar"]')].map(b => b.getAttribute('data-source'))).toEqual(['code', 'ai', 'ai']);
   });
   it('the interview panel opens with a moving recording, then the whole screen after recording and the whole feedback screen', () => {
     const { container } = show();
@@ -384,7 +385,8 @@ describe('the new landing page makes no claim the product cannot back', () => {
     const t = text();
     const found = [...new Set(t.match(/\d+/g) || [])];
     // Counts of steps and questions, the footer year, and the figures of the sample CV in the interactive example, which the owner supplied and approved on 2026-10-21.
-    const DEMO = ['0', '4', '7', '9', '75', '78', '83', '100', '488'];
+    // The ATS Scanner example adds 82, 85 and 90 (the owner's screenshot of 2026-10-22) and 60 (an example figure for the keyword bar).
+    const DEMO = ['0', '4', '7', '9', '75', '78', '83', '100', '488', '60', '82', '85', '90'];
     const ALLOWED = ['1', '2', '3', '5', ...DEMO, String(new Date().getFullYear())];
     expect(found.filter(n => !ALLOWED.includes(n))).toEqual([]);
   });

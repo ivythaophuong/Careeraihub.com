@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import './NewLanding.css';
 import ResumeDemo from './ResumeDemo';
 import RecordingDemo from './RecordingDemo';
+import ScanDemo from './ScanDemo';
 import ZoomShot from './ZoomShot';
 import { OrbitMark } from '../../components/OrbitMark';
 import salaryShot from './shots/salary-gap.png';
-import atsShot from './shots/ats-scanner.png';
 import recordedShot from './shots/voice-recorded.png';
 import feedbackShot from './shots/voice-feedback.png';
 import dashboardShot from './shots/dashboard-full.png';
@@ -60,7 +60,7 @@ const MOMENTS = [
     gets: ['See what a reader finds in your CV and what to fix first, by fixed rules.', 'Compare your CV with a job description, with keywords and red flags.', 'Draft a cover letter for each role, and keep every application in one tracker.'],
     stays: 'Your CV is saved once. Every other tool starts from it.',
     tools: 'Resume Builder, ATS Scanner, JD Analyzer, Cover Letter AI, Job Search.',
-    shots: [{ key: 'ats', src: atsShot, w: 1212, h: 440, alt: 'The whole ATS Scanner screen: your resume is loaded, a job description is pasted in, and the Scan match button is ready', caption: 'Paste a job description and compare it with your CV.' }],
+    shots: [{ key: 'scan', live: 'scan', caption: 'Paste a job description and see how your CV compares: what matches, what is missing and what to fix first.' }],
   },
   {
     id: 'interview', title: 'I have an interview coming', sub: 'Practise, get feedback, prepare with more confidence.',
@@ -70,7 +70,7 @@ const MOMENTS = [
     tools: 'Interview Coach, STAR Bank, Weakness Radar.',
     note: 'Voice practice is rolling out.',
     shots: [
-      { key: 'live', live: true, caption: 'Answer out loud and watch your voice as you speak.' },
+      { key: 'live', live: 'recording', caption: 'Answer out loud and watch your voice as you speak.' },
       { key: 'recorded', src: recordedShot, w: 1368, h: 1107, alt: 'The whole voice answer screen after a recording: the colour timeline of the answer, the transcript to check, and the Delivery column with speaking time, pace, pauses and the signal feed', caption: 'After you record: your transcript to check, and figures measured on your device.' },
       { key: 'feedback', src: feedbackShot, w: 1368, h: 810, alt: 'The whole feedback screen for a spoken answer: what worked, what was missed, a tip, and a note on how it was delivered', caption: 'Feedback on the answer, and a note on how you delivered it. Delivery never changes your score.' },
     ],
@@ -284,7 +284,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <div className="nl-panel-right">
                 {cur.shots.map(sh => (
                   <figure key={sh.key} className="nl-shot">
-                    <div className="nl-shot-frame">{sh.live ? <RecordingDemo /> : <ZoomShot src={sh.src} w={sh.w} h={sh.h} alt={sh.alt} />}</div>
+                    <div className="nl-shot-frame">{sh.live === 'recording' ? <RecordingDemo /> : sh.live === 'scan' ? <ScanDemo onStart={start} /> : <ZoomShot src={sh.src} w={sh.w} h={sh.h} alt={sh.alt} />}</div>
                     <figcaption>{sh.caption}</figcaption>
                   </figure>
                 ))}
