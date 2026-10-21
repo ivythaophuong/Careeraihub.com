@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within, act } from '@testing-library/react';
 import NewLanding from './NewLanding';
 
 afterEach(cleanup);
@@ -78,16 +78,15 @@ describe('the situation panels show whole screens', () => {
     expect(demo).toBeTruthy();
     expect([...demo.querySelectorAll('[data-testid="scan-bar"]')].map(b => b.getAttribute('data-source'))).toEqual(['code', 'ai', 'ai']);
   });
-  it('the interview panel opens with a moving recording, then the whole screen after recording and the whole feedback screen', () => {
+  it('the interview panel shows the moving recording and then the whole feedback screen, and no screen of the transcript', () => {
     const { container } = show();
     const panel = open(container, 1);
     const figs = [...panel.querySelectorAll('.nl-shot')];
-    expect(figs).toHaveLength(3);
+    expect(figs).toHaveLength(2);
     expect(figs[0].querySelector('.nl-rec')).toBeTruthy();
-    expect(figs[1].querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/after a recording/i);
-    expect(figs[2].querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/feedback/i);
+    expect(figs[1].querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/feedback/i);
+    expect(panel.textContent).not.toMatch(/After you record|your transcript to check/);
     expect(panel.textContent).not.toMatch(/Colour follows your voice/);
-    expect(panel.textContent).not.toMatch(/While you speak, each stretch is coloured/);
     expect(panel.textContent).toMatch(/Voice practice is rolling out/);
   });
   it('the offer and the next-step panels show the whole Salary Prep and the whole Dashboard screens', () => {
@@ -213,27 +212,63 @@ describe('the approach section', () => {
   });
 });
 
-describe('the motion switch', () => {
-  it('pauses and resumes everything that moves, and says which state it is in', () => {
-    const pause = vi.fn(); const resume = vi.fn();
-    SVGElement.prototype.pauseAnimations = pause; SVGElement.prototype.unpauseAnimations = resume;
-    const { container } = show();
-    const root = container.querySelector('.nl');
-    const btn = screen.getByRole('button', { name: /Pause motion/i });
-    expect(btn.getAttribute('aria-pressed')).toBe('false');
-    expect(root.getAttribute('data-motion')).toBe('on');
-    fireEvent.click(btn);
-    expect(root.getAttribute('data-motion')).toBe('paused');
-    expect(screen.getByRole('button', { name: /Play motion/i }).getAttribute('aria-pressed')).toBe('true');
-    expect(pause).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /Play motion/i }));
-    expect(root.getAttribute('data-motion')).toBe('on');
-    expect(resume).toHaveBeenCalled();
-    delete SVGElement.prototype.pauseAnimations; delete SVGElement.prototype.unpauseAnimations;
+describe('smooth scrolling', () => {
+  it('turns on smooth scrolling for the links of the page while it is open, and gives the old setting back', () => {
+    document.documentElement.style.scrollBehavior = '';
+    const { unmount } = show();
+    expect(document.documentElement.style.scrollBehavior).toBe('smooth');
+    unmount();
+    expect(document.documentElement.style.scrollBehavior).toBe('');
   });
-  it('sits next to the tool diagram, where most of the motion is', () => {
+  it('does not turn it on for a visitor who asked for reduced motion', () => {
+    vi.stubGlobal('matchMedia', (q) => ({ matches: /reduce/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+    document.documentElement.style.scrollBehavior = '';
+    show();
+    expect(document.documentElement.style.scrollBehavior).toBe('');
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('motion', () => {
+  it('has no Play or Pause motion button and no note about motion', () => {
     const { container } = show();
-    expect(container.querySelector('.nl-orb-wrap .nl-motion-btn')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /(Play|Pause) motion/i })).toBeNull();
+    expect(container.querySelector('.nl-motion-btn, .nl-motion-note')).toBeNull();
+    expect(container.querySelector('.nl').hasAttribute('data-motion')).toBe(false);
+  });
+  it('the logo of the tool diagram turns slowly: one turn in 18 seconds, with its satellites', () => {
+    const { container } = show();
+    const core = container.querySelector('.nl-orb-core');
+    const anim = [...core.querySelectorAll('animateMotion')];
+    expect(anim.length).toBeGreaterThan(0);
+    for (const a of anim) expect(a.getAttribute('dur')).toBe('18s');
+    expect(core.innerHTML).toContain('orbit-spin-cw 18s');
+  });
+  it('the dots on the lines run once: one dot in and one dot out on every line, each running for ten seconds, and hidden when done', () => {
+    const { container } = show();
+    const dots = [...container.querySelectorAll('.nl-orb-lines .nl-pulse')];
+    expect(dots).toHaveLength(16);
+    for (const d of dots) {
+      expect(d.querySelector('animateMotion').getAttribute('repeatCount')).toBe('1');
+      expect(d.querySelector('animateMotion').getAttribute('dur')).toBe('10s');
+      expect(d.querySelector('set').getAttribute('dur')).toBe('10s');
+    }
+  });
+  it('the diagram, the chat and the three steps wait until they are seen, then move once', () => {
+    let cbs = [];
+    vi.stubGlobal('IntersectionObserver', class { constructor(c) { cbs.push(c); } observe() {} disconnect() {} unobserve() {} });
+    const { container } = show();
+    for (const sel of ['.nl-orb-wrap', '.nl-chat', '.nl-flow']) expect(container.querySelector(sel).getAttribute('data-inview'), sel).toBe('false');
+    act(() => { for (const c of cbs) c([{ isIntersecting: true }]); });
+    for (const sel of ['.nl-orb-wrap', '.nl-chat', '.nl-flow']) expect(container.querySelector(sel).getAttribute('data-inview'), sel).toBe('true');
+    vi.unstubAllGlobals();
+  });
+  it('for a visitor who asks for reduced motion everything stands still except the logo, which keeps turning slowly', () => {
+    vi.stubGlobal('matchMedia', (q) => ({ matches: /reduce/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+    const { container } = show();
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+    expect(container.querySelector('.nl-orb-core animateMotion')).toBeTruthy();
+    vi.unstubAllGlobals();
   });
 });
 
@@ -285,9 +320,9 @@ describe('the challenge section', () => {
     expect(core.querySelector('svg ellipse')).toBeTruthy();          // the orbit rings of the brand mark (src/components/OrbitMark.jsx)
     expect(core.querySelector('svg animateMotion')).toBeTruthy();    // its satellites move
     expect(orb.querySelectorAll('.nl-orb-lines path.nl-line')).toHaveLength(8);
-    expect(orb.querySelectorAll('.nl-orb-lines path.nl-flow-line')).toHaveLength(8);        // a soft light that keeps flowing along each line
-    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="in"]')).toHaveLength(24);   // three dots in each direction on every line, spread out, so the light never stops
-    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="out"]')).toHaveLength(24);
+    expect(orb.querySelectorAll('.nl-orb-lines path.nl-flow-line')).toHaveLength(8);        // a soft light that runs once along each line
+    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="in"]')).toHaveLength(8);    // one dot in and one dot out on every line
+    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="out"]')).toHaveLength(8);
     for (const dot of orb.querySelectorAll('.nl-orb-lines .nl-pulse')) { // a dot waits for its turn out of sight, not in the corner of the drawing
       expect(dot.getAttribute('visibility')).toBe('hidden');
       expect(dot.querySelector('set[attributeName="visibility"]')).toBeTruthy();
@@ -336,7 +371,7 @@ describe('the situation chooser', () => {
     show();
     fireEvent.click(screen.getByRole('button', { name: /I have an interview coming/i }));
     const parts = screen.getAllByRole('img').filter(i => /voice|spoken|recording/i.test(i.getAttribute('aria-label') || i.getAttribute('alt') || ''));
-    expect(parts.length).toBe(3); // the moving recording, the screen after recording, the feedback screen
+    expect(parts.length).toBe(2); // the moving recording and the feedback screen
     expect(document.body.textContent).toMatch(/Voice practice is rolling out/);
   });
 

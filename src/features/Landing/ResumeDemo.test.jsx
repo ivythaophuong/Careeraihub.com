@@ -71,11 +71,10 @@ describe('the two columns of the example', () => {
 });
 
 describe('the steps of the example', () => {
-  it('show all four step names', () => {
+  it('does not show the four steps: they are not what the example is about', () => {
     const { container } = render(<ResumeDemo onStart={vi.fn()} />);
-    const steps = [...container.querySelectorAll('.nl-demo-steps li')];
-    expect(steps.map(li => li.querySelector('.nl-demo-step-label').textContent)).toEqual(['Add your resume', 'See what to improve', 'Improve', 'Choose a layout and download']);
-    expect(steps.filter(li => li.classList.contains('is-on'))).toHaveLength(1);
+    expect(container.querySelector('.nl-demo-steps')).toBeNull();
+    expect(container.textContent).not.toMatch(/Choose a layout and download/);
   });
 });
 
@@ -128,35 +127,19 @@ describe('the Next button of the example', () => {
   });
 });
 
-describe('the example keeps playing while it is on screen', () => {
-  it('plays again by itself after a pause, so the ring and the bars keep running to their figures', async () => {
+describe('the example plays once', () => {
+  it('fills slowly (about two and a half seconds), then stays still: it does not start again by itself', async () => {
     render(<ResumeDemo onStart={vi.fn()} />);
-    const tenths = async (n) => { let lowest = 100; for (let i = 0; i < n; i++) { await play(100); lowest = Math.min(lowest, Number(screen.getByTestId('demo-score').textContent)); } return lowest; }; // a tenth of a second at a time, as a browser would draw it
-    await tenths(30);
+    const tenths = async (n) => { let lowest = 100; for (let i = 0; i < n; i++) { await play(100); lowest = Math.min(lowest, Number(screen.getByTestId('demo-score').textContent)); } return lowest; };
+    await play(100);
+    expect(Number(screen.getByTestId('demo-score').textContent)).toBeLessThan(83);
+    await tenths(10); // one second in: it is not done yet
+    expect(Number(screen.getByTestId('demo-score').textContent)).toBeLessThan(83);
+    await tenths(20);
     expect(screen.getByTestId('demo-score').textContent).toBe('83');
-    expect(await tenths(100)).toBeLessThan(83); // within the next ten seconds it starts again
-    await tenths(30);
-    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+    expect(await tenths(300)).toBe(83); // thirty more seconds: never goes back
   });
-  it('does not replay while the visitor is looking at the issues', async () => {
-    render(<ResumeDemo onStart={vi.fn()} />);
-    await play(3000);
-    fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i }));
-    await play(15000);
-    expect(screen.getByTestId('demo-issues')).toBeTruthy();
-  });
-  it('does not replay when the visitor prefers reduced motion, or after motion was paused on the page', async () => {
-    vi.stubGlobal('matchMedia', (q) => ({ matches: /reduce/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
-    const r = render(<ResumeDemo onStart={vi.fn()} />);
-    await play(15000);
-    expect(screen.getByTestId('demo-score').textContent).toBe('83');
-    r.unmount(); vi.unstubAllGlobals();
-    render(<div className="nl" data-motion="paused"><ResumeDemo onStart={vi.fn()} /></div>);
-    await play(3000);
-    await play(12000);
-    expect(screen.getByTestId('demo-score').textContent).toBe('83');
-  });
-  it('has a light turning round the ring while it is on screen', () => {
+  it('has a light that turns once round the ring', () => {
     render(<ResumeDemo onStart={vi.fn()} />);
     expect(screen.getByTestId('resume-demo').querySelector('.nl-demo-ring-spin')).toBeTruthy();
   });
