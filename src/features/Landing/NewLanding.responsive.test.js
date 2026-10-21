@@ -43,3 +43,15 @@ describe('the motion rules', () => {
     expect(css).toMatch(/\.nl-demo-next\.is-ready \{ animation: nl-nudge 1\.8s ease-in-out 3;/);
   });
 });
+
+describe('the hero example on a phone', () => {
+  const phone = () => block('max-width: 640px');
+  it('shows the score first: the profile column and the steps that are not current are left out', () => {
+    expect(css).toMatch(/@media \(max-width: 640px\)/);
+    expect(phone()).toMatch(/\.nl-demo-col:first-child \{ display: none; \}/);
+    expect(phone()).toMatch(/\.nl-demo-steps li:not\(\.is-on\) \{ display: none; \}/);
+  });
+  it('does not repeat the long subtitle', () => {
+    expect(phone()).toMatch(/\.nl-demo-sub \{ display: none; \}/);
+  });
+});

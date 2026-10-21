@@ -290,7 +290,14 @@
   .nl-demo-next.is-ready { animation: nl-nudge 1.8s ease-in-out 3; }
   @keyframes nl-nudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(244, 114, 182, 0.55); } 50% { box-shadow: 0 0 0 9px rgba(244, 114, 182, 0); } }
 }
-@media (max-width: 640px) { .nl-demo-body { grid-template-columns: 1fr; } .nl-demo { padding: 14px; } }
+@media (max-width: 640px) {
+  .nl-demo { padding: 14px; }
+  .nl-demo-body { grid-template-columns: 1fr; }
+  .nl-demo-col:first-child { display: none; } /* on a phone the score comes first: the profile column would push it more than a screen down */
+  .nl-demo-steps li:not(.is-on) { display: none; }
+  .nl-demo-steps { margin: 10px 0; }
+  .nl-demo-sub { display: none; }
+}
 
 /* The AI Career Coach: a simple chat. */
 .nl-coach-sec { background: var(--nl-bg); }
