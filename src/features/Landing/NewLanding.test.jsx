@@ -186,6 +186,27 @@ describe('the approach section opens with what a visitor can check', () => {
   });
 });
 
+describe('the approach section lets a visitor check each claim', () => {
+  const norm = (t) => t.replace(/\s+/g, ' ');
+  it('has three equal cards, each a claim, what to look at, and a link to the place where it can be checked', () => {
+    const { container, onModuleSelect } = show();
+    const cards = [...container.querySelectorAll('#approach .nl-check')];
+    expect(cards.map(c => c.querySelector('h3').textContent)).toEqual(['Every point shows its evidence.', 'AI estimates are labelled.', 'Your recording is not kept.']);
+    expect(cards.map(c => c.querySelector('a, button').textContent.replace(/\s+/g, ' ').trim())).toEqual(['See the example', 'See how it is shown', 'Read the privacy policy']);
+    expect(cards[0].querySelector('a').getAttribute('href')).toBe('#top');
+    expect(cards[1].querySelector('a').getAttribute('href')).toBe('#system');
+    fireEvent.click(cards[2].querySelector('button'));
+    expect(onModuleSelect).toHaveBeenLastCalledWith('privacy');
+  });
+  it('says what it can show today and claims no certificate, audit or approval', () => {
+    const { container } = show();
+    const t = norm(container.querySelector('#approach').textContent);
+    expect(t).toMatch(/code-counted bars and AI estimates have different colours/i);
+    expect(t).toMatch(/not stored/i);
+    expect(t).not.toMatch(/certified|accredited|audited|authorized|compliant|ISO|verified/i);
+  });
+});
+
 describe('the approach section', () => {
   const norm = (t) => t.replace(/\s+/g, ' ');
   it('shows who does what as three connected steps of its own design, not a screenshot', () => {

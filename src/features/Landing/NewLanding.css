@@ -510,10 +510,25 @@
 
 .nl section[id] { scroll-margin-top: 88px; }
 
+/* Approach: three claims a visitor can check, each with a link to the place where it can be checked. */
+.nl-checks-head { margin-top: 44px; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #5B6482; }
+.nl-checks { list-style: none; margin: 26px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.nl-check { border: 1px solid #E1E4F2; min-height: 0; border-radius: 20px; background: #FFFFFF; box-shadow: 0 10px 30px rgba(20, 27, 50, 0.06); padding: 24px 22px; display: flex; flex-direction: column; gap: 10px; }
+.nl-check-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #EDE9FB; color: #3B2A8F; }
+.nl-check h3 { margin: 4px 0 0; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; color: #141B32; }
+.nl-check p { margin: 0; font-size: 15px; line-height: 1.55; color: #46506B; }
+.nl .nl-check-link { margin-top: auto; padding: 0; background: none; border: 0; font: inherit; font-weight: 700; font-size: 14.5px; color: #A61F6C; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; text-decoration: none; }
+.nl .nl-check-link:hover { text-decoration: underline; }
+.nl-check-link:focus-visible { outline: 2px solid #6D4FD6; outline-offset: 3px; border-radius: 4px; }
+
+.nl-paper .nl-flow-foot { margin: 36px 0 0; display: block; }
+.nl-paper .nl-text-link { display: inline-flex; margin-top: 22px; }
+
 /* Narrow screens, last of all, so nothing written above can undo them. */
 @media (max-width: 860px) {
   .nl-hero-grid, .nl-split, .nl-panel, .nl-coach { grid-template-columns: 1fr; gap: 36px; }
   .nl-hero-shot { margin-right: 0; }
+  .nl-checks { grid-template-columns: 1fr; }
 }
 @media (min-width: 861px) and (max-width: 1100px) { .nl-demo-body { grid-template-columns: 1fr; } .nl-demo-col:first-child { display: none; } }
 .nl-demo-head { margin-bottom: 12px; }

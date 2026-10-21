@@ -351,11 +351,28 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 </React.Fragment>
               ))}
             </ol>
-            <div className="nl-flow-foot">
-              <span>Every point shows its evidence.</span>
-              <span>No ratings, user counts or partner logos here, because we do not have evidence for them yet.</span>
-              <span><strong>We cannot promise a result. We can help you walk in prepared.</strong></span>
-            </div>
+            <div className="nl-checks-head">Check it yourself</div>
+            <ul className="nl-checks">
+              <li className="nl-check">
+                <span className="nl-check-icon" aria-hidden="true"><Icon name="eye" size={22} /></span>
+                <h3>Every point shows its evidence.</h3>
+                <p>Open the example at the top of this page. Each check lists what it found in the sample CV.</p>
+                <a href="#top" className="nl-check-link">See the example <Icon name="arrow" size={16} /></a>
+              </li>
+              <li className="nl-check">
+                <span className="nl-check-icon" aria-hidden="true"><Icon name="rules" size={22} /></span>
+                <h3>AI estimates are labelled.</h3>
+                <p>In the ATS Scanner example, code-counted bars and AI estimates have different colours and a legend.</p>
+                <a href="#system" className="nl-check-link">See how it is shown <Icon name="arrow" size={16} /></a>
+              </li>
+              <li className="nl-check">
+                <span className="nl-check-icon" aria-hidden="true"><Icon name="proof" size={22} /></span>
+                <h3>Your recording is not kept.</h3>
+                <p>Your voice is turned into text. The audio is not stored, and you can type instead at any time.</p>
+                <button type="button" className="nl-check-link" onClick={() => onModuleSelect && onModuleSelect('privacy')}>Read the privacy policy <Icon name="arrow" size={16} /></button>
+              </li>
+            </ul>
+            <p className="nl-flow-foot"><strong>We cannot promise a result. We can help you walk in prepared.</strong> No ratings, user counts or partner logos here, because we do not have evidence for them yet.</p>
             <a className="nl-text-link" href="#faq">Read the questions people ask <Icon name="arrow" size={16} /></a>
           </div>
         </section>
