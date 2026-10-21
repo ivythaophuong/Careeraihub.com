@@ -63,6 +63,8 @@
 .nl-hero-shot, .nl-approach-shot, .nl-shot { margin: 0; }
 .nl-shot-frame { border: 1px solid var(--nl-border); border-radius: 16px; overflow: hidden; background: var(--nl-surface); box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55), 0 0 80px rgba(123, 91, 224, 0.18); }
 .nl-shot-frame img { display: block; width: 100%; height: auto; }
+.nl-hero-shot .nl-shot-frame { aspect-ratio: 1305 / 1000; } /* the crop's last strip holds a cut-off label: leave it out */
+.nl-hero-shot .nl-shot-frame img { height: 100%; object-fit: cover; object-position: top; }
 .nl-hero-shot figcaption, .nl-approach-shot figcaption { margin-top: 12px; font-size: 13px; color: var(--nl-subtle); }
 .nl-hero-shot figcaption a { color: var(--nl-pink); font-weight: 600; }
 

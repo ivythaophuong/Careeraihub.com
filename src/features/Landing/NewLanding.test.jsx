@@ -60,6 +60,19 @@ describe('the new landing page', () => {
   });
 });
 
+describe('the hero board', () => {
+  it('shows the readable right-hand part of the Resume Builder (score and its evidence) at a size that fits the column, and the approach section shows the whole screen, so no image repeats', () => {
+    const { container } = show();
+    const hero = container.querySelector('.nl-hero-shot img');
+    const approach = container.querySelector('.nl-approach-shot img');
+    expect(hero.getAttribute('width')).toBe('1305');
+    expect(hero.getAttribute('alt')).toMatch(/score breakdown/i);
+    expect(approach.getAttribute('width')).toBe('2920');
+    expect(hero.getAttribute('src')).not.toBe(approach.getAttribute('src'));
+    expect(container.querySelector('.nl-hero-shot figcaption a').getAttribute('href')).toBe(approach.getAttribute('src')); // "Open larger" opens the whole screen
+  });
+});
+
 describe('the challenge section', () => {
   it('says it in three short lines, with the one idea in bold: one CV and one memory behind every tool', () => {
     const { container } = show();
