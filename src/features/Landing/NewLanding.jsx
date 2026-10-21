@@ -310,7 +310,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           </div>
         </section>
 
-        <section id="approach" className="nl-section nl-approach">
+        <section id="approach" className="nl-section nl-approach nl-paper">
           <div className="nl-wrap">
             <div className="nl-copy nl-approach-intro">
               <div className="nl-eyebrow">Our approach</div>
@@ -387,10 +387,10 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
         </section>
       </main>
 
-      <footer className="nl-footer">
+      <footer className="nl-footer nl-paper-foot">
         <div className="nl-wrap nl-footer-grid">
           <div className="nl-footer-brand">
-            <a href="#top" className="nl-brand"><Logo />CareerAiHub</a>
+            <a href="#top" className="nl-brand"><Logo size={34} />CareerAiHub</a>
             <p>Your Career Operating System. Built for Every Next Chapter.</p>
           </div>
           <div className="nl-footer-links">

@@ -360,3 +360,29 @@
 .nl-copy > p strong, .nl-light-lead strong, .nl-coach-copy > p strong, .nl-approach-intro > p strong { font-weight: 700; color: #F9A8D4; }
 .nl-light .nl-grad-text, .nl-paper .nl-grad-text { background-image: linear-gradient(110deg, #C0307F 0%, #6D4FD6 100%); }
 .nl-light .nl-light-lead strong { color: #A61F6C; }
+
+/* White sections: the approach and the footer. Every pair of colours is checked at 4.5:1 in NewLanding.responsive.test.js. */
+.nl-paper { background: #FFFFFF; color: #141B32; }
+.nl-paper .nl-eyebrow { color: #B0276F; }
+.nl-paper .nl-h2 { color: #141B32; }
+.nl-paper .nl-approach-intro > p { color: #46506B; }
+.nl-paper .nl-approach-intro > p strong { color: #A61F6C; }
+.nl-paper .nl-flow-step { background: #F7F8FD; border-color: #E1E4F2; }
+.nl-paper .nl-flow-step h3 { color: #141B32; }
+.nl-paper .nl-flow-step p { color: #46506B; }
+.nl-paper .nl-flow-tag { background: #EDE9FB; border-color: #C9BEF3; color: #3B2A8F; }
+.nl-paper .nl-flow-art { color: #6D4FD6; }
+.nl-paper .nl-flow-step:nth-child(3) .nl-flow-art { color: #C0307F; }
+.nl-paper .nl-flow-step:nth-child(5) .nl-flow-art { color: #0B8F68; }
+.nl-paper .nl-flow-arrow i { background: #6D4FD6; }
+.nl-paper .nl-flow-foot { color: #46506B; }
+.nl-paper .nl-flow-foot strong { color: #141B32; }
+.nl-paper .nl-text-link { color: #A61F6C; }
+.nl-footer.nl-paper-foot { background: #FFFFFF; border-top: 1px solid #E1E4F2; color: #141B32; }
+.nl-paper-foot .nl-brand { color: #141B32; }
+.nl-paper-foot .nl-footer-brand { color: #46506B; }
+.nl-paper-foot .nl-footer-links > div { color: #46506B; }
+.nl-paper-foot .nl-footer-links h3 { color: #141B32; }
+.nl-paper-foot .nl-footer-links a:hover, .nl-paper-foot .nl-link-btn:hover { color: #141B32; }
+.nl-paper-foot .nl-link-btn { color: #46506B; }
+.nl-paper-foot .nl-footer-note { border-top-color: #E1E4F2; color: #5B6482; }

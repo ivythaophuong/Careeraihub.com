@@ -55,3 +55,21 @@ describe('the hero example on a phone', () => {
     expect(phone()).toMatch(/\.nl-demo-sub \{ display: none; \}/);
   });
 });
+
+describe('the white sections: the approach and the footer', () => {
+  const PAIRS = [
+    ['ink on white', '#141B32', '#FFFFFF'], ['muted text on white', '#46506B', '#FFFFFF'], ['eyebrow on white', '#B0276F', '#FFFFFF'], ['bold key words on white', '#A61F6C', '#FFFFFF'],
+    ['ink on a card', '#141B32', '#F7F8FD'], ['muted text on a card', '#46506B', '#F7F8FD'], ['tag on its fill', '#3B2A8F', '#EDE9FB'],
+    ['footer small print on white', '#5B6482', '#FFFFFF'], ['gradient start on white', '#C0307F', '#FFFFFF'], ['gradient end on white', '#6D4FD6', '#FFFFFF'],
+  ];
+  it('use colours that are in the stylesheet and read at 4.5:1 or better', () => {
+    for (const [name, fg, bg] of PAIRS) {
+      expect(css.toUpperCase(), name).toContain(fg.toUpperCase());
+      expect(ratio(fg, bg), name).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+  it('make the approach section and the footer white', () => {
+    expect(css).toMatch(/\.nl-paper \{ background: #FFFFFF;/);
+    expect(css).toMatch(/\.nl-footer\.nl-paper-foot \{ background: #FFFFFF;/);
+  });
+});

@@ -60,6 +60,14 @@ describe('the new landing page', () => {
   });
 });
 
+describe('the white sections', () => {
+  it('the approach section and the footer are the white ones', () => {
+    const { container } = show();
+    expect(container.querySelector('#approach').classList.contains('nl-paper')).toBe(true);
+    expect(container.querySelector('footer').classList.contains('nl-paper-foot')).toBe(true);
+  });
+});
+
 describe('the emphasis in the headings and the lines under them', () => {
   it('every section title has one phrase in the accent colour, and the words are unchanged', () => {
     const { container } = show();
