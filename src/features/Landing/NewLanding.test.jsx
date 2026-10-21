@@ -60,16 +60,68 @@ describe('the new landing page', () => {
   });
 });
 
-describe('the hero board', () => {
-  it('shows the whole Resume Builder screen (the blurred real screenshot) at the top right, and the approach section shows the score panel, so no image repeats', () => {
+describe('the AI Career Coach strip', () => {
+  const norm = (t) => t.replace(/\s+/g, ' ');
+  it('says what the coach is for, with the real example questions of the app, and opens the coach', () => {
+    const { container, onModuleSelect } = show();
+    const sec = container.querySelector('.nl-coach');
+    expect(sec).toBeTruthy();
+    expect(within(sec).getByRole('heading', { level: 3 }).textContent).toBe('Ask your AI Career Coach');
+    // The example questions of src/features/AICoach/AICoach.jsx (QUICK_PROMPTS).
+    expect([...sec.querySelectorAll('.nl-coach-q button')].map(b => b.textContent)).toEqual([
+      'What should I focus on this week?', 'How do I answer the biggest weakness question?', 'Why do resumes get filtered out early?',
+      'How do I negotiate salary before I have an offer?', 'Should I apply broadly or target fewer roles?',
+    ]);
+    fireEvent.click(within(sec).getByRole('button', { name: /Why do resumes get filtered out early/ }));
+    expect(onModuleSelect).toHaveBeenLastCalledWith('aichat');
+    fireEvent.click(within(sec).getByRole('button', { name: /Open the AI Career Coach/ }));
+    expect(onModuleSelect).toHaveBeenLastCalledWith('aichat');
+  });
+  it('is honest about what the coach sees: a short summary, not the CV or the answers', () => {
     const { container } = show();
-    const hero = container.querySelector('.nl-hero-shot img');
-    const approach = container.querySelector('.nl-approach-shot img');
-    expect(hero.getAttribute('width')).toBe('2920');
-    expect(hero.getAttribute('alt')).toMatch(/Resume Builder/);
-    expect(approach.getAttribute('width')).toBe('1305');
-    expect(hero.getAttribute('src')).not.toBe(approach.getAttribute('src'));
-    expect(container.querySelector('.nl-hero-shot figcaption a').getAttribute('href')).toBe(hero.getAttribute('src')); // "Open larger" opens the same screen at full size
+    const t = norm(container.querySelector('.nl-coach').textContent);
+    expect(t).toMatch(/target role, level and market/);
+    expect(t).toMatch(/short summary/);
+    expect(t).toMatch(/does not read your CV/i);
+    expect(t).not.toMatch(/reads your (CV|resume)|knows everything|your whole (career|history)/i);
+  });
+});
+
+describe('the confidence message', () => {
+  const norm = (t) => t.replace(/\s+/g, ' ');
+  it('the hero says what the platform is for: building confidence for the next step', () => {
+    const { container } = show();
+    expect(norm(container.querySelector('.nl-lead').textContent)).toMatch(/confidence/i);
+  });
+  it('has its own short section after the challenge: know where you stand, practise until it feels natural, know what to do next', () => {
+    const { container } = show();
+    const sec = container.querySelector('#confidence');
+    expect(sec).toBeTruthy();
+    expect(sec.previousElementSibling.classList.contains('nl-challenge')).toBe(true);
+    expect(within(sec).getByRole('heading', { level: 2 }).textContent).toBe('Build your confidence for the next step.');
+    expect([...sec.querySelectorAll('h3')].map(h => h.textContent)).toEqual(['Know where you stand', 'Practise until it feels natural', 'Know what to do next']);
+    expect(norm(sec.textContent)).toMatch(/We cannot promise a result\. We can help you walk in prepared\./);
+  });
+  it('the story says the same, and nothing on the page promises an outcome', () => {
+    const { container } = show();
+    expect(norm(container.querySelector('#story').textContent)).toMatch(/confiden/i);
+    expect(norm(container.textContent)).not.toMatch(/we guarantee|guaranteed|will get you|you will be hired|ensure you/i); // the page does say it does not guarantee a result
+  });
+});
+
+describe('the hero board', () => {
+  it('is the interactive Resume Builder example, not a picture, and the approach section keeps its score-panel picture', () => {
+    const { container } = show();
+    expect(container.querySelector('.nl-hero-shot [data-testid="resume-demo"]')).toBeTruthy();
+    expect(container.querySelector('.nl-hero-shot img')).toBeNull();
+    expect(container.querySelector('.nl-hero-shot figcaption').textContent).toMatch(/sample CV/i);
+    expect(container.querySelector('.nl-approach-shot img').getAttribute('width')).toBe('1305');
+  });
+  it('the sign-up button inside the example starts sign-up', async () => {
+    const { onStart } = show();
+    fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Create a free account to see all 4 issues/i }));
+    expect(onStart).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -84,14 +136,19 @@ describe('the challenge section', () => {
     expect([...sec.querySelectorAll('.nl-copy strong')].pop().textContent).toMatch(/one CV and one memory behind every tool/i);
     expect(sec.textContent).not.toMatch(/fragmented|communicating your experience/);
   });
-  it('draws the connection: four tools feed lines that carry moving dots into the CareerAiHub logo, which turns', () => {
+  it('draws the connection: the CareerAiHub logo turns in the middle and lines carry moving dots out to the real tools of the platform, each with its real status', () => {
     const { container } = show();
     const orb = container.querySelector('.nl-orb');
     expect(orb.getAttribute('role')).toBe('img');
-    expect(orb.querySelectorAll('.nl-orb-lines path')).toHaveLength(4);
-    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse')).toHaveLength(4);
-    expect([...orb.querySelectorAll('.nl-orb-card')].map(c => c.textContent)).toEqual(['Resume feedback', 'Interview practice', 'Skills gap', 'Next steps']);
     expect(orb.querySelector('.nl-orb-core .nl-logo-spin')).toBeTruthy();
+    expect(orb.querySelectorAll('.nl-orb-lines path')).toHaveLength(8);
+    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse')).toHaveLength(8);
+    // The tools and badges of the app's own sidebar (src/components/AppSidebar.jsx). Verify Creds (in development) and TrustMatch (planned) are left out and the page says more are on the way.
+    expect([...orb.querySelectorAll('.nl-orb-card')].map(c => `${c.querySelector('.nl-orb-name').textContent} ${c.querySelector('.nl-orb-badge').textContent}`)).toEqual([
+      'Resume Builder Live', 'ATS Scanner Live', 'Cover Letter AI New', 'Interview Coach Live', 'Salary Prep Live', 'Skills Gap New', 'Career Roadmap New', 'AI Career Coach New',
+    ]);
+    expect(container.querySelector('.nl-orb-caption').textContent).toMatch(/Every tool starts from the same CV and memory/);
+    expect(container.querySelector('.nl-orb-caption').textContent).toMatch(/More tools are in development/);
   });
 });
 
@@ -136,19 +193,12 @@ describe('the situation chooser', () => {
 
   it('every image has a description, and the page says what each screen is', () => {
     show();
-    expect(document.body.textContent).toMatch(/Personal details are blurred/i);
+    expect(document.body.textContent).toMatch(/personal details blurred/i);
     for (const b of screen.getByRole('group', { name: /Where are you right now/i }).querySelectorAll('button')) {
       fireEvent.click(b);
       for (const img of document.querySelectorAll('img')) expect((img.getAttribute('alt') || '').length).toBeGreaterThan(20);
       for (const fig of document.querySelectorAll('.nl-panel figure')) expect(fig.textContent).toMatch(/synthetic account and made-up data|personal details blurred/i);
     }
-  });
-
-  it('the large screen can be opened bigger', () => {
-    show();
-    const link = screen.getByRole('link', { name: /Open larger/i });
-    expect(link.getAttribute('target')).toBe('_blank');
-    expect(link.getAttribute('rel')).toMatch(/noopener/);
   });
 });
 
@@ -176,7 +226,8 @@ describe('the questions and answers', () => {
 });
 
 describe('the new landing page makes no claim the product cannot back', () => {
-  const text = () => { const r = show(); const t = r.container.textContent; cleanup(); return t; };
+  // The text with a space between elements, so figures that sit side by side (0 and 7 of 9) are not read as one number.
+  const text = () => { const r = show(); const w = document.createTreeWalker(r.container, NodeFilter.SHOW_TEXT); const parts = []; while (w.nextNode()) parts.push(w.currentNode.nodeValue); cleanup(); return parts.join(' '); };
   it('has no prices, ratings, user counts, partner logos, percentages or "verified" claims', () => {
     const t = text();
     for (const re of [/\$\s?\d/, /\bSGD\s?\d/, /free trial|cancel anytime|money-back|refund/i, /\d[\d,]*\+/, /★|stars?\b/i, /verified/i, /testimonial|trusted by|used by/i, /\b\d+%/, /blockchain|Singpass|OpenCerts|Credly/i]) {
@@ -186,7 +237,9 @@ describe('the new landing page makes no claim the product cannot back', () => {
   it('uses only the numbers on an allow-list (the owner approves additions)', () => {
     const t = text();
     const found = [...new Set(t.match(/\d+/g) || [])];
-    const ALLOWED = ['1', '2', '3', '5', String(new Date().getFullYear())]; // counts of steps and questions, the footer year
+    // Counts of steps and questions, the footer year, and the figures of the sample CV in the interactive example, which the owner supplied and approved on 2026-10-21.
+    const DEMO = ['0', '4', '7', '9', '75', '78', '83', '100', '488'];
+    const ALLOWED = ['1', '2', '3', '5', ...DEMO, String(new Date().getFullYear())];
     expect(found.filter(n => !ALLOWED.includes(n))).toEqual([]);
   });
   it('does not show a founder photo or a founder name until the owner supplies them', () => {

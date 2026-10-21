@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './NewLanding.css';
+import ResumeDemo from './ResumeDemo';
 import dashCrop from './shots/dashboard-crop.png';
-import resumeFull from './shots/resume-real-full.png';
 import resumeRight from './shots/resume-real-right.png';
 import recordingShot from './shots/voice-recording.png';
 import insightsShot from './shots/speaking-insights.png';
@@ -112,7 +112,26 @@ const PARTNER = [
   { icon: 'spark', title: 'Experts and educators', text: 'Share your insights and help shape the future of career development.' },
 ];
 
-const NODE_PATHS = ['M120 74C190 80 220 140 260 200','M400 74C330 80 300 140 260 200','M120 326C190 320 220 260 260 200','M400 326C330 320 300 260 260 200']; // each tool line runs into the middle: everything feeds one CV and one memory
+// The tools of the app's own sidebar (src/components/AppSidebar.jsx) with their badges. Verify Creds (in development) and TrustMatch (planned) are not drawn; the caption says more are on the way.
+// x and y are positions on the 520 x 400 drawing, round the logo at (260, 200).
+// The example questions of the AI Career Coach in the app (src/features/AICoach/AICoach.jsx, QUICK_PROMPTS).
+const COACH_QUESTIONS = ['What should I focus on this week?', 'How do I answer the biggest weakness question?', 'Why do resumes get filtered out early?', 'How do I negotiate salary before I have an offer?', 'Should I apply broadly or target fewer roles?'];
+const CONFIDENCE = [
+  { icon: 'eye', title: 'Know where you stand', text: 'See what a reader finds in your CV, with the evidence behind every point.' },
+  { icon: 'chat', title: 'Practise until it feels natural', text: 'Rehearse interview answers and your salary conversation, and see how you came across.' },
+  { icon: 'target', title: 'Know what to do next', text: 'See the skills to build and the next steps for the role you are aiming for.' },
+];
+const ORBIT_TOOLS = [
+  { name: 'Resume Builder', badge: 'Live', icon: 'doc', x: 260, y: 36 },
+  { name: 'ATS Scanner', badge: 'Live', icon: 'rules', x: 410, y: 84 },
+  { name: 'Cover Letter AI', badge: 'New', icon: 'spark', x: 462, y: 200 },
+  { name: 'Interview Coach', badge: 'Live', icon: 'chat', x: 410, y: 316 },
+  { name: 'Salary Prep', badge: 'Live', icon: 'chart', x: 260, y: 364 },
+  { name: 'Skills Gap', badge: 'New', icon: 'target', x: 110, y: 316 },
+  { name: 'Career Roadmap', badge: 'New', icon: 'cube', x: 58, y: 200 },
+  { name: 'AI Career Coach', badge: 'New', icon: 'users', x: 110, y: 84 },
+];
+const toolPath = (t) => `M${t.x} ${t.y}L260 200`; // from the tool into the middle: every tool feeds the one CV and one memory
 const Logo = ({ size = 28, className }) => (
   <svg aria-hidden="true" className={className} width={size} height={size} viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="9" stroke="url(#nlg)" strokeWidth="2.2" /><circle cx="13" cy="13" r="3.2" fill="#F472B6" /><circle cx="21" cy="9" r="2.2" fill="#F5F7FF" /><defs><linearGradient id="nlg" x1="0" y1="0" x2="26" y2="26"><stop stopColor="#F472B6" /><stop offset="1" stopColor="#9B7BFF" /></linearGradient></defs></svg>
 );
@@ -160,7 +179,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <div className="nl-hero-copy">
               <div className="nl-eyebrow">Your career operating system</div>
               <h1 className="nl-h1"><span>Know what to improve.</span>{' '}<span>Practice what matters.</span>{' '}<span>Move forward <em className="nl-grad-text">with clarity.</em></span></h1>
-              <p className="nl-lead">CareerAiHub brings together practical AI-powered career tools to help you understand your strengths, build your skills, and take your next step, with feedback that shows its evidence.</p>
+              <p className="nl-lead">CareerAiHub brings together practical AI-powered career tools to help you understand your strengths, build your skills and build your confidence for your next step, with feedback that shows its evidence.</p>
               <div className="nl-cta-row">
                 <a className="nl-btn nl-btn-grad" href="#tools">Explore Career Tools <Icon name="arrow" size={18} /></a>
                 <a className="nl-btn nl-btn-ghost" href="#system">See How It Works <Icon name="arrow" size={18} /></a>
@@ -171,8 +190,8 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p className="nl-small nl-subtle">Free while we build. No card needed.</p>
             </div>
             <figure className="nl-hero-shot">
-              <div className="nl-shot-frame"><img src={resumeFull} width={2920} height={1676} alt="CareerAiHub Resume Builder showing the resume steps, rule-based ATS readiness, the score breakdown with its evidence, the next step and issues to fix" decoding="async" /></div>
-              <figcaption>A real Resume Builder screen. Personal details are blurred. <a href={resumeFull} target="_blank" rel="noopener noreferrer">Open larger</a></figcaption>
+              <ResumeDemo onStart={start} />
+              <figcaption>Try it: the score fills, then press Next to see what a sample CV needs to fix. Your own CV gives your own result.</figcaption>
             </figure>
           </div>
         </section>
@@ -186,18 +205,38 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p className="nl-point">The tools for them are usually scattered, so you <strong>start over every time</strong>.</p>
               <p className="nl-point">CareerAiHub is being built as one place: <strong>one CV and one memory behind every tool</strong>.</p>
             </div>
-            <div className="nl-orb" role="img" aria-label="CareerAiHub at the centre, connected to resume feedback, interview practice, skills gap and next steps">
-              <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
-                {NODE_PATHS.map((d, i) => <path key={i} d={d} />)}
-                {NODE_PATHS.map((d, i) => <circle key={i} className="nl-pulse" r="3.5"><animateMotion dur="3.4s" begin={`${i * 0.85}s`} repeatCount="indefinite" path={d} /></circle>)}
-              </svg>
-              <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
-              <div className="nl-orb-core"><Logo size={64} className="nl-logo-spin" /></div>
-              <div className="nl-orb-card nl-orb-a"><Icon name="doc" size={20} />Resume feedback</div>
-              <div className="nl-orb-card nl-orb-b"><Icon name="chat" size={20} />Interview practice</div>
-              <div className="nl-orb-card nl-orb-c"><Icon name="chart" size={20} />Skills gap</div>
-              <div className="nl-orb-card nl-orb-d"><Icon name="target" size={20} />Next steps</div>
+            <div className="nl-orb-wrap">
+              <div className="nl-orb" role="img" aria-label="The CareerAiHub logo in the middle, connected to the tools of the platform: Resume Builder, ATS Scanner, Cover Letter AI, Interview Coach, Salary Prep, Skills Gap, Career Roadmap and AI Career Coach">
+                <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
+                  {ORBIT_TOOLS.map((t, i) => <path key={t.name} d={toolPath(t)} style={{ animationDelay: `${i * -0.45}s` }} />)}
+                  {ORBIT_TOOLS.map((t, i) => <circle key={t.name} className="nl-pulse" r="3.5"><animateMotion dur="3.2s" begin={`${i * 0.4}s`} repeatCount="indefinite" path={toolPath(t)} /></circle>)}
+                </svg>
+                <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
+                <div className="nl-orb-core"><Logo size={64} className="nl-logo-spin" /></div>
+                {ORBIT_TOOLS.map((t, i) => (
+                  <div key={t.name} className="nl-orb-card" style={{ left: `${t.x / 5.2}%`, top: `${t.y / 4}%`, animationDelay: `${i * -0.7}s` }}>
+                    <Icon name={t.icon} size={16} /><span className="nl-orb-name">{t.name}</span><span className={`nl-orb-badge nl-orb-badge-${t.badge.toLowerCase()}`}>{t.badge}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="nl-orb-caption"><strong>Every tool starts from the same CV and memory.</strong> More tools are in development.</p>
             </div>
+          </div>
+        </section>
+
+        <section id="confidence" className="nl-section nl-confidence">
+          <div className="nl-wrap">
+            <div className="nl-copy nl-conf-intro">
+              <div className="nl-eyebrow">Our goal</div>
+              <h2 className="nl-h2">Build your confidence for the next step.</h2>
+              <p>Confidence comes from knowing where you stand, practising until it feels natural, and having a clear next move. Each tool here is built for one of those three.</p>
+            </div>
+            <ul className="nl-conf-grid">
+              {CONFIDENCE.map(c => (
+                <li key={c.title}><span className="nl-icon nl-icon-round"><Icon name={c.icon} /></span><h3>{c.title}</h3><p>{c.text}</p></li>
+              ))}
+            </ul>
+            <p className="nl-conf-note">We cannot promise a result. We can help you walk in prepared.</p>
           </div>
         </section>
 
@@ -219,6 +258,22 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 </li>
               ))}
             </ul>
+          </div>
+          <div className="nl-wrap">
+            <div className="nl-coach">
+              <div className="nl-coach-copy">
+                <span className="nl-icon nl-tone-teal"><Icon name="users" /></span>
+                <div>
+                  <h3>Ask your AI Career Coach</h3>
+                  <p>Ask about your next move, interviews, salary or applications and get a direct answer. The coach knows your target role, level and market, and a short summary of your activity: stories saved, mock interviews done, skills gaps found. It works from that summary, not from your documents, and says when a figure is an AI estimate. It does not read your CV.</p>
+                </div>
+              </div>
+              <div className="nl-coach-side">
+                <div className="nl-coach-label">People start with questions like</div>
+                <ul className="nl-coach-q">{COACH_QUESTIONS.map(q => <li key={q}><button type="button" onClick={() => openTool('aichat')}>{q}</button></li>)}</ul>
+                <button type="button" className="nl-text-link nl-coach-open" onClick={() => openTool('aichat')}>Open the AI Career Coach <Icon name="arrow" size={16} /></button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -302,7 +357,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <div className="nl-eyebrow">Our story</div>
               <h2 className="nl-h2">Why we built CareerAiHub.</h2>
               <p>Career development involves more than writing a resume. It means learning how to communicate your experience, preparing for interviews, recognising gaps and deciding what to work on next.</p>
-              <p>CareerAiHub began with a simple question: what if people had one place to understand where they stand, practise essential skills and make more informed decisions about what comes next?</p>
+              <p>CareerAiHub began with a simple question: what if people had one place to understand where they stand, practise essential skills and walk into what comes next with confidence?</p>
               <p className="nl-muted">CareerAiHub is an early-stage AI startup exploring how connected, practical tools can make career development more accessible and actionable. We are building, testing and learning from real user needs, with a long-term ambition to create a more connected career operating system.</p>
               <a className="nl-text-link" href={`mailto:${MAIL}`}>Get in touch <Icon name="arrow" size={16} /></a>
             </div>

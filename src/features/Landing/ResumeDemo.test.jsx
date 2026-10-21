@@ -1,0 +1,95 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, cleanup, fireEvent, act, within } from '@testing-library/react';
+import ResumeDemo from './ResumeDemo';
+
+beforeEach(() => { vi.useFakeTimers(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+const play = (ms = 3000) => act(async () => { vi.advanceTimersByTime(ms); });
+
+describe('the interactive Resume Builder example', () => {
+  it('says what it is: an example run on a sample CV, not the visitor\'s CV', () => {
+    render(<ResumeDemo onStart={vi.fn()} />);
+    expect(screen.getByTestId('resume-demo').textContent).toMatch(/Sample CV/);
+    expect(screen.getByTestId('resume-demo').textContent).toMatch(/Resume Builder/);
+    expect(screen.getByTestId('resume-demo').textContent).toMatch(/Example run on a sample CV/);
+  });
+
+  it('starts empty, then the score ring fills to 83 and counts up, and every bar moves to its value', async () => {
+    render(<ResumeDemo onStart={vi.fn()} />);
+    const ring = screen.getByRole('img', { name: /ATS readiness/i });
+    await play(100);
+    expect(Number(screen.getByTestId('demo-score').textContent)).toBeLessThan(83);
+    await play(3000);
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+    expect(ring.getAttribute('aria-label')).toBe('ATS readiness 83 out of 100');
+    const bars = [...screen.getAllByTestId('demo-bar')];
+    expect(bars.map(b => [b.getAttribute('data-name'), b.getAttribute('data-value'), b.style.width])).toEqual([
+      ['Completeness', '75', '75%'], ['Measurable impact', '78', '78%'], ['Date consistency', '100', '100%'],
+    ]);
+  });
+
+  it('shows the checks and their evidence, including the one that failed', async () => {
+    render(<ResumeDemo onStart={vi.fn()} />);
+    await play();
+    const t = screen.getByTestId('resume-demo').textContent;
+    expect(t).toMatch(/Rule-based/);
+    expect(t).toMatch(/Based on 3 of 3 checks/);
+    expect(t).toMatch(/Email not found/);
+    expect(t).toMatch(/7 of 9 experience bullets contain a measurable number/);
+    expect(t).toMatch(/0 internal date contradiction\(s\) found across 3 checkable experience entries/);
+  });
+
+  it('shows the final figures at once when the visitor prefers reduced motion', () => {
+    vi.stubGlobal('matchMedia', (q) => ({ matches: /reduce/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+    render(<ResumeDemo onStart={vi.fn()} />);
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+  });
+
+  it('waits until it is on screen before it plays', async () => {
+    let cb;
+    vi.stubGlobal('IntersectionObserver', class { constructor(c) { cb = c; } observe() {} disconnect() {} unobserve() {} });
+    render(<ResumeDemo onStart={vi.fn()} />);
+    await play(3000);
+    expect(screen.getByTestId('demo-score').textContent).toBe('0');
+    act(() => cb([{ isIntersecting: true }]));
+    await play(3000);
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+  });
+});
+
+describe('the Next button of the example', () => {
+  it('is a real button; pressing it shows the first issue in full and the others as locked, with a way to sign up', async () => {
+    const onStart = vi.fn();
+    render(<ResumeDemo onStart={onStart} />);
+    await play();
+    fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i }));
+    const issues = screen.getByTestId('demo-issues');
+    expect(issues.textContent).toMatch(/Issues to fix/);
+    expect(issues.textContent).toMatch(/4 found/);
+    expect(issues.textContent).toMatch(/Missing contact information/);
+    expect(issues.textContent).toMatch(/Critical/);
+    expect(issues.textContent).toMatch(/does not include an email address, phone number, or LinkedIn profile/);
+    expect(within(issues).getAllByTestId('demo-locked')).toHaveLength(3);
+    fireEvent.click(within(issues).getByRole('button', { name: /Create a free account to see all 4 issues/i }));
+    expect(onStart).toHaveBeenCalledTimes(1);
+  });
+  it('can go back to the score and play again', async () => {
+    render(<ResumeDemo onStart={vi.fn()} />);
+    await play();
+    fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Back to the score/i }));
+    expect(screen.getByRole('button', { name: /Next: improve it/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Replay/i }));
+    await play(100);
+    expect(Number(screen.getByTestId('demo-score').textContent)).toBeLessThan(83);
+    await play(3000);
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+  });
+  it('makes no claim beyond the example: no percentage, no "verified", no grade words', async () => {
+    render(<ResumeDemo onStart={vi.fn()} />);
+    await play();
+    const t = screen.getByTestId('resume-demo').textContent;
+    expect(t).not.toMatch(/\d\s?%|verified|guarantee|hired/i);
+  });
+});
