@@ -61,15 +61,15 @@ describe('the new landing page', () => {
 });
 
 describe('the hero board', () => {
-  it('shows the readable right-hand part of the Resume Builder (score and its evidence) at a size that fits the column, and the approach section shows the whole screen, so no image repeats', () => {
+  it('shows the whole Resume Builder screen (the blurred real screenshot) at the top right, and the approach section shows the score panel, so no image repeats', () => {
     const { container } = show();
     const hero = container.querySelector('.nl-hero-shot img');
     const approach = container.querySelector('.nl-approach-shot img');
-    expect(hero.getAttribute('width')).toBe('1305');
-    expect(hero.getAttribute('alt')).toMatch(/score breakdown/i);
-    expect(approach.getAttribute('width')).toBe('2920');
+    expect(hero.getAttribute('width')).toBe('2920');
+    expect(hero.getAttribute('alt')).toMatch(/Resume Builder/);
+    expect(approach.getAttribute('width')).toBe('1305');
     expect(hero.getAttribute('src')).not.toBe(approach.getAttribute('src'));
-    expect(container.querySelector('.nl-hero-shot figcaption a').getAttribute('href')).toBe(approach.getAttribute('src')); // "Open larger" opens the whole screen
+    expect(container.querySelector('.nl-hero-shot figcaption a').getAttribute('href')).toBe(hero.getAttribute('src')); // "Open larger" opens the same screen at full size
   });
 });
 
