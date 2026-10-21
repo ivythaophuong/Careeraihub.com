@@ -68,7 +68,19 @@ export function CommandPalette({ modules, setActiveModule, setAuthModal, user, o
   });
   const filtered = q.trim() ? commands.filter(c => c.label.toLowerCase().includes(q.toLowerCase())) : commands;
   const [sel, setSel] = useState(0);
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  const listId = "cmdk-list";
+  const active = filtered.length ? Math.min(sel, filtered.length - 1) : -1;
+  useEffect(() => {
+    const opener = document.activeElement; // the control that opened the palette gets focus back when it closes
+    inputRef.current?.focus();
+    return () => { if (opener && opener !== document.body && opener.isConnected) opener.focus(); };
+  }, []);
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    else if (e.key === "ArrowDown" && filtered.length) { e.preventDefault(); setSel((active + 1) % filtered.length); }
+    else if (e.key === "ArrowUp" && filtered.length) { e.preventDefault(); setSel((active - 1 + filtered.length) % filtered.length); }
+    else if (e.key === "Enter" && active >= 0) { e.preventDefault(); run(filtered[active]); }
+  };
   const run = (cmd) => {
     if (cmd.type === "module") setActiveModule(cmd.id);
     else if (cmd.id === "signup") setAuthModal("register");
@@ -76,15 +88,16 @@ export function CommandPalette({ modules, setActiveModule, setAuthModal, user, o
     onClose();
   };
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(9,12,18,0.92)", zIndex: 9000, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 120, backdropFilter: "blur(12px)", animation: "fadeIn 0.15s ease" }}>
+    <div onClick={onClose} role="dialog" aria-modal="true" aria-label="Command palette" style={{ position: "fixed", inset: 0, background: "rgba(9,12,18,0.92)", zIndex: 9000, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 120, backdropFilter: "blur(12px)", animation: "fadeIn 0.15s ease" }}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, background: "#0F1520", border: "1px solid #1E2D45", borderRadius: 16, overflow: "hidden", boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: "1px solid #1E2D45" }}>
           <span style={{ color: "#6B7E9F", fontSize: 16 }}>⌘</span>
-          <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder="Search modules, actions..." style={{ flex: 1, background: "transparent", border: "none", color: "#E8F0FE", fontSize: 15, fontFamily: "var(--font-mono)", outline: "none" }} />
+          <input ref={inputRef} role="combobox" aria-label="Search modules and actions" aria-expanded="true" aria-controls={listId} aria-autocomplete="list" aria-activedescendant={active >= 0 ? `cmdk-opt-${filtered[active].id}` : undefined} value={q} onChange={e => { setQ(e.target.value); setSel(0); }} onKeyDown={onKeyDown} placeholder="Search modules, actions..." style={{ flex: 1, background: "transparent", border: "none", color: "#E8F0FE", fontSize: 15, fontFamily: "var(--font-mono)", outline: "none" }} />
         </div>
-        <div style={{ maxHeight: 380, overflowY: "auto", padding: "8px" }}>
+        <div id={listId} role="listbox" aria-label="Modules and actions" style={{ maxHeight: 380, overflowY: "auto", padding: "8px" }}>
+          {filtered.length === 0 && <div style={{ color: "#6B7E9F", fontSize: 12, padding: "12px" }}>No matches</div>}
           {filtered.map((cmd, i) => (
-            <div key={cmd.id} onClick={() => run(cmd)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 8, cursor: "pointer", background: i === sel ? "#131B2A" : "transparent" }} onMouseEnter={() => setSel(i)}>
+            <div key={cmd.id} id={`cmdk-opt-${cmd.id}`} role="option" aria-selected={i === active} onClick={() => run(cmd)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 8, cursor: "pointer", background: i === active ? "#131B2A" : "transparent" }} onMouseEnter={() => setSel(i)}>
               <span style={{ fontSize: 18 }}>{cmd.icon}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ color: "#E8F0FE", fontSize: 13, fontWeight: 600 }}>{cmd.label}</div>
