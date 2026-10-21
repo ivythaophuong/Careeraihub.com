@@ -31,11 +31,10 @@ describe('rhythm figures', () => {
   it('shows speaking time, long pauses and pace while speaking, with where they come from and no judgement', async () => {
     setup(); await toQuestion();
     fireEvent.click(screen.getByText('fake record'));
-    await screen.findByTestId('rhythm');
+    await screen.findByTestId('signal-feed');
     const note = screen.getByTestId('speaking-insights');
-    expect(note.textContent).toMatch(/Rhythm/);
     expect(note.textContent).toMatch(/6\.0 s/); expect(note.textContent).toMatch(/of 8\.0 s/); expect(note.textContent).toMatch(/75%/);
-    expect(note.textContent).toMatch(/Long pauses/); expect(note.textContent).toMatch(/longest 2\.0 s/);
+    expect(note.textContent).toMatch(/Pauses of 1 second or more/); expect(note.textContent).toMatch(/00:03\s*2\.0 s/);
     expect(note.textContent).toMatch(/200 WPM/);
     expect(note.textContent).toMatch(/Measured on your device from how loud your voice was/);
     expect(note.textContent).not.toMatch(/good|bad|pass|fail|fluent|too fast|too slow|score|\/100/i);
@@ -45,20 +44,20 @@ describe('rhythm figures', () => {
     setup(); await toQuestion();
     fireEvent.click(screen.getByText('fake record'));
     await screen.findByTestId('speaking-rate');
-    expect(screen.queryByTestId('rhythm')).toBeNull();
+    expect(screen.queryByTestId('signal-feed')).toBeNull();
   });
   it('does not reach the grading prompt', async () => {
     setup(); await toQuestion();
     fireEvent.click(screen.getByText('fake record'));
-    await screen.findByTestId('rhythm');
+    await screen.findByTestId('signal-feed');
     expect(JSON.stringify(callLLM.mock.calls)).not.toMatch(/pause|rhythm|speaking time/i);
   });
   it('is cleared when the next question opens', async () => {
     setup(); await toQuestion();
     fireEvent.click(screen.getByText('fake record'));
-    await screen.findByTestId('rhythm');
+    await screen.findByTestId('signal-feed');
     fireEvent.click(screen.getByRole('button', { name: /Skip/ }));
     await screen.findByText(/Question 2\/5/);
-    expect(screen.queryByTestId('rhythm')).toBeNull();
+    expect(screen.queryByTestId('signal-feed')).toBeNull();
   });
 });

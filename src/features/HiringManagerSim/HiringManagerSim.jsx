@@ -20,6 +20,8 @@ import StructurePanel from './StructurePanel';
 import VoiceRecorder from './VoiceRecorder';
 import QuestionCard from './QuestionCard';
 import SpeakingInsights from './SpeakingInsights';
+import DeliveryRail from './DeliveryRail';
+import './voiceLayout.css';
 import AnswerTabs from './AnswerTabs';
 import ActionBar from './ActionBar';
 import { analyzeRhythm } from '../../lib/rhythm.js';
@@ -77,6 +79,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
   const [recStage, setRecStage] = useState('idle'); // the recorder's stage: idle | consent | recording | transcribing
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [voiceUnlocked, setVoiceUnlocked] = useState(() => loadVoiceUnlocked(user?.id));
+  const [liveSlot, setLiveSlot] = useState(null); // where the recorder puts its live figures: inside the Delivery rail
   const [voiceRate, setVoiceRate] = useState(null); // { key: 'idx:attempt', result } of the last recording; in memory only, never saved or scored
   useEffect(() => { setVoiceUnlocked(loadVoiceUnlocked(user?.id)); }, [user?.id]);
   const voiceAvailable = voiceEnabled(user?.id);
@@ -495,13 +498,14 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
 
       {!current && (
         <>
+          <div className={voiceOn ? 'voice-layout' : undefined} data-testid={voiceOn ? 'voice-layout' : undefined}>
           <section aria-label="Answer area" style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.surface, padding: '0 20px 20px' }}>
             <AnswerTabs mode={voiceOn ? 'voice' : 'text'} onChange={setPracticeMode} voiceAvailable={voiceAvailable} voiceUnlocked={voiceUnlocked} draftKept={!!(answer.trim() && deviceKept)} />
             {voiceOn && (
               <div style={{ padding: '18px 0 8px' }}>
-                <VoiceRecorder ref={recorderRef} disabled={!!busy} onStage={setRecStage} onStart={() => { if (attempt === 1) setReadyIdx(idx); }} onTranscript={(t, meta) => {
+                <VoiceRecorder ref={recorderRef} disabled={!!busy} onStage={setRecStage} liveTarget={liveSlot} recorded={voiceRate?.key === `${idx}:${attempt}` && voiceRate.rhythm?.state === 'ok' ? { durationSec: voiceRate.durationSec, rhythm: voiceRate.rhythm } : null} onStart={() => { if (attempt === 1) setReadyIdx(idx); }} onTranscript={(t, meta) => {
                   setAnswer(a => ((a.trim() ? a.trimEnd() + ' ' : '') + t).slice(0, MAX_ANSWER_CHARS)); setErr('');
-                  try { setVoiceRate({ key: `${idx}:${attempt}`, result: estimateWpm({ text: t, durationSec: meta?.durationSec }), rhythm: analyzeRhythm({ levels: meta?.levels, stepMs: meta?.stepMs, text: t }) }); } catch { setVoiceRate(null); }
+                  try { setVoiceRate({ key: `${idx}:${attempt}`, durationSec: meta?.durationSec, result: estimateWpm({ text: t, durationSec: meta?.durationSec }), rhythm: analyzeRhythm({ levels: meta?.levels, stepMs: meta?.stepMs, text: t }) }); } catch { setVoiceRate(null); }
                 }} />
               </div>
             )}
@@ -531,9 +535,14 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
             {challenge === 'timed' && attempt === 1 && secondsLeft === 0 && <div role="status" style={{ color: C.gold, fontSize: 12, lineHeight: 1.6, marginTop: 8 }}>Time is up. Your answer is kept, so you can finish your thought and get feedback. Time does not change your score.</div>}
             {err && <div role="alert" style={{ color: failureKind === 'unknown' ? C.gold : C.red, fontSize: 12, lineHeight: 1.6, marginTop: 8 }}>⚠️ {err}</div>}
           </section>
-          {voiceOn && recStage !== 'recording' && voiceRate?.key === `${idx}:${attempt}` && (voiceRate.result?.state === 'ok' || voiceRate.rhythm?.state === 'ok') && (
-            <SpeakingInsights rate={voiceRate?.key === `${idx}:${attempt}` ? voiceRate.result : null} rhythm={voiceRate?.key === `${idx}:${attempt}` ? voiceRate.rhythm : null} />
+          {voiceOn && (
+            <DeliveryRail slotRef={setLiveSlot}>
+              {recStage !== 'recording' && voiceRate?.key === `${idx}:${attempt}` && (voiceRate.result?.state === 'ok' || voiceRate.rhythm?.state === 'ok') && (
+                <SpeakingInsights variant="rail" rate={voiceRate.result} rhythm={voiceRate.rhythm} />
+              )}
+            </DeliveryRail>
           )}
+          </div>
           {busy === 'feedback' && <Card><Spinner label={`Evaluating as ${persona.label}...`} /></Card>}
           {(() => {
             const hasAnswer = answer.trim().length > 0;
@@ -577,7 +586,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
                 <div data-testid="delivery-feedback" style={{ background: C.surface, padding: 12, borderRadius: 8, borderLeft: `3px solid ${C.gold}` }}>
                   <div style={{ color: C.gold, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', marginBottom: 4 }}>How you delivered it</div>
                   <div style={{ color: C.text, fontSize: 13, lineHeight: 1.7 }}>{current.delivery}</div>
-                  <div style={{ color: C.muted, fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>AI-generated from the figures in your Rhythm box. It does not change your score.</div>
+                  <div style={{ color: C.muted, fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>AI-generated from the figures in the Delivery column. It does not change your score.</div>
                 </div>
               )}
               {current.betterAnswerOutline.length > 0 && <Outline items={current.betterAnswerOutline} />}

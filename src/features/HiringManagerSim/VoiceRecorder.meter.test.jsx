@@ -159,15 +159,15 @@ describe('live rhythm while recording', () => {
     expect(panel.textContent).toMatch(/Rhythm/);
     expect(panel.textContent).toMatch(/Live/);
     expect(panel.textContent).toMatch(/Speaking time\s*—/);
-    expect(panel.textContent).toMatch(/Long pauses\s*—/);
+    expect(panel.textContent).toMatch(/Pauses of 1 second or more\s*—/);
   });
   it('then shows speaking time and long pauses as they happen, and the pace as after you stop', async () => {
     await start(); scripted(); await begin();
     await act(async () => { vi.advanceTimersByTime(8_000); });
     const t = screen.getByTestId('live-rhythm').textContent;
-    expect(t).toMatch(/Speaking time\s*6\.0 s/);
-    expect(t).toMatch(/Long pauses\s*1/);
-    expect(t).toMatch(/longest 2\.0 s/);
+    expect(t).toMatch(/Speaking time\s*75%\s*6\.0 s of 8\.0 s so far/);
+    expect(t).toMatch(/Pauses of 1 second or more\s*1/);
+    expect(t).toMatch(/00:03\s*2\.0 s/);
     expect(t).toMatch(/Pace while speaking\s*—/);
     expect(t).toMatch(/after you stop/i);
     expect(screen.getAllByTestId('rhythm-long-pause')).toHaveLength(1);

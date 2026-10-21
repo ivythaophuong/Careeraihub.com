@@ -3,13 +3,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, cleanup, within, waitFor, act } from '@testing-library/react';
 
-const hoisted = vi.hoisted(() => ({ calls: { start: 0, stop: 0 }, stage: null, transcript: null }));
+const hoisted = vi.hoisted(() => ({ calls: { start: 0, stop: 0 }, stage: null, transcript: null, props: null }));
 vi.mock('../../lib/ai.jsx', () => ({ callLLM: vi.fn(), extractJSON: (s) => { try { return JSON.parse(s); } catch { return { error: true }; } } }));
 vi.mock('../../lib/serverScoring', () => ({ serverScoringOn: () => false, evaluateAnswerOnServer: vi.fn(), saveInterviewOnServer: vi.fn() }));
 vi.mock('./VoiceRecorder', async () => {
   const R = await import('react');
-  return { default: R.forwardRef(function Fake({ onStage, onTranscript }, ref) {
-    hoisted.stage = onStage; hoisted.transcript = onTranscript;
+  return { default: R.forwardRef(function Fake(props, ref) {
+    const { onStage, onTranscript } = props;
+    hoisted.stage = onStage; hoisted.transcript = onTranscript; hoisted.props = props;
     R.useImperativeHandle(ref, () => ({ start: () => { hoisted.calls.start++; onStage('recording'); }, stop: () => { hoisted.calls.stop++; onStage('transcribing'); } }), [onStage]);
     return <div data-testid="recorder" />;
   }) };
@@ -117,8 +118,32 @@ describe('voice answers', () => {
     act(() => { hoisted.stage('idle'); hoisted.transcript(Array.from({ length: 30 }, (_, i) => `word${i}`).join(' '), { durationSec: 8, stepMs: 100, levels: [...run(30, 0.3), ...run(20, 0.001), ...run(30, 0.3)] }); });
     await waitFor(() => expect(bar().getByRole('button', { name: /Get AI Feedback/ })).toBeTruthy());
     const ins = within(screen.getByTestId('speaking-insights'));
-    expect(ins.getByText('6.0 s')).toBeTruthy();
+    expect(ins.getByText('75')).toBeTruthy(); // speaking time is the big figure now: 6.0 s of 8.0 s is 75%
+    expect(ins.getByTestId('insight-time').textContent).toMatch(/6\.0 s of 8\.0 s/);
     expect(ins.getByText('225')).toBeTruthy(); // 30 words in 8 s of recording is 225 per minute; shown as a figure, with no verdict
+  });
+  it('puts the Delivery rail beside the answer area in voice mode only, and the figures after a recording go into it', async () => {
+    await voiceSetup();
+    const layout = screen.getByTestId('voice-layout');
+    expect(within(layout).getByRole('region', { name: 'Answer area' })).toBeTruthy();
+    const rail = within(layout).getByTestId('delivery-rail');
+    expect(rail.textContent).toMatch(/Delivery/);
+    expect(within(rail).queryByTestId('speaking-insights')).toBeNull();
+    act(() => { hoisted.stage('idle'); hoisted.transcript(Array.from({ length: 30 }, (_, i) => `word${i}`).join(' '), { durationSec: 8, stepMs: 100, levels: [...run(30, 0.3), ...run(20, 0.001), ...run(30, 0.3)] }); });
+    await waitFor(() => expect(within(rail).getByTestId('speaking-insights')).toBeTruthy());
+    expect(within(rail).getByTestId('signal-feed')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: /type answer/i }));
+    expect(screen.queryByTestId('delivery-rail')).toBeNull();
+  });
+  it('hands the recorder a slot in the rail for the live figures, and the length and rhythm of the last recording for its Recorded card', async () => {
+    await voiceSetup();
+    const rail = screen.getByTestId('delivery-rail');
+    expect(hoisted.props.liveTarget).toBeTruthy();
+    expect(rail.contains(hoisted.props.liveTarget)).toBe(true);
+    expect(hoisted.props.recorded).toBeNull();
+    act(() => { hoisted.stage('idle'); hoisted.transcript(Array.from({ length: 30 }, (_, i) => `word${i}`).join(' '), { durationSec: 8, stepMs: 100, levels: [...run(30, 0.3), ...run(20, 0.001), ...run(30, 0.3)] }); });
+    await waitFor(() => expect(hoisted.props.recorded?.durationSec).toBe(8));
+    expect(hoisted.props.recorded.rhythm.state).toBe('ok');
   });
   it('the transcript box can be folded away without losing what is in it', async () => {
     await voiceSetup();
