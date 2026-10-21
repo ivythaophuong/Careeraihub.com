@@ -200,12 +200,13 @@
 @media (max-width: 1100px) {
   .nl-wrap { padding-left: 32px; padding-right: 32px; }
   .nl-split-tools, .nl-split-faq { grid-template-columns: 1fr; }
-    .nl-moment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nl-moment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
   .nl-nav-links, .nl-hide-sm { display: none; }
   .nl-menu-btn { display: inline-flex; }
-  .nl-hero-grid, .nl-split, .nl-panel,   .nl-hero-shot { margin-right: 0; }
+  .nl-hero-grid, .nl-split, .nl-panel { grid-template-columns: 1fr; gap: 36px; }
+  .nl-hero-shot { margin-right: 0; }
   .nl-hero { padding: 40px 0 64px; }
   .nl-nav { gap: 12px; }
   .nl-brand { font-size: 17px; }
