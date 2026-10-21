@@ -60,6 +60,42 @@ describe('the new landing page', () => {
   });
 });
 
+describe('the situation panels show whole screens', () => {
+  const open = (container, i) => { fireEvent.click(container.querySelectorAll('.nl-moment')[i]); return container.querySelector('.nl-panel'); };
+  it('with no pink labels, and one short note that the screens are a synthetic account with made-up data', () => {
+    const { container } = show();
+    for (let i = 0; i < 4; i++) {
+      const panel = open(container, i);
+      expect(panel.querySelector('.nl-chip'), `panel ${i}`).toBeNull();
+      expect(panel.querySelector('.nl-panel-note').textContent).toMatch(/synthetic account and made-up data/i);
+    }
+  });
+  it('the applying panel shows the whole ATS Scanner screen, which can be enlarged', () => {
+    const { container } = show();
+    const panel = open(container, 0);
+    const z = panel.querySelectorAll('.nl-zoom');
+    expect(z).toHaveLength(1);
+    expect(z[0].querySelector('img').getAttribute('alt')).toMatch(/ATS Scanner/);
+  });
+  it('the interview panel opens with a moving recording, then the whole screen after recording and the whole feedback screen', () => {
+    const { container } = show();
+    const panel = open(container, 1);
+    const figs = [...panel.querySelectorAll('.nl-shot')];
+    expect(figs).toHaveLength(3);
+    expect(figs[0].querySelector('.nl-rec')).toBeTruthy();
+    expect(figs[1].querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/after a recording/i);
+    expect(figs[2].querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/feedback/i);
+    expect(panel.textContent).not.toMatch(/Colour follows your voice/);
+    expect(panel.textContent).not.toMatch(/While you speak, each stretch is coloured/);
+    expect(panel.textContent).toMatch(/Voice practice is rolling out/);
+  });
+  it('the offer and the next-step panels show the whole Salary Prep and the whole Dashboard screens', () => {
+    const { container } = show();
+    expect(open(container, 2).querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/Salary Prep/);
+    expect(open(container, 3).querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/Dashboard/);
+  });
+});
+
 describe('the white sections', () => {
   it('the approach section and the footer are the white ones', () => {
     const { container } = show();
@@ -296,8 +332,8 @@ describe('the situation chooser', () => {
   it('the interview situation shows the recording, the speaking insights and the delivery feedback, and says voice is rolling out', () => {
     show();
     fireEvent.click(screen.getByRole('button', { name: /I have an interview coming/i }));
-    const imgs = screen.getAllByRole('img').filter(i => /voice|spoken|delivered/i.test(i.getAttribute('alt') || ''));
-    expect(imgs.length).toBe(3);
+    const parts = screen.getAllByRole('img').filter(i => /voice|spoken|recording/i.test(i.getAttribute('aria-label') || i.getAttribute('alt') || ''));
+    expect(parts.length).toBe(3); // the moving recording, the screen after recording, the feedback screen
     expect(document.body.textContent).toMatch(/Voice practice is rolling out/);
   });
 
@@ -307,7 +343,7 @@ describe('the situation chooser', () => {
     for (const b of screen.getByRole('group', { name: /Where are you right now/i }).querySelectorAll('button')) {
       fireEvent.click(b);
       for (const img of document.querySelectorAll('img')) expect((img.getAttribute('alt') || '').length).toBeGreaterThan(20);
-      for (const fig of document.querySelectorAll('.nl-panel figure')) expect(fig.textContent).toMatch(/synthetic account and made-up data|personal details blurred/i);
+      expect(document.querySelector('.nl-panel .nl-panel-note').textContent).toMatch(/synthetic account and made-up data/i);
     }
   });
 });

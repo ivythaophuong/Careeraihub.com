@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './NewLanding.css';
 import ResumeDemo from './ResumeDemo';
+import RecordingDemo from './RecordingDemo';
+import ZoomShot from './ZoomShot';
 import { OrbitMark } from '../../components/OrbitMark';
-import dashCrop from './shots/dashboard-crop.png';
-import templatesShot from './shots/resume-templates.png';
-import recordingShot from './shots/voice-recording.png';
-import insightsShot from './shots/speaking-insights.png';
-import deliveryShot from './shots/delivery-feedback.png';
 import salaryShot from './shots/salary-gap.png';
+import atsShot from './shots/ats-scanner.png';
+import recordedShot from './shots/voice-recorded.png';
+import feedbackShot from './shots/voice-feedback.png';
+import dashboardShot from './shots/dashboard-full.png';
 
 // The landing page (preview): what a person gets from the product, shown with the real screens.
 // Rules (ADR-015, proposed): no invented figures, no ratings or user counts, no partner logos, no "verified" before anything is verified.
@@ -59,7 +60,7 @@ const MOMENTS = [
     gets: ['See what a reader finds in your CV and what to fix first, by fixed rules.', 'Compare your CV with a job description, with keywords and red flags.', 'Draft a cover letter for each role, and keep every application in one tracker.'],
     stays: 'Your CV is saved once. Every other tool starts from it.',
     tools: 'Resume Builder, ATS Scanner, JD Analyzer, Cover Letter AI, Job Search.',
-    shots: [{ key: 'templates', src: templatesShot, w: 732, h: 850, chip: 'Five layouts', alt: 'The Resume Builder layout step: a list of resume templates (Modern Professional and Creative) with a small preview of each', caption: 'Pick a layout and keep your content. A real screen with a synthetic account and made-up data.' }],
+    shots: [{ key: 'ats', src: atsShot, w: 1212, h: 440, alt: 'The whole ATS Scanner screen: your resume is loaded, a job description is pasted in, and the Scan match button is ready', caption: 'Paste a job description and compare it with your CV.' }],
   },
   {
     id: 'interview', title: 'I have an interview coming', sub: 'Practise, get feedback, prepare with more confidence.',
@@ -67,10 +68,11 @@ const MOMENTS = [
     gets: ['A mock interview of five questions written for your role, with feedback on every answer.', 'Answer out loud and see your pace, your pauses and a plain-language note on how you delivered it.', 'Keep your best stories in STAR form, and see your weak spots from your own results.'],
     stays: 'Finished sessions and saved stories show up on your Dashboard and Roadmap.',
     tools: 'Interview Coach, STAR Bank, Weakness Radar.',
+    note: 'Voice practice is rolling out.',
     shots: [
-      { key: 'recording', src: recordingShot, w: 1440, h: 1286, chip: 'Colour follows your voice', alt: 'Voice recording in progress: a live waveform and a rhythm timeline coloured by how loud each stretch was, with a pause of a second or more picked out', caption: 'While you speak, each stretch is coloured by how loud it is compared with your own voice: softer, steady or louder. It is not a grade. Voice practice is rolling out. Synthetic account and made-up data.' },
-      { key: 'voice', src: insightsShot, w: 1440, h: 816, chip: 'Measured on your device', alt: 'Speaking insights for a voice answer: pace, speaking time, long pauses, the pace on one scale, the pauses listed with their times and the rhythm timeline', caption: 'Your pace, your pauses and your rhythm, with no target and no score. Synthetic account and made-up data.' },
-      { key: 'delivery', src: deliveryShot, w: 1440, h: 946, chip: 'Does not change your score', alt: 'Feedback on a spoken answer: what worked, what was missed, a tip and how it was delivered', caption: 'What worked, what was missed, and how you delivered it, written from your own figures. Synthetic account and made-up data.' },
+      { key: 'live', live: true, caption: 'Answer out loud and watch your voice as you speak.' },
+      { key: 'recorded', src: recordedShot, w: 1368, h: 1107, alt: 'The whole voice answer screen after a recording: the colour timeline of the answer, the transcript to check, and the Delivery column with speaking time, pace, pauses and the signal feed', caption: 'After you record: your transcript to check, and figures measured on your device.' },
+      { key: 'feedback', src: feedbackShot, w: 1368, h: 810, alt: 'The whole feedback screen for a spoken answer: what worked, what was missed, a tip, and a note on how it was delivered', caption: 'Feedback on the answer, and a note on how you delivered it. Delivery never changes your score.' },
     ],
   },
   {
@@ -79,7 +81,7 @@ const MOMENTS = [
     gets: ['Practise the conversation with an AI negotiation coach.', 'Write anchoring scripts that you fill in with your own numbers.', 'No invented market figures. You bring the numbers; we help you use them.'],
     stays: 'Salary Prep starts from your saved CV, so the coach knows your background.',
     tools: 'Salary Prep.',
-    shots: [{ key: 'salary', src: salaryShot, w: 1104, h: 1326, chip: 'Calculated, not guessed', alt: 'Salary Prep with an offer, a target and the calculated gap', caption: 'The gap comes from the numbers you enter, not from AI. Synthetic account and made-up data.' }],
+    shots: [{ key: 'salary', src: salaryShot, w: 1104, h: 1326, alt: 'The whole Salary Prep screen with an offer, a target and the calculated gap', caption: 'The gap comes from the numbers you enter, not from AI.' }],
   },
   {
     id: 'next', title: 'I am not sure what is next', sub: 'Get guidance and see what to focus on.',
@@ -87,7 +89,7 @@ const MOMENTS = [
     gets: ['Your priority actions and your week at a glance on the Dashboard.', 'A path to your target role, with next steps based on what you have done.', 'An AI Career Coach that knows your target role and a short summary of your activity.'],
     stays: 'The coach starts from a short summary of what you did in the other tools, so the advice is about you.',
     tools: 'Dashboard, Career Roadmap, Skills Gap, AI Career Coach.',
-    shots: [{ key: 'dashboard', src: dashCrop, w: 2424, h: 1000, chip: 'From your own activity', alt: 'The Dashboard with the plan for the week and priority actions', caption: 'Priority actions and a plan for the week. Synthetic account and made-up data.' }],
+    shots: [{ key: 'dashboard', src: dashboardShot, w: 1212, h: 1040, alt: 'The whole Dashboard: the latest session, the plan for the week, priority actions and recent activity', caption: 'Priority actions and a plan for the week, from your own activity.' }],
   },
 ];
 
@@ -280,12 +282,13 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 <div className="nl-small nl-panel-muted">Behind this: {cur.tools}</div>
               </div>
               <div className="nl-panel-right">
-                {cur.shots.map(s => (
-                  <figure key={s.key} className="nl-shot">
-                    <div className="nl-shot-frame"><img src={s.src} width={s.w} height={s.h} alt={s.alt} loading="lazy" decoding="async" /></div>
-                    <figcaption><span className="nl-chip">{s.chip}</span>{s.caption}</figcaption>
+                {cur.shots.map(sh => (
+                  <figure key={sh.key} className="nl-shot">
+                    <div className="nl-shot-frame">{sh.live ? <RecordingDemo /> : <ZoomShot src={sh.src} w={sh.w} h={sh.h} alt={sh.alt} />}</div>
+                    <figcaption>{sh.caption}</figcaption>
                   </figure>
                 ))}
+                <p className="nl-panel-note">Screens show a synthetic account and made-up data.{cur.note ? ` ${cur.note}` : ''}</p>
               </div>
             </div>
           </div>
