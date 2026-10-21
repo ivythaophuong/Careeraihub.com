@@ -72,6 +72,19 @@ Only decisions with evidence in code, comments, docs or git history. Dates are c
 - **Evidence:** `docs/architecture/plans/DECISION-voice-practice-2026-10-18.md`; `supabase/functions/transcribe/README.md`; the user story D1 given by the owner on 2026-10-20.
 - **Limits:** no measurement of WPM against hand-timed samples exists (backlog D1.2); no minimum recording length is set, so a very short clip gives a noisy figure; the usage ledger does not cover audio seconds; the privacy text does not yet mention voice and needs legal review before any user other than the owner.
 
+## ADR-015: The public site is product-led at the front, founder-led in depth (PROPOSED, awaiting the owner's signature, 2026-10-21)
+- **Status: PROPOSED. Not a decision until the owner signs it in writing.** Nothing here is built. It records a positioning the owner is considering after reviewing a strategy text written by another assistant (checked against code and data in `docs/product/LANDING-COPY-DECK-L2.md`).
+- **Proposed decision:**
+  1. The front of the site shows the product and what it does in plain words; who is behind it (the founder, why it exists, how to take part) lives on a separate Our Story page.
+  2. Positioning: an early-stage AI startup building a career operating system, one practical step at a time. The site does not present CareerAiHub as an established company and does not imply an endorsement or partnership that is not confirmed in writing.
+  3. Standing rule, "proof over claims": no invented figures, no user counters, no testimonials, no partner logos, no success rates, no "verified" before an employer or credential is verified (ADR-013 item 6). A test keeps the removed claims out (`tests/security/noUnbackedLandingClaims.test.js`).
+  4. English is the language of the site (owner, 2026-10-19).
+  5. Every button points to a tool that is live for all users today. Voice practice, TrustMatch and Verify Creds are not offered as live features.
+  6. Founder biography, advisors and legal entity are written and approved by the owner. Advisors are named only after they confirm in writing.
+  7. Measurement comes before growth targets. The repository has no web analytics today (no gtag or GA4 code found in `index.html`, `src/main.jsx` or `src/App.jsx` on 2026-10-21; UNKNOWN if it lives elsewhere), so "measure sign-up and activation" is a build item with its own design and a privacy-text review, not a check of something that exists.
+- **Evidence:** `docs/product/LANDING-REDESIGN-STRATEGY.md` (on branch `fix/landing-no-pricing-v2`, not merged); `docs/product/LANDING-CLAIMS-AUDIT.md`; production bundle read on 2026-10-21 (the stats ticker, "2,714 verified candidates" and "verified career platform" were live until the truth-pass PR).
+- **Limits:** the positioning is the owner's to confirm. Nothing about the founder, a legal entity, an advisor or a partner has been verified from the repository. The phrase "operating system" describes an intention: the tools share a resume and a memory, but they are not yet one connected flow.
+
 ## Superseded: ADR for hiding the computed score (commit c0463ec) is reversed by ADR-011.
 
 ## Not yet decided (no evidence of a choice)
