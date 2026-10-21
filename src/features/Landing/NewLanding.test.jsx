@@ -60,6 +60,28 @@ describe('the new landing page', () => {
   });
 });
 
+describe('the challenge section', () => {
+  it('says it in three short lines, with the one idea in bold: one CV and one memory behind every tool', () => {
+    const { container } = show();
+    const sec = container.querySelector('.nl-challenge');
+    expect(within(sec).getByRole('heading', { level: 2 }).textContent).toBe('Your career is connected. Your tools are not.');
+    const lines = sec.querySelectorAll('.nl-copy .nl-point');
+    expect(lines).toHaveLength(3);
+    for (const l of lines) expect(l.textContent.split(/\s+/).length).toBeLessThanOrEqual(22);
+    expect([...sec.querySelectorAll('.nl-copy strong')].pop().textContent).toMatch(/one CV and one memory behind every tool/i);
+    expect(sec.textContent).not.toMatch(/fragmented|communicating your experience/);
+  });
+  it('draws the connection: four tools feed lines that carry moving dots into the CareerAiHub logo, which turns', () => {
+    const { container } = show();
+    const orb = container.querySelector('.nl-orb');
+    expect(orb.getAttribute('role')).toBe('img');
+    expect(orb.querySelectorAll('.nl-orb-lines path')).toHaveLength(4);
+    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse')).toHaveLength(4);
+    expect([...orb.querySelectorAll('.nl-orb-card')].map(c => c.textContent)).toEqual(['Resume feedback', 'Interview practice', 'Skills gap', 'Next steps']);
+    expect(orb.querySelector('.nl-orb-core .nl-logo-spin')).toBeTruthy();
+  });
+});
+
 describe('the small-screen menu', () => {
   it('opens, lists the sections, and closes with the button, a link, or Escape', () => {
     show();
