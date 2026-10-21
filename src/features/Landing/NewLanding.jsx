@@ -171,7 +171,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p className="nl-small nl-subtle">Free while we build. No card needed.</p>
             </div>
             <figure className="nl-hero-shot">
-              <div className="nl-shot-frame"><img src={resumeFull} width={2920} height={1676} alt="CareerAiHub Resume Builder showing the resume steps, rule-based ATS readiness, the score breakdown with its evidence, the next step and issues to fix" decoding="async" /></div>
+              <div className="nl-shot-frame"><img src={resumeRight} width={1305} height={1082} alt="CareerAiHub Resume Builder showing rule-based ATS readiness, the score breakdown with its evidence, the next step and issues to fix" decoding="async" /></div>
               <figcaption>A real Resume Builder screen. Personal details are blurred. <a href={resumeFull} target="_blank" rel="noopener noreferrer">Open larger</a></figcaption>
             </figure>
           </div>
@@ -271,7 +271,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               ))}
             </ul>
             <figure className="nl-approach-shot">
-              <div className="nl-shot-frame"><img src={resumeRight} width={1305} height={1082} alt="The score breakdown of the Resume Builder, showing the evidence behind each rule-based check" loading="lazy" decoding="async" /></div>
+              <div className="nl-shot-frame"><img src={resumeFull} width={2920} height={1676} alt="The whole Resume Builder screen: the resume steps, the score breakdown showing the evidence behind each rule-based check, and the issues to fix" loading="lazy" decoding="async" /></div>
               <figcaption>Every point shows its evidence. A real screen with personal details blurred.</figcaption>
             </figure>
           </div>
