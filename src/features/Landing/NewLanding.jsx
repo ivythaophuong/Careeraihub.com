@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './NewLanding.css';
-import dashCrop from './shots/dashboard-crop.png';
-import resumeFull from './shots/resume-real-full.png';
-import resumeRight from './shots/resume-real-right.png';
-import recordingShot from './shots/voice-recording.png';
-import insightsShot from './shots/speaking-insights.png';
-import deliveryShot from './shots/delivery-feedback.png';
+import ResumeDemo from './ResumeDemo';
+import RecordingDemo from './RecordingDemo';
+import ScanDemo from './ScanDemo';
+import ZoomShot from './ZoomShot';
+import { OrbitMark } from '../../components/OrbitMark';
 import salaryShot from './shots/salary-gap.png';
+import recordedShot from './shots/voice-recorded.png';
+import feedbackShot from './shots/voice-feedback.png';
+import dashboardShot from './shots/dashboard-full.png';
 
 // The landing page (preview): what a person gets from the product, shown with the real screens.
 // Rules (ADR-015, proposed): no invented figures, no ratings or user counts, no partner logos, no "verified" before anything is verified.
@@ -58,7 +60,7 @@ const MOMENTS = [
     gets: ['See what a reader finds in your CV and what to fix first, by fixed rules.', 'Compare your CV with a job description, with keywords and red flags.', 'Draft a cover letter for each role, and keep every application in one tracker.'],
     stays: 'Your CV is saved once. Every other tool starts from it.',
     tools: 'Resume Builder, ATS Scanner, JD Analyzer, Cover Letter AI, Job Search.',
-    shots: [{ key: 'resume', src: resumeRight, w: 1305, h: 1082, chip: 'Rule-based', alt: 'The Resume Builder showing the rule-based ATS readiness, the score breakdown with the evidence for each check, and the next step', caption: 'Three checks by fixed rules, each with its evidence. A real screen with personal details blurred.' }],
+    shots: [{ key: 'scan', live: 'scan', caption: 'Paste a job description and see how your CV compares: what matches, what is missing and what to fix first.' }],
   },
   {
     id: 'interview', title: 'I have an interview coming', sub: 'Practise, get feedback, prepare with more confidence.',
@@ -66,10 +68,11 @@ const MOMENTS = [
     gets: ['A mock interview of five questions written for your role, with feedback on every answer.', 'Answer out loud and see your pace, your pauses and a plain-language note on how you delivered it.', 'Keep your best stories in STAR form, and see your weak spots from your own results.'],
     stays: 'Finished sessions and saved stories show up on your Dashboard and Roadmap.',
     tools: 'Interview Coach, STAR Bank, Weakness Radar.',
+    note: 'Voice practice is rolling out.',
     shots: [
-      { key: 'recording', src: recordingShot, w: 1440, h: 1286, chip: 'Colour follows your voice', alt: 'Voice recording in progress: a live waveform and a rhythm timeline coloured by how loud each stretch was, with a pause of a second or more picked out', caption: 'While you speak, each stretch is coloured by how loud it is compared with your own voice: softer, steady or louder. It is not a grade. Voice practice is rolling out. Synthetic account and made-up data.' },
-      { key: 'voice', src: insightsShot, w: 1440, h: 816, chip: 'Measured on your device', alt: 'Speaking insights for a voice answer: pace, speaking time, long pauses, the pace on one scale, the pauses listed with their times and the rhythm timeline', caption: 'Your pace, your pauses and your rhythm, with no target and no score. Synthetic account and made-up data.' },
-      { key: 'delivery', src: deliveryShot, w: 1440, h: 946, chip: 'Does not change your score', alt: 'Feedback on a spoken answer: what worked, what was missed, a tip and how it was delivered', caption: 'What worked, what was missed, and how you delivered it, written from your own figures. Synthetic account and made-up data.' },
+      { key: 'live', live: 'recording', caption: 'Answer out loud and watch your voice as you speak.' },
+      { key: 'recorded', src: recordedShot, w: 1368, h: 1107, alt: 'The whole voice answer screen after a recording: the colour timeline of the answer, the transcript to check, and the Delivery column with speaking time, pace, pauses and the signal feed', caption: 'After you record: your transcript to check, and figures measured on your device.' },
+      { key: 'feedback', src: feedbackShot, w: 1368, h: 810, alt: 'The whole feedback screen for a spoken answer: what worked, what was missed, a tip, and a note on how it was delivered', caption: 'Feedback on the answer, and a note on how you delivered it. Delivery never changes your score.' },
     ],
   },
   {
@@ -78,22 +81,26 @@ const MOMENTS = [
     gets: ['Practise the conversation with an AI negotiation coach.', 'Write anchoring scripts that you fill in with your own numbers.', 'No invented market figures. You bring the numbers; we help you use them.'],
     stays: 'Salary Prep starts from your saved CV, so the coach knows your background.',
     tools: 'Salary Prep.',
-    shots: [{ key: 'salary', src: salaryShot, w: 1104, h: 1326, chip: 'Calculated, not guessed', alt: 'Salary Prep with an offer, a target and the calculated gap', caption: 'The gap comes from the numbers you enter, not from AI. Synthetic account and made-up data.' }],
+    shots: [{ key: 'salary', src: salaryShot, w: 1104, h: 1326, alt: 'The whole Salary Prep screen with an offer, a target and the calculated gap', caption: 'The gap comes from the numbers you enter, not from AI.' }],
   },
   {
     id: 'next', title: 'I am not sure what is next', sub: 'Get guidance and see what to focus on.',
     headline: 'Always know your next step.',
-    gets: ['Your priority actions and your week at a glance on the Dashboard.', 'A path to your target role, with next steps based on what you have done.', 'An AI Career Coach that knows your profile, your sessions and your stories.'],
-    stays: 'It reads what you did in the other tools, so the advice is about you.',
+    gets: ['Your priority actions and your week at a glance on the Dashboard.', 'A path to your target role, with next steps based on what you have done.', 'An AI Career Coach that knows your target role and a short summary of your activity.'],
+    stays: 'The coach starts from a short summary of what you did in the other tools, so the advice is about you.',
     tools: 'Dashboard, Career Roadmap, Skills Gap, AI Career Coach.',
-    shots: [{ key: 'dashboard', src: dashCrop, w: 2424, h: 1000, chip: 'From your own activity', alt: 'The Dashboard with the plan for the week and priority actions', caption: 'Priority actions and a plan for the week. Synthetic account and made-up data.' }],
+    shots: [{ key: 'dashboard', src: dashboardShot, w: 1212, h: 1040, alt: 'The whole Dashboard: the latest session, the plan for the week, priority actions and recent activity', caption: 'Priority actions and a plan for the week, from your own activity.' }],
   },
 ];
 
-const PRINCIPLES = [
-  { icon: 'rules', name: 'Rules where possible', text: 'Use explicit rules for checks that can be calculated consistently. The same CV gives the same result.' },
-  { icon: 'eye', name: 'Evidence over assumptions', text: 'Make the basis and the limits of feedback visible, and say so when there is not enough evidence.' },
-  { icon: 'proof', name: 'Proof over claims', text: 'No ratings, user counts or partner logos on this page, because we do not have evidence for them yet.' },
+// Who does what. The wording follows ADR-011: the number a user sees is computed by code, and the model explains but never sets it.
+const FLOW = [
+  { tag: 'Deterministic', title: 'The same input, the same result.', text: 'Rules we wrote and test decide your result. It stays consistent, and each part shows its evidence.',
+    art: <svg viewBox="0 0 120 56" width="120" height="56" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="8" width="26" height="34" rx="4" /><path d="M12 18h14M12 25h14M12 32h9" /><path d="M42 20h14M42 30h14" /><rect x="64" y="8" width="26" height="34" rx="4" /><path d="M70 18h14M70 25h14M70 32h9" /><path d="M98 25l6 6 11-12" /></svg> },
+  { tag: 'AI', title: 'Explains and suggests.', text: 'It helps you understand the result and how to improve it. It never sets your score.',
+    art: <svg viewBox="0 0 120 56" width="120" height="56" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 8h66a6 6 0 0 1 6 6v16a6 6 0 0 1-6 6H34l-12 10V36h-12a6 6 0 0 1-6-6V14a6 6 0 0 1 6-6z" transform="translate(4 0)" /><path d="M24 18h38M24 26h24" /><path d="M96 10l2.4 6.6L105 19l-6.6 2.4L96 28l-2.4-6.6L87 19l6.6-2.4z" /></svg> },
+  { tag: 'You', title: 'Decide what to do.', text: 'Always. You choose what to keep, change or leave.',
+    art: <svg viewBox="0 0 120 56" width="120" height="56" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="10" width="32" height="14" rx="7" /><path d="M16 17l4 4 8-8" /><rect x="44" y="10" width="32" height="14" rx="7" strokeDasharray="3 4" /><rect x="82" y="10" width="32" height="14" rx="7" strokeDasharray="3 4" /><path d="M10 40h100" /><circle cx="22" cy="40" r="5" fill="currentColor" /></svg> },
 ];
 
 const FAQ = [
@@ -112,18 +119,40 @@ const PARTNER = [
   { icon: 'spark', title: 'Experts and educators', text: 'Share your insights and help shape the future of career development.' },
 ];
 
-const NODE_PATHS = ['M120 74C190 80 220 140 260 200','M400 74C330 80 300 140 260 200','M120 326C190 320 220 260 260 200','M400 326C330 320 300 260 260 200']; // each tool line runs into the middle: everything feeds one CV and one memory
-const Logo = ({ size = 28, className }) => (
-  <svg aria-hidden="true" className={className} width={size} height={size} viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="9" stroke="url(#nlg)" strokeWidth="2.2" /><circle cx="13" cy="13" r="3.2" fill="#F472B6" /><circle cx="21" cy="9" r="2.2" fill="#F5F7FF" /><defs><linearGradient id="nlg" x1="0" y1="0" x2="26" y2="26"><stop stopColor="#F472B6" /><stop offset="1" stopColor="#9B7BFF" /></linearGradient></defs></svg>
-);
+// The tools of the app's own sidebar (src/components/AppSidebar.jsx) with their badges. Verify Creds (in development) and TrustMatch (planned) are not drawn; the caption says more are on the way.
+// x and y are positions on the 520 x 400 drawing, round the logo at (260, 200).
+// The example questions of the AI Career Coach in the app (src/features/AICoach/AICoach.jsx, QUICK_PROMPTS), the first three of them in the same words.
+const COACH_QUESTIONS = ['What should I focus on this week?', 'How do I answer the biggest weakness question?', 'How do I negotiate salary before I have an offer?'];
+const ORBIT_TOOLS = [
+  { name: 'Resume Builder', badge: 'Live', icon: 'doc', x: 260, y: 66 },
+  { name: 'ATS Scanner', badge: 'Live', icon: 'rules', x: 382, y: 108 },
+  { name: 'Cover Letter AI', badge: 'New', icon: 'spark', x: 432, y: 200 },
+  { name: 'Interview Coach', badge: 'Live', icon: 'chat', x: 382, y: 292 },
+  { name: 'Salary Prep', badge: 'Live', icon: 'chart', x: 260, y: 334 },
+  { name: 'Skills Gap', badge: 'New', icon: 'target', x: 138, y: 292 },
+  { name: 'Career Roadmap', badge: 'New', icon: 'cube', x: 88, y: 200 },
+  { name: 'AI Career Coach', badge: 'New', icon: 'users', x: 138, y: 108 },
+];
+const toolPath = (t) => `M${t.x} ${t.y}L260 200`; // from the tool into the middle: every tool feeds the one CV and one memory
+const toolPathOut = (t) => `M260 200L${t.x} ${t.y}`; // and from the middle back out: every tool starts from the same CV and memory
+const prefersReducedMotion = () => { try { return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+const Logo = ({ size = 28, animated = false }) => <OrbitMark size={size} animated={animated} duration={8} />; // the brand mark of the app (the pink orbit shown while the app loads)
+
 
 export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   const [sel, setSel] = useState('apply');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [paused, setPaused] = useState(false); // WCAG 2.2.2: motion that starts by itself and lasts more than five seconds can be paused
+  const rootRef = useRef(null);
   const cur = MOMENTS.find(m => m.id === sel) || MOMENTS[0];
   const start = () => { setMenuOpen(false); onStart && onStart(); };
   const signIn = () => { setMenuOpen(false); onSignIn && onSignIn(); };
   const openTool = (id) => onModuleSelect && onModuleSelect(id);
+
+  // The CSS animations are stopped by the data-motion rule in the stylesheet; the SVG ones (the moving dots, the satellites of the logo) are stopped through the SVG element.
+  useEffect(() => {
+    rootRef.current?.querySelectorAll('svg').forEach((svg) => { try { if (paused) svg.pauseAnimations?.(); else svg.unpauseAnimations?.(); } catch { /* an SVG without a timeline has nothing to stop */ } });
+  }, [paused]);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -133,7 +162,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   }, [menuOpen]);
 
   return (
-    <div className="nl">
+    <div className="nl" ref={rootRef} data-motion={paused ? 'paused' : 'on'}>
       <header className="nl-header">
         <div className="nl-wrap nl-nav">
           <a href="#top" className="nl-brand"><Logo />CareerAiHub</a>
@@ -160,7 +189,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <div className="nl-hero-copy">
               <div className="nl-eyebrow">Your career operating system</div>
               <h1 className="nl-h1"><span>Know what to improve.</span>{' '}<span>Practice what matters.</span>{' '}<span>Move forward <em className="nl-grad-text">with clarity.</em></span></h1>
-              <p className="nl-lead">CareerAiHub brings together practical AI-powered career tools to help you understand your strengths, build your skills, and take your next step, with feedback that shows its evidence.</p>
+              <p className="nl-lead">CareerAiHub brings together practical AI-powered career tools to help you understand your strengths, build your skills and build your confidence for your next step, with feedback that shows its evidence.</p>
               <div className="nl-cta-row">
                 <a className="nl-btn nl-btn-grad" href="#tools">Explore Career Tools <Icon name="arrow" size={18} /></a>
                 <a className="nl-btn nl-btn-ghost" href="#system">See How It Works <Icon name="arrow" size={18} /></a>
@@ -171,8 +200,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p className="nl-small nl-subtle">Free while we build. No card needed.</p>
             </div>
             <figure className="nl-hero-shot">
-              <div className="nl-shot-frame"><img src={resumeRight} width={1305} height={1082} alt="CareerAiHub Resume Builder showing rule-based ATS readiness, the score breakdown with its evidence, the next step and issues to fix" decoding="async" /></div>
-              <figcaption>A real Resume Builder screen. Personal details are blurred. <a href={resumeFull} target="_blank" rel="noopener noreferrer">Open larger</a></figcaption>
+              <ResumeDemo onStart={start} />
             </figure>
           </div>
         </section>
@@ -186,17 +214,24 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p className="nl-point">The tools for them are usually scattered, so you <strong>start over every time</strong>.</p>
               <p className="nl-point">CareerAiHub is being built as one place: <strong>one CV and one memory behind every tool</strong>.</p>
             </div>
-            <div className="nl-orb" role="img" aria-label="CareerAiHub at the centre, connected to resume feedback, interview practice, skills gap and next steps">
-              <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
-                {NODE_PATHS.map((d, i) => <path key={i} d={d} />)}
-                {NODE_PATHS.map((d, i) => <circle key={i} className="nl-pulse" r="3.5"><animateMotion dur="3.4s" begin={`${i * 0.85}s`} repeatCount="indefinite" path={d} /></circle>)}
-              </svg>
-              <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
-              <div className="nl-orb-core"><Logo size={64} className="nl-logo-spin" /></div>
-              <div className="nl-orb-card nl-orb-a"><Icon name="doc" size={20} />Resume feedback</div>
-              <div className="nl-orb-card nl-orb-b"><Icon name="chat" size={20} />Interview practice</div>
-              <div className="nl-orb-card nl-orb-c"><Icon name="chart" size={20} />Skills gap</div>
-              <div className="nl-orb-card nl-orb-d"><Icon name="target" size={20} />Next steps</div>
+            <div className="nl-orb-wrap">
+              <div className="nl-orb" role="img" aria-label="The CareerAiHub logo in the middle, connected to the tools of the platform: Resume Builder, ATS Scanner, Cover Letter AI, Interview Coach, Salary Prep, Skills Gap, Career Roadmap and AI Career Coach">
+                <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
+                  {ORBIT_TOOLS.map(t => <path key={t.name} className="nl-line" d={toolPathOut(t)} />)}
+                  {ORBIT_TOOLS.map((t, i) => <path key={`f-${t.name}`} className="nl-flow-line" d={toolPathOut(t)} pathLength="100" style={{ animationDelay: `${i * -0.6}s` }} />)}
+                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => { const begin = `${(i * 0.35 + k * 5 / 3).toFixed(2)}s`; return <circle key={`in-${t.name}-${k}`} className="nl-pulse" data-dir="in" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} /><animateMotion dur="5s" begin={begin} repeatCount="indefinite" path={toolPath(t)} /></circle>; }))}
+                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => { const begin = `${(i * 0.35 + k * 5 / 3 + 0.8).toFixed(2)}s`; return <circle key={`out-${t.name}-${k}`} className="nl-pulse" data-dir="out" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} /><animateMotion dur="5s" begin={begin} repeatCount="indefinite" path={toolPathOut(t)} /></circle>; }))}
+                </svg>
+                <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
+                <div className="nl-orb-core"><OrbitMark size={132} animated={!prefersReducedMotion()} duration={6} /></div>
+                {ORBIT_TOOLS.map((t, i) => (
+                  <div key={t.name} className="nl-orb-card" style={{ left: `${t.x / 5.2}%`, top: `${t.y / 4}%`, animationDelay: `${i * -0.7}s` }}>
+                    <Icon name={t.icon} size={16} /><span className="nl-orb-name">{t.name}</span><span className={`nl-orb-badge nl-orb-badge-${t.badge.toLowerCase()}`}>{t.badge}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="nl-orb-caption"><strong>Every tool starts from the same CV and memory.</strong> More tools are in development.</p>
+              <button type="button" className="nl-motion-btn" aria-pressed={paused} onClick={() => setPaused(p => !p)}>{paused ? 'Play motion' : 'Pause motion'}</button>
             </div>
           </div>
         </section>
@@ -206,7 +241,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <div className="nl-copy">
               <div className="nl-eyebrow">What you can do</div>
               <h2 className="nl-h2">Practical tools for your next career move.</h2>
-              <p>Everything you need to prepare, practise and decide, in one place.</p>
+              <p>Everything you need to <strong>prepare</strong>, <strong>practise</strong> and <strong>decide</strong>, in one place.</p>
               <button type="button" className="nl-btn nl-btn-grad" onClick={start}>Explore All Tools <Icon name="arrow" size={18} /></button>
             </div>
             <ul className="nl-cards">
@@ -226,7 +261,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className="nl-wrap nl-moments">
             <div className="nl-eyebrow nl-eyebrow-light">See it here</div>
             <h2 className="nl-h2">Where are you right now?</h2>
-            <p className="nl-light-lead">Choose your current situation and see what you get.</p>
+            <p className="nl-light-lead">Choose your situation and see what you get. The goal is the same in each: to <strong>build your confidence</strong> for the next step.</p>
             <div role="group" aria-label="Where are you right now?" className="nl-moment-grid">
               {MOMENTS.map(m => (
                 <button key={m.id} type="button" aria-pressed={m.id === sel} className="nl-moment" onClick={() => setSel(m.id)}>
@@ -246,34 +281,63 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 <div className="nl-small nl-panel-muted">Behind this: {cur.tools}</div>
               </div>
               <div className="nl-panel-right">
-                {cur.shots.map(s => (
-                  <figure key={s.key} className="nl-shot">
-                    <div className="nl-shot-frame"><img src={s.src} width={s.w} height={s.h} alt={s.alt} loading="lazy" decoding="async" /></div>
-                    <figcaption><span className="nl-chip">{s.chip}</span>{s.caption}</figcaption>
+                {cur.shots.map(sh => (
+                  <figure key={sh.key} className="nl-shot">
+                    <div className="nl-shot-frame">{sh.live === 'recording' ? <RecordingDemo /> : sh.live === 'scan' ? <ScanDemo onStart={start} /> : <ZoomShot src={sh.src} w={sh.w} h={sh.h} alt={sh.alt} />}</div>
+                    <figcaption>{sh.caption}</figcaption>
                   </figure>
                 ))}
+                <p className="nl-panel-note">Screens show a synthetic account and made-up data.{cur.note ? ` ${cur.note}` : ''}</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="approach" className="nl-section nl-approach">
-          <div className="nl-wrap nl-approach-grid">
-            <div className="nl-copy">
+        <section id="coach" className="nl-section nl-coach-sec">
+          <div className="nl-wrap nl-coach">
+            <div className="nl-coach-copy">
+              <div className="nl-eyebrow">Your coach</div>
+              <h2 className="nl-h2">Ask your AI Career Coach</h2>
+              <p>Ask about your <strong>next move</strong>, <strong>interviews</strong>, <strong>salary</strong> or <strong>applications</strong>.</p>
+              <p className="nl-coach-note">It knows your target role, level, market and a short summary of your activity. It does not read your CV.</p>
+            </div>
+            <div className="nl-chat" role="group" aria-label="An example of asking the AI Career Coach">
+              <div className="nl-chat-head"><OrbitMark size={30} /><b>AI Career Coach</b><span className="nl-orb-badge nl-orb-badge-new">New</span></div>
+              <div className="nl-chat-body">
+                <ul className="nl-coach-q">{COACH_QUESTIONS.map((q, i) => <li key={q} style={{ animationDelay: `${i * 0.15}s` }}><button type="button" onClick={() => openTool('aichat')}>{q}</button></li>)}</ul>
+                <div className="nl-coach-typing" aria-hidden="true"><i /><i /><i /></div>
+              </div>
+              <button type="button" className="nl-chat-input" onClick={() => openTool('aichat')}><span>Ask your career coach anything…</span><span className="nl-chat-send" aria-hidden="true"><Icon name="arrow" size={16} /></span></button>
+            </div>
+          </div>
+        </section>
+
+        <section id="approach" className="nl-section nl-approach nl-paper">
+          <div className="nl-wrap">
+            <div className="nl-copy nl-approach-intro">
               <div className="nl-eyebrow">Our approach</div>
               <h2 className="nl-h2">AI should help you move forward. It should not make the decision for you.</h2>
-              <p>We believe career technology should be useful, transparent and grounded in evidence. AI can help people understand information, practise important skills and explore next steps, while important decisions stay in human hands.</p>
-              <a className="nl-text-link" href="#faq">Read the questions people ask <Icon name="arrow" size={16} /></a>
+              <p>Anyone can say they use AI responsibly. Here is what you can <strong>check yourself</strong>: who decides, who explains and who chooses.</p>
             </div>
-            <ul className="nl-principles">
-              {PRINCIPLES.map(p => (
-                <li key={p.name}><span className="nl-icon nl-icon-round"><Icon name={p.icon} /></span><div><h3>{p.name}</h3><p>{p.text}</p></div></li>
+            <ol className="nl-flow">
+              {FLOW.map((f, i) => (
+                <React.Fragment key={f.tag}>
+                  <li className="nl-flow-step">
+                    <span className="nl-flow-art" aria-hidden="true">{f.art}</span>
+                    <span className="nl-flow-tag">{f.tag}</span>
+                    <h3>{f.title}</h3>
+                    <p>{f.text}</p>
+                  </li>
+                  {i < FLOW.length - 1 && <li className="nl-flow-arrow" aria-hidden="true"><i /><i /><i /></li>}
+                </React.Fragment>
               ))}
-            </ul>
-            <figure className="nl-approach-shot">
-              <div className="nl-shot-frame"><img src={resumeFull} width={2920} height={1676} alt="The whole Resume Builder screen: the resume steps, the score breakdown showing the evidence behind each rule-based check, and the issues to fix" loading="lazy" decoding="async" /></div>
-              <figcaption>Every point shows its evidence. A real screen with personal details blurred.</figcaption>
-            </figure>
+            </ol>
+            <div className="nl-flow-foot">
+              <span>Every point shows its evidence.</span>
+              <span>No ratings, user counts or partner logos here, because we do not have evidence for them yet.</span>
+              <span><strong>We cannot promise a result. We can help you walk in prepared.</strong></span>
+            </div>
+            <a className="nl-text-link" href="#faq">Read the questions people ask <Icon name="arrow" size={16} /></a>
           </div>
         </section>
 
@@ -302,7 +366,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <div className="nl-eyebrow">Our story</div>
               <h2 className="nl-h2">Why we built CareerAiHub.</h2>
               <p>Career development involves more than writing a resume. It means learning how to communicate your experience, preparing for interviews, recognising gaps and deciding what to work on next.</p>
-              <p>CareerAiHub began with a simple question: what if people had one place to understand where they stand, practise essential skills and make more informed decisions about what comes next?</p>
+              <p>CareerAiHub began with a simple question: what if people had one place to understand where they stand, practise essential skills and walk into what comes next with confidence?</p>
               <p className="nl-muted">CareerAiHub is an early-stage AI startup exploring how connected, practical tools can make career development more accessible and actionable. We are building, testing and learning from real user needs, with a long-term ambition to create a more connected career operating system.</p>
               <a className="nl-text-link" href={`mailto:${MAIL}`}>Get in touch <Icon name="arrow" size={16} /></a>
             </div>
@@ -325,10 +389,10 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
         </section>
       </main>
 
-      <footer className="nl-footer">
+      <footer className="nl-footer nl-paper-foot">
         <div className="nl-wrap nl-footer-grid">
           <div className="nl-footer-brand">
-            <a href="#top" className="nl-brand"><Logo />CareerAiHub</a>
+            <a href="#top" className="nl-brand"><Logo size={34} />CareerAiHub</a>
             <p>Your Career Operating System. Built for Every Next Chapter.</p>
           </div>
           <div className="nl-footer-links">
