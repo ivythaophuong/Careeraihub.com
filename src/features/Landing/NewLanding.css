@@ -386,3 +386,15 @@
 .nl-paper-foot .nl-footer-links a:hover, .nl-paper-foot .nl-link-btn:hover { color: #141B32; }
 .nl-paper-foot .nl-link-btn { color: #46506B; }
 .nl-paper-foot .nl-footer-note { border-top-color: #E1E4F2; color: #5B6482; }
+
+/* Motion asked for by the owner: a light turning round the score ring; two lights along every tool line; typing dots that bounce. */
+.nl-demo-ring circle.nl-demo-ring-spin { stroke: rgba(220, 255, 240, 0.95); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 26 301; transform-origin: 60px 60px; filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.95)); opacity: 0; }
+@keyframes nl-ring-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.nl-orb-lines path.nl-flow-line { stroke-dasharray: 14 36; stroke-width: 3; opacity: 0.95; }
+@media (prefers-reduced-motion: no-preference) {
+  .nl-demo-ring circle.nl-demo-ring-spin { opacity: 1; animation: nl-ring-spin 3.4s linear infinite; }
+  .nl-coach-typing i { animation: nl-type 0.9s ease-in-out infinite; }
+  .nl-coach-typing i:nth-child(2) { animation-delay: .12s; } .nl-coach-typing i:nth-child(3) { animation-delay: .24s; }
+  @keyframes nl-type { 0%, 55%, 100% { opacity: .35; transform: translateY(0); } 25% { opacity: 1; transform: translateY(-6px); } }
+}
+.nl-coach-typing i { width: 7px; height: 7px; }

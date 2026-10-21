@@ -43,6 +43,19 @@ export default function ResumeDemo({ onStart }) {
   }, [started, run, reduced]);
 
   const done = score === SCORE;
+
+  // While it is on screen and nobody is reading the issues, it plays again every nine seconds, so the ring and the bars keep running to their figures.
+  useEffect(() => {
+    if (reduced || !done || view !== 'score') return undefined;
+    const iv = setInterval(() => {
+      const el = root.current;
+      const paused = el?.closest?.('.nl')?.getAttribute('data-motion') === 'paused';
+      const r = el?.getBoundingClientRect?.();
+      const visible = !r || (r.width === 0 && r.height === 0) || (r.bottom > 0 && r.top < (window.innerHeight || 800));
+      if (!paused && visible && document.visibilityState !== 'hidden') setRun(n => n + 1);
+    }, 9000);
+    return () => clearInterval(iv);
+  }, [done, view, reduced]);
   const replay = () => { setView('score'); setRun(r => r + 1); };
 
   return (
@@ -70,7 +83,7 @@ export default function ResumeDemo({ onStart }) {
                 <div className="nl-demo-label">ATS readiness <em>Rule-based</em></div>
                 <div className="nl-demo-ring-row">
                   <div className="nl-demo-ring" role="img" aria-label={`ATS readiness ${SCORE} out of 100`}>
-                    <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" className="nl-demo-ring-track" /><circle cx="60" cy="60" r="52" className="nl-demo-ring-fill" style={{ strokeDasharray: C, strokeDashoffset: C * (1 - (go ? SCORE : 0) / 100) }} /></svg>
+                    <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" className="nl-demo-ring-track" /><circle cx="60" cy="60" r="52" className="nl-demo-ring-fill" style={{ strokeDasharray: C, strokeDashoffset: C * (1 - (go ? SCORE : 0) / 100) }} /><circle cx="60" cy="60" r="52" className="nl-demo-ring-spin" /></svg>
                     <span data-testid="demo-score">{score}</span>
                   </div>
                   <div className="nl-demo-ring-text"><span>out of 100</span><b>Based on 3 of 3 checks</b></div>

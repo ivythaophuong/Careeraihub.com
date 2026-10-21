@@ -106,3 +106,37 @@ describe('the Next button of the example', () => {
     expect(t).not.toMatch(/\d\s?%|verified|guarantee|hired/i);
   });
 });
+
+describe('the example keeps playing while it is on screen', () => {
+  it('plays again by itself after a pause, so the ring and the bars keep running to their figures', async () => {
+    render(<ResumeDemo onStart={vi.fn()} />);
+    const tenths = async (n) => { let lowest = 100; for (let i = 0; i < n; i++) { await play(100); lowest = Math.min(lowest, Number(screen.getByTestId('demo-score').textContent)); } return lowest; }; // a tenth of a second at a time, as a browser would draw it
+    await tenths(30);
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+    expect(await tenths(100)).toBeLessThan(83); // within the next ten seconds it starts again
+    await tenths(30);
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+  });
+  it('does not replay while the visitor is looking at the issues', async () => {
+    render(<ResumeDemo onStart={vi.fn()} />);
+    await play(3000);
+    fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i }));
+    await play(15000);
+    expect(screen.getByTestId('demo-issues')).toBeTruthy();
+  });
+  it('does not replay when the visitor prefers reduced motion, or after motion was paused on the page', async () => {
+    vi.stubGlobal('matchMedia', (q) => ({ matches: /reduce/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+    const r = render(<ResumeDemo onStart={vi.fn()} />);
+    await play(15000);
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+    r.unmount(); vi.unstubAllGlobals();
+    render(<div className="nl" data-motion="paused"><ResumeDemo onStart={vi.fn()} /></div>);
+    await play(3000);
+    await play(12000);
+    expect(screen.getByTestId('demo-score').textContent).toBe('83');
+  });
+  it('has a light turning round the ring while it is on screen', () => {
+    render(<ResumeDemo onStart={vi.fn()} />);
+    expect(screen.getByTestId('resume-demo').querySelector('.nl-demo-ring-spin')).toBeTruthy();
+  });
+});

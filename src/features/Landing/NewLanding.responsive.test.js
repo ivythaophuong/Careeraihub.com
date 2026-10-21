@@ -73,3 +73,9 @@ describe('the white sections: the approach and the footer', () => {
     expect(css).toMatch(/\.nl-footer\.nl-paper-foot \{ background: #FFFFFF;/);
   });
 });
+
+describe('the motion that was asked for', () => {
+  it('turns a light round the score ring', () => { expect(css).toMatch(/\.nl-demo-ring-spin \{[^}]*stroke-dasharray/); expect(css).toMatch(/@keyframes nl-ring-spin/); });
+  it('carries two lights along every line of the tool diagram, slowly', () => { expect(css).toMatch(/path\.nl-flow-line \{[^}]*stroke-dasharray: 14 36;/); });
+  it('bounces the typing dots so they can be seen', () => { expect(css).toMatch(/translateY\(-6px\)/); });
+});
