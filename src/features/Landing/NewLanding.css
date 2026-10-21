@@ -292,7 +292,6 @@
 @media (max-width: 640px) {
   .nl-demo { padding: 14px; }
   .nl-demo-body { grid-template-columns: 1fr; }
-  .nl-demo-col:first-child { display: none; } /* on a phone the score comes first: the profile column would push it more than a screen down */
   .nl-demo-steps li:not(.is-on) { display: none; }
   .nl-demo-steps { margin: 10px 0; }
   .nl-demo-sub { display: none; }
@@ -481,3 +480,21 @@
 .nl-scan-apply:focus-visible { outline: 2px solid var(--nl-purple); outline-offset: 3px; }
 .nl-scan-foot { font-size: 11.5px; color: var(--nl-subtle); text-align: center; }
 @media (max-width: 560px) { .nl-scan-score { grid-template-columns: 1fr; } .nl-scan-bar-row { grid-template-columns: 7em minmax(0, 1fr) 2em; } }
+
+/* Hero, balanced: the example is one column (the score first), the two halves have the same width, and the example stays inside the page like everything else. */
+.nl-hero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; }
+.nl-hero-shot { margin-right: 0; }
+.nl-demo-body { grid-template-columns: minmax(0, 1fr); }
+.nl-demo-file { border: 1px solid rgba(52, 211, 153, 0.4); flex-direction: row; align-items: center; gap: 8px; align-self: flex-start; padding: 5px 12px; border-radius: 99px; font-size: 12.5px; margin: 0 0 12px; display: inline-flex; }
+.nl-demo-file b { font-size: 12.5px; }
+.nl-hero .nl-h1 { font-size: clamp(28px, 3.2vw, 46px); }
+
+/* The example, compact: one row of steps with the current name only, no subtitle, a quiet Replay. */
+.nl-demo-sub { display: none; }
+.nl-demo-steps { flex-wrap: nowrap; gap: 8px; margin: 12px 0 10px; }
+.nl-demo-steps li:not(.is-on) .nl-demo-step-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0; }
+.nl-demo-steps li.is-on .nl-demo-step-label { width: auto; height: auto; border: 0; border-radius: 0; display: inline; white-space: nowrap; }
+.nl-demo-steps li { padding-right: 4px; }
+.nl-demo-steps li.is-on { padding-right: 12px; }
+.nl-demo-replay { font-size: 12.5px; padding: 4px 12px; border-radius: 8px; }
+.nl-hero-grid { align-items: center; }

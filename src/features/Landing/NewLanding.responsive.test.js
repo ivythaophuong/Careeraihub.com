@@ -46,9 +46,8 @@ describe('the motion rules', () => {
 
 describe('the hero example on a phone', () => {
   const phone = () => block('max-width: 640px');
-  it('shows the score first: the profile column and the steps that are not current are left out', () => {
+  it('shows the score first: the steps that are not current are left out', () => {
     expect(css).toMatch(/@media \(max-width: 640px\)/);
-    expect(phone()).toMatch(/\.nl-demo-col:first-child \{ display: none; \}/);
     expect(phone()).toMatch(/\.nl-demo-steps li:not\(\.is-on\) \{ display: none; \}/);
   });
   it('does not repeat the long subtitle', () => {

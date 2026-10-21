@@ -201,7 +201,6 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             </div>
             <figure className="nl-hero-shot">
               <ResumeDemo onStart={start} />
-              <figcaption>Try it: the score fills, then press Next to see what a sample CV needs to fix. Your own CV gives your own result.</figcaption>
             </figure>
           </div>
         </section>

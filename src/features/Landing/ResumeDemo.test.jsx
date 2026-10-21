@@ -58,6 +58,15 @@ describe('the interactive Resume Builder example', () => {
   });
 });
 
+describe('the steps of the example', () => {
+  it('name all four steps for a screen reader, and show the name of the current one only, so the row never wraps', () => {
+    const { container } = render(<ResumeDemo onStart={vi.fn()} />);
+    const steps = [...container.querySelectorAll('.nl-demo-steps li')];
+    expect(steps.map(li => li.querySelector('.nl-demo-step-label').textContent)).toEqual(['Add your resume', 'See what to improve', 'Improve', 'Choose a layout and download']);
+    expect(steps.filter(li => li.classList.contains('is-on'))).toHaveLength(1);
+  });
+});
+
 describe('the Next button of the example', () => {
   const toIssues = async (onStart = vi.fn()) => { render(<ResumeDemo onStart={onStart} />); await play(); fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i })); return onStart; };
 

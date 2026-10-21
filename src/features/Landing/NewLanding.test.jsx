@@ -253,7 +253,7 @@ describe('the hero board', () => {
     const { container } = show();
     expect(container.querySelector('.nl-hero-shot [data-testid="resume-demo"]')).toBeTruthy();
     expect(container.querySelector('.nl-hero-shot img')).toBeNull();
-    expect(container.querySelector('.nl-hero-shot figcaption').textContent).toMatch(/sample CV/i);
+    expect(container.querySelector('.nl-hero-shot .nl-demo-foot').textContent).toMatch(/sample CV/i);
   });
   it('the sign-up button inside the example starts sign-up', async () => {
     const { onStart } = show();
