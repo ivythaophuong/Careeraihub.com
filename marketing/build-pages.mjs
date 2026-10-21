@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PAGES } from './pages.mjs';
-import { renderPage, renderSitemap } from './render.mjs';
+import { ARTICLES } from './articles.mjs';
+import { renderPage, renderArticle, renderBlogIndex, renderSitemap } from './render.mjs';
 
 const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
 if (!fs.existsSync(path.join(dist, 'index.html'))) {
@@ -17,5 +18,11 @@ for (const page of PAGES) {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), renderPage(page));
 }
+for (const a of ARTICLES) {
+  const dir = path.join(dist, 'blog', a.slug);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.html'), renderArticle(a));
+}
+fs.writeFileSync(path.join(dist, 'blog', 'index.html'), renderBlogIndex());
 fs.writeFileSync(path.join(dist, 'sitemap.xml'), renderSitemap());
-console.log(`build-pages: wrote ${PAGES.length} pages and sitemap.xml`);
+console.log(`build-pages: wrote ${PAGES.length} pages, ${ARTICLES.length} articles and sitemap.xml`);

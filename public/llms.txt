@@ -24,6 +24,11 @@ Site: https://careeraihub.com/
 - For job seekers in Singapore: https://careeraihub.com/singapore/
 - For job seekers in Malaysia: https://careeraihub.com/malaysia/
 
+## Blog
+
+- Blog index: https://careeraihub.com/blog/
+- Why good resumes get rejected, and 5 fixes: https://careeraihub.com/blog/why-resumes-get-rejected/
+
 ## For employers
 
 - Employer Portal and TrustMatch: post roles and review candidates with verified skills.
