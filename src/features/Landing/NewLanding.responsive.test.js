@@ -19,3 +19,18 @@ describe('the responsive rules of the landing page', () => {
     expect(block('max-width: 560px')).toMatch(/\.nl-cards, \.nl-moment-grid \{ grid-template-columns: 1fr;/);
   });
 });
+
+// Text on a filled button must reach 4.5:1 (WCAG AA for normal text). The page text colour is #F5F7FF, the button's own is #fff: both are checked.
+const lin = (c) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+const lum = (hex) => { const h = hex.replace('#', ''); const [r, g, b] = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b); };
+const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+const bgOf = (selector) => { const re = new RegExp(`(?:^|\\n)${selector.replace(/[.:]/g, '\\$&')}[^{]*\\{[^}]*?background: (#[0-9A-Fa-f]{6})`); return css.match(re)?.[1]; };
+
+describe('the colours of the demo buttons', () => {
+  it('keep white text readable at rest and on hover', () => {
+    const rest = css.match(/\.nl-demo-next, \.nl-demo-signup \{[^}]*background: (#[0-9A-Fa-f]{6})/)?.[1];
+    const hover = css.match(/\.nl-demo-next:hover, \.nl-demo-signup:hover \{ background: (#[0-9A-Fa-f]{6})/)?.[1];
+    expect(rest).toBeTruthy(); expect(hover).toBeTruthy();
+    for (const bg of [rest, hover]) for (const fg of ['#FFFFFF', '#F5F7FF']) expect(ratio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+});
