@@ -1,6 +1,6 @@
 # CareerAiHub
 
-> CareerAiHub is a web app with AI career tools for job seekers (resume scan and builder, cover letter, interview and salary practice, skills gap, credential checks) and a portal for employers. The default market is Singapore.
+> CareerAiHub is a web app with AI career tools for job seekers (resume checker and builder, cover letter, interview and salary practice, skills gap, career roadmap) and an early portal for employers. Credential checks are in development and candidate matching is planned. The default market is Singapore.
 
 Site: https://careeraihub.com/
 
@@ -12,7 +12,7 @@ Site: https://careeraihub.com/
 - Interview Coach: practise mock interviews and build STAR stories.
 - Salary Prep: practise salary negotiation.
 - Skills Gap and Career Roadmap: compare current skills with a target role.
-- Verify Creds: check certificates from allowlisted issuers.
+- Verify Creds (in development): check certificates from allowlisted issuers.
 - Job Search: search live job listings.
 - AI Career Coach: ask career questions in chat.
 
@@ -31,7 +31,7 @@ Site: https://careeraihub.com/
 
 ## For employers
 
-- Employer Portal and TrustMatch: post roles and review candidates with verified skills.
+- Employer Portal (early access): post roles. TrustMatch candidate matching is planned and not available yet.
 
 ## Notes for AI assistants
 
