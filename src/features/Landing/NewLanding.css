@@ -128,7 +128,7 @@
 .nl-moments { display: flex; flex-direction: column; gap: 22px; }
 .nl-eyebrow-light { color: #B0207C; margin-bottom: 0; }
 .nl-light .nl-h2 { color: #141B32; max-width: 760px; }
-.nl-light-lead { color: #46506B; margin-top: -8px; }
+.nl-light-lead { margin-top: -8px; }
 .nl-moment-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .nl-moment { text-align: left; cursor: pointer; padding: 20px 22px; border-radius: 16px; display: flex; flex-direction: column; gap: 6px; background: #fff; color: #141B32; border: 1px solid #DADDEC; transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .nl-moment:hover { border-color: #B8A6F0; }
@@ -496,3 +496,24 @@
 
 /* Bold words in the lines under the titles keep the colour of the line (no colour is set here). */
 .nl-copy > p strong, .nl-light-lead strong, .nl-coach-copy > p strong, .nl-approach-intro > p strong { font-weight: 700; }
+
+/* One size and one colour for the lines under the titles; bold words are the plain text colour. */
+.nl { --nl-lead-size: 17px; }
+.nl-lead, .nl-copy > p, .nl-point, .nl-coach-copy > p, .nl-approach-intro > p, .nl-light-lead { font-size: var(--nl-lead-size); line-height: 1.6; color: var(--nl-muted); }
+.nl-light-lead { color: #46506B; }
+.nl-paper .nl-approach-intro > p { color: #46506B; }
+.nl-copy > p strong, .nl-point strong, .nl-coach-copy > p strong, .nl-approach-intro > p strong { color: var(--nl-text); font-weight: 700; }
+.nl-light .nl-light-lead strong, .nl-paper .nl-approach-intro > p strong { color: #141B32; }
+.nl-coach-copy .nl-coach-note { font-size: 14px; color: var(--nl-subtle); }
+.nl-point { margin: 0 0 14px; max-width: 30em; }
+
+/* Recording, calm: quiet blue-grey bars like a real recorder; loudness shows as lightness, one muted amber for pauses. */
+.nl-rec { background: #0C1119; }
+.nl-rec-dot { background: #C0504D; }
+.nl-rec-stop { border-color: #C0504D; } .nl-rec-stop i { background: #C0504D; }
+.nl-rec-bar, .nl-rec-strip i, .nl-rec-legend i { background: #8CA2BD; }
+.nl-rec-bar.is-soft, .nl-rec-strip i.is-soft, .nl-rec-legend i.is-soft { background: #5C7694; }
+.nl-rec-bar.is-loud, .nl-rec-strip i.is-loud, .nl-rec-legend i.is-loud { background: #C3D0E2; }
+.nl-rec-bar.is-pause { background: #A98B4E; opacity: 0.8; }
+.nl-rec-strip i.is-pause, .nl-rec-legend i.is-pause { background: rgba(169, 139, 78, 0.35); border: 1px solid #A98B4E; }
+.nl-rec-mask { background: #0C1119; }

@@ -81,9 +81,27 @@ describe('the motion that was asked for', () => {
 
 describe('one colour for the text', () => {
   it('does not colour the bold words in the lines under the titles, and has no gradient on any title but the main one', () => {
-    expect(css).not.toMatch(/\.nl-copy > p strong[^{]*\{[^}]*color/);
     expect(css).not.toMatch(/\.nl-h2 \.nl-grad-text/);
     expect(css).not.toMatch(/\.nl-(light|paper) \.nl-grad-text/);
     expect(css).not.toMatch(/\.nl-approach-intro > p strong[^{]*\{[^}]*color: #A61F6C/);
+  });
+});
+
+describe('the recording illustration looks like a recording, not a poster', () => {
+  const rec = css.slice(css.indexOf('/* Recording, calm:')) ;
+  it('uses quiet blue-grey bars and one muted amber for pauses, with no pink or bright purple', () => {
+    expect(css).toContain('/* Recording, calm:');
+    for (const c of ['#5C7694', '#8CA2BD', '#C3D0E2', '#A98B4E']) expect(rec.toUpperCase(), c).toContain(c);
+    for (const bright of ['#F472B6', '#A78BFA', '#7DD3FC', '#FBBF24', '#F87171']) expect(rec.toUpperCase(), bright).not.toContain(bright);
+  });
+});
+
+describe('one size and one colour for the lines under the titles', () => {
+  it('sets one size for them, and the same muted colour', () => {
+    expect(css).toMatch(/--nl-lead-size: 17px/);
+    expect(css).toMatch(/\.nl-lead, \.nl-copy > p, \.nl-point, \.nl-coach-copy > p, \.nl-approach-intro > p[^{]*\{ font-size: var\(--nl-lead-size\); line-height: 1\.6; color: var\(--nl-muted\); \}/);
+  });
+  it('gives every dark section the same padding', () => {
+    expect(css).toMatch(/\.nl-section \{[^}]*padding: 96px 0/);
   });
 });

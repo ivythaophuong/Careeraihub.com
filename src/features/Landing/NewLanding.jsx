@@ -317,7 +317,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <div className="nl-copy nl-approach-intro">
               <div className="nl-eyebrow">Our approach</div>
               <h2 className="nl-h2">AI should help you move forward. It should not make the decision for you.</h2>
-              <p>We believe career technology should be useful, <strong>transparent</strong> and <strong>grounded in evidence</strong>. Here is who does what.</p>
+              <p>Anyone can say they use AI responsibly. Here is what you can <strong>check yourself</strong>: who decides, who explains and who chooses.</p>
             </div>
             <ol className="nl-flow">
               {FLOW.map((f, i) => (

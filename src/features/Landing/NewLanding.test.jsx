@@ -117,7 +117,7 @@ describe('the emphasis in the headings and the lines under them', () => {
     expect(strong('#tools .nl-copy > p')).toEqual(['prepare', 'practise', 'decide']);
     expect(strong('#system .nl-light-lead')).toEqual(['build your confidence']);
     expect(strong('#coach .nl-coach-copy > p:not(.nl-coach-note)')).toEqual(['next move', 'interviews', 'salary', 'applications']);
-    expect(strong('#approach .nl-approach-intro > p')).toEqual(['transparent', 'grounded in evidence']);
+    expect(strong('#approach .nl-approach-intro > p')).toEqual(['check yourself']);
   });
 });
 
@@ -175,6 +175,15 @@ describe('the confidence message', () => {
     expect(norm(container.querySelector('#approach').textContent)).toMatch(/We cannot promise a result\. We can help you walk in prepared\./);
     expect(norm(container.querySelector('#story').textContent)).toMatch(/confiden/i);
     expect(norm(container.textContent)).not.toMatch(/we guarantee|guaranteed|will get you|you will be hired|ensure you/i); // the page does say it does not guarantee a result
+  });
+});
+
+describe('the approach section opens with what a visitor can check', () => {
+  it('says it plainly, and claims no certificate, audit or approval', () => {
+    const { container } = show();
+    const t = container.querySelector('#approach .nl-approach-intro').textContent.replace(/\s+/g, ' ');
+    expect(t).toMatch(/Anyone can say they use AI responsibly\. Here is what you can check yourself/);
+    expect(container.querySelector('#approach').textContent).not.toMatch(/certified|accredited|audited|authorized|compliant|ISO/i);
   });
 });
 
