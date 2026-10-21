@@ -10,10 +10,14 @@ const TIMEOUT_MS = 60_000;
 // The transcribe function enforces its own allowlist (VOICE_ALLOWED_USER_IDS), so this only keeps the button from showing to people it would refuse.
 // VITE_VOICE_PRACTICE=true shows it to every account (local development); 'false' hides it for everyone.
 export const PREVIEW_USER_IDS = ['669f63cb-02f8-4eb9-9cd1-2f6015f6a4fd'];
-export const voiceEnabled = (userId) => {
+// Opening voice to every signed-in account is a deliberate one-line change (set this to true), made only after the server accepts everyone
+// (VOICE_ALLOWED_USER_IDS=*) and the daily limit is on. Until then the button stays with the preview accounts. A test fails if it ships as true by accident.
+export const VOICE_OPEN_TO_ALL = false;
+export const voiceEnabled = (userId, openToAll = VOICE_OPEN_TO_ALL) => {
   const flag = import.meta.env.VITE_VOICE_PRACTICE;
   if (flag === 'false') return false;
   if (flag === 'true') return true;
+  if (openToAll) return !!userId;
   return !!userId && PREVIEW_USER_IDS.includes(userId);
 };
 

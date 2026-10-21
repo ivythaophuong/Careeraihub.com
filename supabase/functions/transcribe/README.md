@@ -22,7 +22,7 @@ Nothing. The audio is held in memory for the request. The only log line is `[usa
 | Name | Meaning |
 |---|---|
 | `VOICE_TRANSCRIBE` | `on` to enable. Anything else answers 403. |
-| `VOICE_ALLOWED_USER_IDS` | Comma list of Supabase user ids that may use it. Empty means nobody. |
+| `VOICE_ALLOWED_USER_IDS` | Comma list of Supabase user ids that may use it. Empty means nobody. An entry `*` means every signed-in user (only while `VOICE_TRANSCRIBE=on`). Open it to everyone only after the daily seconds limit is on. |
 | `GROQ_API_KEY`, `OPENAI_API_KEY` | Already used by the `ai` function. |
 
 The browser flag is `VITE_VOICE_PRACTICE=true` at build time (public, not a secret).
