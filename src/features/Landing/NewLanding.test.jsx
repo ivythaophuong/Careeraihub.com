@@ -60,6 +60,19 @@ describe('the new landing page', () => {
   });
 });
 
+describe('what the page says the coach knows', () => {
+  it('is the same everywhere: a short summary, never "your stories" or "what you did" in full', () => {
+    const { container } = show();
+    const all = [];
+    for (const b of container.querySelectorAll('.nl-moment')) { fireEvent.click(b); all.push(container.querySelector('.nl-panel').textContent); }
+    all.push(container.querySelector('#coach').textContent);
+    const t = all.join(' ').replace(/\s+/g, ' ');
+    expect(t).not.toMatch(/knows your profile, your sessions and your stories/i);
+    expect(t).not.toMatch(/reads what you did in the other tools/i);
+    expect(t).toMatch(/starts from a short summary of what you did in the other tools/i);
+  });
+});
+
 describe('the AI Career Coach section', () => {
   const norm = (t) => t.replace(/\s+/g, ' ');
   it('comes after the situations and before the approach, as a simple chat with the real example questions', () => {

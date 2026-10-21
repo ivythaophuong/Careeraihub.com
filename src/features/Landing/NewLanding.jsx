@@ -84,8 +84,8 @@ const MOMENTS = [
   {
     id: 'next', title: 'I am not sure what is next', sub: 'Get guidance and see what to focus on.',
     headline: 'Always know your next step.',
-    gets: ['Your priority actions and your week at a glance on the Dashboard.', 'A path to your target role, with next steps based on what you have done.', 'An AI Career Coach that knows your profile, your sessions and your stories.'],
-    stays: 'It reads what you did in the other tools, so the advice is about you.',
+    gets: ['Your priority actions and your week at a glance on the Dashboard.', 'A path to your target role, with next steps based on what you have done.', 'An AI Career Coach that knows your target role and a short summary of your activity.'],
+    stays: 'The coach starts from a short summary of what you did in the other tools, so the advice is about you.',
     tools: 'Dashboard, Career Roadmap, Skills Gap, AI Career Coach.',
     shots: [{ key: 'dashboard', src: dashCrop, w: 2424, h: 1000, chip: 'From your own activity', alt: 'The Dashboard with the plan for the week and priority actions', caption: 'Priority actions and a plan for the week. Synthetic account and made-up data.' }],
   },
