@@ -38,7 +38,7 @@ describe('delivery coaching', () => {
   it('sends only the six rhythm figures with a spoken answer, and shows the delivery text in its own section', async () => {
     setup(); await toQuestion();
     fireEvent.click(screen.getByText('fake record'));
-    await screen.findByTestId('rhythm');
+    await screen.findByTestId('signal-feed');
     fireEvent.click(screen.getByRole('button', { name: /Get AI Feedback/ }));
     await screen.findByLabelText('Answer score');
     const sent = evaluateAnswerOnServer.mock.calls[0][0];
@@ -48,7 +48,7 @@ describe('delivery coaching', () => {
     const section = await screen.findByTestId('delivery-feedback');
     expect(section.textContent).toMatch(/How you delivered it/);
     expect(section.textContent).toContain(DELIVERY);
-    expect(section.textContent).toMatch(/AI-generated from the figures in your Rhythm box/);
+    expect(section.textContent).toMatch(/AI-generated from the figures in the Delivery column/);
   });
   it('sends no figures for a typed answer, and shows no delivery section', async () => {
     evaluateAnswerOnServer.mockResolvedValue({ feedback: FB, receipt: { ts: 1, sig: 'x' } });

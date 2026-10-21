@@ -11,7 +11,10 @@ const PER_COLUMN = 8; // 0.8 s per column
 const COLUMNS = Math.ceil((MAX_RECORD_SECONDS * 10) / PER_COLUMN);
 const reduced = () => { try { return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
-export default function Waveform({ levelsRef, height = 56 }) {
+const FIT_COLUMNS = 64; const FIT_MIN = 24;
+
+// With `fit` the whole width shows the answer so far (the bars get narrower as the answer grows) instead of the whole 3 minutes with the time still to come.
+export default function Waveform({ levelsRef, height = 56, fit = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -22,11 +25,14 @@ export default function Waveform({ levelsRef, height = 56 }) {
     const pill = (x, y, w, h) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, w / 2); else g.rect(x, y, w, h); g.fill(); };
     const draw = () => {
       if (stopped) return;
-      const cols = columnsOf(levelsRef?.current || [], PER_COLUMN, COLUMNS);
-      const w = canvas.width; const h = canvas.height; const step = w / COLUMNS; const bw = Math.max(1.5, step * 0.55);
+      const all = levelsRef?.current || [];
+      const per = fit ? Math.max(1, Math.ceil(all.length / FIT_COLUMNS)) : PER_COLUMN;
+      const cols = columnsOf(all, per, fit ? FIT_COLUMNS : COLUMNS);
+      const total = fit ? Math.max(cols.length, FIT_MIN) : COLUMNS;
+      const w = canvas.width; const h = canvas.height; const step = w / total; const bw = Math.max(1.5, step * 0.55);
       g.clearRect(0, 0, w, h);
       const cut = tierCutoffs(cols.filter(v => v >= SILENT_PEAK / 2)); // colour: softer, steady or louder than the rest of this recording
-      for (let i = 0; i < COLUMNS; i++) {
+      for (let i = 0; i < total; i++) {
         const x = i * step + (step - bw) / 2;
         if (i < cols.length) {
           const bh = Math.max(3, Math.min(h, cols[i] * h * 3.2));
@@ -44,6 +50,6 @@ export default function Waveform({ levelsRef, height = 56 }) {
     };
     draw();
     return () => { stopped = true; cancelAnimationFrame(raf); clearTimeout(timer); };
-  }, [levelsRef]);
+  }, [levelsRef, fit]);
   return <canvas ref={ref} role="img" aria-label="Live sound from your microphone" width={900} height={height} style={{ width: '100%', height }} />;
 }

@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { createPortal } from 'react-dom';
 import { C } from '../../styles/theme';
 import { Btn } from '../../components/CommonUI';
 import { transcribeAudio, MAX_RECORD_SECONDS } from '../../lib/voice.js';
 import { createAudioMeter, isSilent, SILENT_PEAK } from '../../lib/audioMeter.js';
-import { analyzeRhythm } from '../../lib/rhythm.js';
+import { analyzeRhythm, tierCutoffs, tierOf } from '../../lib/rhythm.js';
 import Waveform from './Waveform';
 import LiveRhythmPanel from './LiveRhythmPanel';
+import RhythmTimeline from './RhythmTimeline';
 
 // Voice practice spike: record one answer, turn it into text on the server, hand the text back to the answer box so the user can correct it
 // before anything is graded. The audio lives in memory only until the transcript returns; it is never stored (decision V3).
@@ -20,7 +22,16 @@ const MicIcon = () => (<svg width="26" height="26" viewBox="0 0 24 24" fill="non
 const StopIcon = () => (<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5" /></svg>);
 const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart, onStage, disabled = false }, ref) {
+const TIER_WORD = { soft: 'Softer', steady: 'Steady', loud: 'Louder' };
+const micOf = (levels) => { // how loud the last moment was, in words, against this speaker's own range so far; a measurement, never a grade
+  const v = levels.length ? levels[levels.length - 1] : 0;
+  if (v < SILENT_PEAK / 2) return { v, word: 'No sound' };
+  return { v, word: TIER_WORD[tierOf(v, tierCutoffs(levels.filter(x => x >= SILENT_PEAK / 2)))] };
+};
+const stageCard = { position: 'relative', border: `1px solid ${C.accent}80`, borderRadius: 20, padding: '16px 22px 14px', display: 'flex', flexDirection: 'column', gap: 12,
+  background: `radial-gradient(55% 80% at 50% 42%, ${C.accent}1f, transparent 72%), ${C.surface}`, boxShadow: `0 0 60px ${C.accent}29` };
+
+const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart, onStage, disabled = false, liveTarget = null, recorded = null }, ref) {
   const [stage, setStage] = useState('idle'); // idle | consent | recording | transcribing
   const [elapsed, setElapsed] = useState(0);
   const [err, setErr] = useState('');
@@ -39,13 +50,14 @@ const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart,
   const [liveRhythm, setLiveRhythm] = useState(null);
   const [meterNode, setMeterNode] = useState(null);
   const [quiet, setQuiet] = useState(false);
+  const [mic, setMic] = useState(null);
   const gone = useRef(false);
 
   const release = () => {
     clearInterval(timer.current); timer.current = null;
     clearInterval(sampler.current); sampler.current = null;
     clearInterval(liveTimer.current); liveTimer.current = null; setLiveRhythm(null);
-    meter.current?.close(); meter.current = null; setMeterNode(null); setQuiet(false);
+    meter.current?.close(); meter.current = null; setMeterNode(null); setQuiet(false); setMic(null);
     stream.current?.getTracks().forEach(t => t.stop()); stream.current = null;
   };
   useEffect(() => () => {
@@ -113,7 +125,7 @@ const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart,
         else { quietMs.current += 100; if (quietMs.current >= 3000) setQuiet(true); }
       }, 100);
       // Re-measure the rhythm of what has been said so far twice a second (loudness numbers only).
-      liveTimer.current = setInterval(() => { try { setLiveRhythm(analyzeRhythm({ levels: levels.current, stepMs: 100 })); } catch { /* the panel just keeps its last figures */ } }, 500);
+      liveTimer.current = setInterval(() => { try { setMic(micOf(levels.current)); setLiveRhythm(analyzeRhythm({ levels: levels.current, stepMs: 100 })); } catch { /* the panel just keeps its last figures */ } }, 500);
     }
     timer.current = setInterval(() => {
       secs.current += 1; setElapsed(secs.current);
@@ -126,6 +138,7 @@ const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart,
   api.current = { start: () => { if (!disabled && stage === 'idle') click(); }, stop: () => { if (stage === 'recording') stop(); } };
 
   const recording = stage === 'recording';
+  const showRecorded = !recording && stage !== 'consent' && recorded?.rhythm?.state === 'ok' && Number.isFinite(Number(recorded.durationSec));
   const busyText = stage === 'transcribing';
   const status = recording ? `Recording… ${clock(elapsed)} of ${clock(MAX_RECORD_SECONDS)}` : busyText ? 'Turning your voice into text…' : 'Ready when you are';
   return (
@@ -141,26 +154,51 @@ const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart,
           </div>
         </div>
       )}
-      {stage !== 'consent' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', border: `1px solid ${recording ? C.red : C.border}`, borderRadius: 14, padding: '12px 16px', background: C.surface, boxShadow: recording ? `0 0 44px ${C.accent}26` : 'none' }}>
-          <div role="progressbar" aria-label="Recording time" aria-valuemin={0} aria-valuemax={MAX_RECORD_SECONDS} aria-valuenow={recording ? elapsed : 0} style={{ position: 'relative', width: 72, height: 72, flex: '0 0 72px' }}>
-            <svg width="72" height="72" viewBox="0 0 72 72" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }} aria-hidden="true">
-              <circle cx="36" cy="36" r="30" fill="none" stroke={C.border} strokeWidth="3" />
-              {recording && <circle cx="36" cy="36" r="30" fill="none" stroke={C.red} strokeWidth="3" strokeLinecap="round" strokeDasharray={RING} strokeDashoffset={RING * (1 - Math.min(1, elapsed / MAX_RECORD_SECONDS))} />}
-            </svg>
-            {recording
-              ? <button type="button" onClick={stop} aria-label="Stop recording" style={{ position: 'absolute', inset: 8, borderRadius: '50%', border: 'none', background: C.red, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><StopIcon /></button>
-              : <button type="button" onClick={click} disabled={disabled || busyText} aria-label="Record your answer" style={{ position: 'absolute', inset: 8, borderRadius: '50%', border: 'none', background: C.accent, color: '#0b1020', cursor: disabled || busyText ? 'not-allowed' : 'pointer', opacity: disabled || busyText ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MicIcon /></button>}
+      {recording && (
+        <div data-testid="recording-stage" style={stageCard}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <div role="timer" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: C.text }}>
+              <span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: 99, background: C.red, display: 'inline-block' }} /><b>Recording</b><span style={{ color: C.muted }}>{clock(elapsed)} of {clock(MAX_RECORD_SECONDS)}</span>
+            </div>
+            {meterNode && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: C.muted, marginLeft: 'auto' }}>
+                <span>Mic level</span>
+                <span role="meter" aria-label="Mic level" aria-valuemin={0} aria-valuemax={1} aria-valuenow={mic ? Math.min(1, mic.v * 3) : 0} aria-valuetext={mic ? mic.word : 'No sound'} style={{ width: 90, height: 6, borderRadius: 99, background: 'rgba(255,255,255,.08)', display: 'block', overflow: 'hidden' }}>
+                  <span style={{ display: 'block', width: `${Math.round(Math.min(1, (mic?.v || 0) * 3) * 100)}%`, height: '100%', background: C.accent }} />
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono, monospace)' }}>{mic ? mic.word : 'No sound'}</span>
+              </div>
+            )}
+            <div role="progressbar" aria-label="Recording time" aria-valuemin={0} aria-valuemax={MAX_RECORD_SECONDS} aria-valuenow={elapsed} style={{ position: 'relative', width: 56, height: 56, flex: '0 0 56px' }}>
+              <svg width="56" height="56" viewBox="0 0 72 72" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }} aria-hidden="true">
+                <circle cx="36" cy="36" r="30" fill="none" stroke={C.border} strokeWidth="3" />
+                <circle cx="36" cy="36" r="30" fill="none" stroke={C.red} strokeWidth="3" strokeLinecap="round" strokeDasharray={RING} strokeDashoffset={RING * (1 - Math.min(1, elapsed / MAX_RECORD_SECONDS))} />
+              </svg>
+              <button type="button" onClick={stop} aria-label="Stop recording" style={{ position: 'absolute', inset: 8, borderRadius: '50%', border: 'none', background: C.red, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><StopIcon /></button>
+            </div>
           </div>
-          <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-            <div role={recording ? 'timer' : 'status'} style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{status}</div>
-            {recording && meterNode && <div style={{ marginTop: 6 }}><Waveform levelsRef={levels} height={88} /></div>}
-            {recording && quiet && <div role="status" style={{ color: C.gold, fontSize: 12, marginTop: 4 }}>We can barely hear you. Move closer to the microphone or check that it is not muted.</div>}
-            {!recording && !busyText && <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Tap the microphone and answer out loud, up to 3 minutes.</div>}
-          </div>
+          {meterNode && <Waveform fit levelsRef={levels} height={118} />}
+          {meterNode && (liveRhythm?.state === 'ok'
+            ? <RhythmTimeline tall segments={liveRhythm.segments} totalSec={liveRhythm.totalSec} label="Timeline of your answer so far" />
+            : <div style={{ color: C.muted, fontSize: 11 }}>The timeline of your answer appears after a few seconds of speaking.</div>)}
+          {quiet && <div role="status" style={{ color: C.gold, fontSize: 12 }}>We can barely hear you. Move closer to the microphone or check that it is not muted.</div>}
         </div>
       )}
-      {recording && meterNode && <LiveRhythmPanel rhythm={liveRhythm} />}
+      {stage !== 'consent' && !recording && (
+        <div data-testid={showRecorded ? 'recorded-card' : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 12, border: `1px solid ${C.border}`, borderRadius: 16, padding: '12px 16px', background: C.surface }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <button type="button" onClick={click} disabled={disabled || busyText} aria-label="Record your answer" style={{ width: 52, height: 52, flex: '0 0 52px', borderRadius: '50%', border: 'none', background: C.accent, color: '#0b1020', cursor: disabled || busyText ? 'not-allowed' : 'pointer', opacity: disabled || busyText ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MicIcon /></button>
+            <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+              <div role="status" style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{showRecorded && !busyText ? `Recorded, ${Number(recorded.durationSec).toFixed(1)} s` : status}</div>
+              {busyText ? null : showRecorded
+                ? <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Tap the microphone to record this answer again</div>
+                : <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Tap the microphone and answer out loud, up to 3 minutes.</div>}
+            </div>
+          </div>
+          {showRecorded && !busyText && <RhythmTimeline tall segments={recorded.rhythm.segments} totalSec={recorded.rhythm.totalSec} label={`Timeline of your answer: ${recorded.rhythm.speechSec.toFixed(1)} seconds of speaking out of ${recorded.rhythm.totalSec.toFixed(1)}.`} />}
+        </div>
+      )}
+      {recording && meterNode && (liveTarget ? createPortal(<LiveRhythmPanel rhythm={liveRhythm} />, liveTarget) : <LiveRhythmPanel rhythm={liveRhythm} />)}
       {fresh && stage === 'idle' && <div role="status" style={{ color: C.muted, fontSize: 11, lineHeight: 1.6 }}>Transcribed from your voice. Please check and correct it before you send it for feedback.</div>}
       {err && <div role="alert" style={{ color: C.red, fontSize: 12, lineHeight: 1.6 }}>{err}</div>}
     </div>

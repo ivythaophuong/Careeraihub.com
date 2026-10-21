@@ -1,0 +1,3 @@
+/* Voice answer screen: the answer area beside the Delivery rail; one column when the window is narrow. */
+.voice-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .voice-layout { grid-template-columns: minmax(0, 1fr); } }

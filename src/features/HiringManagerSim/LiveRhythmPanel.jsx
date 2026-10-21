@@ -1,27 +1,31 @@
 import React from 'react';
 import { C } from '../../styles/theme';
-import RhythmTimeline from './RhythmTimeline';
+import { RailCard, TimeHero, PauseRows, SignalFeed, label } from './DeliveryRail';
 
-// Rhythm while the recording is still going. Speaking time and pauses come from loudness and are re-measured as the answer goes on; the pace needs the words,
-// which exist only after the recording is turned into text, so it says so instead of showing a number. Information only.
-const tile = { flex: '1 1 140px', minWidth: 120, border: `1px solid ${C.border}`, borderRadius: 10, padding: '8px 12px', background: 'rgba(255,255,255,.02)' };
-const cap = { color: C.muted, fontSize: 11, lineHeight: 1.5 };
-const big = { color: C.text, fontSize: 20, fontWeight: 800, lineHeight: 1.2 };
+// The figures while the recording is still going, as the cards of the Delivery rail. Speaking time and pauses come from loudness and are re-measured as the answer goes on;
+// the pace needs the words, which exist only after the recording is turned into text, so it says so instead of showing a number. The timeline itself sits in the recording stage. Information only.
+const cap = { color: C.muted, fontSize: 11.5, lineHeight: 1.5 };
 
 export default function LiveRhythmPanel({ rhythm }) {
   const ok = rhythm?.state === 'ok';
+  const rows = ok ? rhythm.segments.filter(g => g.type === 'pause' && g.long).map(g => ({ at: g.startSec, sec: g.sec })) : [];
   return (
-    <div data-testid="live-rhythm" style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', background: C.surface, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div data-testid="live-rhythm" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: C.text, fontSize: 13, fontWeight: 800 }}>Rhythm</span>
         <span style={{ color: C.red, fontSize: 10, fontWeight: 800, border: `1px solid ${C.red}`, borderRadius: 10, padding: '1px 8px' }}>Live</span>
       </div>
-      {ok && <RhythmTimeline segments={rhythm.segments} totalSec={rhythm.totalSec} label="Live timeline of your answer so far" />}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <div style={tile}><div style={cap}>Speaking time</div><div style={big}>{ok ? `${rhythm.speechSec.toFixed(1)} s` : '—'}</div><div style={cap}>{ok ? `of ${rhythm.totalSec.toFixed(1)} s so far` : 'measuring…'}</div></div>
-        <div style={tile}><div style={cap}>Long pauses</div><div style={big}>{ok ? rhythm.longPauses : '—'}</div><div style={cap}>{ok ? (rhythm.longPauses > 0 ? `longest ${rhythm.longestPauseSec.toFixed(1)} s` : 'none so far') : 'measuring…'}</div></div>
-        <div style={tile}><div style={cap}>Pace while speaking</div><div style={big}>—</div><div style={cap}>shown after you stop</div></div>
-      </div>
+      <TimeHero rhythm={rhythm} sub={ok ? `${rhythm.speechSec.toFixed(1)} s of ${rhythm.totalSec.toFixed(1)} s so far` : undefined} />
+      <RailCard>
+        <span style={label}>Pace while speaking</span>
+        <div style={{ color: C.text, fontSize: 34, fontWeight: 800 }}>—</div>
+        <div style={cap}>Shown after you stop: pace needs your words, so it is worked out once the recording is turned into text.</div>
+      </RailCard>
+      <RailCard>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={label}>Pauses of 1 second or more</span><b style={{ color: C.text }}>{ok ? rhythm.longPauses : '—'}</b></div>
+        {ok ? (rows.length === 0 ? <div style={cap}>None so far.</div> : <PauseRows rows={rows} />) : <div style={cap}>measuring…</div>}
+      </RailCard>
+      <SignalFeed rhythm={rhythm} live />
       <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.6 }}>Live estimate from how loud your voice is. It can change as you keep speaking.</div>
     </div>
   );
