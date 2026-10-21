@@ -70,3 +70,19 @@ describe('Application tracker — Recovery Tips', () => {
     expect(text()).not.toMatch(/85%|Statistical analysis|AI Recovery Coach/);
   });
 });
+
+describe('Job Search — every select has a name', () => {
+  it('the experience level and type selects are named', () => {
+    setup();
+    expect(screen.getByRole('combobox', { name: 'Experience level' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Job type' })).toBeTruthy();
+  });
+
+  it('a tracked application status select is named after the role', () => {
+    setup({ memory: { applications: [{ id: 1, company: 'Acme', role: 'PM', status: 'Applied', date: '2026-10-01' }] } });
+    fireEvent.click(screen.getByText(/Application Tracker/));
+    const selects = [...document.querySelectorAll('select')];
+    expect(selects.length).toBe(1);
+    expect(screen.getByRole('combobox', { name: /Status for PM at Acme/ })).toBeTruthy();
+  });
+});
