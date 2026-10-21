@@ -59,7 +59,7 @@ describe('the white sections: the approach and the footer', () => {
       expect(ratio(fg, bg), name).toBeGreaterThanOrEqual(4.5);
     }
   });
-  it('make the approach section and the footer white', () => {
+  it('make the "check ours" section and the footer white', () => {
     expect(css).toMatch(/\.nl-paper \{ background: #FFFFFF;/);
     expect(css).toMatch(/\.nl-footer\.nl-paper-foot \{ background: #FFFFFF;/);
   });

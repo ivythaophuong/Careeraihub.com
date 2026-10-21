@@ -97,9 +97,11 @@ describe('the situation panels show whole screens', () => {
 });
 
 describe('the white sections', () => {
-  it('the approach section and the footer are the white ones', () => {
+  it('the approach section is dark; the "check ours" section and the footer are the white ones', () => {
     const { container } = show();
-    expect(container.querySelector('#approach').classList.contains('nl-paper')).toBe(true);
+    expect(container.querySelector('#approach').classList.contains('nl-paper')).toBe(false);
+    expect(container.querySelector('#checks').classList.contains('nl-paper')).toBe(true);
+    expect(container.querySelector('#checks').previousElementSibling.id).toBe('approach');
     expect(container.querySelector('footer').classList.contains('nl-paper-foot')).toBe(true);
   });
 });
@@ -171,7 +173,8 @@ describe('the confidence message', () => {
   });
   it('says plainly that no result is promised, and the story says the same', () => {
     const { container } = show();
-    expect(norm(container.querySelector('#approach').textContent)).toMatch(/We cannot promise a result\. We can help you walk in prepared\./);
+    expect(norm(container.querySelector('#checks').textContent)).toMatch(/We cannot promise a result\. We can help you walk in prepared\./);
+    fireEvent.click(within(container.querySelector('#story')).getByRole('button', { name: /Read our story/i }));
     expect(norm(container.querySelector('#story').textContent)).toMatch(/confiden/i);
     expect(norm(container.textContent)).not.toMatch(/we guarantee|guaranteed|will get you|you will be hired|ensure you/i); // the page does say it does not guarantee a result
   });
@@ -190,9 +193,9 @@ describe('the approach section lets a visitor check each claim', () => {
   const norm = (t) => t.replace(/\s+/g, ' ');
   it('has three equal cards, each a claim, what to look at, and a link to the place where it can be checked', () => {
     const { container, onModuleSelect } = show();
-    expect(container.querySelector('#approach .nl-checks-head').textContent).toBe('Everyone claims responsible AI. You can check ours.');
-    expect(container.querySelector('#approach .nl-checks-head').tagName).toBe('H3');
-    const cards = [...container.querySelectorAll('#approach .nl-check')];
+    expect(container.querySelector('#checks .nl-checks-head').textContent).toBe('Everyone claims responsible AI. You can check ours.');
+    expect(container.querySelector('#checks .nl-checks-head').tagName).toBe('H2');
+    const cards = [...container.querySelectorAll('#checks .nl-check')];
     expect(cards.map(c => c.querySelector('h3').textContent)).toEqual(['Every point shows its evidence.', 'AI estimates are labelled.', 'Your recording is not kept.']);
     expect(cards.map(c => c.querySelector('a, button').textContent.replace(/\s+/g, ' ').trim())).toEqual(['See the example', 'See how it is shown', 'Read the privacy policy']);
     expect(cards[0].querySelector('a').getAttribute('href')).toBe('#top');
@@ -202,7 +205,7 @@ describe('the approach section lets a visitor check each claim', () => {
   });
   it('says what it can show today and claims no certificate, audit or approval', () => {
     const { container } = show();
-    const t = norm(container.querySelector('#approach').textContent);
+    const t = norm(container.querySelector('#checks').textContent);
     expect(t).toMatch(/code-counted bars and AI estimates have different colours/i);
     expect(t).toMatch(/not stored/i);
     expect(t).not.toMatch(/certified|accredited|audited|authorized|compliant|ISO|verified/i);
@@ -232,6 +235,39 @@ describe('the approach section', () => {
     const { container } = show();
     const srcs = [...container.querySelectorAll('img')].map(i => i.getAttribute('src'));
     expect(new Set(srcs).size).toBe(srcs.length);
+  });
+});
+
+describe('Our story', () => {
+  it('is folded: only its title and one line show, and a button opens the rest', () => {
+    const { container } = show();
+    const sec = container.querySelector('#story');
+    const btn = within(sec).getByRole('button', { name: /Read our story/i });
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    expect(sec.querySelector('.nl-story-body')).toBeNull();
+    expect(sec.querySelector('h2').textContent).toBe('Why we built CareerAiHub.');
+    fireEvent.click(btn);
+    expect(within(sec).getByRole('button', { name: /Hide our story/i }).getAttribute('aria-expanded')).toBe('true');
+    expect(sec.querySelector('.nl-story-body').textContent).toMatch(/one place to understand where they stand/);
+    fireEvent.click(within(sec).getByRole('button', { name: /Hide our story/i }));
+    expect(sec.querySelector('.nl-story-body')).toBeNull();
+  });
+  it('opens when a link to it is pressed: the Our Story link of the menu and of the footer', () => {
+    const { container } = show();
+    fireEvent.click(within(container.querySelector('header')).getAllByRole('link', { name: 'Our Story' })[0]);
+    expect(container.querySelector('#story .nl-story-body')).toBeTruthy();
+  });
+});
+
+describe('the logo at the top left', () => {
+  it('turns all the time, slowly, also for a visitor who asked for reduced motion; the logo in the footer stands still', () => {
+    vi.stubGlobal('matchMedia', (q) => ({ matches: /reduce/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+    const { container } = show();
+    const head = container.querySelector('header .nl-brand svg');
+    expect(head.innerHTML).toContain('orbit-spin-cw 18s');
+    expect(head.querySelector('animateMotion')).toBeTruthy();
+    expect(container.querySelector('footer .nl-brand svg animateMotion')).toBeNull();
+    vi.unstubAllGlobals();
   });
 });
 
@@ -304,7 +340,7 @@ describe('the heading outline', () => {
   });
   it('gives every section its own h2, and the coach is one of them', () => {
     const { container } = show();
-    for (const id of ['tools', 'system', 'coach', 'approach', 'faq', 'story', 'partner']) expect(container.querySelector(`#${id} h2`)).toBeTruthy();
+    for (const id of ['tools', 'system', 'coach', 'approach', 'checks', 'faq', 'story', 'partner']) expect(container.querySelector(`#${id} h2`)).toBeTruthy();
   });
 });
 

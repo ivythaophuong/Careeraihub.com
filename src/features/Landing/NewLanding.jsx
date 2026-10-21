@@ -134,7 +134,7 @@ const ORBIT_TOOLS = [
 ];
 const toolPath = (t) => `M${t.x} ${t.y}L260 200`; // from the tool into the middle: every tool feeds the one CV and one memory
 const toolPathOut = (t) => `M260 200L${t.x} ${t.y}`; // and from the middle back out: every tool starts from the same CV and memory
-const Logo = ({ size = 28, animated = false }) => <OrbitMark size={size} animated={animated} duration={8} />; // the brand mark of the app (the pink orbit shown while the app loads)
+const Logo = ({ size = 28, animated = false }) => <OrbitMark size={size} animated={animated} duration={18} />; // the brand mark of the app (the pink orbit shown while the app loads)
 
 
 // True once the element has been seen (and stays true), so a motion plays once when the visitor first reaches it. Never true for a visitor who asked for reduced motion.
@@ -155,6 +155,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   const [sel, setSel] = useState('apply');
   const [menuOpen, setMenuOpen] = useState(false);
   const rootRef = useRef(null);
+  const [storyOpen, setStoryOpen] = useState(false); // Our story is folded until a visitor asks for it, or follows a link to it
   const reduced = useRef(reducedMotion()).current;
   // The tool diagram, the chat and the three steps wait until they are seen, then move once.
   const [orbRef, orbSeen] = useSeenOnce(reduced); const [chatRef, chatSeen] = useSeenOnce(reduced); const [flowRef, flowSeen] = useSeenOnce(reduced);
@@ -185,9 +186,9 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
     <div className="nl" ref={rootRef}>
       <header className="nl-header">
         <div className="nl-wrap nl-nav">
-          <a href="#top" className="nl-brand"><Logo />CareerAiHub</a>
+          <a href="#top" className="nl-brand"><Logo animated />CareerAiHub</a>
           <nav aria-label="Page sections" className="nl-nav-links">
-            {NAV.map(n => <a key={n.href} href={n.href}>{n.label}</a>)}
+            {NAV.map(n => <a key={n.href} href={n.href} onClick={() => { if (n.href === '#story') setStoryOpen(true); }}>{n.label}</a>)}
           </nav>
           <div className="nl-nav-actions">
             <button type="button" className="nl-link-btn nl-hide-sm" onClick={signIn}>Log in</button>
@@ -197,7 +198,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
         </div>
         {menuOpen && (
           <div id="nl-menu" className="nl-menu">
-            {NAV.map(n => <a key={n.href} href={n.href} onClick={() => setMenuOpen(false)}>{n.label}</a>)}
+            {NAV.map(n => <a key={n.href} href={n.href} onClick={() => { setMenuOpen(false); if (n.href === '#story') setStoryOpen(true); }}>{n.label}</a>)}
             <button type="button" className="nl-link-btn" onClick={signIn}>Log in</button>
           </div>
         )}
@@ -331,7 +332,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           </div>
         </section>
 
-        <section id="approach" className="nl-section nl-approach nl-paper">
+        <section id="approach" className="nl-section nl-approach">
           <div className="nl-wrap">
             <div className="nl-copy nl-approach-intro">
               <div className="nl-eyebrow">Our approach</div>
@@ -351,7 +352,12 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 </React.Fragment>
               ))}
             </ol>
-            <h3 className="nl-checks-head">Everyone claims responsible AI. You can check ours.</h3>
+          </div>
+        </section>
+
+        <section id="checks" className="nl-section nl-paper nl-checks-sec">
+          <div className="nl-wrap">
+            <h2 className="nl-checks-head">Everyone claims responsible AI. You can check ours.</h2>
             <ul className="nl-checks">
               <li className="nl-check">
                 <span className="nl-check-icon" aria-hidden="true"><Icon name="eye" size={22} /></span>
@@ -377,6 +383,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           </div>
         </section>
 
+
         <section id="faq" className="nl-section nl-faq">
           <div className="nl-wrap nl-split nl-split-faq">
             <div className="nl-copy">
@@ -401,10 +408,15 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <div className="nl-copy">
               <div className="nl-eyebrow">Our story</div>
               <h2 className="nl-h2">Why we built CareerAiHub.</h2>
-              <p>Career development involves more than writing a resume. It means learning how to communicate your experience, preparing for interviews, recognising gaps and deciding what to work on next.</p>
-              <p>CareerAiHub began with a simple question: what if people had one place to understand where they stand, practise essential skills and walk into what comes next with confidence?</p>
-              <p className="nl-muted">CareerAiHub is an early-stage AI startup exploring how connected, practical tools can make career development more accessible and actionable. We are building, testing and learning from real user needs, with a long-term ambition to create a more connected career operating system.</p>
-              <a className="nl-text-link" href={`mailto:${MAIL}`}>Get in touch <Icon name="arrow" size={16} /></a>
+              <button type="button" className="nl-story-toggle" aria-expanded={storyOpen} aria-controls="nl-story-body" onClick={() => setStoryOpen(o => !o)}>{storyOpen ? 'Hide our story' : 'Read our story'} <span aria-hidden="true" className={`nl-story-chev${storyOpen ? ' is-open' : ''}`}><Icon name="arrow" size={16} /></span></button>
+              {storyOpen && (
+                <div className="nl-story-body" id="nl-story-body">
+                  <p>Career development involves more than writing a resume. It means learning how to communicate your experience, preparing for interviews, recognising gaps and deciding what to work on next.</p>
+                  <p>CareerAiHub began with a simple question: what if people had one place to understand where they stand, practise essential skills and walk into what comes next with confidence?</p>
+                  <p className="nl-muted">CareerAiHub is an early-stage AI startup exploring how connected, practical tools can make career development more accessible and actionable. We are building, testing and learning from real user needs, with a long-term ambition to create a more connected career operating system.</p>
+                  <a className="nl-text-link" href={`mailto:${MAIL}`}>Get in touch <Icon name="arrow" size={16} /></a>
+                </div>
+              )}
             </div>
             {FOUNDER_PHOTO && <figure className="nl-founder"><img src={FOUNDER_PHOTO} alt="The founder of CareerAiHub" loading="lazy" decoding="async" /></figure>}
           </div>
@@ -432,7 +444,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <p>Your Career Operating System. Built for Every Next Chapter.</p>
           </div>
           <div className="nl-footer-links">
-            <div><h3>Product</h3><a href="#tools">Tools</a><a href="#approach">Our Approach</a><a href="#story">Our Story</a></div>
+            <div><h3>Product</h3><a href="#tools">Tools</a><a href="#approach">Our Approach</a><a href="#story" onClick={() => setStoryOpen(true)}>Our Story</a></div>
             <div><h3>Company</h3><a href="#partner">Partnership</a><a href={`mailto:${MAIL}`}>Contact</a></div>
             <div><h3>Legal</h3>
               <button type="button" className="nl-link-btn" onClick={() => onModuleSelect && onModuleSelect('privacy')}>Privacy</button>
