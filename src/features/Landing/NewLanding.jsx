@@ -112,8 +112,9 @@ const PARTNER = [
   { icon: 'spark', title: 'Experts and educators', text: 'Share your insights and help shape the future of career development.' },
 ];
 
-const Logo = ({ size = 28 }) => (
-  <svg aria-hidden="true" width={size} height={size} viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="9" stroke="url(#nlg)" strokeWidth="2.2" /><circle cx="13" cy="13" r="3.2" fill="#F472B6" /><circle cx="21" cy="9" r="2.2" fill="#F5F7FF" /><defs><linearGradient id="nlg" x1="0" y1="0" x2="26" y2="26"><stop stopColor="#F472B6" /><stop offset="1" stopColor="#9B7BFF" /></linearGradient></defs></svg>
+const NODE_PATHS = ['M120 74C190 80 220 140 260 200','M400 74C330 80 300 140 260 200','M120 326C190 320 220 260 260 200','M400 326C330 320 300 260 260 200']; // each tool line runs into the middle: everything feeds one CV and one memory
+const Logo = ({ size = 28, className }) => (
+  <svg aria-hidden="true" className={className} width={size} height={size} viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="9" stroke="url(#nlg)" strokeWidth="2.2" /><circle cx="13" cy="13" r="3.2" fill="#F472B6" /><circle cx="21" cy="9" r="2.2" fill="#F5F7FF" /><defs><linearGradient id="nlg" x1="0" y1="0" x2="26" y2="26"><stop stopColor="#F472B6" /><stop offset="1" stopColor="#9B7BFF" /></linearGradient></defs></svg>
 );
 
 export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
@@ -181,12 +182,17 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <div className="nl-copy">
               <div className="nl-eyebrow">The challenge</div>
               <h2 className="nl-h2">Your career is connected. Your tools are not.</h2>
-              <p>A resume is only one part of your professional story. Preparing for interviews, communicating your experience, identifying skill gaps and planning your next move are all connected, yet the tools supporting them are often fragmented.</p>
-              <p className="nl-muted">CareerAiHub is being built to bring these steps into a more connected experience: one CV and one memory behind every tool.</p>
+              <p className="nl-point">Your CV, interviews, skills and next move <strong>depend on each other</strong>.</p>
+              <p className="nl-point">The tools for them are usually scattered, so you <strong>start over every time</strong>.</p>
+              <p className="nl-point">CareerAiHub is being built as one place: <strong>one CV and one memory behind every tool</strong>.</p>
             </div>
             <div className="nl-orb" role="img" aria-label="CareerAiHub at the centre, connected to resume feedback, interview practice, skills gap and next steps">
-              <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="none"><path d="M260 200C200 150 170 120 120 90M260 200C330 140 360 110 420 80M260 200C190 250 160 290 110 320M260 200C330 250 370 290 430 310" /></svg>
-              <div className="nl-orb-core"><Logo size={56} /></div>
+              <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
+                {NODE_PATHS.map((d, i) => <path key={i} d={d} />)}
+                {NODE_PATHS.map((d, i) => <circle key={i} className="nl-pulse" r="3.5"><animateMotion dur="3.4s" begin={`${i * 0.85}s`} repeatCount="indefinite" path={d} /></circle>)}
+              </svg>
+              <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
+              <div className="nl-orb-core"><Logo size={64} className="nl-logo-spin" /></div>
               <div className="nl-orb-card nl-orb-a"><Icon name="doc" size={20} />Resume feedback</div>
               <div className="nl-orb-card nl-orb-b"><Icon name="chat" size={20} />Interview practice</div>
               <div className="nl-orb-card nl-orb-c"><Icon name="chart" size={20} />Skills gap</div>
