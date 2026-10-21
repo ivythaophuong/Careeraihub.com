@@ -142,7 +142,7 @@ const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart,
         </div>
       )}
       {stage !== 'consent' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', border: `1px solid ${recording ? C.red : C.border}`, borderRadius: 14, padding: '12px 16px', background: C.surface }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', border: `1px solid ${recording ? C.red : C.border}`, borderRadius: 14, padding: '12px 16px', background: C.surface, boxShadow: recording ? `0 0 44px ${C.accent}26` : 'none' }}>
           <div role="progressbar" aria-label="Recording time" aria-valuemin={0} aria-valuemax={MAX_RECORD_SECONDS} aria-valuenow={recording ? elapsed : 0} style={{ position: 'relative', width: 72, height: 72, flex: '0 0 72px' }}>
             <svg width="72" height="72" viewBox="0 0 72 72" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }} aria-hidden="true">
               <circle cx="36" cy="36" r="30" fill="none" stroke={C.border} strokeWidth="3" />
@@ -154,7 +154,7 @@ const VoiceRecorder = forwardRef(function VoiceRecorder({ onTranscript, onStart,
           </div>
           <div style={{ flex: '1 1 200px', minWidth: 0 }}>
             <div role={recording ? 'timer' : 'status'} style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{status}</div>
-            {recording && meterNode && <div style={{ marginTop: 6 }}><Waveform levelsRef={levels} /></div>}
+            {recording && meterNode && <div style={{ marginTop: 6 }}><Waveform levelsRef={levels} height={88} /></div>}
             {recording && quiet && <div role="status" style={{ color: C.gold, fontSize: 12, marginTop: 4 }}>We can barely hear you. Move closer to the microphone or check that it is not muted.</div>}
             {!recording && !busyText && <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Tap the microphone and answer out loud, up to 3 minutes.</div>}
           </div>

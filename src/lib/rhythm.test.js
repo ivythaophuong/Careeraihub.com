@@ -1,6 +1,6 @@
 // Speech rhythm from the loudness of the recording (voice practice). Pure and deterministic; levels are numbers, not sound.
 import { describe, it, expect } from 'vitest';
-import { analyzeRhythm } from './rhythm.js';
+import { analyzeRhythm, tierCutoffs, tierOf } from './rhythm.js';
 
 const run = (n, v) => new Array(n).fill(v);
 const STEP = 100;
@@ -86,3 +86,43 @@ describe('segments (for the timeline on screen)', () => {
   });
 });
 
+
+describe('loudness tiers (colour for the timeline, relative to the speaker\'s own voice)', () => {
+  const loud = [...run(30, 0.2), ...run(20, 0.001), ...run(30, 0.5), ...run(20, 0.001), ...run(30, 0.33)]; // speech counts from a quarter of the loudest up, so 0.2 is still speech
+  const r = analyzeRhythm({ levels: loud, stepMs: STEP, text: words(30) });
+  it('marks each speaking stretch softer, steady or louder than the rest of the same recording', () => {
+    expect(r.segments.filter(x => x.type === 'speech').map(x => x.tier)).toEqual(['soft', 'loud', 'steady']);
+  });
+  it('gives pauses no tier', () => {
+    expect(r.segments.filter(x => x.type === 'pause').every(x => x.tier === undefined)).toBe(true);
+  });
+  it('calls everything steady when the voice stayed about the same (no invented contrast)', () => {
+    const flat = analyzeRhythm({ levels: [...run(30, 0.3), ...run(20, 0.001), ...run(30, 0.31), ...run(20, 0.001), ...run(30, 0.3)], stepMs: STEP, text: words(30) });
+    expect(flat.segments.filter(x => x.type === 'speech').every(x => x.tier === 'steady')).toBe(true);
+  });
+  it('gives every stretch the second it starts at, counted from the first sound', () => {
+    expect(r.segments.map(x => x.startSec)).toEqual([0, 3, 5, 8, 10]);
+  });
+  it('is deterministic', () => {
+    expect(analyzeRhythm({ levels: loud, stepMs: STEP, text: words(30) })).toEqual(r);
+  });
+});
+
+describe('tierCutoffs and tierOf', () => {
+  it('split the range of a person\'s own loudness into thirds', () => {
+    const cut = tierCutoffs([0.1, 0.25, 0.5]);
+    expect(tierOf(0.1, cut)).toBe('soft');
+    expect(tierOf(0.25, cut)).toBe('steady');
+    expect(tierOf(0.5, cut)).toBe('loud');
+  });
+  it('return no cutoffs for too little or too flat data, and then everything is steady', () => {
+    expect(tierCutoffs([])).toBeNull();
+    expect(tierCutoffs([0.3])).toBeNull();
+    expect(tierCutoffs([0.3, 0.31, 0.3])).toBeNull();
+    expect(tierOf(0.9, null)).toBe('steady');
+  });
+  it('ignore silence when finding the range', () => {
+    const cut = tierCutoffs([0, 0, 0.2, 0.4, 0.6]);
+    expect(cut.soft).toBeCloseTo(0.2 + 0.4 / 3, 5);
+  });
+});
