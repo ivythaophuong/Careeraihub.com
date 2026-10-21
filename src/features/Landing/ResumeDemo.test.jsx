@@ -58,8 +58,20 @@ describe('the interactive Resume Builder example', () => {
   });
 });
 
+describe('the two columns of the example', () => {
+  it('has the extracted profile on the left and the score on the right, as the real Resume Builder shows them', () => {
+    const { container } = render(<ResumeDemo onStart={vi.fn()} />);
+    const cols = container.querySelectorAll('.nl-demo-body > .nl-demo-col');
+    expect(cols).toHaveLength(2);
+    expect(cols[0].textContent).toMatch(/Sample CV/);
+    expect(cols[0].textContent).toMatch(/Profile extracted/);
+    expect(cols[0].textContent).toMatch(/Growth Product Manager/);
+    expect(cols[1].querySelector('[data-testid="demo-score"]')).toBeTruthy();
+  });
+});
+
 describe('the steps of the example', () => {
-  it('name all four steps for a screen reader, and show the name of the current one only, so the row never wraps', () => {
+  it('show all four step names', () => {
     const { container } = render(<ResumeDemo onStart={vi.fn()} />);
     const steps = [...container.querySelectorAll('.nl-demo-steps li')];
     expect(steps.map(li => li.querySelector('.nl-demo-step-label').textContent)).toEqual(['Add your resume', 'See what to improve', 'Improve', 'Choose a layout and download']);

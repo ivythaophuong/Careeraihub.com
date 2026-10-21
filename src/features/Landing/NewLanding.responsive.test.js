@@ -46,8 +46,9 @@ describe('the motion rules', () => {
 
 describe('the hero example on a phone', () => {
   const phone = () => block('max-width: 640px');
-  it('shows the score first: the steps that are not current are left out', () => {
+  it('shows the score first: the profile column and the steps that are not current are left out', () => {
     expect(css).toMatch(/@media \(max-width: 640px\)/);
+    expect(phone()).toMatch(/\.nl-demo-col:first-child \{ display: none; \}/);
     expect(phone()).toMatch(/\.nl-demo-steps li:not\(\.is-on\) \{ display: none; \}/);
   });
   it('does not repeat the long subtitle', () => {
@@ -103,5 +104,58 @@ describe('one size and one colour for the lines under the titles', () => {
   });
   it('gives every dark section the same padding', () => {
     expect(css).toMatch(/\.nl-section \{[^}]*padding: 96px 0/);
+  });
+});
+
+describe('the hero example, two columns with smaller text', () => {
+  it('has the two columns back on a wide screen and a smaller text size inside the example', () => {
+    expect(css).toMatch(/\.nl-demo-body \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.1fr\);/);
+    expect(css).toMatch(/\.nl-demo \{ font-size: 12\.5px;/);
+  });
+});
+
+describe('the hero example on a phone, after the two columns came back', () => {
+  it('is one column again, set after the two-column rule so it wins', () => {
+    const i = css.lastIndexOf('.nl-demo-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);');
+    const j = css.lastIndexOf('@media (max-width: 640px) { .nl-demo-body { grid-template-columns: 1fr; }');
+    expect(i).toBeGreaterThan(-1); expect(j).toBeGreaterThan(i);
+  });
+});
+
+describe('the step circles', () => {
+  it('are styled on the number only, not on the name next to it', () => {
+    expect(css).not.toMatch(/\.nl-demo-steps li span \{/);
+    expect(css).toMatch(/\.nl-demo-steps li > span:first-child \{ width: 20px;/);
+  });
+});
+
+describe('narrow screens are decided last', () => {
+  const last = css.lastIndexOf('/* Narrow screens, last of all');
+  it('the narrow-screen block is the last thing in the stylesheet, so no later rule can undo it', () => {
+    expect(last).toBeGreaterThan(-1);
+    expect(css.slice(last)).toMatch(/\.nl-hero-grid, \.nl-split, \.nl-panel, \.nl-coach \{ grid-template-columns: 1fr;/);
+    expect(css.slice(last + 20)).not.toMatch(/\n\.nl-[a-z-]+ \{[^}]*grid-template-columns/); // no plain rule after it sets columns
+  });
+  it('every plain rule that sets the columns of the hero or of a two-column section comes before it', () => {
+    for (const sel of ['.nl-hero-grid', '.nl-coach', '.nl-flow', '.nl-demo-body']) {
+      const re = new RegExp(`(^|\\n)${sel.replace('.', '\\.')} \\{[^}]*grid-template-columns`, 'g');
+      let m; while ((m = re.exec(css))) expect(m.index, sel).toBeLessThan(last);
+    }
+  });
+});
+
+describe('the example between a tablet and a laptop', () => {
+  it('shows the score only, in one column, while the example is narrower than about 450 px', () => {
+    expect(css.slice(css.lastIndexOf('/* Narrow screens, last of all'))).toMatch(/@media \(min-width: 861px\) and \(max-width: 1100px\) \{ \.nl-demo-body \{ grid-template-columns: 1fr; \} \.nl-demo-col:first-child \{ display: none; \} \}/);
+  });
+});
+
+describe('the Play motion override', () => {
+  it('has a copy of every animation for the visitor who pressed Play motion, with its keyframes, and keeps the original reduced-motion rules', () => {
+    expect(css).toMatch(/\.nl\[data-motion="forced"\] \.nl-demo-next\.is-ready \{ animation: nl-nudge/);
+    expect(css).toMatch(/\.nl\[data-motion="forced"\] \.nl-orb-lines path\.nl-flow-line \{ animation: nl-flow/);
+    expect(css).toMatch(/\.nl\[data-motion="forced"\] \.nl-rec-bar:not\(\.is-pause\) \{ animation: nl-rec-bar/);
+    expect((css.match(/@keyframes nl-flow /g) || []).length).toBeGreaterThanOrEqual(2);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.nl-pulse, \.nl-orb-ring, \.nl-flow-line \{ display: none; \} \}/);
   });
 });

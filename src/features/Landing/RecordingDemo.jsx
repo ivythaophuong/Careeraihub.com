@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { reducedMotion } from './motion';
 
 // An illustration of the voice screen while it records: bars that move like a live sound, coloured by how loud each moment is against the speaker's own voice
 // (the same colours and words as the app), a clock that counts up, and a timeline that fills as the answer goes on. It is a drawing, not a measurement: it says so,
@@ -12,7 +13,6 @@ const tierOf = (i) => {
 };
 const RANGE = { soft: [0.18, 0.45], steady: [0.28, 0.8], loud: [0.45, 1], pause: [0.1, 0.1] };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-const reducedMotion = () => { try { return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 const bars = Array.from({ length: BARS }, (_, i) => {
   const tier = tierOf(i); const [lo, hi] = RANGE[tier];
