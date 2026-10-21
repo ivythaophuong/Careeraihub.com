@@ -5,7 +5,7 @@
 //
 // Speech becomes text here and nowhere else. The audio is held in memory for the length of the request and dropped: it is not written to
 // any table, file or log. The transcript is returned to the browser, which shows it for correction before anything is graded.
-// Off unless VOICE_TRANSCRIBE=on, and then only for the user ids in VOICE_ALLOWED_USER_IDS (comma list), so the spike reaches the owner alone.
+// Off unless VOICE_TRANSCRIBE=on, and then only for the user ids in VOICE_ALLOWED_USER_IDS (comma list). A "*" entry means every signed-in user; do not use it before the daily limit (VOICE_QUOTA) is on.
 // English only (the platform is for English speakers). Groq first, OpenAI as fallback; a provider with no key is skipped.
 // Not gated by the usage ledger yet: the ledger counts tokens and audio is billed in seconds (decision V6, later, before wide use).
 import { corsHeaders, json, fail, authenticate, createRateLimiter } from '../ai/handler.js';
@@ -30,7 +30,8 @@ const setting = (env, name) => String(env[name] ?? '').trim();
 
 export function voiceAllowed(env, userId) {
   if (setting(env, 'VOICE_TRANSCRIBE').toLowerCase() !== 'on') return false;
-  return setting(env, 'VOICE_ALLOWED_USER_IDS').split(',').map(s => s.trim()).filter(Boolean).includes(userId);
+  const list = setting(env, 'VOICE_ALLOWED_USER_IDS').split(',').map(s => s.trim()).filter(Boolean);
+  return list.includes('*') || list.includes(userId); // a lone "*" entry opens it to every signed-in user; the function still needs VOICE_TRANSCRIBE=on
 }
 
 function decode(b64) {

@@ -43,6 +43,21 @@ describe('gates', () => {
     expect(r.status).toBe(403);
     expect(sttCalls(r.fetchImpl)).toHaveLength(0);
   });
+  it('an "*" in the list opens it to every signed-in user, but only while the flag is on', async () => {
+    const open = await send({ env: { ...ENV, VOICE_ALLOWED_USER_IDS: '*' }, fetchImpl: makeFetch({ userId: 'someone-else' }) });
+    expect(open.status).toBe(200);
+    const off = await send({ env: { ...ENV, VOICE_ALLOWED_USER_IDS: '*', VOICE_TRANSCRIBE: undefined }, fetchImpl: makeFetch({ userId: 'someone-else' }) });
+    expect(off.status).toBe(403);
+    expect(sttCalls(off.fetchImpl)).toHaveLength(0);
+  });
+  it('"*" still needs sign-in', async () => {
+    const r = await send({ env: { ...ENV, VOICE_ALLOWED_USER_IDS: '*' }, auth: '' });
+    expect(r.status).toBe(401);
+  });
+  it('a list that only looks like a wildcard does not open it', async () => {
+    const r = await send({ env: { ...ENV, VOICE_ALLOWED_USER_IDS: 'user-1*, *user-2' }, fetchImpl: makeFetch({ userId: 'someone-else' }) });
+    expect(r.status).toBe(403);
+  });
   it('refuses everyone when the allowlist is empty', async () => {
     const r = await send({ env: { ...ENV, VOICE_ALLOWED_USER_IDS: '' } });
     expect(r.status).toBe(403);

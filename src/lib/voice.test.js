@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('./session', () => ({ getValidSession: vi.fn(async () => ({ access_token: 'tok' })) }));
 vi.mock('./supabase', () => ({ FUNCTIONS_URL: 'https://proj.supabase.co', SUPABASE_ANON: 'anon' }));
 import { getValidSession } from './session';
-import { voiceEnabled, PREVIEW_USER_IDS, transcribeAudio, VoiceError, MAX_RECORD_SECONDS } from './voice.js';
+import { voiceEnabled, PREVIEW_USER_IDS, VOICE_OPEN_TO_ALL, transcribeAudio, VoiceError, MAX_RECORD_SECONDS } from './voice.js';
 
 const blob = (type = 'audio/webm;codecs=opus') => new Blob([new Uint8Array([1, 2, 3, 4, 5])], { type });
 const reply = (status, body) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
@@ -22,6 +22,17 @@ describe('voiceEnabled', () => {
   it('is on by default only for the preview accounts', () => {
     expect(PREVIEW_USER_IDS).toContain(OWNER);
     expect(voiceEnabled(OWNER)).toBe(true);
+  });
+  it('ships closed: opening it to every account is a deliberate one-line change, not a default', () => {
+    expect(VOICE_OPEN_TO_ALL).toBe(false);
+  });
+  it('when opened to everyone it is on for any signed-in account and off for nobody-signed-in', () => {
+    expect(voiceEnabled('some-other-user', true)).toBe(true);
+    expect(voiceEnabled(null, true)).toBe(false);
+    expect(voiceEnabled(undefined, true)).toBe(false);
+  });
+  it('the kill switch still wins when opened to everyone', () => {
+    vi.stubEnv('VITE_VOICE_PRACTICE', 'false'); expect(voiceEnabled('some-other-user', true)).toBe(false);
   });
   it('VITE_VOICE_PRACTICE=true turns it on for any account (local development)', () => {
     vi.stubEnv('VITE_VOICE_PRACTICE', 'true'); expect(voiceEnabled('some-other-user')).toBe(true);
