@@ -38,6 +38,7 @@ import LandingPage, { GuestNav, AppHubNav, LogoMark, StudyPlanModal, GetReadyTab
 import { AppLoader, OrbitSpinner } from './components/OrbitMark';
 import AppSidebar from './components/AppSidebar';
 import PageHeading from './components/PageHeading';
+const NewLanding = React.lazy(() => import('./features/Landing/NewLanding')); // preview only: /?preview=landing
 import { useFocusMode } from './hooks/useFocusMode.js';
 import { tabUrl, isSub, defaultSub } from './lib/subNav.js';
 import Dashboard from './features/Dashboard/Dashboard';
@@ -342,7 +343,13 @@ function App() {
 
   const renderMainContent = () => {
 
-    if (!user && showLanding) return <LandingPage setAuthModal={setAuthModal} onModuleSelect={goToModule} />;
+    if (!user && showLanding) {
+      // The new landing page is a preview until the owner approves it: it shows only at /?preview=landing.
+      if (new URLSearchParams(window.location.search).get('preview') === 'landing') {
+        return <React.Suspense fallback={null}><NewLanding onStart={() => setAuthModal('register')} onSignIn={() => setAuthModal('login')} onModuleSelect={goToModule} /></React.Suspense>;
+      }
+      return <LandingPage setAuthModal={setAuthModal} onModuleSelect={goToModule} />;
+    }
 
     if (user && isRecruiter) return <EmployerPortal user={user} onLogout={logout} />;
 

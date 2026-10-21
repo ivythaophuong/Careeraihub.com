@@ -50,6 +50,8 @@ yarn-error.log*
 *.jpg
 _screenshots/
 public/ref.html
+# Product screenshots of the landing page: a synthetic account and made-up data only, never a real person's screen. Reviewed in the pull request.
+!src/features/Landing/shots/*.png
 
 # Real resumes used for local ingestion tests: never commit (repository is public)
 tests/fixtures/documents/real/*
