@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import './NewLanding.css';
 import dashDark from './shots/dashboard-dark.png';
 import dashLight from './shots/dashboard-light.png';
-import resumeShot from './shots/resume-builder.png';
+import resumeFull from './shots/resume-real-full.png';
+import resumeRight from './shots/resume-real-right.png';
 import voiceShot from './shots/voice-answer.png';
 import feedbackShot from './shots/voice-feedback.png';
 import salaryShot from './shots/salary-prep.png';
@@ -30,7 +31,7 @@ const MOMENTS = [
     ],
     stays: 'Your CV is saved once. Every other tool starts from it.',
     tools: 'Resume Builder, ATS Scanner, JD Analyzer, Cover Letter AI, Job Search.',
-    shots: [{ key: 'resume', src: resumeShot, w: 1440, h: 900, alt: 'The Resume Builder showing three rule-based checks with the evidence for each', caption: 'Resume Builder: three checks by fixed rules, each with its evidence. "Email not found" is a fact about the file.' }],
+    shots: [{ key: 'resume', src: resumeRight, w: 1305, h: 1082, alt: 'The Resume Builder showing the rule-based ATS readiness, the score breakdown with the evidence for each check, and the next step', caption: 'Resume Builder: three checks by fixed rules, each with its evidence. A real screen with personal details blurred.' }],
   },
   {
     id: 'interview', title: 'I have an interview coming', sub: 'Practise before it counts.',
@@ -148,10 +149,10 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
 
         <section className="nl-wrap nl-product" aria-label="The product">
           <figure className="nl-window">
-            <div className="nl-window-bar" aria-hidden="true"><i /><i /><i /><span>CareerAiHub &middot; Dashboard</span></div>
-            <img src={theme === 'dark' ? dashDark : dashLight} width={1440} height={900} alt="The CareerAiHub Dashboard: the latest practice session, saved stories, priority actions and a plan for the week" decoding="async" />
+            <div className="nl-window-bar" aria-hidden="true"><i /><i /><i /><span>CareerAiHub &middot; Resume Builder</span></div>
+            <img src={resumeFull} width={2920} height={1676} alt="CareerAiHub Resume Builder showing the resume steps, rule-based ATS readiness, the score breakdown with its evidence, the next step and issues to fix" decoding="async" />
           </figure>
-          <p className="nl-small nl-muted">The real product, with a synthetic account and made-up data. AI estimates are labelled as estimates in the product.</p>
+          <p className="nl-small nl-muted">A real Resume Builder screen. Personal details are blurred. <a className="nl-text-link" href={resumeFull} target="_blank" rel="noopener noreferrer">Open larger</a></p>
         </section>
 
         <section id="system" className="nl-wrap nl-moments">
