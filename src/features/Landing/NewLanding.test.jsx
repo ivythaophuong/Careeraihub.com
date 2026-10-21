@@ -60,6 +60,29 @@ describe('the new landing page', () => {
   });
 });
 
+describe('the emphasis in the headings and the lines under them', () => {
+  it('every section title has one phrase in the accent colour, and the words are unchanged', () => {
+    const { container } = show();
+    const marks = {
+      challenge: 'not.', tools: 'next career move.', system: 'right now?', coach: 'AI Career Coach', approach: 'not make the decision for you.', faq: 'answered.', story: 'CareerAiHub.', partner: 'career ecosystem.',
+    };
+    const sections = { challenge: '.nl-challenge', tools: '#tools', system: '#system', coach: '#coach', approach: '#approach', faq: '#faq', story: '#story', partner: '#partner' };
+    for (const [k, sel] of Object.entries(sections)) {
+      const em = container.querySelector(`${sel} h2 em.nl-grad-text`);
+      expect(em, k).toBeTruthy();
+      expect(em.textContent, k).toBe(marks[k]);
+    }
+  });
+  it('the line under a title puts its key words in bold, so it can be read at a glance', () => {
+    const { container } = show();
+    const strong = (sel) => [...container.querySelectorAll(`${sel} strong`)].map(x => x.textContent);
+    expect(strong('#tools .nl-copy > p')).toEqual(['prepare', 'practise', 'decide']);
+    expect(strong('#system .nl-light-lead')).toEqual(['build your confidence']);
+    expect(strong('#coach .nl-coach-copy > p:not(.nl-coach-note)')).toEqual(['next move', 'interviews', 'salary', 'applications']);
+    expect(strong('#approach .nl-approach-intro > p')).toEqual(['transparent', 'grounded in evidence']);
+  });
+});
+
 describe('what the page says the coach knows', () => {
   it('is the same everywhere: a short summary, never "your stories" or "what you did" in full', () => {
     const { container } = show();
@@ -218,6 +241,10 @@ describe('the challenge section', () => {
     expect(orb.querySelectorAll('.nl-orb-lines path.nl-flow-line')).toHaveLength(8);        // a soft light that keeps flowing along each line
     expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="in"]')).toHaveLength(24);   // three dots in each direction on every line, spread out, so the light never stops
     expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="out"]')).toHaveLength(24);
+    for (const dot of orb.querySelectorAll('.nl-orb-lines .nl-pulse')) { // a dot waits for its turn out of sight, not in the corner of the drawing
+      expect(dot.getAttribute('visibility')).toBe('hidden');
+      expect(dot.querySelector('set[attributeName="visibility"]')).toBeTruthy();
+    }
     // The tools and badges of the app's own sidebar (src/components/AppSidebar.jsx). Verify Creds (in development) and TrustMatch (planned) are left out and the page says more are on the way.
     expect([...orb.querySelectorAll('.nl-orb-card')].map(c => `${c.querySelector('.nl-orb-name').textContent} ${c.querySelector('.nl-orb-badge').textContent}`)).toEqual([
       'Resume Builder Live', 'ATS Scanner Live', 'Cover Letter AI New', 'Interview Coach Live', 'Salary Prep Live', 'Skills Gap New', 'Career Roadmap New', 'AI Career Coach New',

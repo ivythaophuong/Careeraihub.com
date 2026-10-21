@@ -208,7 +208,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className="nl-wrap nl-split">
             <div className="nl-copy">
               <div className="nl-eyebrow">The challenge</div>
-              <h2 className="nl-h2">Your career is connected. Your tools are not.</h2>
+              <h2 className="nl-h2">Your career is connected. Your tools are <em className="nl-grad-text">not.</em></h2>
               <p className="nl-point">Your CV, interviews, skills and next move <strong>depend on each other</strong>.</p>
               <p className="nl-point">The tools for them are usually scattered, so you <strong>start over every time</strong>.</p>
               <p className="nl-point">CareerAiHub is being built as one place: <strong>one CV and one memory behind every tool</strong>.</p>
@@ -218,8 +218,8 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
                   {ORBIT_TOOLS.map(t => <path key={t.name} className="nl-line" d={toolPathOut(t)} />)}
                   {ORBIT_TOOLS.map((t, i) => <path key={`f-${t.name}`} className="nl-flow-line" d={toolPathOut(t)} pathLength="100" style={{ animationDelay: `${i * -0.6}s` }} />)}
-                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => <circle key={`in-${t.name}-${k}`} className="nl-pulse" data-dir="in" r="3"><animateMotion dur="5s" begin={`${(i * 0.35 + k * 5 / 3).toFixed(2)}s`} repeatCount="indefinite" path={toolPath(t)} /></circle>))}
-                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => <circle key={`out-${t.name}-${k}`} className="nl-pulse" data-dir="out" r="3"><animateMotion dur="5s" begin={`${(i * 0.35 + k * 5 / 3 + 0.8).toFixed(2)}s`} repeatCount="indefinite" path={toolPathOut(t)} /></circle>))}
+                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => { const begin = `${(i * 0.35 + k * 5 / 3).toFixed(2)}s`; return <circle key={`in-${t.name}-${k}`} className="nl-pulse" data-dir="in" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} /><animateMotion dur="5s" begin={begin} repeatCount="indefinite" path={toolPath(t)} /></circle>; }))}
+                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => { const begin = `${(i * 0.35 + k * 5 / 3 + 0.8).toFixed(2)}s`; return <circle key={`out-${t.name}-${k}`} className="nl-pulse" data-dir="out" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} /><animateMotion dur="5s" begin={begin} repeatCount="indefinite" path={toolPathOut(t)} /></circle>; }))}
                 </svg>
                 <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
                 <div className="nl-orb-core"><OrbitMark size={132} animated={!prefersReducedMotion()} duration={6} /></div>
@@ -239,8 +239,8 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className="nl-wrap nl-split nl-split-tools">
             <div className="nl-copy">
               <div className="nl-eyebrow">What you can do</div>
-              <h2 className="nl-h2">Practical tools for your next career move.</h2>
-              <p>Everything you need to prepare, practise and decide, in one place.</p>
+              <h2 className="nl-h2">Practical tools for your <em className="nl-grad-text">next career move.</em></h2>
+              <p>Everything you need to <strong>prepare</strong>, <strong>practise</strong> and <strong>decide</strong>, in one place.</p>
               <button type="button" className="nl-btn nl-btn-grad" onClick={start}>Explore All Tools <Icon name="arrow" size={18} /></button>
             </div>
             <ul className="nl-cards">
@@ -259,8 +259,8 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
         <section id="system" className="nl-light">
           <div className="nl-wrap nl-moments">
             <div className="nl-eyebrow nl-eyebrow-light">See it here</div>
-            <h2 className="nl-h2">Where are you right now?</h2>
-            <p className="nl-light-lead">Choose your situation and see what you get. The goal is the same in each: to build your confidence for the next step.</p>
+            <h2 className="nl-h2">Where are you <em className="nl-grad-text">right now?</em></h2>
+            <p className="nl-light-lead">Choose your situation and see what you get. The goal is the same in each: to <strong>build your confidence</strong> for the next step.</p>
             <div role="group" aria-label="Where are you right now?" className="nl-moment-grid">
               {MOMENTS.map(m => (
                 <button key={m.id} type="button" aria-pressed={m.id === sel} className="nl-moment" onClick={() => setSel(m.id)}>
@@ -295,8 +295,8 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className="nl-wrap nl-coach">
             <div className="nl-coach-copy">
               <div className="nl-eyebrow">Your coach</div>
-              <h2 className="nl-h2">Ask your AI Career Coach</h2>
-              <p>Ask about your next move, interviews, salary or applications.</p>
+              <h2 className="nl-h2">Ask your <em className="nl-grad-text">AI Career Coach</em></h2>
+              <p>Ask about your <strong>next move</strong>, <strong>interviews</strong>, <strong>salary</strong> or <strong>applications</strong>.</p>
               <p className="nl-coach-note">It knows your target role, level, market and a short summary of your activity. It does not read your CV.</p>
             </div>
             <div className="nl-chat" role="group" aria-label="An example of asking the AI Career Coach">
@@ -314,8 +314,8 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className="nl-wrap">
             <div className="nl-copy nl-approach-intro">
               <div className="nl-eyebrow">Our approach</div>
-              <h2 className="nl-h2">AI should help you move forward. It should not make the decision for you.</h2>
-              <p>We believe career technology should be useful, transparent and grounded in evidence. Here is who does what.</p>
+              <h2 className="nl-h2">AI should help you move forward. It should <em className="nl-grad-text">not make the decision for you.</em></h2>
+              <p>We believe career technology should be useful, <strong>transparent</strong> and <strong>grounded in evidence</strong>. Here is who does what.</p>
             </div>
             <ol className="nl-flow">
               {FLOW.map((f, i) => (
@@ -343,7 +343,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className="nl-wrap nl-split nl-split-faq">
             <div className="nl-copy">
               <div className="nl-eyebrow">Questions</div>
-              <h2 className="nl-h2">Questions, answered.</h2>
+              <h2 className="nl-h2">Questions, <em className="nl-grad-text">answered.</em></h2>
               <p>What the product does, what it does not do, and what happens to your information.</p>
               <a className="nl-text-link" href={`mailto:${MAIL}`}>Ask us something else <Icon name="arrow" size={16} /></a>
             </div>
@@ -362,7 +362,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className={`nl-wrap nl-split${FOUNDER_PHOTO ? '' : ' nl-single'}`}>
             <div className="nl-copy">
               <div className="nl-eyebrow">Our story</div>
-              <h2 className="nl-h2">Why we built CareerAiHub.</h2>
+              <h2 className="nl-h2">Why we built <em className="nl-grad-text">CareerAiHub.</em></h2>
               <p>Career development involves more than writing a resume. It means learning how to communicate your experience, preparing for interviews, recognising gaps and deciding what to work on next.</p>
               <p>CareerAiHub began with a simple question: what if people had one place to understand where they stand, practise essential skills and walk into what comes next with confidence?</p>
               <p className="nl-muted">CareerAiHub is an early-stage AI startup exploring how connected, practical tools can make career development more accessible and actionable. We are building, testing and learning from real user needs, with a long-term ambition to create a more connected career operating system.</p>
@@ -376,7 +376,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className="nl-wrap nl-split nl-split-partner">
             <div className="nl-copy">
               <div className="nl-eyebrow">Partner with us</div>
-              <h2 className="nl-h2">Let us build a stronger career ecosystem.</h2>
+              <h2 className="nl-h2">Let us build a stronger <em className="nl-grad-text">career ecosystem.</em></h2>
               <p>We are looking to connect with individuals and organisations who share our vision and want to explore practical collaborations, pilots or expert contributions.</p>
               <a className="nl-btn nl-btn-grad" href={`mailto:${MAIL}?subject=Partnership`}>Explore Partnership <Icon name="arrow" size={18} /></a>
             </div>

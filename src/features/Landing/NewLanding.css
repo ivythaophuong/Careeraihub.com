@@ -354,3 +354,9 @@
 .nl-motion-btn:hover { color: var(--nl-text); border-color: var(--nl-purple); }
 .nl-motion-btn:focus-visible { outline: 2px solid var(--nl-purple); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .nl-motion-btn { display: none; } }
+
+/* Emphasis in the headings and in the lines under them. */
+.nl-h2 .nl-grad-text { white-space: normal; }
+.nl-copy > p strong, .nl-light-lead strong, .nl-coach-copy > p strong, .nl-approach-intro > p strong { font-weight: 700; color: #F9A8D4; }
+.nl-light .nl-grad-text, .nl-paper .nl-grad-text { background-image: linear-gradient(110deg, #C0307F 0%, #6D4FD6 100%); }
+.nl-light .nl-light-lead strong { color: #A61F6C; }
