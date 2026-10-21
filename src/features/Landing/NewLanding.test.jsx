@@ -60,33 +60,31 @@ describe('the new landing page', () => {
   });
 });
 
-describe('the AI Career Coach strip', () => {
+describe('the AI Career Coach section', () => {
   const norm = (t) => t.replace(/\s+/g, ' ');
-  it('is short: one title, one line, a chat of the real example questions, and what the coach knows', () => {
+  it('comes after the situations and before the approach, as a simple chat with the real example questions', () => {
     const { container, onModuleSelect } = show();
-    const sec = container.querySelector('.nl-coach');
+    const sec = container.querySelector('#coach');
+    expect(sec.previousElementSibling.id).toBe('system');
+    expect(sec.nextElementSibling.id).toBe('approach');
     expect(within(sec).getByRole('heading', { level: 3 }).textContent).toBe('Ask your AI Career Coach');
-    expect(norm(sec.textContent).split(' ').length).toBeLessThan(90);
-    // The example questions of src/features/AICoach/AICoach.jsx (QUICK_PROMPTS).
+    expect(norm(sec.textContent).split(' ').length).toBeLessThan(75);
+    // The first example questions of src/features/AICoach/AICoach.jsx (QUICK_PROMPTS).
     expect([...sec.querySelectorAll('.nl-coach-q button')].map(b => b.textContent)).toEqual([
-      'What should I focus on this week?', 'How do I answer the biggest weakness question?', 'Why do resumes get filtered out early?',
-      'How do I negotiate salary before I have an offer?', 'Should I apply broadly or target fewer roles?',
+      'What should I focus on this week?', 'How do I answer the biggest weakness question?', 'How do I negotiate salary before I have an offer?',
     ]);
     expect(sec.querySelector('.nl-coach-typing')).toBeTruthy(); // the coach is "typing": the page shows no invented answer
-    fireEvent.click(within(sec).getByRole('button', { name: /Why do resumes get filtered out early/ }));
+    fireEvent.click(within(sec).getByRole('button', { name: /How do I negotiate salary/ }));
     expect(onModuleSelect).toHaveBeenLastCalledWith('aichat');
-    fireEvent.click(within(sec).getByRole('button', { name: /Open the AI Career Coach/ }));
+    fireEvent.click(within(sec).getByRole('button', { name: /Ask your career coach anything/i }));
     expect(onModuleSelect).toHaveBeenLastCalledWith('aichat');
   });
-  it('is honest about what the coach sees: a short summary, not the CV or the answers', () => {
+  it('is honest in one line about what the coach sees: a short summary, not the CV or the answers', () => {
     const { container } = show();
-    const sec = container.querySelector('.nl-coach');
-    expect([...sec.querySelectorAll('.nl-coach-know li:not(.is-off)')].map(li => li.textContent)).toEqual(['Target role', 'Level', 'Market', 'Activity summary']);
-    const off = sec.querySelector('.nl-coach-know li.is-off');
-    expect(norm(off.textContent)).toMatch(/CV text and answers/);
-    expect(norm(off.textContent)).toMatch(/Not read/);
-    expect(norm(sec.textContent)).toMatch(/short summary/i);
-    expect(norm(sec.textContent)).not.toMatch(/reads your (CV|resume)|knows everything|your whole (career|history)/i);
+    const t = norm(container.querySelector('#coach').textContent);
+    expect(t).toMatch(/target role, level, market and a short summary of your activity/i);
+    expect(t).toMatch(/does not read your CV/i);
+    expect(t).not.toMatch(/reads your (CV|resume)|knows everything|your whole (career|history)/i);
   });
 });
 
@@ -107,11 +105,23 @@ describe('the confidence message', () => {
 });
 
 describe('the approach section', () => {
-  it('shows who does what as a small diagram of its own, not a screenshot', () => {
+  const norm = (t) => t.replace(/\s+/g, ' ');
+  it('shows who does what as three connected steps of its own design, not a screenshot', () => {
     const { container } = show();
     const sec = container.querySelector('#approach');
     expect(sec.querySelector('img')).toBeNull();
-    expect([...sec.querySelectorAll('.nl-roles li')].map(li => li.querySelector('.nl-role-tag').textContent + ' ' + li.querySelector('.nl-role-do').textContent)).toEqual(['Rules decide the result', 'AI explains and suggests', 'You decide what to do']);
+    const steps = [...sec.querySelectorAll('.nl-flow-step')];
+    expect(steps.map(st => st.querySelector('.nl-flow-tag').textContent)).toEqual(['Deterministic', 'AI', 'You']);
+    expect(norm(steps[0].textContent)).toMatch(/The same input, the same result/);
+    expect(norm(steps[1].textContent)).toMatch(/Explains and suggests/);
+    expect(norm(steps[1].textContent)).toMatch(/never sets your score/i);
+    expect(norm(steps[2].textContent)).toMatch(/Decide what to do/);
+    expect(norm(steps[2].textContent)).toMatch(/Always/);
+    expect(sec.querySelectorAll('.nl-flow-arrow')).toHaveLength(2);
+  });
+  it('does not claim a knowledge base the product cannot show', () => {
+    const { container } = show();
+    expect(norm(container.textContent)).not.toMatch(/knowledge base/i);
   });
   it('no image is used twice on the page', () => {
     const { container } = show();
@@ -154,9 +164,10 @@ describe('the challenge section', () => {
     const core = orb.querySelector('.nl-orb-core');
     expect(core.querySelector('svg ellipse')).toBeTruthy();          // the orbit rings of the brand mark (src/components/OrbitMark.jsx)
     expect(core.querySelector('svg animateMotion')).toBeTruthy();    // its satellites move
-    expect(orb.querySelectorAll('.nl-orb-lines path')).toHaveLength(8);
-    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="in"]')).toHaveLength(8);
-    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="out"]')).toHaveLength(8);
+    expect(orb.querySelectorAll('.nl-orb-lines path.nl-line')).toHaveLength(8);
+    expect(orb.querySelectorAll('.nl-orb-lines path.nl-flow-line')).toHaveLength(8);        // a soft light that keeps flowing along each line
+    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="in"]')).toHaveLength(24);   // three dots in each direction on every line, spread out, so the light never stops
+    expect(orb.querySelectorAll('.nl-orb-lines .nl-pulse[data-dir="out"]')).toHaveLength(24);
     // The tools and badges of the app's own sidebar (src/components/AppSidebar.jsx). Verify Creds (in development) and TrustMatch (planned) are left out and the page says more are on the way.
     expect([...orb.querySelectorAll('.nl-orb-card')].map(c => `${c.querySelector('.nl-orb-name').textContent} ${c.querySelector('.nl-orb-badge').textContent}`)).toEqual([
       'Resume Builder Live', 'ATS Scanner Live', 'Cover Letter AI New', 'Interview Coach Live', 'Salary Prep Live', 'Skills Gap New', 'Career Roadmap New', 'AI Career Coach New',

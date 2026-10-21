@@ -59,7 +59,7 @@ const MOMENTS = [
     gets: ['See what a reader finds in your CV and what to fix first, by fixed rules.', 'Compare your CV with a job description, with keywords and red flags.', 'Draft a cover letter for each role, and keep every application in one tracker.'],
     stays: 'Your CV is saved once. Every other tool starts from it.',
     tools: 'Resume Builder, ATS Scanner, JD Analyzer, Cover Letter AI, Job Search.',
-    shots: [{ key: 'templates', src: templatesShot, w: 732, h: 936, chip: 'Five layouts', alt: 'The Resume Builder layout step: a list of resume templates (Modern Professional and Creative) with a small preview of each', caption: 'Pick a layout and keep your content. A real screen with a synthetic account and made-up data.' }],
+    shots: [{ key: 'templates', src: templatesShot, w: 732, h: 850, chip: 'Five layouts', alt: 'The Resume Builder layout step: a list of resume templates (Modern Professional and Creative) with a small preview of each', caption: 'Pick a layout and keep your content. A real screen with a synthetic account and made-up data.' }],
   },
   {
     id: 'interview', title: 'I have an interview coming', sub: 'Practise, get feedback, prepare with more confidence.',
@@ -91,15 +91,14 @@ const MOMENTS = [
   },
 ];
 
-const ROLES = [
-  { tag: 'Rules', does: 'decide the result', note: 'Same CV, same result.' },
-  { tag: 'AI', does: 'explains and suggests', note: 'Never sets your score.' },
-  { tag: 'You', does: 'decide what to do', note: 'Always.' },
-];
-const PRINCIPLES = [
-  { icon: 'rules', name: 'Rules where possible', text: 'Use explicit rules for checks that can be calculated consistently. The same CV gives the same result.' },
-  { icon: 'eye', name: 'Evidence over assumptions', text: 'Make the basis and the limits of feedback visible, and say so when there is not enough evidence.' },
-  { icon: 'proof', name: 'Proof over claims', text: 'No ratings, user counts or partner logos on this page, because we do not have evidence for them yet.' },
+// Who does what. The wording follows ADR-011: the number a user sees is computed by code, and the model explains but never sets it.
+const FLOW = [
+  { tag: 'Deterministic', title: 'The same input, the same result.', text: 'Rules we wrote and test decide your result. It stays consistent, and each part shows its evidence.',
+    art: <svg viewBox="0 0 120 56" width="120" height="56" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="8" width="26" height="34" rx="4" /><path d="M12 18h14M12 25h14M12 32h9" /><path d="M42 20h14M42 30h14" /><rect x="64" y="8" width="26" height="34" rx="4" /><path d="M70 18h14M70 25h14M70 32h9" /><path d="M98 25l6 6 11-12" /></svg> },
+  { tag: 'AI', title: 'Explains and suggests.', text: 'It helps you understand the result and how to improve it. It never sets your score.',
+    art: <svg viewBox="0 0 120 56" width="120" height="56" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 8h66a6 6 0 0 1 6 6v16a6 6 0 0 1-6 6H34l-12 10V36h-12a6 6 0 0 1-6-6V14a6 6 0 0 1 6-6z" transform="translate(4 0)" /><path d="M24 18h38M24 26h24" /><path d="M96 10l2.4 6.6L105 19l-6.6 2.4L96 28l-2.4-6.6L87 19l6.6-2.4z" /></svg> },
+  { tag: 'You', title: 'Decide what to do.', text: 'Always. You choose what to keep, change or leave.',
+    art: <svg viewBox="0 0 120 56" width="120" height="56" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="10" width="32" height="14" rx="7" /><path d="M16 17l4 4 8-8" /><rect x="44" y="10" width="32" height="14" rx="7" strokeDasharray="3 4" /><rect x="82" y="10" width="32" height="14" rx="7" strokeDasharray="3 4" /><path d="M10 40h100" /><circle cx="22" cy="40" r="5" fill="currentColor" /></svg> },
 ];
 
 const FAQ = [
@@ -120,8 +119,8 @@ const PARTNER = [
 
 // The tools of the app's own sidebar (src/components/AppSidebar.jsx) with their badges. Verify Creds (in development) and TrustMatch (planned) are not drawn; the caption says more are on the way.
 // x and y are positions on the 520 x 400 drawing, round the logo at (260, 200).
-// The example questions of the AI Career Coach in the app (src/features/AICoach/AICoach.jsx, QUICK_PROMPTS).
-const COACH_QUESTIONS = ['What should I focus on this week?', 'How do I answer the biggest weakness question?', 'Why do resumes get filtered out early?', 'How do I negotiate salary before I have an offer?', 'Should I apply broadly or target fewer roles?'];
+// The example questions of the AI Career Coach in the app (src/features/AICoach/AICoach.jsx, QUICK_PROMPTS), the first three of them in the same words.
+const COACH_QUESTIONS = ['What should I focus on this week?', 'How do I answer the biggest weakness question?', 'How do I negotiate salary before I have an offer?'];
 const ORBIT_TOOLS = [
   { name: 'Resume Builder', badge: 'Live', icon: 'doc', x: 260, y: 66 },
   { name: 'ATS Scanner', badge: 'Live', icon: 'rules', x: 382, y: 108 },
@@ -210,9 +209,10 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <div className="nl-orb-wrap">
               <div className="nl-orb" role="img" aria-label="The CareerAiHub logo in the middle, connected to the tools of the platform: Resume Builder, ATS Scanner, Cover Letter AI, Interview Coach, Salary Prep, Skills Gap, Career Roadmap and AI Career Coach">
                 <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
-                  {ORBIT_TOOLS.map((t, i) => <path key={t.name} d={toolPath(t)} style={{ animationDelay: `${i * -0.45}s` }} />)}
-                  {ORBIT_TOOLS.map((t, i) => <circle key={`in-${t.name}`} className="nl-pulse" data-dir="in" r="3.5"><animateMotion dur="2.6s" begin={`${i * 0.33}s`} repeatCount="indefinite" path={toolPath(t)} /></circle>)}
-                  {ORBIT_TOOLS.map((t, i) => <circle key={`out-${t.name}`} className="nl-pulse" data-dir="out" r="3.5"><animateMotion dur="2.6s" begin={`${i * 0.33}s`} repeatCount="indefinite" path={toolPathOut(t)} /></circle>)}
+                  {ORBIT_TOOLS.map(t => <path key={t.name} className="nl-line" d={toolPathOut(t)} />)}
+                  {ORBIT_TOOLS.map((t, i) => <path key={`f-${t.name}`} className="nl-flow-line" d={toolPathOut(t)} pathLength="100" style={{ animationDelay: `${i * -0.6}s` }} />)}
+                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => <circle key={`in-${t.name}-${k}`} className="nl-pulse" data-dir="in" r="3"><animateMotion dur="5s" begin={`${(i * 0.35 + k * 5 / 3).toFixed(2)}s`} repeatCount="indefinite" path={toolPath(t)} /></circle>))}
+                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => <circle key={`out-${t.name}-${k}`} className="nl-pulse" data-dir="out" r="3"><animateMotion dur="5s" begin={`${(i * 0.35 + k * 5 / 3 + 0.8).toFixed(2)}s`} repeatCount="indefinite" path={toolPathOut(t)} /></circle>))}
                 </svg>
                 <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
                 <div className="nl-orb-core"><OrbitMark size={132} animated={!prefersReducedMotion()} duration={6} /></div>
@@ -245,29 +245,6 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="nl-wrap">
-            <div className="nl-coach">
-              <div className="nl-coach-head">
-                <span className="nl-icon nl-tone-teal"><Icon name="users" /></span>
-                <div><h3>Ask your AI Career Coach</h3><p>Ask about your next move, interviews, salary or applications.</p></div>
-              </div>
-              <div className="nl-coach-body">
-                <div className="nl-coach-chat">
-                  <ul className="nl-coach-q">{COACH_QUESTIONS.map((q, i) => <li key={q} style={{ animationDelay: `${i * 0.12}s` }}><button type="button" onClick={() => openTool('aichat')}>{q}</button></li>)}</ul>
-                  <div className="nl-coach-typing" aria-hidden="true"><i /><i /><i /></div>
-                </div>
-                <div className="nl-coach-know">
-                  <div className="nl-coach-label">What the coach knows</div>
-                  <ul>
-                    <li>Target role</li><li>Level</li><li>Market</li><li>Activity summary</li>
-                    <li className="is-off"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>CV text and answers <em>Not read</em></li>
-                  </ul>
-                  <p>A short summary, not your documents.</p>
-                  <button type="button" className="nl-text-link nl-coach-open" onClick={() => openTool('aichat')}>Open the AI Career Coach <Icon name="arrow" size={16} /></button>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -306,27 +283,51 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           </div>
         </section>
 
+        <section id="coach" className="nl-section nl-coach-sec">
+          <div className="nl-wrap nl-coach">
+            <div className="nl-coach-copy">
+              <div className="nl-eyebrow">Your coach</div>
+              <h3 className="nl-h2">Ask your AI Career Coach</h3>
+              <p>Ask about your next move, interviews, salary or applications.</p>
+              <p className="nl-coach-note">It knows your target role, level, market and a short summary of your activity. It does not read your CV.</p>
+            </div>
+            <div className="nl-chat" role="group" aria-label="An example of asking the AI Career Coach">
+              <div className="nl-chat-head"><OrbitMark size={30} /><b>AI Career Coach</b><span className="nl-orb-badge nl-orb-badge-new">New</span></div>
+              <div className="nl-chat-body">
+                <ul className="nl-coach-q">{COACH_QUESTIONS.map((q, i) => <li key={q} style={{ animationDelay: `${i * 0.15}s` }}><button type="button" onClick={() => openTool('aichat')}>{q}</button></li>)}</ul>
+                <div className="nl-coach-typing" aria-hidden="true"><i /><i /><i /></div>
+              </div>
+              <button type="button" className="nl-chat-input" onClick={() => openTool('aichat')}><span>Ask your career coach anything…</span><span className="nl-chat-send" aria-hidden="true"><Icon name="arrow" size={16} /></span></button>
+            </div>
+          </div>
+        </section>
+
         <section id="approach" className="nl-section nl-approach">
-          <div className="nl-wrap nl-approach-grid">
-            <div className="nl-copy">
+          <div className="nl-wrap">
+            <div className="nl-copy nl-approach-intro">
               <div className="nl-eyebrow">Our approach</div>
               <h2 className="nl-h2">AI should help you move forward. It should not make the decision for you.</h2>
-              <p>We believe career technology should be useful, transparent and grounded in evidence. AI can help people understand information, practise important skills and explore next steps, while important decisions stay in human hands.</p>
-              <a className="nl-text-link" href="#faq">Read the questions people ask <Icon name="arrow" size={16} /></a>
+              <p>We believe career technology should be useful, transparent and grounded in evidence. Here is who does what.</p>
             </div>
-            <ul className="nl-principles">
-              {PRINCIPLES.map(p => (
-                <li key={p.name}><span className="nl-icon nl-icon-round"><Icon name={p.icon} /></span><div><h3>{p.name}</h3><p>{p.text}</p></div></li>
+            <ol className="nl-flow">
+              {FLOW.map((f, i) => (
+                <React.Fragment key={f.tag}>
+                  <li className="nl-flow-step">
+                    <span className="nl-flow-art" aria-hidden="true">{f.art}</span>
+                    <span className="nl-flow-tag">{f.tag}</span>
+                    <h3>{f.title}</h3>
+                    <p>{f.text}</p>
+                  </li>
+                  {i < FLOW.length - 1 && <li className="nl-flow-arrow" aria-hidden="true"><i /><i /><i /></li>}
+                </React.Fragment>
               ))}
-            </ul>
-            <figure className="nl-approach-visual" aria-label="Who does what: rules decide the result, AI explains and suggests, you decide what to do">
-              <ol className="nl-roles">
-                {ROLES.map(r => (
-                  <li key={r.tag}><span className="nl-role-tag">{r.tag}</span><span className="nl-role-do">{r.does}</span><span className="nl-role-note">{r.note}</span></li>
-                ))}
-              </ol>
-              <figcaption>We cannot promise a result. We can help you walk in prepared.</figcaption>
-            </figure>
+            </ol>
+            <div className="nl-flow-foot">
+              <span>Every point shows its evidence.</span>
+              <span>No ratings, user counts or partner logos here, because we do not have evidence for them yet.</span>
+              <span><strong>We cannot promise a result. We can help you walk in prepared.</strong></span>
+            </div>
+            <a className="nl-text-link" href="#faq">Read the questions people ask <Icon name="arrow" size={16} /></a>
           </div>
         </section>
 
