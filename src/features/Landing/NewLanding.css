@@ -511,8 +511,8 @@
 .nl section[id] { scroll-margin-top: 88px; }
 
 /* Approach: three claims a visitor can check, each with a link to the place where it can be checked. */
-.nl-checks-head { margin-top: 44px; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #5B6482; }
-.nl-checks { list-style: none; margin: 26px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.nl .nl-checks-head { margin: 64px 0 0; text-align: center; font-size: clamp(22px, 2.2vw, 30px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; color: #141B32; text-wrap: balance; }
+.nl .nl-checks { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .nl-check { border: 1px solid #E1E4F2; min-height: 0; border-radius: 20px; background: #FFFFFF; box-shadow: 0 10px 30px rgba(20, 27, 50, 0.06); padding: 24px 22px; display: flex; flex-direction: column; gap: 10px; }
 .nl-check-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #EDE9FB; color: #3B2A8F; }
 .nl-check h3 { margin: 4px 0 0; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; color: #141B32; }
@@ -528,7 +528,7 @@
 @media (max-width: 860px) {
   .nl-hero-grid, .nl-split, .nl-panel, .nl-coach { grid-template-columns: 1fr; gap: 36px; }
   .nl-hero-shot { margin-right: 0; }
-  .nl-checks { grid-template-columns: 1fr; }
+  .nl .nl-checks { grid-template-columns: 1fr; }
 }
 @media (min-width: 861px) and (max-width: 1100px) { .nl-demo-body { grid-template-columns: 1fr; } .nl-demo-col:first-child { display: none; } }
 .nl-demo-head { margin-bottom: 12px; }

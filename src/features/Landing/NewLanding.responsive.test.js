@@ -175,7 +175,7 @@ describe('fluid sizes and smooth scrolling', () => {
 
 describe('the check cards of the approach section', () => {
   it('are three equal columns that become one column on a narrow screen', () => {
-    expect(css).toMatch(/\.nl-checks \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
-    expect(css.slice(css.lastIndexOf('/* Narrow screens, last of all'))).toMatch(/\.nl-checks \{ grid-template-columns: 1fr; \}/);
+    expect(css).toMatch(/\.nl \.nl-checks \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+    expect(css.slice(css.lastIndexOf('/* Narrow screens, last of all'))).toMatch(/\.nl \.nl-checks \{ grid-template-columns: 1fr; \}/);
   });
 });

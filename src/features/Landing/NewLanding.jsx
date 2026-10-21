@@ -336,7 +336,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
             <div className="nl-copy nl-approach-intro">
               <div className="nl-eyebrow">Our approach</div>
               <h2 className="nl-h2">AI should help you move forward. It should not make the decision for you.</h2>
-              <p>Anyone can say they use AI responsibly. Here is what you can <strong>check yourself</strong>: who decides, who explains and who chooses.</p>
+              <p>We believe career technology should be useful, <strong>transparent</strong> and grounded in evidence. Here is who does what.</p>
             </div>
             <ol className="nl-flow" ref={flowRef} data-inview={String(flowSeen)}>
               {FLOW.map((f, i) => (
@@ -351,7 +351,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 </React.Fragment>
               ))}
             </ol>
-            <div className="nl-checks-head">Check it yourself</div>
+            <h3 className="nl-checks-head">Everyone claims responsible AI. You can check ours.</h3>
             <ul className="nl-checks">
               <li className="nl-check">
                 <span className="nl-check-icon" aria-hidden="true"><Icon name="eye" size={22} /></span>

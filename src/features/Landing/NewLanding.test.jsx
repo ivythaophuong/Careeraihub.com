@@ -116,7 +116,7 @@ describe('the emphasis in the headings and the lines under them', () => {
     expect(strong('#tools .nl-copy > p')).toEqual(['prepare', 'practise', 'decide']);
     expect(strong('#system .nl-light-lead')).toEqual(['build your confidence']);
     expect(strong('#coach .nl-coach-copy > p:not(.nl-coach-note)')).toEqual(['next move', 'interviews', 'salary', 'applications']);
-    expect(strong('#approach .nl-approach-intro > p')).toEqual(['check yourself']);
+    expect(strong('#approach .nl-approach-intro > p')).toEqual(['transparent']);
   });
 });
 
@@ -181,8 +181,8 @@ describe('the approach section opens with what a visitor can check', () => {
   it('says it plainly, and claims no certificate, audit or approval', () => {
     const { container } = show();
     const t = container.querySelector('#approach .nl-approach-intro').textContent.replace(/\s+/g, ' ');
-    expect(t).toMatch(/Anyone can say they use AI responsibly\. Here is what you can check yourself/);
-    expect(container.querySelector('#approach').textContent).not.toMatch(/certified|accredited|audited|authorized|compliant|ISO/i);
+    expect(t).toMatch(/useful, transparent and grounded in evidence\. Here is who does what\./);
+    expect(container.querySelector('#approach').textContent).not.toMatch(/certified|accredited|audited|authorized|compliant|ISO|verified/i);
   });
 });
 
@@ -190,6 +190,8 @@ describe('the approach section lets a visitor check each claim', () => {
   const norm = (t) => t.replace(/\s+/g, ' ');
   it('has three equal cards, each a claim, what to look at, and a link to the place where it can be checked', () => {
     const { container, onModuleSelect } = show();
+    expect(container.querySelector('#approach .nl-checks-head').textContent).toBe('Everyone claims responsible AI. You can check ours.');
+    expect(container.querySelector('#approach .nl-checks-head').tagName).toBe('H3');
     const cards = [...container.querySelectorAll('#approach .nl-check')];
     expect(cards.map(c => c.querySelector('h3').textContent)).toEqual(['Every point shows its evidence.', 'AI estimates are labelled.', 'Your recording is not kept.']);
     expect(cards.map(c => c.querySelector('a, button').textContent.replace(/\s+/g, ' ').trim())).toEqual(['See the example', 'See how it is shown', 'Read the privacy policy']);
