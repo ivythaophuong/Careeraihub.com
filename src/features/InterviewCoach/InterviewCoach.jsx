@@ -163,8 +163,11 @@ export default function InterviewCoach(props) {
             setActiveModule={props.setActiveModule}
           />
         )}
-        {activeTab === 'study'    && <HiringManagerSim {...props} onFocusChange={handleFocus} />}
-        {activeTab === 'session'  && <HiringManagerSim {...props} onFocusChange={handleFocus} />}
+        {(activeTab === 'study' || activeTab === 'session') && (
+          <div style={{ padding: '20px 24px' }}> {/* the same page padding as the Overview; the simulator draws none of its own */}
+            <HiringManagerSim {...props} onFocusChange={handleFocus} />
+          </div>
+        )}
         {activeTab === 'weakness' && <WeaknessRadar {...props} embedded />}
         {activeTab === 'starbank' && <STARBuilder {...props} embedded />}
         {activeTab === 'aimemory' && <MemoryDashboard {...props} embedded />}

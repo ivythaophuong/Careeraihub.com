@@ -99,7 +99,14 @@
 .app-sidebar-layout {
   margin-left: 228px;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   transition: margin-left 0.2s var(--lp-ease, ease);
+}
+
+/* a short screen keeps the footer at the bottom of the window */
+.app-sidebar-layout > footer {
+  margin-top: auto;
 }
 
 .app-sidebar-layout.sidebar-collapsed {
@@ -488,7 +495,7 @@
   }
 
   /* Hide the desktop-only top command bar */
-  .desktop-topbar { display: none; }
+  .desktop-topbar { display: none !important; } /* important: the element sets display inline */
 
   /* DM Sans on mobile */
   body { font-family: 'DM Sans', system-ui, sans-serif; }
