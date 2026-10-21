@@ -89,7 +89,7 @@ export default function ResumeDemo({ onStart }) {
               </div>
               <button type="button" className={`nl-demo-next${done ? ' is-ready' : ''}`} onClick={() => setView('issues')}>Next: improve it →</button>
             </>
-          ) : (
+          ) : view === 'issues' ? (
             <div className="nl-demo-card nl-demo-issues" data-testid="demo-issues">
               <div className="nl-demo-label">Issues to fix <em className="is-count">4 found</em></div>
               <div className="nl-demo-issue">
@@ -102,8 +102,15 @@ export default function ResumeDemo({ onStart }) {
                   <span>Issue {n} of 4, locked</span>
                 </div>
               ))}
-              <button type="button" className="nl-demo-signup" onClick={() => onStart && onStart()}>Create a free account to see all 4 issues and how to fix them</button>
+              <button type="button" className="nl-demo-signup" onClick={() => setView('gate')}>Fix it now</button>
               <button type="button" className="nl-demo-back" onClick={() => setView('score')}>Back to the score</button>
+            </div>
+          ) : (
+            <div className="nl-demo-card nl-demo-gate" data-testid="demo-gate">
+              <svg aria-hidden="true" className="nl-demo-gate-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+              <p>Create a free account to see all 4 issues and how to fix them.</p>
+              <button type="button" className="nl-demo-signup" onClick={() => onStart && onStart()}>Create a free account</button>
+              <button type="button" className="nl-demo-back" onClick={() => setView('issues')}>Back to the issues</button>
             </div>
           )}
         </div>

@@ -59,11 +59,10 @@ describe('the interactive Resume Builder example', () => {
 });
 
 describe('the Next button of the example', () => {
-  it('is a real button; pressing it shows the first issue in full and the others as locked, with a way to sign up', async () => {
-    const onStart = vi.fn();
-    render(<ResumeDemo onStart={onStart} />);
-    await play();
-    fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i }));
+  const toIssues = async (onStart = vi.fn()) => { render(<ResumeDemo onStart={onStart} />); await play(); fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i })); return onStart; };
+
+  it('shows the issues first, with a Fix it now button, and no sign-up wording yet', async () => {
+    await toIssues();
     const issues = screen.getByTestId('demo-issues');
     expect(issues.textContent).toMatch(/Issues to fix/);
     expect(issues.textContent).toMatch(/4 found/);
@@ -71,13 +70,27 @@ describe('the Next button of the example', () => {
     expect(issues.textContent).toMatch(/Critical/);
     expect(issues.textContent).toMatch(/does not include an email address, phone number, or LinkedIn profile/);
     expect(within(issues).getAllByTestId('demo-locked')).toHaveLength(3);
-    fireEvent.click(within(issues).getByRole('button', { name: /Create a free account to see all 4 issues/i }));
-    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(within(issues).getByRole('button', { name: /Fix it now/i })).toBeTruthy();
+    expect(screen.getByTestId('resume-demo').textContent).not.toMatch(/Create a free account/);
   });
-  it('can go back to the score and play again', async () => {
+  it('before Next, the sign-up wording is not on the screen at all', async () => {
     render(<ResumeDemo onStart={vi.fn()} />);
     await play();
-    fireEvent.click(screen.getByRole('button', { name: /Next: improve it/i }));
+    expect(screen.getByTestId('resume-demo').textContent).not.toMatch(/Create a free account|Fix it now|Back to the score/);
+  });
+  it('Fix it now shows the invitation to create a free account, and the button starts sign-up', async () => {
+    const onStart = await toIssues();
+    fireEvent.click(screen.getByRole('button', { name: /Fix it now/i }));
+    const gate = screen.getByTestId('demo-gate');
+    expect(gate.textContent).toMatch(/Create a free account to see all 4 issues and how to fix them/);
+    fireEvent.click(within(gate).getByRole('button', { name: /Create a free account/i }));
+    expect(onStart).toHaveBeenCalledTimes(1);
+  });
+  it('can go back from each step, and play again', async () => {
+    await toIssues();
+    fireEvent.click(screen.getByRole('button', { name: /Fix it now/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Back to the issues/i }));
+    expect(screen.getByTestId('demo-issues')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Back to the score/i }));
     expect(screen.getByRole('button', { name: /Next: improve it/i })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Replay/i }));

@@ -61,11 +61,11 @@
 .nl-caps { display: flex; flex-wrap: wrap; gap: 10px 22px; font-size: 14px; color: var(--nl-muted); }
 .nl-caps li { display: inline-flex; align-items: center; gap: 8px; }
 .nl-caps li > span { width: 20px; height: 20px; border-radius: 99px; background: rgba(155, 123, 255, 0.2); color: var(--nl-purple); display: inline-flex; align-items: center; justify-content: center; }
-.nl-hero-shot, .nl-approach-shot, .nl-shot { margin: 0; }
+.nl-hero-shot, .nl-shot { margin: 0; }
 .nl-shot-frame { border: 1px solid var(--nl-border); border-radius: 16px; overflow: hidden; background: var(--nl-surface); box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55), 0 0 80px rgba(123, 91, 224, 0.18); }
 .nl-shot-frame img { display: block; width: 100%; height: auto; }
 .nl-hero-shot { margin-right: calc((100vw - min(100vw, 1280px)) / -2 - 56px + 24px); } /* the example reaches toward the window edge so its text can be read */
-.nl-hero-shot figcaption, .nl-approach-shot figcaption { margin-top: 12px; font-size: 13px; color: var(--nl-subtle); }
+.nl-hero-shot figcaption { margin-top: 12px; font-size: 13px; color: var(--nl-subtle); }
 
 /* sections */
 .nl-section { padding: 96px 0; border-top: 1px solid rgba(37, 49, 73, 0.6); }
@@ -86,10 +86,12 @@
 .nl-orb { position: relative; width: 100%; aspect-ratio: 13 / 10; display: grid; place-items: center; }
 .nl-orb-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
 .nl-orb-lines path { fill: none; stroke: rgba(155, 123, 255, 0.42); stroke-width: 1.4; stroke-dasharray: 3 7; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.nl-pulse[data-dir="out"] { fill: #9B7BFF; filter: drop-shadow(0 0 6px rgba(155, 123, 255, 0.9)); }
 .nl-pulse { fill: #F472B6; filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.9)); }
 .nl-orb-ring { position: absolute; left: 50%; top: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%; border: 1px solid rgba(155, 123, 255, 0.35); pointer-events: none; }
-.nl-logo-spin { transform-origin: 50% 50%; }
-.nl-orb-core { position: relative; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #E879F9 0%, #7B5BE0 45%, #2B1B6B 100%); box-shadow: 0 0 80px rgba(155, 123, 255, 0.55), inset 0 0 30px rgba(255, 255, 255, 0.2); }
+@keyframes orbit-spin-cw { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } /* the brand mark's own spin (also defined in index.css), so this page does not depend on it */
+@keyframes orbit-spin-ccw { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+.nl-orb-core { position: relative; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, rgba(99, 102, 241, 0.28) 0%, rgba(236, 72, 153, 0.12) 55%, rgba(10, 16, 28, 0.9) 100%); border: 1px solid rgba(155, 123, 255, 0.35); box-shadow: 0 0 70px rgba(236, 72, 153, 0.28), inset 0 0 30px rgba(99, 102, 241, 0.25); }
 .nl-orb-card { position: absolute; width: max-content; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border-radius: 12px; background: rgba(14, 22, 39, 0.94); border: 1px solid var(--nl-border); font-size: 12.5px; font-weight: 600; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); color: var(--nl-text); }
 .nl-orb-card svg { color: var(--nl-pink); flex: none; }
 
@@ -185,7 +187,6 @@
 
 @media (prefers-reduced-motion: reduce) { .nl-pulse, .nl-orb-ring { display: none; } }
 @media (prefers-reduced-motion: no-preference) {
-  .nl-logo-spin { animation: nl-spin 16s linear infinite; }
   .nl-orb-ring { animation: nl-ring 3.6s ease-out infinite; }
   .nl-orb-ring2 { animation-delay: 1.8s; }
   .nl-orb-card { animation: nl-float 6s ease-in-out infinite; }
@@ -201,7 +202,7 @@
   .nl-wrap { padding-left: 32px; padding-right: 32px; }
   .nl-split-tools, .nl-split-faq { grid-template-columns: 1fr; }
   .nl-approach-grid { grid-template-columns: 1fr 1fr; }
-  .nl-approach-shot { grid-column: 1 / -1; }
+  .nl-approach-visual { grid-column: 1 / -1; }
   .nl-moment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
@@ -294,26 +295,49 @@
 }
 @media (max-width: 640px) { .nl-demo-body { grid-template-columns: 1fr; } .nl-demo { padding: 14px; } }
 
-/* The goal: building confidence. */
-.nl-confidence { background: var(--nl-bg-alt); }
-.nl-conf-intro { max-width: 900px; }
-.nl-conf-intro .nl-h2 { text-wrap: balance; }
-.nl-confidence .nl-conf-grid { list-style: none; margin: 44px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-.nl-conf-grid li { border: 1px solid var(--nl-border); border-radius: 16px; background: var(--nl-surface); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
-.nl-conf-grid h3 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
-.nl-conf-grid p { margin: 0; color: var(--nl-muted); font-size: 15px; line-height: 1.55; }
-.nl-confidence .nl-conf-note { margin: 28px 0 0; color: var(--nl-muted); font-size: 15px; }
-@media (max-width: 860px) { .nl-conf-grid { grid-template-columns: 1fr; } }
-
 /* The AI Career Coach strip under the tools. */
-.nl-tools .nl-coach { margin-top: 28px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 28px; align-items: start; border: 1px solid var(--nl-border); border-radius: 18px; background: var(--nl-surface); padding: 26px; }
-.nl-coach-copy { display: flex; gap: 16px; align-items: flex-start; }
-.nl-coach-copy h3 { margin: 0 0 8px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
-.nl-coach-copy p { margin: 0; color: var(--nl-muted); font-size: 15px; line-height: 1.6; }
-.nl-coach-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--nl-subtle); margin-bottom: 10px; }
-.nl-coach-q { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.nl-coach-q button { font: inherit; font-size: 13.5px; color: var(--nl-text); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--nl-border); border-radius: 99px; padding: 7px 14px; cursor: pointer; text-align: left; }
-.nl-coach-q button:hover { border-color: var(--nl-purple); background: rgba(155, 123, 255, 0.1); }
+.nl-tools .nl-coach { margin-top: 28px; border: 1px solid var(--nl-border); border-radius: 20px; background: linear-gradient(160deg, rgba(52, 211, 153, 0.06), var(--nl-surface) 55%); padding: 24px 26px 26px; }
+.nl-coach-head { display: flex; gap: 14px; align-items: center; }
+.nl-coach-head h3 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.nl-coach-head p { margin: 3px 0 0; color: var(--nl-muted); font-size: 14.5px; }
+.nl-coach-body { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; margin-top: 20px; align-items: stretch; }
+.nl-coach-chat { border: 1px solid var(--nl-border); border-radius: 16px; background: rgba(7, 11, 20, 0.6); padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.nl-coach-q { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; width: 100%; }
+.nl-coach-q button { font: inherit; font-size: 13.5px; color: var(--nl-text); background: rgba(155, 123, 255, 0.14); border: 1px solid rgba(155, 123, 255, 0.35); border-radius: 14px 14px 4px 14px; padding: 8px 14px; cursor: pointer; text-align: left; max-width: 100%; }
+.nl-coach-q button:hover { background: rgba(155, 123, 255, 0.26); }
+.nl-coach-typing { align-self: flex-start; display: inline-flex; gap: 5px; padding: 11px 14px; border-radius: 14px 14px 14px 4px; background: var(--nl-surface-hover); border: 1px solid var(--nl-border); }
+.nl-coach-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--nl-teal); display: block; }
+.nl-coach-know { display: flex; flex-direction: column; gap: 10px; }
+.nl-coach-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--nl-subtle); }
+.nl-coach-know ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.nl-coach-know li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--nl-text); padding: 9px 12px; border: 1px solid var(--nl-border); border-radius: 10px; background: rgba(255, 255, 255, 0.02); }
+.nl-coach-know li::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--nl-teal); flex: none; }
+.nl-coach-know li.is-off { color: var(--nl-subtle); border-style: dashed; }
+.nl-coach-know li.is-off::before { display: none; }
+.nl-coach-know li.is-off em { margin-left: auto; font-style: normal; font-size: 11px; border: 1px solid var(--nl-border); border-radius: 99px; padding: 1px 8px; }
+.nl-coach-know p { margin: 0; font-size: 13px; color: var(--nl-muted); }
 .nl-coach-q button:focus-visible, .nl-coach-open:focus-visible { outline: 2px solid var(--nl-purple); outline-offset: 3px; }
-@media (max-width: 860px) { .nl-tools .nl-coach { grid-template-columns: 1fr; padding: 20px; } }
+@media (prefers-reduced-motion: no-preference) {
+  .nl-coach-q li { animation: nl-in .4s ease both; }
+  .nl-coach-typing i { animation: nl-dot 1.2s ease-in-out infinite; }
+  .nl-coach-typing i:nth-child(2) { animation-delay: .15s; } .nl-coach-typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes nl-dot { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+}
+@media (max-width: 860px) { .nl-coach-body { grid-template-columns: 1fr; } .nl-tools .nl-coach { padding: 18px; } }
 .nl-coach-open { background: none; border: 0; padding: 0; color: var(--nl-pink); font: inherit; font-weight: 600; cursor: pointer; }
+.nl-demo-gate { text-align: center; padding: 22px 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.nl-demo-gate p { margin: 0; font-size: 15px; line-height: 1.5; font-weight: 600; max-width: 22em; }
+.nl-demo-gate-icon { color: var(--nl-pink); }
+
+/* Approach: who does what. */
+.nl-approach-visual { margin: 0; }
+.nl-roles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; position: relative; }
+.nl-roles li { position: relative; display: grid; grid-template-columns: 84px 1fr; grid-template-rows: auto auto; column-gap: 18px; padding: 0 0 26px; }
+.nl-roles li:last-child { padding-bottom: 0; }
+.nl-roles li:not(:last-child)::before { content: ''; position: absolute; left: 41px; top: 40px; bottom: 0; width: 0; border-left: 2px dashed rgba(155, 123, 255, 0.5); }
+.nl-role-tag { grid-row: 1 / span 2; align-self: start; width: 84px; text-align: center; font-weight: 800; font-size: 15px; padding: 9px 0; border-radius: 12px; background: var(--nl-grad); color: #fff; }
+.nl-roles li:nth-child(2) .nl-role-tag { background: rgba(155, 123, 255, 0.18); border: 1px solid rgba(155, 123, 255, 0.5); color: var(--nl-text); }
+.nl-roles li:nth-child(3) .nl-role-tag { background: rgba(52, 211, 153, 0.16); border: 1px solid rgba(52, 211, 153, 0.5); color: var(--nl-text); }
+.nl-role-do { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; align-self: end; }
+.nl-role-note { font-size: 14px; color: var(--nl-muted); }
+.nl-approach-visual figcaption { margin-top: 22px; font-size: 14px; color: var(--nl-muted); }
