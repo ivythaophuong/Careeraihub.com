@@ -67,7 +67,7 @@ describe('the AI Career Coach section', () => {
     const sec = container.querySelector('#coach');
     expect(sec.previousElementSibling.id).toBe('system');
     expect(sec.nextElementSibling.id).toBe('approach');
-    expect(within(sec).getByRole('heading', { level: 3 }).textContent).toBe('Ask your AI Career Coach');
+    expect(within(sec).getByRole('heading', { level: 2 }).textContent).toBe('Ask your AI Career Coach');
     expect(norm(sec.textContent).split(' ').length).toBeLessThan(75);
     // The first example questions of src/features/AICoach/AICoach.jsx (QUICK_PROMPTS).
     expect([...sec.querySelectorAll('.nl-coach-q button')].map(b => b.textContent)).toEqual([
@@ -127,6 +127,19 @@ describe('the approach section', () => {
     const { container } = show();
     const srcs = [...container.querySelectorAll('img')].map(i => i.getAttribute('src'));
     expect(new Set(srcs).size).toBe(srcs.length);
+  });
+});
+
+describe('the heading outline', () => {
+  it('has one h1 and never skips a level, so a screen reader can move through the page by headings', () => {
+    const { container } = show();
+    const levels = [...container.querySelectorAll('h1, h2, h3, h4')].map(h => Number(h.tagName[1]));
+    expect(levels.filter(l => l === 1)).toHaveLength(1);
+    levels.reduce((prev, l) => { expect(l - prev).toBeLessThanOrEqual(1); return l; }, 0);
+  });
+  it('gives every section its own h2, and the coach is one of them', () => {
+    const { container } = show();
+    for (const id of ['tools', 'system', 'coach', 'approach', 'faq', 'story', 'partner']) expect(container.querySelector(`#${id} h2`)).toBeTruthy();
   });
 });
 

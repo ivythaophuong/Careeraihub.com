@@ -287,7 +287,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
           <div className="nl-wrap nl-coach">
             <div className="nl-coach-copy">
               <div className="nl-eyebrow">Your coach</div>
-              <h3 className="nl-h2">Ask your AI Career Coach</h3>
+              <h2 className="nl-h2">Ask your AI Career Coach</h2>
               <p>Ask about your next move, interviews, salary or applications.</p>
               <p className="nl-coach-note">It knows your target role, level, market and a short summary of your activity. It does not read your CV.</p>
             </div>
