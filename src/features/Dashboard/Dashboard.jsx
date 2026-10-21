@@ -181,10 +181,11 @@ function ActionItems({ items, setActiveModule }) {
         {items.length === 0 ? (
           <div style={{ fontSize: 12, color: '#00E5A0', padding: '10px 0' }}>✓ All priorities addressed — keep the momentum!</div>
         ) : items.map((item, i) => (
-          <div key={i} onClick={() => setActiveModule(item.id)} style={{
+          <button type="button" key={i} data-priority-action onClick={() => setActiveModule(item.id)} style={{
             display: 'flex', alignItems: 'stretch', background: 'var(--lp-bg3)',
             border: '1px solid var(--lp-bdr)', borderRadius: 8, overflow: 'hidden',
             cursor: 'pointer', transition: 'border-color .15s',
+            width: '100%', padding: 0, margin: 0, font: 'inherit', textAlign: 'left', color: 'inherit',
           }}
             onMouseEnter={e => e.currentTarget.style.borderColor = item.color + '55'}
             onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--lp-bdr)'}
@@ -194,8 +195,8 @@ function ActionItems({ items, setActiveModule }) {
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 2 }}>{item.label}</div>
               <div style={{ fontSize: 10.5, color: 'var(--lp-text3)', fontFamily: 'var(--lp-ffm)', lineHeight: 1.4 }}>{item.why}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', paddingRight: 12, color: 'var(--lp-text3)', fontSize: 14 }}>→</div>
-          </div>
+            <div aria-hidden="true" style={{ display: 'flex', alignItems: 'center', paddingRight: 12, color: 'var(--lp-text3)', fontSize: 14 }}>→</div>
+          </button>
         ))}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
           {[

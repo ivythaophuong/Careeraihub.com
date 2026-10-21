@@ -61,3 +61,19 @@ describe('Dashboard names the interview figure and does not turn "no session" in
     expect(container.textContent).not.toMatch(/Start first session/);
   });
 });
+
+describe('Dashboard priority actions are real buttons', () => {
+  it('each priority action is a button a keyboard can reach, and it opens its module', () => {
+    const setActiveModule = vi.fn();
+    const { container } = show({ setActiveModule });
+    const section = screen.getByText('Priority Actions').parentElement;
+    const items = [...section.querySelectorAll('[data-priority-action]')];
+    expect(items.length).toBeGreaterThan(0);
+    for (const el of items) {
+      expect(el.tagName).toBe('BUTTON');
+      expect(el.getAttribute('type')).toBe('button');
+    }
+    fireEvent.click(items[0]);
+    expect(setActiveModule).toHaveBeenCalledTimes(1);
+  });
+});
