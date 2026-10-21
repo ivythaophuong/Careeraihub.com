@@ -58,13 +58,20 @@ describe('the new landing page', () => {
     expect(document.body.textContent).toMatch(/Voice practice is rolling out/);
   });
 
-  it('every image has a description and says the data is made up', () => {
+  it('every image has a description, and the page says what the screens are (synthetic data or a real screen with details blurred)', () => {
     show();
+    expect(document.body.textContent).toMatch(/Personal details are blurred/i);
     for (const b of screen.getByRole('group', { name: /Where are you right now/i }).querySelectorAll('button')) {
       fireEvent.click(b);
       for (const img of document.querySelectorAll('img')) expect((img.getAttribute('alt') || '').length).toBeGreaterThan(20);
-      expect(document.body.textContent).toMatch(/synthetic account and made-up data/i);
+      expect(document.body.textContent).toMatch(/synthetic account and made-up data|personal details blurred/i);
     }
+  });
+  it('the large screen can be opened bigger', () => {
+    show();
+    const link = screen.getByRole('link', { name: /Open larger/i });
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toMatch(/noopener/);
   });
 
   it('has a theme switch that sets data-theme on the page root', () => {
