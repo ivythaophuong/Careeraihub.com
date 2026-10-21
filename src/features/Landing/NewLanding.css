@@ -354,17 +354,12 @@
 @media (prefers-reduced-motion: reduce) { .nl-motion-btn { display: none; } }
 
 /* Emphasis in the headings and in the lines under them. */
-.nl-h2 .nl-grad-text { white-space: normal; }
-.nl-copy > p strong, .nl-light-lead strong, .nl-coach-copy > p strong, .nl-approach-intro > p strong { font-weight: 700; color: #F9A8D4; }
-.nl-light .nl-grad-text, .nl-paper .nl-grad-text { background-image: linear-gradient(110deg, #C0307F 0%, #6D4FD6 100%); }
-.nl-light .nl-light-lead strong { color: #A61F6C; }
 
 /* White sections: the approach and the footer. Every pair of colours is checked at 4.5:1 in NewLanding.responsive.test.js. */
 .nl-paper { background: #FFFFFF; color: #141B32; }
 .nl-paper .nl-eyebrow { color: #B0276F; }
 .nl-paper .nl-h2 { color: #141B32; }
 .nl-paper .nl-approach-intro > p { color: #46506B; }
-.nl-paper .nl-approach-intro > p strong { color: #A61F6C; }
 .nl-paper .nl-flow-step { background: #F7F8FD; border-color: #E1E4F2; }
 .nl-paper .nl-flow-step h3 { color: #141B32; }
 .nl-paper .nl-flow-step p { color: #46506B; }
@@ -498,3 +493,6 @@
 .nl-demo-steps li.is-on { padding-right: 12px; }
 .nl-demo-replay { font-size: 12.5px; padding: 4px 12px; border-radius: 8px; }
 .nl-hero-grid { align-items: center; }
+
+/* Bold words in the lines under the titles keep the colour of the line (no colour is set here). */
+.nl-copy > p strong, .nl-light-lead strong, .nl-coach-copy > p strong, .nl-approach-intro > p strong { font-weight: 700; }

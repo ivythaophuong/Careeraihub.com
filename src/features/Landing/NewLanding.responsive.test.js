@@ -57,7 +57,7 @@ describe('the hero example on a phone', () => {
 
 describe('the white sections: the approach and the footer', () => {
   const PAIRS = [
-    ['ink on white', '#141B32', '#FFFFFF'], ['muted text on white', '#46506B', '#FFFFFF'], ['eyebrow on white', '#B0276F', '#FFFFFF'], ['bold key words on white', '#A61F6C', '#FFFFFF'],
+    ['ink on white', '#141B32', '#FFFFFF'], ['muted text on white', '#46506B', '#FFFFFF'], ['eyebrow on white', '#B0276F', '#FFFFFF'], ['link on white', '#A61F6C', '#FFFFFF'],
     ['ink on a card', '#141B32', '#F7F8FD'], ['muted text on a card', '#46506B', '#F7F8FD'], ['tag on its fill', '#3B2A8F', '#EDE9FB'],
     ['footer small print on white', '#5B6482', '#FFFFFF'], ['gradient start on white', '#C0307F', '#FFFFFF'], ['gradient end on white', '#6D4FD6', '#FFFFFF'],
   ];
@@ -77,4 +77,13 @@ describe('the motion that was asked for', () => {
   it('turns a light round the score ring', () => { expect(css).toMatch(/\.nl-demo-ring-spin \{[^}]*stroke-dasharray/); expect(css).toMatch(/@keyframes nl-ring-spin/); });
   it('carries two lights along every line of the tool diagram, slowly', () => { expect(css).toMatch(/path\.nl-flow-line \{[^}]*stroke-dasharray: 14 36;/); });
   it('bounces the typing dots so they can be seen', () => { expect(css).toMatch(/translateY\(-6px\)/); });
+});
+
+describe('one colour for the text', () => {
+  it('does not colour the bold words in the lines under the titles, and has no gradient on any title but the main one', () => {
+    expect(css).not.toMatch(/\.nl-copy > p strong[^{]*\{[^}]*color/);
+    expect(css).not.toMatch(/\.nl-h2 \.nl-grad-text/);
+    expect(css).not.toMatch(/\.nl-(light|paper) \.nl-grad-text/);
+    expect(css).not.toMatch(/\.nl-approach-intro > p strong[^{]*\{[^}]*color: #A61F6C/);
+  });
 });

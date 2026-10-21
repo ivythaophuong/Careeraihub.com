@@ -106,19 +106,12 @@ describe('the white sections', () => {
 });
 
 describe('the emphasis in the headings and the lines under them', () => {
-  it('every section title has one phrase in the accent colour, and the words are unchanged', () => {
+  it('only the main title has a phrase in the accent colour: every section title is one colour', () => {
     const { container } = show();
-    const marks = {
-      challenge: 'not.', tools: 'next career move.', system: 'right now?', coach: 'AI Career Coach', approach: 'not make the decision for you.', faq: 'answered.', story: 'CareerAiHub.', partner: 'career ecosystem.',
-    };
-    const sections = { challenge: '.nl-challenge', tools: '#tools', system: '#system', coach: '#coach', approach: '#approach', faq: '#faq', story: '#story', partner: '#partner' };
-    for (const [k, sel] of Object.entries(sections)) {
-      const em = container.querySelector(`${sel} h2 em.nl-grad-text`);
-      expect(em, k).toBeTruthy();
-      expect(em.textContent, k).toBe(marks[k]);
-    }
+    expect(container.querySelectorAll('h1 em.nl-grad-text')).toHaveLength(1);
+    for (const h of container.querySelectorAll('h2')) expect(h.querySelector('em, .nl-grad-text'), h.textContent).toBeNull();
   });
-  it('the line under a title puts its key words in bold, so it can be read at a glance', () => {
+  it('the line under a title puts its key words in bold, in the same colour as the line, so it can be read at a glance', () => {
     const { container } = show();
     const strong = (sel) => [...container.querySelectorAll(`${sel} strong`)].map(x => x.textContent);
     expect(strong('#tools .nl-copy > p')).toEqual(['prepare', 'practise', 'decide']);
