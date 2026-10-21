@@ -1,5 +1,6 @@
 // Pure rendering of the marketing pages: no file access, so tests can call it directly.
 import { SITE, PAGES } from './pages.mjs';
+import { ARTICLES } from './articles.mjs';
 
 const esc = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -94,10 +95,102 @@ ${body}
 `;
 }
 
+export const articleUrl = (slug) => `${SITE}/blog/${slug}/`;
+
+function articleHead(title, description, url, type, ld) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(description)}"/>
+<meta name="robots" content="index, follow"/>
+<link rel="canonical" href="${url}"/>
+<meta property="og:title" content="${esc(title)}"/>
+<meta property="og:description" content="${esc(description)}"/>
+<meta property="og:type" content="${type}"/>
+<meta property="og:url" content="${url}"/>
+<meta property="og:site_name" content="CareerAiHub"/>
+<meta property="og:locale" content="en_SG"/>
+<meta property="og:image" content="${SITE}/og-image.jpg"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="${esc(title)}"/>
+<meta name="twitter:description" content="${esc(description)}"/>
+<meta name="twitter:image" content="${SITE}/og-image.jpg"/>
+<meta name="theme-color" content="#090C12"/>
+<link rel="icon" href="/favicon.ico" sizes="48x48"/>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>
+<style>${CSS}</style>
+</head>
+<body>
+<header><a class="brand" href="/">CareerAiHub</a><nav><a href="/blog/">Blog</a></nav></header>
+`;
+}
+
+const FOOT = `<footer>CareerAiHub · <a href="/">careeraihub.com</a></footer>
+</body>
+</html>
+`;
+
+export function renderArticle(a) {
+  const url = articleUrl(a.slug);
+  const ld = { '@context': 'https://schema.org', '@graph': [
+    { '@type': 'Article', '@id': `${url}#article`, mainEntityOfPage: url, headline: a.h1, description: a.description, inLanguage: 'en', datePublished: a.published, dateModified: a.updated, image: `${SITE}/og-image.jpg`, author: { '@id': `${SITE}/#org` }, publisher: { '@id': `${SITE}/#org` } },
+    { '@type': 'BreadcrumbList', itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'CareerAiHub', item: `${SITE}/` },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: `${SITE}/blog/` },
+      { '@type': 'ListItem', position: 3, name: a.h1, item: url },
+    ] },
+    { '@type': 'FAQPage', mainEntity: a.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) },
+  ] };
+  const body = a.sections.map(s => {
+    const paras = (s.paras || []).map(t => `<p>${esc(t)}</p>`).join('');
+    const list = s.list ? `<ul>${s.list.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : '';
+    return `<section><h2>${esc(s.h2)}</h2>${paras}${list}</section>`;
+  }).join('\n');
+  const faq = a.faq.map(f => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join('');
+  const related = a.related.map(slug => `<li><a href="/${slug}/">${esc(NAV_LABELS[slug])}</a></li>`).join('');
+  return articleHead(a.title, a.description, url, 'article', ld) + `<main>
+<p><a href="/blog/">Blog</a> · Published ${a.published}</p>
+<h1>${esc(a.h1)}</h1>
+<p class="lead">${esc(a.lead)}</p>
+${body}
+<a class="cta" href="/">Open CareerAiHub</a>
+<section class="faq"><h2>Questions</h2>${faq}</section>
+<section><h2>More</h2><ul>${related}</ul></section>
+</main>
+` + FOOT;
+}
+
+export function renderBlogIndex() {
+  const url = `${SITE}/blog/`;
+  const title = 'CareerAiHub Blog: resume, interview and salary guides';
+  const description = 'Practical guides for job seekers on resumes, applicant tracking systems, interviews and salary conversations, from CareerAiHub.';
+  const ld = { '@context': 'https://schema.org', '@graph': [
+    { '@type': 'CollectionPage', '@id': `${url}#page`, url, name: title, description, inLanguage: 'en', isPartOf: { '@id': `${SITE}/#website` } },
+    { '@type': 'BreadcrumbList', itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'CareerAiHub', item: `${SITE}/` },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: url },
+    ] },
+  ] };
+  const items = ARTICLES.map(a => `<h2><a href="/blog/${a.slug}/">${esc(a.h1)}</a></h2><p>${esc(a.description)}</p>`).join('');
+  return articleHead(title, description, url, 'website', ld) + `<main>
+<h1>CareerAiHub blog</h1>
+<p class="lead">${esc(description)}</p>
+${items}
+</main>
+` + FOOT;
+}
+
 export function renderSitemap() {
   const entries = [
     { loc: `${SITE}/`, lastmod: '2026-10-18', priority: '1.0' },
     ...PAGES.map(p => ({ loc: pageUrl(p.slug), lastmod: p.updated, priority: '0.8' })),
+    { loc: `${SITE}/blog/`, lastmod: ARTICLES.reduce((m, a) => (a.updated > m ? a.updated : m), ''), priority: '0.6' },
+    ...ARTICLES.map(a => ({ loc: articleUrl(a.slug), lastmod: a.updated, priority: '0.7' })),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
