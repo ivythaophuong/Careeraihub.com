@@ -426,7 +426,7 @@
 .nl-copy > p strong, .nl-light-lead strong, .nl-coach-copy > p strong, .nl-approach-intro > p strong { font-weight: 700; }
 
 /* One size and one colour for the lines under the titles; bold words are the plain text colour. */
-.nl { --nl-lead-size: 17px; }
+.nl { --nl-lead-size: clamp(16px, 0.35vw + 12px, 17px); }
 .nl-lead, .nl-copy > p, .nl-point, .nl-coach-copy > p, .nl-approach-intro > p, .nl-light-lead { font-size: var(--nl-lead-size); line-height: 1.6; color: var(--nl-muted); }
 .nl-light-lead { color: #46506B; }
 .nl-paper .nl-approach-intro > p { color: #46506B; }
@@ -507,6 +507,8 @@
   .nl-rec.is-playing.is-done .nl-rec-bar:not(.is-pause) { animation-play-state: paused; }
   .nl-panel { animation: nl-in .5s ease both; }
 }
+
+.nl section[id] { scroll-margin-top: 88px; }
 
 /* Narrow screens, last of all, so nothing written above can undo them. */
 @media (max-width: 860px) {

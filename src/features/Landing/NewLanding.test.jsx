@@ -78,16 +78,15 @@ describe('the situation panels show whole screens', () => {
     expect(demo).toBeTruthy();
     expect([...demo.querySelectorAll('[data-testid="scan-bar"]')].map(b => b.getAttribute('data-source'))).toEqual(['code', 'ai', 'ai']);
   });
-  it('the interview panel opens with a moving recording, then the whole screen after recording and the whole feedback screen', () => {
+  it('the interview panel shows the moving recording and then the whole feedback screen, and no screen of the transcript', () => {
     const { container } = show();
     const panel = open(container, 1);
     const figs = [...panel.querySelectorAll('.nl-shot')];
-    expect(figs).toHaveLength(3);
+    expect(figs).toHaveLength(2);
     expect(figs[0].querySelector('.nl-rec')).toBeTruthy();
-    expect(figs[1].querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/after a recording/i);
-    expect(figs[2].querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/feedback/i);
+    expect(figs[1].querySelector('.nl-zoom img').getAttribute('alt')).toMatch(/feedback/i);
+    expect(panel.textContent).not.toMatch(/After you record|your transcript to check/);
     expect(panel.textContent).not.toMatch(/Colour follows your voice/);
-    expect(panel.textContent).not.toMatch(/While you speak, each stretch is coloured/);
     expect(panel.textContent).toMatch(/Voice practice is rolling out/);
   });
   it('the offer and the next-step panels show the whole Salary Prep and the whole Dashboard screens', () => {
@@ -210,6 +209,23 @@ describe('the approach section', () => {
     const { container } = show();
     const srcs = [...container.querySelectorAll('img')].map(i => i.getAttribute('src'));
     expect(new Set(srcs).size).toBe(srcs.length);
+  });
+});
+
+describe('smooth scrolling', () => {
+  it('turns on smooth scrolling for the links of the page while it is open, and gives the old setting back', () => {
+    document.documentElement.style.scrollBehavior = '';
+    const { unmount } = show();
+    expect(document.documentElement.style.scrollBehavior).toBe('smooth');
+    unmount();
+    expect(document.documentElement.style.scrollBehavior).toBe('');
+  });
+  it('does not turn it on for a visitor who asked for reduced motion', () => {
+    vi.stubGlobal('matchMedia', (q) => ({ matches: /reduce/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+    document.documentElement.style.scrollBehavior = '';
+    show();
+    expect(document.documentElement.style.scrollBehavior).toBe('');
+    vi.unstubAllGlobals();
   });
 });
 
@@ -355,7 +371,7 @@ describe('the situation chooser', () => {
     show();
     fireEvent.click(screen.getByRole('button', { name: /I have an interview coming/i }));
     const parts = screen.getAllByRole('img').filter(i => /voice|spoken|recording/i.test(i.getAttribute('aria-label') || i.getAttribute('alt') || ''));
-    expect(parts.length).toBe(3); // the moving recording, the screen after recording, the feedback screen
+    expect(parts.length).toBe(2); // the moving recording and the feedback screen
     expect(document.body.textContent).toMatch(/Voice practice is rolling out/);
   });
 

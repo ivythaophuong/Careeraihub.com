@@ -7,7 +7,6 @@ import { reducedMotion } from './motion';
 import ZoomShot from './ZoomShot';
 import { OrbitMark } from '../../components/OrbitMark';
 import salaryShot from './shots/salary-gap.png';
-import recordedShot from './shots/voice-recorded.png';
 import feedbackShot from './shots/voice-feedback.png';
 import dashboardShot from './shots/dashboard-full.png';
 
@@ -72,7 +71,6 @@ const MOMENTS = [
     note: 'Voice practice is rolling out.',
     shots: [
       { key: 'live', live: 'recording', caption: 'Answer out loud and watch your voice as you speak.' },
-      { key: 'recorded', src: recordedShot, w: 1368, h: 1107, alt: 'The whole voice answer screen after a recording: the colour timeline of the answer, the transcript to check, and the Delivery column with speaking time, pace, pauses and the signal feed', caption: 'After you record: your transcript to check, and figures measured on your device.' },
       { key: 'feedback', src: feedbackShot, w: 1368, h: 810, alt: 'The whole feedback screen for a spoken answer: what worked, what was missed, a tip, and a note on how it was delivered', caption: 'Feedback on the answer, and a note on how you delivered it. Delivery never changes your score.' },
     ],
   },
@@ -161,6 +159,13 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   // The tool diagram, the chat and the three steps wait until they are seen, then move once.
   const [orbRef, orbSeen] = useSeenOnce(reduced); const [chatRef, chatSeen] = useSeenOnce(reduced); const [flowRef, flowSeen] = useSeenOnce(reduced);
   const linesRef = useRef(null);
+  // Smooth scrolling for the links of this page (not for a visitor who asked for reduced motion), and the old setting back when the page goes away.
+  useEffect(() => {
+    if (reduced) return undefined;
+    const el = document.documentElement; const before = el.style.scrollBehavior;
+    el.style.scrollBehavior = 'smooth';
+    return () => { el.style.scrollBehavior = before; };
+  }, [reduced]);
   useEffect(() => { try { linesRef.current?.pauseAnimations?.(); } catch { /* no SVG timeline: nothing to hold back */ } }, []);
   useEffect(() => { if (!orbSeen) return; try { const v = linesRef.current; v?.setCurrentTime?.(0); v?.unpauseAnimations?.(); } catch { /* the dots simply do not run */ } }, [orbSeen]);
   const cur = MOMENTS.find(m => m.id === sel) || MOMENTS[0];

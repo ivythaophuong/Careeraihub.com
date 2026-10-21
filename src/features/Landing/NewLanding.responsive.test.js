@@ -85,7 +85,7 @@ describe('the recording illustration looks like a recording, not a poster', () =
 
 describe('one size and one colour for the lines under the titles', () => {
   it('sets one size for them, and the same muted colour', () => {
-    expect(css).toMatch(/--nl-lead-size: 17px/);
+    expect(css).toMatch(/--nl-lead-size: clamp\(16px, 0\.35vw \+ 12px, 17px\)/);
     expect(css).toMatch(/\.nl-lead, \.nl-copy > p, \.nl-point, \.nl-coach-copy > p, \.nl-approach-intro > p[^{]*\{ font-size: var\(--nl-lead-size\); line-height: 1\.6; color: var\(--nl-muted\); \}/);
   });
   it('gives every dark section the same padding', () => {
@@ -159,4 +159,16 @@ describe('motion is slow and happens once', () => {
 
 describe('the head of the example', () => {
   it('keeps a gap between its subtitle and the cards below', () => { expect(css).toMatch(/\.nl-demo-head \{ margin-bottom: 12px; \}/); });
+});
+
+describe('fluid sizes and smooth scrolling', () => {
+  it('the size of the lines under the titles grows with the window between 16 and 17 px', () => {
+    expect(css).toMatch(/--nl-lead-size: clamp\(16px, 0\.35vw \+ 12px, 17px\)/);
+  });
+  it('titles use clamp, so they grow with the window too', () => {
+    expect(css).toMatch(/\.nl-h1 \{ font-size: clamp\(/); expect(css).toMatch(/\.nl-h2 \{ font-size: clamp\(/); expect(css).toMatch(/\.nl-h3 \{ font-size: clamp\(/);
+  });
+  it('sections leave room for the sticky header when a link scrolls to them', () => {
+    expect(css).toMatch(/\.nl section\[id\] \{ scroll-margin-top: 88px; \}/);
+  });
 });
