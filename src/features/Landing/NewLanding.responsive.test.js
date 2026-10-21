@@ -35,21 +35,12 @@ describe('the colours of the demo buttons', () => {
   });
 });
 
-describe('the motion rules', () => {
-  it('stop every CSS animation on the page while motion is paused', () => {
-    expect(css).toMatch(/\.nl\[data-motion="paused"\] \*[^{]*\{[^}]*animation-play-state: paused !important/);
-  });
-  it('do not let the nudge on the Next button repeat for ever', () => {
-    expect(css).toMatch(/\.nl-demo-next\.is-ready \{ animation: nl-nudge 1\.8s ease-in-out 3;/);
-  });
-});
 
 describe('the hero example on a phone', () => {
   const phone = () => block('max-width: 640px');
-  it('shows the score first: the profile column and the steps that are not current are left out', () => {
+  it('shows the score first: the profile column is left out', () => {
     expect(css).toMatch(/@media \(max-width: 640px\)/);
     expect(phone()).toMatch(/\.nl-demo-col:first-child \{ display: none; \}/);
-    expect(phone()).toMatch(/\.nl-demo-steps li:not\(\.is-on\) \{ display: none; \}/);
   });
   it('does not repeat the long subtitle', () => {
     expect(phone()).toMatch(/\.nl-demo-sub \{ display: none; \}/);
@@ -74,11 +65,6 @@ describe('the white sections: the approach and the footer', () => {
   });
 });
 
-describe('the motion that was asked for', () => {
-  it('turns a light round the score ring', () => { expect(css).toMatch(/\.nl-demo-ring-spin \{[^}]*stroke-dasharray/); expect(css).toMatch(/@keyframes nl-ring-spin/); });
-  it('carries two lights along every line of the tool diagram, slowly', () => { expect(css).toMatch(/path\.nl-flow-line \{[^}]*stroke-dasharray: 14 36;/); });
-  it('bounces the typing dots so they can be seen', () => { expect(css).toMatch(/translateY\(-6px\)/); });
-});
 
 describe('one colour for the text', () => {
   it('does not colour the bold words in the lines under the titles, and has no gradient on any title but the main one', () => {
@@ -122,12 +108,6 @@ describe('the hero example on a phone, after the two columns came back', () => {
   });
 });
 
-describe('the step circles', () => {
-  it('are styled on the number only, not on the name next to it', () => {
-    expect(css).not.toMatch(/\.nl-demo-steps li span \{/);
-    expect(css).toMatch(/\.nl-demo-steps li > span:first-child \{ width: 20px;/);
-  });
-});
 
 describe('narrow screens are decided last', () => {
   const last = css.lastIndexOf('/* Narrow screens, last of all');
@@ -150,12 +130,33 @@ describe('the example between a tablet and a laptop', () => {
   });
 });
 
-describe('the Play motion override', () => {
-  it('has a copy of every animation for the visitor who pressed Play motion, with its keyframes, and keeps the original reduced-motion rules', () => {
-    expect(css).toMatch(/\.nl\[data-motion="forced"\] \.nl-demo-next\.is-ready \{ animation: nl-nudge/);
-    expect(css).toMatch(/\.nl\[data-motion="forced"\] \.nl-orb-lines path\.nl-flow-line \{ animation: nl-flow/);
-    expect(css).toMatch(/\.nl\[data-motion="forced"\] \.nl-rec-bar:not\(\.is-pause\) \{ animation: nl-rec-bar/);
-    expect((css.match(/@keyframes nl-flow /g) || []).length).toBeGreaterThanOrEqual(2);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.nl-pulse, \.nl-orb-ring, \.nl-flow-line \{ display: none; \} \}/);
+
+describe('motion is slow and happens once', () => {
+  const m = css.slice(css.indexOf('/* ===== Motion:'));
+  it('has a motion section, with no switch, no pause rule and no forced copy', () => {
+    expect(css).toContain('/* ===== Motion:');
+    expect(css).not.toMatch(/data-motion/);
+    expect(css).not.toMatch(/nl-motion-/);
   });
+  it('no animation repeats for ever except the recording illustration while it "records" and the logo, which is turned by the brand mark itself', () => {
+    const inf = [...m.matchAll(/([^{}]+)\{[^}]*animation:[^;}]*infinite/g)].map(x => x[1].trim());
+    expect(inf.every(sel => /\.nl-rec/.test(sel)), inf.join(' | ')).toBe(true);
+  });
+  it('every movement that plays once is slow: no animation is shorter than 1.8 seconds', () => {
+    for (const x of m.matchAll(/animation: [a-z-]+ ([0-9.]+)(m?s)/g)) { const sec = x[2] === 'ms' ? Number(x[1]) / 1000 : Number(x[1]); expect(sec, x[0]).toBeGreaterThanOrEqual(0.5); }
+    for (const x of m.matchAll(/animation: nl-(flow|ring|ring-spin|dot|arrow|nudge|rec-reveal) ([0-9.]+)s/g)) expect(Number(x[2]), x[0]).toBeGreaterThanOrEqual(1.8);
+  });
+  it('the light on the lines, the rings and the light round the score each run once', () => {
+    expect(m).toMatch(/path\.nl-flow-line \{ animation: nl-flow 10s linear 1 both; \}/);
+    expect(m).toMatch(/\.nl-orb-ring \{ animation: nl-ring 9s ease-out 1 both; \}/);
+    expect(m).toMatch(/nl-demo-ring-spin \{ animation: nl-ring-spin 7s linear 1 both;/);
+  });
+  it('the bars and the ring of the examples fill slowly', () => {
+    expect(m).toMatch(/\.nl-demo-ring-fill \{ transition: stroke-dashoffset 2\.4s/);
+    expect(m).toMatch(/\.nl-demo-track span, \.nl-scan-track span \{ transition: width 2s/);
+  });
+});
+
+describe('the head of the example', () => {
+  it('keeps a gap between its subtitle and the cards below', () => { expect(css).toMatch(/\.nl-demo-head \{ margin-bottom: 12px; \}/); });
 });

@@ -3,7 +3,7 @@ import './NewLanding.css';
 import ResumeDemo from './ResumeDemo';
 import RecordingDemo from './RecordingDemo';
 import ScanDemo from './ScanDemo';
-import { reducedMotion, setMotionForced, systemWantsReducedMotion } from './motion';
+import { reducedMotion } from './motion';
 import ZoomShot from './ZoomShot';
 import { OrbitMark } from '../../components/OrbitMark';
 import salaryShot from './shots/salary-gap.png';
@@ -139,24 +139,35 @@ const toolPathOut = (t) => `M260 200L${t.x} ${t.y}`; // and from the middle back
 const Logo = ({ size = 28, animated = false }) => <OrbitMark size={size} animated={animated} duration={8} />; // the brand mark of the app (the pink orbit shown while the app loads)
 
 
+// True once the element has been seen (and stays true), so a motion plays once when the visitor first reaches it. Never true for a visitor who asked for reduced motion.
+function useSeenOnce(reduced) {
+  const ref = useRef(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (reduced || !ref.current) return undefined;
+    if (typeof IntersectionObserver !== 'function') { setSeen(true); return undefined; }
+    const io = new IntersectionObserver((entries) => { if (entries.some(e => e.isIntersecting)) { setSeen(true); io.disconnect(); } }, { threshold: 0.35 });
+    io.observe(ref.current);
+    return () => io.disconnect();
+  }, [reduced]);
+  return [ref, seen];
+}
+
 export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   const [sel, setSel] = useState('apply');
   const [menuOpen, setMenuOpen] = useState(false);
-  const systemReduced = useRef(systemWantsReducedMotion()).current; // the device asks for reduced motion
-  const [playing, setPlaying] = useState(!systemReduced); // WCAG 2.2.2: motion that starts by itself can be paused; a visitor who asked for reduced motion can play it anyway
-  const paused = !playing;
   const rootRef = useRef(null);
-  const [motionKey, setMotionKey] = useState(0); // the examples read the motion setting when they start, so they start again when it changes
-  const toggleMotion = () => { const next = !playing; setMotionForced(systemReduced && next); setPlaying(next); setMotionKey(k => k + 1); };
+  const reduced = useRef(reducedMotion()).current;
+  // The tool diagram, the chat and the three steps wait until they are seen, then move once.
+  const [orbRef, orbSeen] = useSeenOnce(reduced); const [chatRef, chatSeen] = useSeenOnce(reduced); const [flowRef, flowSeen] = useSeenOnce(reduced);
+  const linesRef = useRef(null);
+  useEffect(() => { try { linesRef.current?.pauseAnimations?.(); } catch { /* no SVG timeline: nothing to hold back */ } }, []);
+  useEffect(() => { if (!orbSeen) return; try { const v = linesRef.current; v?.setCurrentTime?.(0); v?.unpauseAnimations?.(); } catch { /* the dots simply do not run */ } }, [orbSeen]);
   const cur = MOMENTS.find(m => m.id === sel) || MOMENTS[0];
   const start = () => { setMenuOpen(false); onStart && onStart(); };
   const signIn = () => { setMenuOpen(false); onSignIn && onSignIn(); };
   const openTool = (id) => onModuleSelect && onModuleSelect(id);
 
-  // The CSS animations are stopped by the data-motion rule in the stylesheet; the SVG ones (the moving dots, the satellites of the logo) are stopped through the SVG element.
-  useEffect(() => {
-    rootRef.current?.querySelectorAll('svg').forEach((svg) => { try { if (paused) svg.pauseAnimations?.(); else svg.unpauseAnimations?.(); } catch { /* an SVG without a timeline has nothing to stop */ } });
-  }, [playing, motionKey]);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -166,7 +177,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   }, [menuOpen]);
 
   return (
-    <div className="nl" ref={rootRef} data-motion={playing ? (systemReduced ? 'forced' : 'on') : (systemReduced ? 'off' : 'paused')}>
+    <div className="nl" ref={rootRef}>
       <header className="nl-header">
         <div className="nl-wrap nl-nav">
           <a href="#top" className="nl-brand"><Logo />CareerAiHub</a>
@@ -204,7 +215,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p className="nl-small nl-subtle">Free while we build. No card needed.</p>
             </div>
             <figure className="nl-hero-shot">
-              <ResumeDemo key={motionKey} onStart={start} />
+              <ResumeDemo onStart={start} />
             </figure>
           </div>
         </section>
@@ -218,16 +229,16 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p className="nl-point">The tools for them are usually scattered, so you <strong>start over every time</strong>.</p>
               <p className="nl-point">CareerAiHub is being built as one place: <strong>one CV and one memory behind every tool</strong>.</p>
             </div>
-            <div className="nl-orb-wrap">
+            <div className="nl-orb-wrap" ref={orbRef} data-inview={String(orbSeen)}>
               <div className="nl-orb" role="img" aria-label="The CareerAiHub logo in the middle, connected to the tools of the platform: Resume Builder, ATS Scanner, Cover Letter AI, Interview Coach, Salary Prep, Skills Gap, Career Roadmap and AI Career Coach">
-                <svg className="nl-orb-lines" aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
+                <svg className="nl-orb-lines" ref={linesRef} aria-hidden="true" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
                   {ORBIT_TOOLS.map(t => <path key={t.name} className="nl-line" d={toolPathOut(t)} />)}
-                  {ORBIT_TOOLS.map((t, i) => <path key={`f-${t.name}`} className="nl-flow-line" d={toolPathOut(t)} pathLength="100" style={{ animationDelay: `${i * -0.6}s` }} />)}
-                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => { const begin = `${(i * 0.35 + k * 5 / 3).toFixed(2)}s`; return <circle key={`in-${t.name}-${k}`} className="nl-pulse" data-dir="in" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} /><animateMotion dur="5s" begin={begin} repeatCount="indefinite" path={toolPath(t)} /></circle>; }))}
-                  {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => { const begin = `${(i * 0.35 + k * 5 / 3 + 0.8).toFixed(2)}s`; return <circle key={`out-${t.name}-${k}`} className="nl-pulse" data-dir="out" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} /><animateMotion dur="5s" begin={begin} repeatCount="indefinite" path={toolPathOut(t)} /></circle>; }))}
+                  {ORBIT_TOOLS.map((t, i) => <path key={`f-${t.name}`} className="nl-flow-line" d={toolPathOut(t)} pathLength="100" style={{ animationDelay: `${(i * 0.4).toFixed(1)}s` }} />)}
+                  {ORBIT_TOOLS.map((t, i) => { const begin = `${(i * 0.4).toFixed(1)}s`; return <circle key={`in-${t.name}`} className="nl-pulse" data-dir="in" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} dur="10s" /><animateMotion dur="10s" begin={begin} repeatCount="1" path={toolPath(t)} /></circle>; })}
+                  {ORBIT_TOOLS.map((t, i) => { const begin = `${(i * 0.4 + 1.2).toFixed(1)}s`; return <circle key={`out-${t.name}`} className="nl-pulse" data-dir="out" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} dur="10s" /><animateMotion dur="10s" begin={begin} repeatCount="1" path={toolPathOut(t)} /></circle>; })}
                 </svg>
                 <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
-                <div className="nl-orb-core"><OrbitMark key={motionKey} size={132} animated={!reducedMotion()} duration={6} /></div>
+                <div className="nl-orb-core"><OrbitMark size={132} animated duration={18} /></div>
                 {ORBIT_TOOLS.map((t, i) => (
                   <div key={t.name} className="nl-orb-card" style={{ left: `${t.x / 5.2}%`, top: `${t.y / 4}%`, animationDelay: `${i * -0.7}s` }}>
                     <Icon name={t.icon} size={16} /><span className="nl-orb-name">{t.name}</span><span className={`nl-orb-badge nl-orb-badge-${t.badge.toLowerCase()}`}>{t.badge}</span>
@@ -235,8 +246,6 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 ))}
               </div>
               <p className="nl-orb-caption"><strong>Every tool starts from the same CV and memory.</strong> More tools are in development.</p>
-              {systemReduced && !playing && <p className="nl-motion-note">Your device asks for reduced motion, so the page is still.</p>}
-              <button type="button" className="nl-motion-btn" aria-pressed={playing ? 'false' : 'true'} onClick={toggleMotion}>{playing ? 'Pause motion' : 'Play motion'}</button>
             </div>
           </div>
         </section>
@@ -288,7 +297,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <div className="nl-panel-right">
                 {cur.shots.map(sh => (
                   <figure key={sh.key} className="nl-shot">
-                    <div className="nl-shot-frame">{sh.live === 'recording' ? <RecordingDemo key={motionKey} /> : sh.live === 'scan' ? <ScanDemo key={motionKey} onStart={start} /> : <ZoomShot src={sh.src} w={sh.w} h={sh.h} alt={sh.alt} />}</div>
+                    <div className="nl-shot-frame">{sh.live === 'recording' ? <RecordingDemo /> : sh.live === 'scan' ? <ScanDemo onStart={start} /> : <ZoomShot src={sh.src} w={sh.w} h={sh.h} alt={sh.alt} />}</div>
                     <figcaption>{sh.caption}</figcaption>
                   </figure>
                 ))}
@@ -306,7 +315,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p>Ask about your <strong>next move</strong>, <strong>interviews</strong>, <strong>salary</strong> or <strong>applications</strong>.</p>
               <p className="nl-coach-note">It knows your target role, level, market and a short summary of your activity. It does not read your CV.</p>
             </div>
-            <div className="nl-chat" role="group" aria-label="An example of asking the AI Career Coach">
+            <div className="nl-chat" ref={chatRef} data-inview={String(chatSeen)} role="group" aria-label="An example of asking the AI Career Coach">
               <div className="nl-chat-head"><OrbitMark size={30} /><b>AI Career Coach</b><span className="nl-orb-badge nl-orb-badge-new">New</span></div>
               <div className="nl-chat-body">
                 <ul className="nl-coach-q">{COACH_QUESTIONS.map((q, i) => <li key={q} style={{ animationDelay: `${i * 0.15}s` }}><button type="button" onClick={() => openTool('aichat')}>{q}</button></li>)}</ul>
@@ -324,7 +333,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <h2 className="nl-h2">AI should help you move forward. It should not make the decision for you.</h2>
               <p>Anyone can say they use AI responsibly. Here is what you can <strong>check yourself</strong>: who decides, who explains and who chooses.</p>
             </div>
-            <ol className="nl-flow">
+            <ol className="nl-flow" ref={flowRef} data-inview={String(flowSeen)}>
               {FLOW.map((f, i) => (
                 <React.Fragment key={f.tag}>
                   <li className="nl-flow-step">

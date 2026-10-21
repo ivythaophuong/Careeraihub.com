@@ -5,7 +5,7 @@ import { reducedMotion } from './motion';
 // The figures are one sample CV run through the product's checks, supplied by the owner on 2026-10-21 (ADR-015: the owner approves every figure on the page).
 // Nothing here is computed from the visitor's CV, and the page says so.
 const SCORE = 83;
-const STEPS = 45; // the count-up: 45 steps of 30 ms
+const STEPS = 80; // the count-up: 80 steps of 30 ms, two and a half seconds
 const C = 2 * Math.PI * 52;
 const BARS = [
   { name: 'Completeness', value: 75, chips: [['Name', true], ['Email not found', false], ['Experience or education', true], ['Skills', true]] },
@@ -14,7 +14,6 @@ const BARS = [
 ];
 const PROFILE = [['Target role', 'Growth Product Manager'], ['Experience', '4 years'], ['Market', 'Singapore / Southeast Asia'], ['ATS readiness', `${SCORE}/100`]];
 const SKILLS = ['Growth & GTM', 'Analytics', 'Product Management', 'User Research', 'Retention Modeling', 'Cross-functional Collaboration'];
-const STEPS_ROW = ['Add your resume', 'See what to improve', 'Improve', 'Choose a layout and download'];
 
 export default function ResumeDemo({ onStart }) {
   const reduced = useRef(reducedMotion()).current;
@@ -44,29 +43,14 @@ export default function ResumeDemo({ onStart }) {
 
   const done = score === SCORE;
 
-  // While it is on screen and nobody is reading the issues, it plays again every nine seconds, so the ring and the bars keep running to their figures.
-  useEffect(() => {
-    if (reduced || !done || view !== 'score') return undefined;
-    const iv = setInterval(() => {
-      const el = root.current;
-      const paused = el?.closest?.('.nl')?.getAttribute('data-motion') === 'paused';
-      const r = el?.getBoundingClientRect?.();
-      const visible = !r || (r.width === 0 && r.height === 0) || (r.bottom > 0 && r.top < (window.innerHeight || 800));
-      if (!paused && visible && document.visibilityState !== 'hidden') setRun(n => n + 1);
-    }, 9000);
-    return () => clearInterval(iv);
-  }, [done, view, reduced]);
   const replay = () => { setView('score'); setRun(r => r + 1); };
 
   return (
-    <div className="nl-demo" data-testid="resume-demo" ref={root}>
+    <div className={`nl-demo${go ? ' is-go' : ''}`} data-testid="resume-demo" ref={root}>
       <div className="nl-demo-head">
         <div><div className="nl-demo-title">Resume Builder</div><div className="nl-demo-sub">Upload your resume, build it with 5 templates, and save versions.</div></div>
         <button type="button" className="nl-demo-replay" onClick={replay}>Replay</button>
       </div>
-      <ol className="nl-demo-steps" aria-label="The four steps of the Resume Builder">
-        {STEPS_ROW.map((s, i) => <li key={s} className={i === 1 ? 'is-on' : undefined} aria-current={i === 1 ? 'step' : undefined}><span aria-hidden="true">{i === 0 ? '✓' : i + 1}</span><span className="nl-demo-step-label">{s}</span></li>)}
-      </ol>
       <div className="nl-demo-body">
         <div className="nl-demo-col">
           <div className="nl-demo-file"><b>✓ Sample CV</b><span>488 words · extracted</span></div>

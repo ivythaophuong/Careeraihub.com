@@ -7,7 +7,7 @@ import { reducedMotion } from './motion';
 // the product does not grade its bars by value (ResumeScan.jsx: barColor), and an AI estimate must not look like a verdict.
 // Figures: 82, 85 and 90 are the ones of the owner's screenshot (2026-10-22); 60 is an example figure for the keyword bar.
 const SCORE = 82;
-const STEPS = 40;
+const STEPS = 80;
 const BARS = [
   { name: 'Keywords matched', value: 60, source: 'code' },
   { name: 'Skills alignment', value: 85, source: 'ai' },

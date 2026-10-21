@@ -23,13 +23,14 @@ describe('the recording illustration', () => {
     const { container } = render(<RecordingDemo />);
     expect(container.textContent).not.toMatch(/\d/);
   });
-  it('counts like a recording: the clock runs up from 0:00 and starts again', async () => {
+  it('counts like a recording: the clock runs up once from 0:00 to 0:27 and stops there', async () => {
     const { container } = render(<RecordingDemo />);
     expect(clock(container)).toBe('0:00');
     await tick(3000);
     expect(clock(container)).toBe('0:03');
-    await tick(25000);
-    expect(clock(container)).toBe('0:00');
+    await tick(60000);
+    expect(clock(container)).toBe('0:27');
+    expect(container.querySelector('.nl-rec').classList.contains('is-done')).toBe(true);
   });
   it('stands still with a fixed clock for a visitor who prefers reduced motion', async () => {
     vi.stubGlobal('matchMedia', (q) => ({ matches: /reduce/.test(q), addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
@@ -38,10 +39,5 @@ describe('the recording illustration', () => {
     await tick(5000);
     expect(clock(container)).toBe(t);
     expect(t).not.toBe('0:00');
-  });
-  it('stops counting while motion is paused on the page', async () => {
-    const { container } = render(<div className="nl" data-motion="paused"><RecordingDemo /></div>);
-    await tick(5000);
-    expect(clock(container)).toBe('0:00');
   });
 });
