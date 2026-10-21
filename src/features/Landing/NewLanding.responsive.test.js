@@ -34,3 +34,12 @@ describe('the colours of the demo buttons', () => {
     for (const bg of [rest, hover]) for (const fg of ['#FFFFFF', '#F5F7FF']) expect(ratio(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+describe('the motion rules', () => {
+  it('stop every CSS animation on the page while motion is paused', () => {
+    expect(css).toMatch(/\.nl\[data-motion="paused"\] \*[^{]*\{[^}]*animation-play-state: paused !important/);
+  });
+  it('do not let the nudge on the Next button repeat for ever', () => {
+    expect(css).toMatch(/\.nl-demo-next\.is-ready \{ animation: nl-nudge 1\.8s ease-in-out 3;/);
+  });
+});

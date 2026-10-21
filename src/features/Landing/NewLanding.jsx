@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './NewLanding.css';
 import ResumeDemo from './ResumeDemo';
 import { OrbitMark } from '../../components/OrbitMark';
@@ -140,10 +140,17 @@ const Logo = ({ size = 28, animated = false }) => <OrbitMark size={size} animate
 export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   const [sel, setSel] = useState('apply');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [paused, setPaused] = useState(false); // WCAG 2.2.2: motion that starts by itself and lasts more than five seconds can be paused
+  const rootRef = useRef(null);
   const cur = MOMENTS.find(m => m.id === sel) || MOMENTS[0];
   const start = () => { setMenuOpen(false); onStart && onStart(); };
   const signIn = () => { setMenuOpen(false); onSignIn && onSignIn(); };
   const openTool = (id) => onModuleSelect && onModuleSelect(id);
+
+  // The CSS animations are stopped by the data-motion rule in the stylesheet; the SVG ones (the moving dots, the satellites of the logo) are stopped through the SVG element.
+  useEffect(() => {
+    rootRef.current?.querySelectorAll('svg').forEach((svg) => { try { if (paused) svg.pauseAnimations?.(); else svg.unpauseAnimations?.(); } catch { /* an SVG without a timeline has nothing to stop */ } });
+  }, [paused]);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -153,7 +160,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   }, [menuOpen]);
 
   return (
-    <div className="nl">
+    <div className="nl" ref={rootRef} data-motion={paused ? 'paused' : 'on'}>
       <header className="nl-header">
         <div className="nl-wrap nl-nav">
           <a href="#top" className="nl-brand"><Logo />CareerAiHub</a>
@@ -223,6 +230,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 ))}
               </div>
               <p className="nl-orb-caption"><strong>Every tool starts from the same CV and memory.</strong> More tools are in development.</p>
+              <button type="button" className="nl-motion-btn" aria-pressed={paused} onClick={() => setPaused(p => !p)}>{paused ? 'Play motion' : 'Pause motion'}</button>
             </div>
           </div>
         </section>

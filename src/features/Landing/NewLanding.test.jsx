@@ -130,6 +130,30 @@ describe('the approach section', () => {
   });
 });
 
+describe('the motion switch', () => {
+  it('pauses and resumes everything that moves, and says which state it is in', () => {
+    const pause = vi.fn(); const resume = vi.fn();
+    SVGElement.prototype.pauseAnimations = pause; SVGElement.prototype.unpauseAnimations = resume;
+    const { container } = show();
+    const root = container.querySelector('.nl');
+    const btn = screen.getByRole('button', { name: /Pause motion/i });
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+    expect(root.getAttribute('data-motion')).toBe('on');
+    fireEvent.click(btn);
+    expect(root.getAttribute('data-motion')).toBe('paused');
+    expect(screen.getByRole('button', { name: /Play motion/i }).getAttribute('aria-pressed')).toBe('true');
+    expect(pause).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /Play motion/i }));
+    expect(root.getAttribute('data-motion')).toBe('on');
+    expect(resume).toHaveBeenCalled();
+    delete SVGElement.prototype.pauseAnimations; delete SVGElement.prototype.unpauseAnimations;
+  });
+  it('sits next to the tool diagram, where most of the motion is', () => {
+    const { container } = show();
+    expect(container.querySelector('.nl-orb-wrap .nl-motion-btn')).toBeTruthy();
+  });
+});
+
 describe('the heading outline', () => {
   it('has one h1 and never skips a level, so a screen reader can move through the page by headings', () => {
     const { container } = show();
