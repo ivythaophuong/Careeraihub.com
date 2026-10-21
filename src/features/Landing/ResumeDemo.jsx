@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { reducedMotion } from './motion';
 
 // An interactive example of the Resume Builder result, for the landing page: the score ring fills, the bars move, Next shows the first issue and locks the rest behind sign-up.
 // The figures are one sample CV run through the product's checks, supplied by the owner on 2026-10-21 (ADR-015: the owner approves every figure on the page).
@@ -11,8 +12,9 @@ const BARS = [
   { name: 'Measurable impact', value: 78, note: '7 of 9 experience bullets contain a measurable number.' },
   { name: 'Date consistency', value: 100, note: '0 internal date contradiction(s) found across 3 checkable experience entries (overlapping entries are not penalised here).' },
 ];
+const PROFILE = [['Target role', 'Growth Product Manager'], ['Experience', '4 years'], ['Market', 'Singapore / Southeast Asia'], ['ATS readiness', `${SCORE}/100`]];
+const SKILLS = ['Growth & GTM', 'Analytics', 'Product Management', 'User Research', 'Retention Modeling', 'Cross-functional Collaboration'];
 const STEPS_ROW = ['Add your resume', 'See what to improve', 'Improve', 'Choose a layout and download'];
-const reducedMotion = () => { try { return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 export default function ResumeDemo({ onStart }) {
   const reduced = useRef(reducedMotion()).current;
@@ -65,8 +67,15 @@ export default function ResumeDemo({ onStart }) {
       <ol className="nl-demo-steps" aria-label="The four steps of the Resume Builder">
         {STEPS_ROW.map((s, i) => <li key={s} className={i === 1 ? 'is-on' : undefined} aria-current={i === 1 ? 'step' : undefined}><span aria-hidden="true">{i === 0 ? '✓' : i + 1}</span><span className="nl-demo-step-label">{s}</span></li>)}
       </ol>
-      <div className="nl-demo-file"><b>✓ Sample CV</b><span>488 words · extracted</span></div>
       <div className="nl-demo-body">
+        <div className="nl-demo-col">
+          <div className="nl-demo-file"><b>✓ Sample CV</b><span>488 words · extracted</span></div>
+          <div className="nl-demo-card">
+            <div className="nl-demo-label">Profile extracted</div>
+            {PROFILE.map(([k, v]) => <div className="nl-demo-row" key={k}><span>{k}</span><b>{v}</b></div>)}
+            <div className="nl-demo-skills"><span>Top skills</span><div>{SKILLS.map(sk => <i key={sk}>{sk}</i>)}</div></div>
+          </div>
+        </div>
         <div className="nl-demo-col">
           {view === 'score' ? (
             <>

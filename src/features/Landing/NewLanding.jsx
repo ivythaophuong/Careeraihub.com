@@ -3,6 +3,7 @@ import './NewLanding.css';
 import ResumeDemo from './ResumeDemo';
 import RecordingDemo from './RecordingDemo';
 import ScanDemo from './ScanDemo';
+import { reducedMotion, setMotionForced, systemWantsReducedMotion } from './motion';
 import ZoomShot from './ZoomShot';
 import { OrbitMark } from '../../components/OrbitMark';
 import salaryShot from './shots/salary-gap.png';
@@ -135,15 +136,18 @@ const ORBIT_TOOLS = [
 ];
 const toolPath = (t) => `M${t.x} ${t.y}L260 200`; // from the tool into the middle: every tool feeds the one CV and one memory
 const toolPathOut = (t) => `M260 200L${t.x} ${t.y}`; // and from the middle back out: every tool starts from the same CV and memory
-const prefersReducedMotion = () => { try { return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 const Logo = ({ size = 28, animated = false }) => <OrbitMark size={size} animated={animated} duration={8} />; // the brand mark of the app (the pink orbit shown while the app loads)
 
 
 export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   const [sel, setSel] = useState('apply');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [paused, setPaused] = useState(false); // WCAG 2.2.2: motion that starts by itself and lasts more than five seconds can be paused
+  const systemReduced = useRef(systemWantsReducedMotion()).current; // the device asks for reduced motion
+  const [playing, setPlaying] = useState(!systemReduced); // WCAG 2.2.2: motion that starts by itself can be paused; a visitor who asked for reduced motion can play it anyway
+  const paused = !playing;
   const rootRef = useRef(null);
+  const [motionKey, setMotionKey] = useState(0); // the examples read the motion setting when they start, so they start again when it changes
+  const toggleMotion = () => { const next = !playing; setMotionForced(systemReduced && next); setPlaying(next); setMotionKey(k => k + 1); };
   const cur = MOMENTS.find(m => m.id === sel) || MOMENTS[0];
   const start = () => { setMenuOpen(false); onStart && onStart(); };
   const signIn = () => { setMenuOpen(false); onSignIn && onSignIn(); };
@@ -152,7 +156,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   // The CSS animations are stopped by the data-motion rule in the stylesheet; the SVG ones (the moving dots, the satellites of the logo) are stopped through the SVG element.
   useEffect(() => {
     rootRef.current?.querySelectorAll('svg').forEach((svg) => { try { if (paused) svg.pauseAnimations?.(); else svg.unpauseAnimations?.(); } catch { /* an SVG without a timeline has nothing to stop */ } });
-  }, [paused]);
+  }, [playing, motionKey]);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -162,7 +166,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
   }, [menuOpen]);
 
   return (
-    <div className="nl" ref={rootRef} data-motion={paused ? 'paused' : 'on'}>
+    <div className="nl" ref={rootRef} data-motion={playing ? (systemReduced ? 'forced' : 'on') : (systemReduced ? 'off' : 'paused')}>
       <header className="nl-header">
         <div className="nl-wrap nl-nav">
           <a href="#top" className="nl-brand"><Logo />CareerAiHub</a>
@@ -200,7 +204,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <p className="nl-small nl-subtle">Free while we build. No card needed.</p>
             </div>
             <figure className="nl-hero-shot">
-              <ResumeDemo onStart={start} />
+              <ResumeDemo key={motionKey} onStart={start} />
             </figure>
           </div>
         </section>
@@ -223,7 +227,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                   {ORBIT_TOOLS.map((t, i) => [0, 1, 2].map(k => { const begin = `${(i * 0.35 + k * 5 / 3 + 0.8).toFixed(2)}s`; return <circle key={`out-${t.name}-${k}`} className="nl-pulse" data-dir="out" r="3" visibility="hidden"><set attributeName="visibility" to="visible" begin={begin} /><animateMotion dur="5s" begin={begin} repeatCount="indefinite" path={toolPathOut(t)} /></circle>; }))}
                 </svg>
                 <div className="nl-orb-ring" aria-hidden="true" /><div className="nl-orb-ring nl-orb-ring2" aria-hidden="true" />
-                <div className="nl-orb-core"><OrbitMark size={132} animated={!prefersReducedMotion()} duration={6} /></div>
+                <div className="nl-orb-core"><OrbitMark key={motionKey} size={132} animated={!reducedMotion()} duration={6} /></div>
                 {ORBIT_TOOLS.map((t, i) => (
                   <div key={t.name} className="nl-orb-card" style={{ left: `${t.x / 5.2}%`, top: `${t.y / 4}%`, animationDelay: `${i * -0.7}s` }}>
                     <Icon name={t.icon} size={16} /><span className="nl-orb-name">{t.name}</span><span className={`nl-orb-badge nl-orb-badge-${t.badge.toLowerCase()}`}>{t.badge}</span>
@@ -231,7 +235,8 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
                 ))}
               </div>
               <p className="nl-orb-caption"><strong>Every tool starts from the same CV and memory.</strong> More tools are in development.</p>
-              <button type="button" className="nl-motion-btn" aria-pressed={paused} onClick={() => setPaused(p => !p)}>{paused ? 'Play motion' : 'Pause motion'}</button>
+              {systemReduced && !playing && <p className="nl-motion-note">Your device asks for reduced motion, so the page is still.</p>}
+              <button type="button" className="nl-motion-btn" aria-pressed={playing ? 'false' : 'true'} onClick={toggleMotion}>{playing ? 'Pause motion' : 'Play motion'}</button>
             </div>
           </div>
         </section>
@@ -283,7 +288,7 @@ export default function NewLanding({ onStart, onSignIn, onModuleSelect }) {
               <div className="nl-panel-right">
                 {cur.shots.map(sh => (
                   <figure key={sh.key} className="nl-shot">
-                    <div className="nl-shot-frame">{sh.live === 'recording' ? <RecordingDemo /> : sh.live === 'scan' ? <ScanDemo onStart={start} /> : <ZoomShot src={sh.src} w={sh.w} h={sh.h} alt={sh.alt} />}</div>
+                    <div className="nl-shot-frame">{sh.live === 'recording' ? <RecordingDemo key={motionKey} /> : sh.live === 'scan' ? <ScanDemo key={motionKey} onStart={start} /> : <ZoomShot src={sh.src} w={sh.w} h={sh.h} alt={sh.alt} />}</div>
                     <figcaption>{sh.caption}</figcaption>
                   </figure>
                 ))}

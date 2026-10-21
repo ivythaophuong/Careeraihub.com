@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { reducedMotion } from './motion';
 
 // An example of the ATS Scanner result: the score and three bars, the missing keywords, the AI's note and the first fix suggestion.
 // The structure follows the product's result screen. The content is a sample CV against a sample job description, and the page says so.
@@ -13,7 +14,6 @@ const BARS = [
   { name: 'Format score', value: 90, source: 'ai' },
 ];
 const MISSING = ['funnel analysis', 'dashboards', 'cohort analysis', 'experiment design', 'payments', 'e-commerce', 'Figma'];
-const reducedMotion = () => { try { return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 export default function ScanDemo({ onStart }) {
   const reduced = useRef(reducedMotion()).current;
