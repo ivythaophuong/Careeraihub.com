@@ -35,9 +35,9 @@ Sources read: `supabase/functions/_shared/interviewScoring.js`, `src/features/Hi
 | Separate content evaluation from delivery metrics | Done (ADR-014) | **Done** |
 | Pause counts are trustworthy only when the audio pipeline and the pause definition are validated | Stated in `rhythm.js` and in ADR-014 item 4 | **Agrees** |
 | Versioned rubric; store the rubric version used in each session | No rubric is live; nothing to version yet | **Valid when a rubric goes live** |
-| `evaluation_runs` apart from responses, for retry and comparison | The product keeps no answers and stores only the session average | **Valid in principle; premature.** Needs the decision on keeping answers first |
+| `evaluation_runs` apart from responses, for retry and comparison | `mock_sessions` stores only the average, count and mode; the account backup may also hold answer text and tips (see the lineage review; production UNKNOWN) | **Valid in principle; premature.** Needs the decision on keeping answers first |
 | Foreign key to `auth.users`, RLS on every table, no client-written scores | See section 2; policies are not in this repository | **A real concern for any new table**; for existing tables it needs a read-only check against the database |
-| Do not store transcripts or audio for long | Audio is not kept; the transcript lives in the answer box until it is sent for feedback | **Agrees** |
+| Do not store transcripts or audio for long | Audio is not kept by the app code read (VERIFIED); the transcript is the answer text, which follows the same path as a typed answer, including a possible copy in the account backup | **Agrees for audio; for the transcript see the lineage review** |
 | Track `question_started`, `skipped`, `abandoned` and so on; completion rate alone is not quality | No such events exist | **Valid; later.** Needs a privacy review and a denominator before any comparison |
 | Do not claim how competitors work from a blog | The analysis says so itself | **Agreed.** Nothing here relies on competitors |
 | A "confidence score" as a goal | ADR-014 defers a confidence percentage until there is evidence | **Not adopted** |
@@ -65,7 +65,7 @@ Sources read: `supabase/functions/_shared/interviewScoring.js`, `src/features/Hi
 | Q1 | Rubric v0 | **Approved with conditions**: its content and criteria are to be reviewed before it is built; not approved as written |
 | Q2 | Two independent reviewers for the reference answers | Recruit two; none named; no validation run until then |
 | Q3 | Pilot domain and who writes and reviews questions | Product Management; the owner and volunteers write; see `DESIGN-question-bank-mvp-2026-10-22.md` section 10 |
-| Q4 | Keeping a user's answers | **Not in the MVP.** Answers stay handled in the moment; no long-term transcript store. A voluntary history would need its own design (consent, retention, deletion) |
+| Q4 | Keeping a user's answers | **Not in the MVP: no new history feature and no new answer store.** This is a design decision, not a description of today: answer text may already be in account backups (lineage review), and D-1 in the decision record covers stopping that going forward. A voluntary history would need its own design (consent, retention, deletion) |
 
 These are product directions. Nothing is built, and the conditions in section 12 of the design file still apply.
 

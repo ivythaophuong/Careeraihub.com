@@ -14,7 +14,7 @@
 
 This is a product decision, not an implemented change.
 
-Before implementation, conduct a read-only data-lineage review covering:
+Status of this condition: the code-level review is written in `REVIEW-answer-text-data-lineage-2026-10-22.md` (source only; production, providers and logs still UNKNOWN). Before implementation, the read-only data-lineage review covers:
 
 - How `buildSessionRecord`, `updateMemory` and `toBackup` handle `answer`, `tip` and `mockSessions`.
 - Whether answer text is currently present in browser storage, account backup payloads, database records, application logs, analytics or provider-side retention.
@@ -49,6 +49,17 @@ The revised wording must be tested against reference answers before any rubric-b
 **Decision:** Design Performance Framework v1 before refining the generation prompt and JSON schema.
 
 The framework will define the evaluation contract. The prompt must follow that contract rather than create a new evaluation standard for each generated question.
+
+### Status by item
+
+| Item | Direction | Approved or done | Still open |
+|---|---|---|---|
+| D-1 retention | Stop writing answer text to backups going forward | Direction only; code-level lineage written | Production counts, `tip` decision, historical data, provider and log copies, privacy wording |
+| D-2 persona wording | Soften emphasis on numbers | Direction only | The exact wording and its test |
+| D-3 criteria D and E | Revise before any rubric scoring | Direction only | Revised text and a check on reference answers |
+| D-4 order | Framework before prompt and schema | Direction only | Framework v1 is a draft that needs the additions in its section 15 |
+
+"Direction approved" does not mean the rubric, thresholds, schema or any implementation scope is approved.
 
 ## 2. Product architecture direction
 

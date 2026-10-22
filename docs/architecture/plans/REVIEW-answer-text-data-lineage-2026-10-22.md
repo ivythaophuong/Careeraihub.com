@@ -31,11 +31,25 @@ No screen was found that reads `answer` or `tip` back from `mockSessions`. The r
 
 The same page names OpenAI as the main provider and Groq as the backup. The routing documents in this repository describe Groq as the measured primary and the live secrets are held by the owner, so the provider sentence may be out of date (UNKNOWN; check against the live `AI_PROVIDER` before anyone relies on the page).
 
+## 3b. What "Clear memory" does (VERIFIED in code, `MemoryDashboard.jsx` `clearMemory`)
+
+- It sets `mockSessions` (and every other list) to empty in memory. Because the keys change, `updateMemory` marks them for the account backup, and the next backup write replaces `user_memory.data.mockSessions` with an empty list.
+- It also deletes the user's rows in `resume_scans`, `star_stories`, `mock_sessions`, `cover_letters`, `jd_analyses`, `applications`, `negotiation_practice` and `insights`. The deletes use `Promise.allSettled`, so a failure is not reported to the user.
+- Limits: if the backup is locked or fails (ADR-006 behaviour), the old text stays in `user_memory`; this review did not run the path against a real account (UNKNOWN). It does not touch provider copies, host logs or any database backup outside the application.
+
+## 3c. Three things that must not be conflated
+
+1. **Stop writing answer text to account backups from now on** (code change, local, testable).
+2. **Delete historical text already in `user_memory`** (needs a count, a scope and the owner's approval; "Clear memory" is the user's own path, not an operator cleanup).
+3. **Anything at providers, in logs or in database backups** (cannot be inferred from a change to `toBackup`; each needs its own check).
+
+`tip` is advice generated from the answer, so it can echo parts of it. Keeping `tip` while dropping `answer` may not meet a goal of holding less personal career text; this is a decision for the owner (E1), not an assumption.
+
 ## 4. What this means for D-1
 
 - **Future-only change is small and local:** stop writing `answer` (and decide about `tip`) into the session record that goes to memory. Nothing found reads it. Tests that now expect the answer in the record would change.
 - **Existing records are untouched by that change.** Old `user_memory` rows keep their text until a separate, owner-approved step. The repository cannot show how many rows have it.
-- **Two retention behaviours need a decision, not a guess:** whether `tip` stays (it is the model's advice, derived from the answer) and whether the in-session answer shown on the results screen stays as it is (it is browser-only, so probably yes).
+- **Two retention behaviours need a decision, not a guess (see 3c):** whether `tip` stays (it is the model's advice, derived from the answer) and whether the in-session answer shown on the results screen stays as it is (it is browser-only, so probably yes).
 - **Provider retention is not answered here.** Terms are read in `AI-PROVIDER-DATA-TERMS-2026-10-13.md`; live account settings are UNKNOWN.
 - **Wording:** after a change, the policy line should say what is kept. That is a legal-wording matter for the owner.
 
