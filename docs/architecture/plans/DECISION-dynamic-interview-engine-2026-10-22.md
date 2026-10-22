@@ -14,7 +14,7 @@
 
 This is a product decision, not an implemented change.
 
-Before implementation, conduct a read-only data-lineage review covering:
+Status of this condition: the code-level review is written in `REVIEW-answer-text-data-lineage-2026-10-22.md` (source only; production, providers and logs still UNKNOWN). Before implementation, the read-only data-lineage review covers:
 
 - How `buildSessionRecord`, `updateMemory` and `toBackup` handle `answer`, `tip` and `mockSessions`.
 - Whether answer text is currently present in browser storage, account backup payloads, database records, application logs, analytics or provider-side retention.
@@ -49,6 +49,24 @@ The revised wording must be tested against reference answers before any rubric-b
 **Decision:** Design Performance Framework v1 before refining the generation prompt and JSON schema.
 
 The framework will define the evaluation contract. The prompt must follow that contract rather than create a new evaluation standard for each generated question.
+
+### Status by item
+
+| Item | Direction | Approved or done | Still open |
+|---|---|---|---|
+| D-1 retention | Stop writing answer text to backups going forward | Direction only; code-level lineage written | Production counts, `tip` decision, historical data, provider and log copies, privacy wording |
+| D-2 persona wording | Soften emphasis on numbers | Direction only | The exact wording and its test |
+| D-3 criteria D and E | Revise before any rubric scoring | Direction only | Revised text and a check on reference answers |
+| D-4 order | Framework before prompt and schema | Direction only | Framework v1 is a draft that needs the additions in its section 15 |
+
+"Direction approved" does not mean the rubric, thresholds, schema or any implementation scope is approved.
+
+### Owner confirmations (2026-10-22, after the lineage review)
+
+- **E1 — direction approved:** stop writing both `answer` and `tip` into account backups in new saves. Not implemented. A separate small plan with tests first must define the exact fields removed, what is not affected, and behaviour when the backup fails. Historical backup data is not decided; provider, log and external backup copies stay UNKNOWN. "Clear memory" must not be described as deleting all data until its scope and result are verified, and its silent failure on delete needs its own design and tests.
+- **E2 — direction approved, not a rubric approval:** the three-layer structure in section 15 of the Performance Framework (evidence extraction, criterion assessment, score derivation). Four conditions stand: each criterion defines its minimum evidence; `insufficient_evidence` is never automatically the lowest level and `not_applicable` has explicit conditions; thresholds, aggregation and pass/fail are fixed before results are seen; offline tests on a reference set with two independent reviewers and repeated runs come before any exposure. Correct quoting does not prove correct interpretation, and correct criteria do not prove a total predicts hiring outcomes.
+
+Neither confirmation authorises code, SQL, deletion or production change.
 
 ## 2. Product architecture direction
 

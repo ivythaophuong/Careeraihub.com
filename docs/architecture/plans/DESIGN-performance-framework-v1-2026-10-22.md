@@ -295,3 +295,43 @@ The owner must approve thresholds before testing. The following gates define wha
 - The final generation prompt and JSON schema, which are intentionally deferred until this framework is approved.
 
 **Approval required before implementation:** framework criteria, level descriptors, applicability rules, aggregation policy, validation thresholds and the versioning contract.
+
+## 15. Additions after review (2026-10-22; still a design draft)
+
+### 15.1 Three layers, so a failure can be located
+
+1. **Evidence extraction:** what the answer actually contains (actions, reasons, observed results, data limits). Output separates a verbatim quote from the model's paraphrase.
+2. **Criterion assessment:** the level (0, 1, 2) or an evidence state for each criterion, with the quote that supports it.
+3. **Score derivation:** code applies an approved rule to validated criterion results, or returns a result state without a number.
+
+A wrong quote is a grounding error; a right quote with the wrong level is a rubric-application error; right levels with a wrong total is an aggregation error. Tests and reviewer notes name which layer failed.
+
+### 15.2 What each criterion definition must contain before a pilot
+
+- The minimum evidence needed to judge it.
+- When Level 0 is allowed (relevant information given, and it shows a clear weakness).
+- When the state is `insufficient_evidence` (the information to judge is absent).
+- When it is `not_applicable` (the question type does not use the criterion). `not_applicable` and `insufficient_evidence` never stand in for each other.
+- A worked example for each of Level 0, 1, 2 and for `insufficient_evidence`.
+
+Example with a measurement question: an observed qualitative signal plus how feedback was collected can be assessed; a plan to measure with no observed result is evidence of method, not of outcome; "the feature was successful" with nothing more is `insufficient_evidence`. The three must not receive one common score.
+
+### 15.3 Quotes that do not match
+
+If a quoted span is not found in the submitted answer under the documented matching policy, the quote is dropped from the display and counted as a grounding failure. If a criterion level depends only on an unmatched quote, that criterion becomes `insufficient_evidence` for the result, not a guessed level. The matching policy (exact, whitespace-normalised, case) is to be written and tested before the pilot.
+
+### 15.4 Result states
+
+An evaluation ends in one of: `assessed` (enough criteria covered by evidence, a documented rule may produce a number), `not_enough_evidence` (no number), `evaluation_error` (invalid or truncated output, safe retry). The minimum coverage for `assessed` is not set here.
+
+### 15.5 No mapping to the 0 to 100 score yet
+
+The current 0 to 100 score and any score derived from this framework would mean different things. Levels are not converted into the existing scale to keep the screen familiar. Until an aggregation rule is approved, results show per-criterion assessments and states; any number stays labelled an AI estimate.
+
+### 15.6 Link to the Question Bank
+
+A question, reviewed or AI-written, carries a `type` that code checks against the fixed list in section 3; an unknown or missing type does not reach the evaluator. The Reviewed tag describes the review of the question only, not the grading.
+
+### 15.7 Order
+
+Pass/fail thresholds are fixed before anyone looks at test results, so the bar is not chosen after seeing how far the model got.

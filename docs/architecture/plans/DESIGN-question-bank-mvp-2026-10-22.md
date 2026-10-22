@@ -63,7 +63,7 @@ The AI prompt for the personalised questions gains two inputs it lacks today: th
 
 ## 6. What "already asked" means
 
-Today the product keeps no answers and stores only the session average (VERIFIED). So "already asked" can only be remembered on the **device**, as a list of question ids per signed-in user (as the timed-round marker is kept today in `localStorage`).
+Today `mock_sessions` stores only the session average, the count and the mode (VERIFIED in code). The account backup (`user_memory`) may also hold answer text and tips for the last 20 sessions (VERIFIED in code, production UNKNOWN; see `REVIEW-answer-text-data-lineage-2026-10-22.md`). The question-asked memory in this design is independent of that, so "already asked" can only be remembered on the **device**, as a list of question ids per signed-in user (as the timed-round marker is kept today in `localStorage`).
 
 Rules (PROPOSED, to confirm in PR 2):
 - A question counts as **seen** when it is actually shown to the user, not only when answered. Reason: a shown question has already been read.
@@ -120,6 +120,6 @@ Each is its own pull request; nothing is deployed without the owner's word.
 1. **Rubric v0 is approved only with conditions.** It needs a review of its criteria, levels, treatment of missing evidence and label rules before any rubric-based scoring is switched on. This design changes no scoring.
 2. **Two independent reviewers are not yet named.** Until they exist, the reviewer fields of the first questions may show only the owner, and that must be stated as a limit. No claim that the AI scoring is reliable until a validation run with them exists.
 3. **Live data access is not re-verified.** Policies and grants were last read on 2026-10-18 (`docs/database/README.md`); they must be read again before any change that touches data. This design needs none for the pilot.
-4. **Answers are not stored long term in the MVP** (Q4 in the reconciliation). That does not prove no copy exists elsewhere: how the app, the logs and the AI providers treat transcripts must be checked separately (UNKNOWN until then).
+4. **Answer text in account backups.** The design decision (`DECISION-dynamic-interview-engine-2026-10-22.md`, D-1) is to stop including answer text in backups from now on; it is not implemented, and historical data and other copies are separate questions. This Question Bank design adds no storage of answers (only question ids on the device). Until D-1 is done, do not describe the product as keeping no answers.
 5. **Voice unlock is unchanged** (section 7). PR 3 needs a test showing the Question Bank does not change the timed-round and four-of-five rule.
 6. **"Reviewed" means** a named person looked at the question under the owner's process. It does not mean the question was shown to predict real interview results.
