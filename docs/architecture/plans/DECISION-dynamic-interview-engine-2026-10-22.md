@@ -61,6 +61,13 @@ The framework will define the evaluation contract. The prompt must follow that c
 
 "Direction approved" does not mean the rubric, thresholds, schema or any implementation scope is approved.
 
+### Owner confirmations (2026-10-22, after the lineage review)
+
+- **E1 — direction approved:** stop writing both `answer` and `tip` into account backups in new saves. Not implemented. A separate small plan with tests first must define the exact fields removed, what is not affected, and behaviour when the backup fails. Historical backup data is not decided; provider, log and external backup copies stay UNKNOWN. "Clear memory" must not be described as deleting all data until its scope and result are verified, and its silent failure on delete needs its own design and tests.
+- **E2 — direction approved, not a rubric approval:** the three-layer structure in section 15 of the Performance Framework (evidence extraction, criterion assessment, score derivation). Four conditions stand: each criterion defines its minimum evidence; `insufficient_evidence` is never automatically the lowest level and `not_applicable` has explicit conditions; thresholds, aggregation and pass/fail are fixed before results are seen; offline tests on a reference set with two independent reviewers and repeated runs come before any exposure. Correct quoting does not prove correct interpretation, and correct criteria do not prove a total predicts hiring outcomes.
+
+Neither confirmation authorises code, SQL, deletion or production change.
+
 ## 2. Product architecture direction
 
 The intended sequence is:
