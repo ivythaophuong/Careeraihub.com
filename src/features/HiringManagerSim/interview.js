@@ -76,6 +76,7 @@ export function buildSessionRecord({ personaId, role, results, summary, now = ne
     questionsCount: summary.answered,
     skipped: summary.skipped,
     avgScore: summary.avgScore,
-    questions: results.map(r => ({ question: r.question, focus: r.focus, skipped: !!r.skipped, score: r.score ?? null, verdict: r.verdict ?? null, answer: r.answer ?? '', tip: r.tip ?? '' })),
+    // Scores and labels only: the question, answer and tip are personal text and are not kept in the saved record (decision E1a).
+    questions: results.map(r => ({ focus: r.focus, skipped: !!r.skipped, score: r.score ?? null, verdict: r.verdict ?? null })),
   };
 }

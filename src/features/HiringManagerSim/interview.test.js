@@ -112,6 +112,33 @@ describe('buildSessionRecord', () => {
     const results = [{ question: 'q1', focus: 'f', answer: 'ans', score: 70, verdict: 'Acceptable', tip: 't' }, { question: 'q2', focus: 'g', skipped: true }];
     const rec = buildSessionRecord({ personaId: 'seriesb', role: 'PM', results, summary: summarize(results), now: new Date('2026-03-04T05:06:07Z') });
     expect(rec).toMatchObject({ date: '2026-03-04T05:06:07.000Z', persona: 'seriesb', personaLabel: 'Series B', role: 'PM', questionsCount: 1, skipped: 1, avgScore: 70 });
-    expect(rec.questions[1]).toMatchObject({ skipped: true, score: null, answer: '' });
+    expect(rec.questions[1]).toMatchObject({ skipped: true, score: null });
+  });
+
+  // E1a: a stored session keeps scores and labels, never the text of a question, an answer or a tip (PLAN-e1, section 3).
+  describe('keeps no personal text', () => {
+    const results = [
+      { question: 'You led the Zebra Payments migration at Acme. How did you decide?', focus: 'Decision making', answer: 'At Acme I chose the Zebra route because of Dana Ortiz.', score: 70, verdict: 'Acceptable', tip: 'Say more about why Zebra beat the alternatives.', retries: [{ answer: 'second try about Zebra', score: 80 }] },
+      { question: 'Tell me about the Quokka launch.', focus: 'Ownership', skipped: true },
+    ];
+    const rec = buildSessionRecord({ personaId: 'seriesb', role: 'PM', results, summary: summarize(results), now: new Date('2026-03-04T05:06:07Z') });
+
+    it('has no question, answer or tip on any stored question', () => {
+      for (const q of rec.questions) {
+        expect(q).not.toHaveProperty('question');
+        expect(q).not.toHaveProperty('answer');
+        expect(q).not.toHaveProperty('tip');
+        expect(q).not.toHaveProperty('retries');
+      }
+    });
+    it('contains none of the original words once serialised', () => {
+      const text = JSON.stringify(rec);
+      for (const w of ['Zebra', 'Acme', 'Dana Ortiz', 'Quokka', 'second try']) expect(text).not.toContain(w);
+    });
+    it('keeps the fields the screens and statistics read', () => {
+      expect(rec).toMatchObject({ date: '2026-03-04T05:06:07.000Z', persona: 'seriesb', personaLabel: 'Series B', role: 'PM', questionsCount: 1, skipped: 1, avgScore: 70 });
+      expect(rec.questions[0]).toEqual({ focus: 'Decision making', skipped: false, score: 70, verdict: 'Acceptable' });
+      expect(rec.questions[1]).toEqual({ focus: 'Ownership', skipped: true, score: null, verdict: null });
+    });
   });
 });
