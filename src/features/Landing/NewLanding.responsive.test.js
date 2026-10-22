@@ -59,7 +59,7 @@ describe('the white sections: the approach and the footer', () => {
       expect(ratio(fg, bg), name).toBeGreaterThanOrEqual(4.5);
     }
   });
-  it('make the approach section and the footer white', () => {
+  it('make the "check ours" section and the footer white', () => {
     expect(css).toMatch(/\.nl-paper \{ background: #FFFFFF;/);
     expect(css).toMatch(/\.nl-footer\.nl-paper-foot \{ background: #FFFFFF;/);
   });
@@ -170,5 +170,12 @@ describe('fluid sizes and smooth scrolling', () => {
   });
   it('sections leave room for the sticky header when a link scrolls to them', () => {
     expect(css).toMatch(/\.nl section\[id\] \{ scroll-margin-top: 88px; \}/);
+  });
+});
+
+describe('the check cards of the approach section', () => {
+  it('are three equal columns that become one column on a narrow screen', () => {
+    expect(css).toMatch(/\.nl \.nl-checks \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+    expect(css.slice(css.lastIndexOf('/* Narrow screens, last of all'))).toMatch(/\.nl \.nl-checks \{ grid-template-columns: 1fr; \}/);
   });
 });
