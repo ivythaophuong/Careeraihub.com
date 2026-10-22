@@ -58,14 +58,16 @@ Sources read: `supabase/functions/_shared/interviewScoring.js`, `src/features/Hi
 - A schema or prompt described there as if it were ours.
 - Statements about what other products do.
 
-## 6. Decisions this leaves with the owner (APPROVAL)
+## 6. Decisions of the owner (2026-10-22)
 
-| # | Decision | Needed for |
+| # | Decision | Status |
 |---|---|---|
-| Q1 | Approve, edit or reject rubric v0 | The rubric plan; the evaluation work |
-| Q2 | Name two reviewers and the volunteers for the reference set | The rubric plan |
-| Q3 | Choose the pilot domain and who writes and reviews the first questions | The Question Bank MVP |
-| Q4 | Decide whether the product will ever keep a user's answers (to review them later) | Whether `evaluation_runs`-style history is needed at all |
+| Q1 | Rubric v0 | **Approved with conditions**: its content and criteria are to be reviewed before it is built; not approved as written |
+| Q2 | Two independent reviewers for the reference answers | Recruit two; none named; no validation run until then |
+| Q3 | Pilot domain and who writes and reviews questions | Product Management; the owner and volunteers write; see `DESIGN-question-bank-mvp-2026-10-22.md` section 10 |
+| Q4 | Keeping a user's answers | **Not in the MVP.** Answers stay handled in the moment; no long-term transcript store. A voluntary history would need its own design (consent, retention, deletion) |
+
+These are product directions. Nothing is built, and the conditions in section 12 of the design file still apply.
 
 ## 7. Not verified
 
