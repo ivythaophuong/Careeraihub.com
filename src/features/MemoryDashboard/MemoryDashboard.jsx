@@ -5,6 +5,7 @@ import { extractJSON } from '../../lib/ai';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { sb } from '../../lib/supabase';
 import { GetReadyTabStrip } from '../Landing/LandingPage';
+import { LEGAL_EMAIL } from '../Legal/legalContent';
 import '../../styles/featurePage.css';
 
 // Missing data is left out, never turned into a number: an item without a finite score does not
@@ -44,12 +45,18 @@ export function buildMemoryContext(mem, form) {
   return lines.length ? "\n\nUSER HISTORY CONTEXT:\n" + lines.join("\n") : "";
 }
 
+// The account tables "Clear All Memory" deletes from, with the words shown to the user.
+const CLEARED_TABLES = [
+  ['resume_scans', 'resume scans'], ['star_stories', 'STAR stories'], ['mock_sessions', 'mock sessions'], ['cover_letters', 'cover letters'],
+  ['jd_analyses', 'job description analyses'], ['applications', 'applications'], ['negotiation_practice', 'negotiation practice'], ['insights', 'insights'],
+];
+
 export default function MemoryDashboard({ memory, form, user, updateMemory, setActiveModule, onStudyPlan, embedded }) {
   if (!memory) return <div style={{textAlign:"center",padding:40}}><Spinner label="Assembling AI memory bank..."/></div>;
 
   const [aiSummary, setAiSummary]   = useState(null);
   const [loadingSummary, setLoading] = useState(false);
-  const [cleared, setCleared]        = useState(false);
+  const [clearResult, setClearResult] = useState(null); // null | { kind: 'complete' | 'incomplete' | 'unconfirmed', failed: [labels] }
 
   const totalActivity = (memory.scanHistory?.length||0)+(memory.starBank?.length||0)+(memory.mockSessions?.length||0)+(memory.applications?.length||0);
 
@@ -67,7 +74,7 @@ Return ONLY raw JSON:
   };
 
   const clearMemory = async () => {
-    setCleared(true);
+    setClearResult(null);
     setAiSummary(null);
     // Updates merge into memory, so to clear everything we explicitly empty every key that exists
     // (lists become [], numbers 0, everything else null) on top of the known defaults.
@@ -77,12 +84,13 @@ Return ONLY raw JSON:
       insights: [], totalSessions: 0, lastSeen: null, profile: {}, lastResume: null,
       ...Object.fromEntries(Object.keys(m || {}).map(k => [k, Array.isArray(m[k]) ? [] : typeof m[k] === 'number' ? 0 : null])),
     }));
-    if (user?.id && user?.token) {
-      const filter = { user_id: `eq.${user.id}` };
-      const tables = ['resume_scans', 'star_stories', 'mock_sessions', 'cover_letters',
-                      'jd_analyses', 'applications', 'negotiation_practice', 'insights'];
-      await Promise.allSettled(tables.map(t => sb.delete(t, filter, user.token)));
-    }
+    // Without a signed-in session nothing is deleted from the account, so nothing may be said about it.
+    if (!(user?.id && user?.token)) { setClearResult({ kind: 'unconfirmed', failed: [] }); return; }
+    const filter = { user_id: `eq.${user.id}` };
+    // The outcome is shown only after every delete has settled; a rejected one is a table that still holds data.
+    const settled = await Promise.allSettled(CLEARED_TABLES.map(([table]) => sb.delete(table, filter, user.token)));
+    const failed = CLEARED_TABLES.filter((_, i) => settled[i].status === 'rejected').map(([, label]) => label);
+    setClearResult({ kind: failed.length ? 'incomplete' : 'complete', failed });
   };
 
   const statCards = [
@@ -119,7 +127,15 @@ Return ONLY raw JSON:
         </div>
       </div>
 
-      {cleared && <Card glow={C.gold}><div style={{color:C.gold,fontSize:13}}>✓ Memory cleared. Fresh start!</div></Card>}
+      {clearResult?.kind === 'complete' && <Card glow={C.gold}><div role="status" style={{color:C.gold,fontSize:13}}>✓ Your saved records were deleted from your account: {CLEARED_TABLES.map(([, label]) => label).join(', ')}.</div></Card>}
+      {clearResult?.kind === 'unconfirmed' && <Card glow={C.gold}><div role="status" style={{color:C.gold,fontSize:13}}>Cleared in this app. We could not confirm deletion from your account because you are not signed in.</div></Card>}
+      {clearResult?.kind === 'incomplete' && (
+        <Card style={{borderColor:C.red+"66"}}>
+          <div role="alert" style={{color:C.red,fontSize:13,lineHeight:1.6}}>
+            <strong>Some data could not be deleted yet.</strong> The remaining records may still contain information you asked to delete ({clearResult.failed.join(', ')}). Please try again or contact support at {LEGAL_EMAIL}.
+          </div>
+        </Card>
+      )}
 
       {/* Activity Stats Grid */}
       <div className="fp-grid-4" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
