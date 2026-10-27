@@ -5,6 +5,8 @@ import { AnimatedScore } from '../../components/OriginalFeatures';
 import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { MIN_JD_CHARS, MAX_JD_CHARS, pickResumeSource, buildJDPrompt, normalizeJDResult } from './jdAnalysis';
+import { useActiveJob, requestTrackerTab, jobLabel } from '../JobSearch/jobHandoff';
+import { todayYmd } from '../JobSearch/jobTracker';
 import '../../styles/featurePage.css';
 
 const SOURCE_LABEL = {
@@ -23,7 +25,8 @@ const listCard = (title, items, color, icon) => (
 );
 
 export default function JDAnalyzer({ resumeText, form, memory, updateMemory, setAuthModal, setActiveModule }) {
-  const [jd, setJd] = useState("");
+  const job = useActiveJob(memory, updateMemory); // set when the user came from a tracked job
+  const [jd, setJd] = useState(job?.jd || "");
   const [result, setResult] = useState(null);
   const [usedSource, setUsedSource] = useState('none');
   const [loading, setLoading] = useState(false);
@@ -48,6 +51,12 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory, set
       // analysis has no score to store); both kinds stay in the memory backup.
       updateMemory?.(
         m => ({
+          // Opened from a tracked job: the tracker card keeps this estimate and the description.
+          ...(job?.appId != null && parsed.matchScore != null ? {
+            applications: (m.applications || []).map(a => a.id === job.appId
+              ? { ...a, fitScore: parsed.matchScore, fitCheckedOn: todayYmd(), jd: a.jd || text.slice(0, 6000) }
+              : a),
+          } : {}),
           jdAnalyses: [
             { date: new Date().toISOString(), company: parsed.company, role: parsed.roleTitle, roleTitle: parsed.roleTitle, matchScore: parsed.matchScore, result: parsed },
             ...(m.jdAnalyses || []),
@@ -80,6 +89,13 @@ export default function JDAnalyzer({ resumeText, form, memory, updateMemory, set
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Job Description Analyzer</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Paste any JD. Get match score, ATS keywords, red flags, and your positioning strategy.</div>
       </div>
+
+      {job && (
+        <Card style={{ border: `1px solid ${C.green}44`, display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+          <div style={{ color: C.text, fontSize: 13, lineHeight: 1.6 }}>From your tracker: <strong>{jobLabel(job)}</strong>. The result is saved on that job.</div>
+          {setActiveModule && <Btn onClick={() => { requestTrackerTab(); setActiveModule('jobs'); }} color={C.green} style={{ minHeight: 44 }}>Back to tracker</Btn>}
+        </Card>
+      )}
 
       <Card>
         <div style={{ color: C.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Paste Job Description</div>

@@ -13,6 +13,7 @@ import { splitFirstSentence } from './feedbackDetail';
 import { SESSIONS_KEPT } from '../../lib/historyLimits';
 import { saveDeviceSession, loadDeviceSession, clearDeviceSession } from './deviceSession';
 import { formatElapsed, describeEvaluationFailure } from './sessionUi';
+import { requestTrackerTab } from '../JobSearch/jobHandoff';
 import SessionPanel from './SessionPanel';
 import NextStepCard from './NextStepCard';
 import StructurePanel from './StructurePanel';
@@ -49,10 +50,12 @@ function Outline({ items }) {
   );
 }
 
-export default function HiringManagerSim({ resumeText, form, memory, updateMemory, setAuthModal, setActiveModule, user }) {
+export default function HiringManagerSim({ resumeText, form, memory, updateMemory, setAuthModal, setActiveModule, user, job }) {
   const [phase, setPhase] = useState('select'); // select | interview | summary
   const [personaId, setPersonaId] = useState(null);
-  const [role, setRole] = useState(form?.role || '');
+  const [role, setRole] = useState(job?.role || form?.role || '');
+  // The tracked job's description only shapes the questions while the role is still that job's role.
+  const jobPart = job && role.trim() === (job.role || '').trim() ? { company: job.company, jd: job.jd } : {};
   const [questions, setQuestions] = useState([]);
   const [idx, setIdx] = useState(0);
   const [results, setResults] = useState([]);
@@ -152,7 +155,7 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
     if (!role.trim() && resume.kind === 'none') { setErr('Enter the role you are interviewing for, or add your resume, so the questions fit you.'); return; }
     setBusy('questions'); setErr('');
     try {
-      const raw = await callLLMFor('mock_questions', resume)([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume }) }], 2500, resume.pdfBase64);
+      const raw = await callLLMFor('mock_questions', resume)([{ role: 'user', content: buildQuestionsPrompt({ personaId: id, role: role.trim(), resume, ...jobPart }) }], 2500, resume.pdfBase64);
       setQuestions(normalizeQuestions(extractJSON(raw)));
       setChallenge(chosen); setPersonaId(id); setIdx(0); setResults([]); setAnswer(''); setCurrent(null); setWarnings([]); setSaved(false); setAttempt(1); setLastShown(null);
       setFailureKind(null); questionRef.current = 0; setQuestionMs(0); setKept(null);
@@ -309,6 +312,12 @@ export default function HiringManagerSim({ resumeText, form, memory, updateMemor
         </div>
       </Card>
 
+      {jobPart.company && (
+        <div role="note" style={{ color: C.text, fontSize: 13 }}>
+          Practising for <strong>{jobPart.company}</strong>{jobPart.jd ? ', using the job description you saved.' : '. Add the job description on the tracker card to make the questions fit the posting.'}
+          {setActiveModule && <button onClick={() => { requestTrackerTab(); setActiveModule('jobs'); }} style={{ marginLeft: 10, minHeight: 44, background: 'none', border: 'none', color: C.accent, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, textDecoration: 'underline' }}>Back to tracker</button>}
+        </div>
+      )}
       <Card>
         <div style={label}>Role You're Interviewing For</div>
         <input

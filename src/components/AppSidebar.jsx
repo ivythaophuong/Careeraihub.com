@@ -26,6 +26,8 @@ function Icon({ id, size = 15, color = 'currentColor' }) {
       return <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" style={s}><path {...p} d="M8 1L2 4v4c0 3.5 2.7 6.2 6 7 3.3-.8 6-3.5 6-7V4L8 1z"/><path {...p} d="M5.5 8l2 2 3-3"/></svg>;
     case 'trustmatch':
       return <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" style={s}><path {...p} d="M5 8.5C5 7.1 6.1 6 7.5 6S10 7.1 10 8.5V10H5V8.5z"/><path {...p} d="M1 14v-1.5C1 11.1 2.3 10 4 10M15 14v-1.5C15 11.1 13.7 10 12 10M4 7.5A2 2 0 104 3.5M12 7.5A2 2 0 1012 3.5"/></svg>;
+    case 'jobs':
+      return <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" style={s}><rect {...p} x="1" y="5" width="14" height="9" rx="1.5"/><path {...p} d="M5.5 5V3.5A1.5 1.5 0 017 2h2a1.5 1.5 0 011.5 1.5V5M1 9h14"/></svg>;
     case 'aichat':
       return <svg aria-hidden="true" focusable="false" viewBox="0 0 16 16" style={s}><rect {...p} x="1" y="2" width="14" height="9" rx="2"/><path {...p} d="M4 14l2-3M12 14l-2-3"/><path {...p} d="M5 6.5h6M5 8.5h4"/></svg>;
     default:
@@ -66,6 +68,7 @@ const NAV_GROUPS = [
   {
     label: 'Get Matched',
     items: [
+      { id: 'jobs',       label: 'Job Search',     badge: 'new'     },
       { id: 'trustmatch', label: 'TrustMatch',     badge: 'planned' },
       { id: 'aichat',     label: 'AI Career Coach', badge: 'new'    },
     ],

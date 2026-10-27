@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { sb } from '../../lib/supabase';
+import { pipelineStats, attentionList } from '../JobSearch/jobTracker';
+import { requestTrackerTab } from '../JobSearch/jobHandoff';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(dateStr) {
@@ -107,6 +109,26 @@ function StreakBar({ activities, topGap }) {
       <div style={{ fontSize: 11, color: 'var(--lp-text2)', lineHeight: 1.5, marginBottom: 10 }}>
         <span style={{ fontWeight: 600, color: 'var(--lp-text)' }}>Top action: </span>{topGap}
       </div>
+    </div>
+  );
+}
+
+// Job Hunt: only for a user who is tracking applications. Counts and next steps come from the tracker (features/JobSearch/jobTracker.js).
+function JobHuntPanel({ applications, setActiveModule }) {
+  const stats = pipelineStats(applications);
+  const next = attentionList(applications, new Date(), 2);
+  return (
+    <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <SectionLabel>Job Hunt</SectionLabel>
+        <button onClick={() => { requestTrackerTab(); setActiveModule('jobs'); }} style={{ background: 'none', border: 'none', color: 'var(--lp-teal)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--lp-ff)', minHeight: 44 }}>Open tracker →</button>
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--lp-text)' }}>
+        {stats.applied} applied · {stats.heardBack} heard back · {stats.interviews} interview{stats.interviews === 1 ? '' : 's'} · {stats.offers} offer{stats.offers === 1 ? '' : 's'}
+      </div>
+      {next.map(({ app, step }) => (
+        <div key={app.id} style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}><strong style={{ color: 'var(--lp-text)' }}>{app.company}</strong> · {step.title}</div>
+      ))}
     </div>
   );
 }
@@ -384,6 +406,12 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
       <div style={{ marginBottom: 12 }}>
         <MilestoneStrip milestones={milestones} />
       </div>
+
+      {memory.applications?.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <JobHuntPanel applications={memory.applications} setActiveModule={setActiveModule} />
+        </div>
+      )}
 
       {/* AI Memory + Action items */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>

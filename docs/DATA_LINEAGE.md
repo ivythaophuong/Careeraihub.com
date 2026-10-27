@@ -36,6 +36,15 @@ Row-level security is stated in `CLAUDE.md` and `docs/database/README.md`; the p
 | Interview feedback / scores | `numberGuard` in `HiringManagerSim/interview.js` | grep of imports; behaviour: `interview.test.js` (13) |
 | STAR, Salary, Cover Letter, ATS Builder | **no `numberGuard`/`factGuard` import found** in these files on this branch | grep of imports |
 
+## 3b. Lineage: job tracker (ADR-014)
+
+| Data | Written by | Stored in | Read by | Notes |
+|---|---|---|---|---|
+| Application (company, role, status, dates, link, notes, `jd` up to 6000 chars) | `JobSearch` / `ApplicationTracker` via `updateMemory(m => ({ applications }))` | `user_memory` blob only (no `applications` row is written) | JobSearch, Dashboard (Job Hunt panel), MemoryDashboard (count) | user-entered; AI does not edit it |
+| `fitScore`, `fitCheckedOn` on an application | `JDAnalyzer`, only when opened from a tracked job and a resume was used | blob | tracker card ("AI fit estimate") | an AI estimate, labelled as one |
+| `activeJob` | tracker, when the user opens a module for a job | blob, cleared by the receiving module on open; ignored after 10 minutes | JDAnalyzer, InterviewCoach / HiringManagerSim, CoverLetterGen, SalaryCoach | carries company, role and the saved description |
+| "Back to tracker" request | receiving module | `sessionStorage` `cah_jobs_tab` | JobSearch | session only |
+
 ## 4. Scores
 
 - Per `docs/database/README.md` (SQL applied by hand 2026-10-05): the columns `trust_score`, `ats_score`, `interview_score`, `star_score` cannot be written from the browser; trigger `recompute_trust_score` writes them.

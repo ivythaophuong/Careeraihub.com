@@ -7,6 +7,7 @@ import ReadinessScore from '../ReadinessScore/ReadinessScore';
 import MemoryDashboard from '../MemoryDashboard/MemoryDashboard';
 import { nextActions } from '../CareerRoadmap/roadmapNext';
 import { SESSIONS_KEPT, STAR_STORIES_KEPT } from '../../lib/historyLimits';
+import { useActiveJob } from '../JobSearch/jobHandoff';
 
 const TABS = [
   { id: 'dashboard',  label: 'Overview' },
@@ -116,7 +117,8 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function InterviewCoach(props) {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const job = useActiveJob(props.memory, props.updateMemory); // set when the user came from a tracked job
+  const [activeTab, setActiveTab] = useState(job ? 'session' : 'dashboard');
   const tabsRef = useScrollTabs(activeTab);
 
   return (
@@ -153,7 +155,7 @@ export default function InterviewCoach(props) {
           />
         )}
         {activeTab === 'study'    && <HiringManagerSim {...props} />}
-        {activeTab === 'session'  && <HiringManagerSim {...props} />}
+        {activeTab === 'session'  && <HiringManagerSim {...props} job={job} />}
         {activeTab === 'weakness' && <WeaknessRadar {...props} embedded />}
         {activeTab === 'starbank' && <STARBuilder {...props} embedded />}
         {activeTab === 'aimemory' && <MemoryDashboard {...props} embedded />}
