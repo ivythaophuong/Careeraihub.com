@@ -9,6 +9,7 @@ import { nextActions } from '../CareerRoadmap/roadmapNext';
 import { SESSIONS_KEPT, STAR_STORIES_KEPT } from '../../lib/historyLimits';
 import { latestSessionScore } from '../../lib/interviewFigures';
 import { isSub } from '../../lib/subNav.js';
+import { useActiveJob } from '../JobSearch/jobHandoff';
 
 const TABS = [
   { id: 'dashboard',  label: 'Overview' },
@@ -118,7 +119,8 @@ function InterviewDashboard({ memory, onNavigate, setActiveModule }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function InterviewCoach(props) {
-  const [localTab, setLocalTab] = useState('dashboard');
+  const job = useActiveJob(props.memory, props.updateMemory); // set when the user came from a tracked job
+  const [localTab, setLocalTab] = useState(job ? 'session' : 'dashboard');
   // With the sidebar carrying the parts (signed-in desktop), the app decides which part is open; otherwise the strip below does, as before.
   const controlled = props.subNav === 'sidebar';
   const activeTab = controlled ? (isSub('simulate', props.activeSub) ? props.activeSub : 'dashboard') : localTab;
@@ -128,6 +130,8 @@ export default function InterviewCoach(props) {
   const { onFocusChange } = props;
   const handleFocus = useCallback((on) => { setFocus(!!on); onFocusChange?.(!!on); }, [onFocusChange]);
   useEffect(() => () => { onFocusChange?.(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Coming from a tracked job opens the live session; with the sidebar in charge, the app is told once.
+  useEffect(() => { if (job && controlled) props.onSubChange?.('session'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const tabsRef = useScrollTabs(activeTab);
 
   return (
@@ -163,9 +167,14 @@ export default function InterviewCoach(props) {
             setActiveModule={props.setActiveModule}
           />
         )}
-        {(activeTab === 'study' || activeTab === 'session') && (
+        {activeTab === 'study' && (
           <div style={{ padding: '20px 24px' }}> {/* the same page padding as the Overview; the simulator draws none of its own */}
             <HiringManagerSim {...props} onFocusChange={handleFocus} />
+          </div>
+        )}
+        {activeTab === 'session' && (
+          <div style={{ padding: '20px 24px' }}>
+            <HiringManagerSim {...props} job={job} onFocusChange={handleFocus} />
           </div>
         )}
         {activeTab === 'weakness' && <WeaknessRadar {...props} embedded />}

@@ -85,6 +85,16 @@ Only decisions with evidence in code, comments, docs or git history. Dates are c
 - **Evidence:** `docs/product/LANDING-REDESIGN-STRATEGY.md` (on branch `fix/landing-no-pricing-v2`, not merged); `docs/product/LANDING-CLAIMS-AUDIT.md`; production bundle read on 2026-10-21 (the stats ticker, "2,714 verified candidates" and "verified career platform" were live until the truth-pass PR).
 - **Limits:** the positioning is the owner's to confirm. Nothing about the founder, a legal entity, an advisor or a partner has been verified from the repository. The phrase "operating system" describes an intention: the tools share a resume and a memory, but they are not yet one connected flow.
 
+## ADR-016: Job Hunt: job boards by link, applications tracked in the memory backup, no new database objects (product decision, 2026-10-27)
+- **Decision:**
+  1. **No paid job feed.** Job Search opens each board in a new tab with the role, location and a freshness filter filled in (`buildJobURL` in `src/features/JobSearch/jobTracker.js`). The app does not fetch, store or rank listings. The `jobs` Edge Function (Adzuna) is not used by this screen.
+  2. **Applications stay in `memory.applications`** (the `user_memory` backup), as before. New fields are optional (`link`, `jd`, `notes`, `savedOn`, `appliedOn`, `followedUpOn`, `interviewDate`, `closedOn`, `reachedInterview`, `fitScore`). No SQL, no new table, no column.
+  3. **Stored statuses do not change** (Saved, Applied, Follow-up, Interviewing, Offer, Rejected). "No reply" is derived: an Applied job with no change for 7 days (`NO_REPLY_DAYS`). Nothing runs in the background.
+  4. **A job reaches other modules through `memory.activeJob`**, read once when the module opens and then cleared, and ignored after 10 minutes (`src/features/JobSearch/jobHandoff.js`). Receivers: JD Analyzer, Interview Coach (live session), Cover Letter, Salary Coach.
+  5. **Follow-up and thank-you texts are fixed templates**, not AI output, so they cost nothing and cannot invent facts.
+- **Evidence:** `src/features/JobSearch/*.test.*`, `docs/DATA_LINEAGE.md` section 3b.
+- **Limits:** the JobStreet link format and the date filters of the other boards were written from the boards' public URL patterns and were not checked against the live sites (JobStreet refused an automated request). If a board changes its URL, the link still opens the board but may ignore the filter. If rows ever exist in the `applications` table, `useMemory` prefers them over the backup and the new fields would not be shown (the app does not write that table from Job Search today).
+
 ## Superseded: ADR for hiding the computed score (commit c0463ec) is reversed by ADR-011.
 
 ## Not yet decided (no evidence of a choice)

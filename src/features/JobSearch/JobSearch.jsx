@@ -2,30 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { C } from '../../styles/theme';
 import { Card, Btn, Badge, Spinner } from '../../components/CommonUI';
 import { GlowBar } from '../../components/OriginalFeatures';
-
-const statusColors = {
-  "Saved": C.muted,
-  "Applied": C.accent,
-  "Follow-up": C.purple,
-  "Interviewing": C.gold,
-  "Offer": C.green,
-  "Rejected": C.red
-};
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const buildJobURL = (platform, title, loc, keywords="") => {
-  const q = encodeURIComponent(`${title} ${keywords}`.trim());
-  const l = encodeURIComponent(loc);
-  switch(platform) {
-    case "linkedin":   return `https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}&f_TPR=r604800`;
-    case "indeed":     return `https://www.indeed.com/jobs?q=${q}&l=${l}&sort=date`;
-    case "glassdoor":  return `https://www.glassdoor.com/Job/jobs.htm?sc.keyword=${q}&locT=C&locId=${l}`;
-    case "wellfound":  return `https://wellfound.com/role/l/${q.replace(/ /g,"-")}`;
-    case "ycombinator":return `https://www.ycombinator.com/jobs?query=${q}&location=${l}`;
-    case "remoteok":   return `https://remoteok.com/remote-${q.replace(/ /g,"-")}-jobs`;
-    default:           return `https://google.com/search?q=${q}+jobs+in+${l}`;
-  }
-};
+import ApplicationTracker, { AddJobForm } from './ApplicationTracker';
+import { FRESHNESS, buildJobURL, sourcesFor, applyStatus, makeApplication } from './jobTracker';
+import { buildActiveJob, peekRequestedTab, clearRequestedTab } from './jobHandoff';
 
 // Salary figures are not shown in-app (there is no salary data source), so point to real ones.
 const SALARY_SOURCES = [
@@ -35,34 +14,23 @@ const SALARY_SOURCES = [
   { name: "MyCareersFuture", url: "https://www.mycareersfuture.gov.sg/", desc: "Singapore job listings that show salary ranges." },
 ];
 
-// ── Rejection Coach (Original Internal Component) ──────────────────────────
-function RejectionCoach({ rejection, form }) {
-  return (
-    <div style={{ marginTop: 12, padding: "12px 14px", background: C.red + "08", borderLeft: `3px solid ${C.red}`, borderRadius: "0 8px 8px 0" }}>
-      <div style={{ color: C.red, fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Recovery Tips</div>
-      <div style={{ color: C.text, fontSize: 12, lineHeight: 1.6 }}>
-        Don't let {rejection.company} slow you down. Rejections are a normal part of a job search, and each one is a chance to learn something for the next application.
-        <span style={{ color: C.gold, display: "block", marginTop: 4 }}>💡 Pro Tip: Send a "Thank you & Feedback" note to the recruiter to stay in their talent pool.</span>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Component ───────────────────────────────────────────────────────────
-export default function JobSearch({ form, memory, updateMemory, onProTrigger, user, setAuthModal, setActiveModule }) {
-  const [activeTab, setActiveTab] = useState("search");
+export default function JobSearch({ form, memory, updateMemory, onProTrigger, user, setAuthModal, setActiveModule, showToast }) {
+  const [activeTab, setActiveTab] = useState(() => peekRequestedTab() || "search");
+  useEffect(() => { clearRequestedTab(); }, []);
   const [title, setTitle] = useState(form.role || "");
   const [location, setLocation] = useState(form.market || "");
   const [keywords, setKeywords] = useState("");
   const [expLevel, setExpLevel] = useState("Any");
   const [jobType, setJobType] = useState("all");
+  const [days, setDays] = useState(3);
   const [searched, setSearched] = useState(false);
   const [searchErr, setSearchErr] = useState("");
 
-  // Tracker State
-  const [showAddTrack, setShowAddTrack] = useState(false);
-  const [trackForm, setTrackForm] = useState({ company: "", role: "", status: "Applied", link: "", date: new Date().toISOString().split("T")[0], notes: "" });
+  // Tracker State. Every change goes through the memory updater so it never works from a stale list.
+  const [showAdd, setShowAdd] = useState(false);
   const tracker = memory?.applications || [];
+  const sessionCount = memory?.mockSessions?.length || 0;
 
   const handleSearch = () => {
     if (!title.trim() || !location.trim()) {
@@ -73,26 +41,33 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
     setSearched(true);
   };
 
-  const addToTracker = () => {
-    if (!trackForm.company || !trackForm.role) return;
-    const newEntry = { id: Date.now(), ...trackForm };
-    const next = [newEntry, ...tracker];
-    if (updateMemory) updateMemory(m => ({ applications: next }));
-    setTrackForm({ company: "", role: "", status: "Applied", link: "", date: new Date().toISOString().split("T")[0], notes: "" });
-    setShowAddTrack(false);
-  };
-
+  const mapApps = (fn) => updateMemory?.(m => ({ applications: (m.applications || []).map(fn) }));
+  const patchApp = (id, patch) => mapApps(a => (a.id === id ? { ...a, ...patch } : a));
   const updateStatus = (id, status) => {
-    const next = tracker.map(j => j.id === id ? { ...j, status } : j);
-    if (updateMemory) updateMemory(m => ({ applications: next }));
+    mapApps(a => (a.id === id ? applyStatus(a, status) : a));
     if (status === "Interviewing" && onProTrigger) onProTrigger("interviewing");
     if (status === "Offer" && onProTrigger) onProTrigger("salary");
   };
+  const deleteJob = (id) => updateMemory?.(m => ({ applications: (m.applications || []).filter(a => a.id !== id) }));
 
-  const deleteJob = (id) => {
-    const next = tracker.filter(j => j.id !== id);
-    if (updateMemory) updateMemory(m => ({ applications: next }));
+  // Opens another module already pointed at this job (see jobHandoff.js).
+  const openForJob = (module, app) => {
+    updateMemory?.({ activeJob: buildActiveJob(app) });
+    setActiveModule?.(module);
   };
+
+  const saveJob = (fields, { checkFit } = {}) => {
+    const app = makeApplication(fields);
+    updateMemory?.(m => ({ applications: [app, ...(m.applications || [])] }));
+    setShowAdd(false);
+    setActiveTab("tracker");
+    if (checkFit && app.jd) openForJob("jd", app);
+    else showToast?.("Added to your tracker", "success");
+  };
+
+  const addJobForm = showAdd && (
+    <AddJobForm initial={{ role: title.trim() }} onSave={saveJob} onCancel={() => setShowAdd(false)} />
+  );
 
   const tabBtn = (id, label, count) => (
     <button 
@@ -110,13 +85,13 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "24px clamp(16px, 3vw, 28px)", maxWidth: 1100, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
       
       {/* ── HEADER ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ color: C.text, fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Job Search Engine</div>
-          <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Open searches on the major job boards from one form, and track every application in one place.</div>
+          <div style={{ color: "var(--lp-text)", fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Job Search Engine</div>
+          <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Open the newest jobs on the major job boards from one form, add the ones you like, and track every application to its next step.</div>
         </div>
       </div>
 
@@ -130,6 +105,15 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
       {/* ── SEARCH TAB ── */}
       {activeTab === "search" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <Card style={{ border: `1px solid ${C.border}`, display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+            <div style={{ color: "#C9D6EC", fontSize: 13, lineHeight: 1.6, flex: "1 1 280px" }}>
+              {sessionCount > 0
+                ? <>You have completed <strong style={{ color: C.text }}>{sessionCount}{sessionCount >= 10 ? "+" : ""} mock interview{sessionCount === 1 ? "" : "s"}</strong>. Turn that practice into applications: find a job, add it here, and every job gets a next step.</>
+                : <>Find a job, add it here, and every job gets a next step. Want to practise first? A mock interview takes a few minutes.</>}
+            </div>
+            {sessionCount === 0 && setActiveModule && <Btn onClick={() => setActiveModule("simulate")} color={C.accent} style={{ minHeight: 44 }}>Practise first</Btn>}
+          </Card>
+
           <Card style={{ border: `1px solid ${C.green}33`, boxShadow: `0 0 30px ${C.green}08` }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
               <div>
@@ -159,9 +143,24 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
                 <input value={keywords} onChange={e => setKeywords(e.target.value)} placeholder="React, B2B..." style={{ width: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: "12px 14px", fontSize: 13, outline: "none" }} />
               </div>
             </div>
+            <div role="group" aria-label="Posted within" style={{ marginBottom: 20 }}>
+              <div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontWeight: 800 }}>Posted within</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {FRESHNESS.map(f => (
+                  <button key={f.days} type="button" aria-pressed={days === f.days} onClick={() => setDays(f.days)} style={{ minHeight: 44, padding: "0 18px", borderRadius: 99, fontSize: 13, fontWeight: days === f.days ? 800 : 600, cursor: "pointer", fontFamily: "inherit", background: days === f.days ? C.accent + "22" : "transparent", color: days === f.days ? C.accent : "#9FB0CC", border: `1px solid ${days === f.days ? C.accent : C.border}` }}>{f.label}</button>
+                ))}
+              </div>
+            </div>
             <Btn onClick={handleSearch} color={C.border} style={{ width: "100%", padding: 18, fontSize: 16, borderRadius: 12, border: `1px solid ${C.border}`, background: C.surface, color: C.text }}>🔎 Find Jobs Now</Btn>
             {searchErr && <div role="alert" style={{ color: C.red, fontSize: 12, marginTop: 10 }}>⚠️ {searchErr}</div>}
           </Card>
+
+          {addJobForm || (
+            <Card style={{ border: `1px dashed ${C.border}`, display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+              <div style={{ color: "#C9D6EC", fontSize: 13, lineHeight: 1.6, flex: "1 1 280px" }}><strong style={{ color: C.text }}>Found a job?</strong> Paste the link or description and track it from here. You can also check how well your resume fits it.</div>
+              <Btn onClick={() => setShowAdd(true)} color={C.green} dark style={{ minHeight: 44 }}>+ Add a job you found</Btn>
+            </Card>
+          )}
 
           {!searched && (
             <>
@@ -339,28 +338,19 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
           {searched && (
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               
-              {/* PLATFORMS */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {[
-                  { id: "linkedin", name: "LinkedIn", icon: "💼", color: "#0A66C2" },
-                  { id: "indeed", name: "Indeed", icon: "🔍", color: "#2557A7" },
-                  { id: "glassdoor", name: "Glassdoor", icon: "🧊", color: "#0CAA41" },
-                  { id: "wellfound", name: "Wellfound", icon: "✌️", color: "#FF0000" }
-                ].map(p => (
-                  <Card key={p.id} style={{ border: `1px solid ${p.color}33`, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ fontSize: 24 }}>{p.icon}</span>
+              {/* PLATFORMS: links only. The job site shows the live results; nothing is fetched or stored by us. */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+                {sourcesFor(`${location} ${form.market || ""}`).map(p => (
+                  <Card key={p.id} style={{ border: `1px solid ${p.color}33`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 20px" }}>
+                    <div>
                       <div style={{ fontWeight: 800, color: C.text }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: "#9FB0CC", marginTop: 2 }}>{p.dated ? `Posted within ${FRESHNESS.find(f => f.days === days).label}` : p.note}</div>
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <a href={buildJobURL(p.id, title, location, keywords)} target="_blank" rel="noopener noreferrer" style={{ background: p.color, color: "#fff", textDecoration: "none", padding: "8px 16px", borderRadius: 8, fontSize: 11, fontWeight: 900 }}>Search</a>
-                      <button onClick={() => updateMemory(m => ({ applications: [{ id: Date.now(), company: p.name, role: title, status: "Saved", date: new Date().toISOString().split("T")[0] }, ...(m.applications || [])] }))} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.muted, padding: "8px 12px", borderRadius: 8, cursor: "pointer" }}>📌</button>
-                    </div>
+                    <a href={buildJobURL(p.id, title, location, keywords, days)} target="_blank" rel="noopener noreferrer" aria-label={`Search ${p.name} in a new tab`} style={{ background: p.color, color: "#fff", textDecoration: "none", padding: "12px 18px", borderRadius: 8, fontSize: 12, fontWeight: 900, minHeight: 20 }}>Search ↗</a>
                   </Card>
                 ))}
               </div>
-
-
+              <div style={{ color: "#9FB0CC", fontSize: 12, lineHeight: 1.6 }}>Each board opens in a new tab with your search filled in. When you find a job you like, come back and add it above.</div>
             </div>
           )}
         </div>
@@ -369,51 +359,17 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
       {/* ── TRACKER TAB ── */}
       {activeTab === "tracker" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ color: C.text, fontWeight: 900, fontSize: 18 }}>Active Pipeline</div>
-            <Btn onClick={() => setShowAddTrack(!showAddTrack)} color={C.green} dark style={{ padding: "8px 16px", fontSize: 12 }}>+ Add Job</Btn>
-          </div>
-
-          {showAddTrack && (
-            <Card style={{ border: `1px solid ${C.green}44`, background: C.green + "05" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                <input placeholder="Company" value={trackForm.company} onChange={e => setTrackForm(p => ({ ...p, company: e.target.value }))} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 10, fontSize: 13 }} />
-                <input placeholder="Role" value={trackForm.role} onChange={e => setTrackForm(p => ({ ...p, role: e.target.value }))} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 10, fontSize: 13 }} />
-              </div>
-              <Btn onClick={addToTracker} color={C.green} dark style={{ width: "100%" }}>Save Application</Btn>
-            </Card>
-          )}
-
-          {tracker.length === 0 ? (
-             <Card style={{ textAlign: "center", padding: 60 }}>
-               <div style={{ fontSize: 44, marginBottom: 16 }}>📋</div>
-               <div style={{ color: C.text, fontWeight: 800, fontSize: 16 }}>Your tracker is empty</div>
-               <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Add jobs manually or pin them from the search results.</div>
-             </Card>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {tracker.map(j => (
-                <Card key={j.id} style={{ padding: "16px 20px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={{ color: C.text, fontWeight: 800, fontSize: 15 }}>{j.company}</div>
-                      <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{j.role} · Applied {j.date}</div>
-                      <div style={{ marginTop: 10 }}>
-                         <Badge label={j.status} color={statusColors[j.status] || C.muted} />
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <select aria-label={`Status for ${j.role} at ${j.company}`} value={j.status} onChange={e => updateStatus(j.id, e.target.value)} style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "4px 8px", fontSize: 11 }}>
-                        {Object.keys(statusColors).map(s => <option key={s}>{s}</option>)}
-                      </select>
-                      <button onClick={() => deleteJob(j.id)} style={{ background: "transparent", border: "none", color: C.red, cursor: "pointer" }}>✕</button>
-                    </div>
-                  </div>
-                  {j.status === "Rejected" && <RejectionCoach rejection={j} form={form} />}
-                </Card>
-              ))}
-            </div>
-          )}
+          {addJobForm}
+          <ApplicationTracker
+            apps={tracker}
+            userName={user?.name || ""}
+            onPatch={patchApp}
+            onStatus={updateStatus}
+            onDelete={deleteJob}
+            onOpen={openForJob}
+            onAddClick={() => setShowAdd(true)}
+            onFind={() => setActiveTab("search")}
+          />
         </div>
       )}
 
