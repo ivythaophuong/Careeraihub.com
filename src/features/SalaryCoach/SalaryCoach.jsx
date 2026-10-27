@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useActiveJob, requestTrackerTab, jobLabel } from '../JobSearch/jobHandoff';
 import { C } from '../../styles/theme';
 import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
@@ -263,9 +264,10 @@ const bullets = (title, items, color = C.text, icon = '') => items.length > 0 &&
   </Card>
 );
 
-function NegotiationTab({ resumeText, form, memory, setAuthModal }) {
+function NegotiationTab({ resumeText, form, memory, setAuthModal, job }) {
   const [stage, setStage] = useState("received_offer");
-  const [situation, setSituation] = useState("");
+  // Opened from a tracked job: start the sentence for the user. It adds no figures, so the number check still rests on what they type.
+  const [situation, setSituation] = useState(job?.role && job?.company ? `I received an offer for the ${job.role} role at ${job.company}. ` : "");
   const [currency, setCurrency] = useState("SGD");
   const [offer, setOffer] = useState("");
   const [target, setTarget] = useState("");
@@ -500,8 +502,9 @@ const TABS = [
   { id: 'strategy',  label: 'Your strategy'        },
 ];
 
-export default function SalaryCoach({ resumeText, form, setForm, memory, updateMemory, setAuthModal }) {
-  const [tab, setTab] = useState(MARKET_DATA_ENABLED ? 'market' : 'roleplay');
+export default function SalaryCoach({ resumeText, form, setForm, memory, updateMemory, setAuthModal, setActiveModule }) {
+  const job = useActiveJob(memory, updateMemory); // set when the user came from a tracked offer
+  const [tab, setTab] = useState(job ? 'roleplay' : MARKET_DATA_ENABLED ? 'market' : 'roleplay');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', fontFamily: 'var(--lp-ff)' }}>
@@ -513,6 +516,12 @@ export default function SalaryCoach({ resumeText, form, setForm, memory, updateM
             ? `${form?.market || 'Singapore'} ${form?.role || 'PM'} market estimates, AI negotiation roleplay, and anchoring scripts you fill in with your own numbers.`
             : 'AI negotiation roleplay and anchoring scripts you fill in with your own numbers.'}
         </div>
+        {job && (
+          <div role="note" style={{ marginTop: 10, color: 'var(--lp-text)', fontSize: 12.5 }}>
+            From your tracker: <strong>{jobLabel(job)}</strong>
+            {setActiveModule && <button onClick={() => { requestTrackerTab(); setActiveModule('jobs'); }} style={{ marginLeft: 10, minHeight: 44, background: 'none', border: 'none', color: 'var(--lp-teal)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 }}>Back to tracker</button>}
+          </div>
+        )}
         {/* Tab bar */}
         {/* The tabs scroll inside this bar on a phone; without that they widen the whole page (418px at 375px). */}
         <div role="tablist" style={{ display: 'flex', gap: 0, marginTop: 14, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
@@ -534,7 +543,7 @@ export default function SalaryCoach({ resumeText, form, setForm, memory, updateM
       {tab === 'market'   && (MARKET_DATA_ENABLED
         ? <MarketDataTab form={form} setForm={setForm} memory={memory} updateMemory={updateMemory} />
         : <MarketDataUnavailable />)}
-      {tab === 'roleplay' && <NegotiationTab  form={form} resumeText={resumeText} memory={memory} setAuthModal={setAuthModal} />}
+      {tab === 'roleplay' && <NegotiationTab  form={form} resumeText={resumeText} memory={memory} setAuthModal={setAuthModal} job={job} />}
       {tab === 'strategy' && <StrategyTab     form={form} />}
     </div>
   );

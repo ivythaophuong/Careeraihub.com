@@ -4,6 +4,7 @@ import { Card, Btn, Spinner } from '../../components/CommonUI';
 import { extractJSON } from '../../lib/ai.jsx';
 import { callLLMFor } from '../../lib/aiFeature.js';
 import { pickResumeSource } from '../../lib/resumeSource';
+import { useActiveJob, requestTrackerTab, jobLabel } from '../JobSearch/jobHandoff';
 import '../../styles/featurePage.css';
 import { TONES, buildCoverLetterPrompt, buildToneChangePrompt, normalizeCoverLetterResult, blockReason, copyToClipboard, wordCount, toneChangeClaimWarnings } from './coverLetter';
 import { findUnsupportedNumbers } from '../../lib/numberGuard';
@@ -11,9 +12,10 @@ import { findUnsupportedNumbers } from '../../lib/numberGuard';
 const label = { color: C.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 };
 
 export default function CoverLetterGen({ resumeText, form, memory, user, updateMemory, setAuthModal, setActiveModule }) {
-  const [jd, setJd] = useState("");
-  const [company, setCompany] = useState("");
-  const [role, setRole] = useState(form?.role || "");
+  const job = useActiveJob(memory, updateMemory); // set when the user came from a tracked job
+  const [jd, setJd] = useState(job?.jd || "");
+  const [company, setCompany] = useState(job?.company || "");
+  const [role, setRole] = useState(job?.role || form?.role || "");
   const [tone, setTone] = useState("professional");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -112,6 +114,12 @@ export default function CoverLetterGen({ resumeText, form, memory, user, updateM
       <div>
         <div style={{ color: C.text, fontWeight: 900, fontSize: 24 }}>Cover Letter Generator</div>
         <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>AI writes a tailored letter from your real resume + JD. No generic templates.</div>
+        {job && (
+          <div role="note" style={{ color: C.text, fontSize: 13, marginTop: 8, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            From your tracker: <strong>{jobLabel(job)}</strong>
+            {setActiveModule && <button onClick={() => { requestTrackerTab(); setActiveModule('jobs'); }} style={{ minHeight: 44, background: "transparent", border: "none", color: C.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: 12 }}>Back to tracker</button>}
+          </div>
+        )}
         {blocked && (
           <div role="note" style={{ color: C.gold, fontSize: 12, fontWeight: 700, marginTop: 8, padding: "8px 12px", background: C.gold + "11", borderRadius: 8, border: `1px solid ${C.gold}33` }}>
             ⚠️ {blocked}
