@@ -1,0 +1,65 @@
+/* Job Hunt: hover, focus, layout switches and motion that inline styles cannot express. */
+.jh-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.jh-btn:focus-visible, .jh-card-main:focus-visible, .jh-tab:focus-visible, .jh-chip:focus-visible, .jh-close:focus-visible {
+  outline: 2px solid #7DD3FC; outline-offset: 2px;
+}
+.jh-card { transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.jh-card:hover { transform: translateY(-1px); }
+.jh-btn { transition: filter .15s ease, transform .15s ease; }
+.jh-btn:not(:disabled):hover { filter: brightness(1.08); }
+
+/* Header: title, tabs and the add button; the tabs drop to their own row on narrower screens */
+.jh-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "title tabs add"; align-items: end; gap: 14px; }
+.jh-title { grid-area: title; min-width: 0; }
+.jh-tabs { grid-area: tabs; display: flex; padding: 4px; gap: 2px; border-radius: 12px; background: #0F1520; border: 1px solid #1E2D45; }
+.jh-add { grid-area: add; }
+.jh-tab { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: #9FB0CC; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.jh-tab[aria-selected="true"] { color: #E8F0FE; font-weight: 800; background: linear-gradient(135deg, rgba(236,72,153,.28), rgba(56,189,248,.22)); border-color: rgba(236,72,153,.4); }
+
+/* Pipeline + today */
+.jh-hero { display: flex; gap: 18px; align-items: stretch; }
+.jh-pipe { flex: 1; min-width: 0; background: #0F1520; color: #E8F0FE; border: 1px solid #1E2D45; border-radius: 18px; padding: 22px 24px; display: flex; flex-direction: column; gap: 20px; }
+.jh-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 1; align-content: center; }
+.jh-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.jh-stat { padding: 0 20px; border-left: 1px solid #1E2D45; }
+.jh-stat:first-child { padding-left: 0; border-left: 0; }
+.jh-stat:last-child { padding-right: 0; }
+.jh-today { width: 430px; flex: none; box-sizing: border-box; }
+
+/* Board */
+.jh-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 12px; align-items: start; }
+
+/* Detail: slide-over on desktop, bottom sheet on a phone */
+.jh-scrim { position: fixed; inset: 0; z-index: 400; background: rgba(5, 8, 14, .6); animation: jh-fade .2s ease; }
+.jh-drawer { position: fixed; z-index: 401; top: 0; right: 0; bottom: 0; width: min(640px, 100%); box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; background: #0D121C; border-left: 1px solid #26354F; box-shadow: -24px 0 60px rgba(0, 0, 0, .5); padding: 26px 30px; display: flex; flex-direction: column; gap: 22px; color: #E8F0FE; animation: jh-in-right .24s ease; outline: none; }
+.jh-grip { display: none; }
+
+@keyframes jh-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes jh-in-right { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes jh-in-up { from { transform: translateY(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (max-width: 1100px) {
+  .jh-head { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title add" "tabs tabs"; }
+  .jh-tabs { justify-self: start; }
+}
+@media (max-width: 860px) {
+  .jh-hero { flex-direction: column; }
+  .jh-today { width: auto; order: -1; }
+}
+@media (max-width: 700px) {
+  .jh-narrow-hide { display: none !important; }
+  .jh-tabs { width: 100%; box-sizing: border-box; justify-self: stretch; }
+  .jh-tab { flex: 1; padding: 0 6px; }
+  .jh-actions > .jh-btn { flex: 1 1 100%; }
+  .jh-pipe { background: none; border: 0; padding: 0; gap: 0; }
+  .jh-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .jh-stat, .jh-stat:first-child, .jh-stat:last-child { padding: 14px; border: 1px solid #1E2D45; border-radius: 14px; background: #0F1520; }
+  .jh-drawer { top: 64px; left: 0; right: 0; bottom: 0; width: auto; padding: 10px 16px 28px; gap: 16px; border-left: 0; border-top: 1px solid #26354F; border-radius: 22px 22px 0 0; box-shadow: none; animation-name: jh-in-up; }
+  .jh-grip { display: block; width: 40px; height: 4px; border-radius: 99px; background: #33445F; margin: 0 auto 4px; flex: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jh-card, .jh-btn { transition: none; }
+  .jh-card:hover { transform: none; }
+  .jh-scrim, .jh-drawer { animation: none; }
+}
