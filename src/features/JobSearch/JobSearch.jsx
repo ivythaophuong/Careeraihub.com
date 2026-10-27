@@ -5,6 +5,8 @@ import { GlowBar } from '../../components/OriginalFeatures';
 import ApplicationTracker, { AddJobForm } from './ApplicationTracker';
 import { FRESHNESS, buildJobURL, sourcesFor, applyStatus, makeApplication } from './jobTracker';
 import { buildActiveJob, peekRequestedTab, clearRequestedTab } from './jobHandoff';
+import { GradBtn } from './jobUI';
+import './jobhunt.css';
 
 // Salary figures are not shown in-app (there is no salary data source), so point to real ones.
 const SALARY_SOURCES = [
@@ -69,36 +71,29 @@ export default function JobSearch({ form, memory, updateMemory, onProTrigger, us
     <AddJobForm initial={{ role: title.trim() }} onSave={saveJob} onCancel={() => setShowAdd(false)} />
   );
 
-  const tabBtn = (id, label, count) => (
-    <button 
-      onClick={() => setActiveTab(id)} 
-      style={{ 
-        background: activeTab === id ? C.green + "1A" : "transparent", 
-        border: `1px solid ${activeTab === id ? C.green : C.border}`, 
-        color: activeTab === id ? C.green : C.muted, 
-        borderRadius: 8, padding: "8px 20px", fontSize: 13, fontWeight: 800, cursor: "pointer", 
-        display: "flex", alignItems: "center", gap: 8, transition: "all 0.2s" 
-      }}
-    >
-      {label} {count > 0 && <span style={{ background: C.green, color: "#000", borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 900 }}>{count}</span>}
-    </button>
-  );
+  const tabs = [["search", "Find jobs", 0], ["tracker", "Tracker", tracker.length], ["salary", "Salary research", 0]];
+  const addFromHeader = () => { setActiveTab("tracker"); setShowAdd(true); };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "24px clamp(16px, 3vw, 28px)", maxWidth: 1100, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22, padding: "28px clamp(16px, 3vw, 32px) 32px", maxWidth: 1240, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
       
       {/* ── HEADER ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <div style={{ color: "var(--lp-text)", fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>Job Search Engine</div>
-          <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Open the newest jobs on the major job boards from one form, add the ones you like, and track every application to its next step.</div>
+      <div className="jh-head">
+        <div className="jh-title">
+          <h1 style={{ margin: 0, color: "var(--lp-text)", fontWeight: 800, fontSize: "clamp(26px, 3vw, 30px)", letterSpacing: "-0.02em" }}>Job Hunt</h1>
+          <div style={{ color: "var(--lp-text2, #9FB0CC)", fontSize: 14, marginTop: 4 }}>Find fresh roles, then keep every application moving.</div>
         </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", borderBottom: `1px solid ${C.border}33`, paddingBottom: 16 }}>
-        {tabBtn("search", "🔎 Search", 0)}
-        {tabBtn("tracker", "📊 Application Tracker", tracker.length)}
-        {tabBtn("salary", "💰 Salary Research", 0)}
+        <div className="jh-tabs" role="tablist" aria-label="Job Hunt sections">
+          {tabs.map(([id, label, count]) => (
+            <button key={id} type="button" role="tab" className="jh-tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)}>
+              {label}{count > 0 && <span style={{ marginLeft: 2, fontSize: 11, fontWeight: 800, padding: "2px 7px", borderRadius: 99, background: "#00D484", color: "#04120C" }}>{count}</span>}
+            </button>
+          ))}
+        </div>
+        <GradBtn className="jh-add" onClick={addFromHeader} aria-label="Add a job">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#07101C" strokeWidth="2.2" strokeLinecap="round"><path d="M7 1v12M1 7h12" /></svg>
+          Add a job
+        </GradBtn>
       </div>
 
 

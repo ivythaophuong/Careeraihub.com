@@ -42,7 +42,7 @@ describe('Job Search — no invented market data', () => {
 describe('Salary tab', () => {
   it('shows no fabricated compensation numbers and points to real sources', () => {
     const p = setup();
-    fireEvent.click(screen.getByText(/Salary Research/));
+    fireEvent.click(screen.getByRole('tab', { name: /Salary research/ }));
     vi.advanceTimersByTime(5000);
     expect(text()).toMatch(/doesn't have a salary database/);
     for (const fake of ['$155,000', '$130k', 'Expected Total Compensation', 'TOP PAYERS', 'Research Salary']) expect(text()).not.toContain(fake);
@@ -55,7 +55,7 @@ describe('Salary tab', () => {
 
   it('mentions the user\'s own role and location, nothing else', () => {
     setup();
-    fireEvent.click(screen.getByText(/Salary Research/));
+    fireEvent.click(screen.getByRole('tab', { name: /Salary research/ }));
     expect(screen.getByText('Product Manager')).toBeTruthy();
     expect(screen.getByText('Singapore')).toBeTruthy();
   });
@@ -64,7 +64,7 @@ describe('Salary tab', () => {
 describe('Application tracker — Recovery Tips', () => {
   it('no longer cites an invented statistic', () => {
     setup({ memory: { applications: [{ id: 1, company: 'Acme', role: 'PM', status: 'Rejected', date: '2026-01-01' }] } });
-    fireEvent.click(screen.getByText(/Application Tracker/));
+    fireEvent.click(screen.getByRole('tab', { name: /Tracker/ }));
     fireEvent.click(screen.getByRole('button', { name: /Acme/ })); // the tips sit in the card's detail panel
     expect(screen.getByText('Recovery Tips')).toBeTruthy();
     expect(text()).toMatch(/Rejections are a normal part of a job search/);
@@ -81,7 +81,7 @@ describe('Job Search — every select has a name', () => {
 
   it('a tracked application status select is named after the role', () => {
     setup({ memory: { applications: [{ id: 1, company: 'Acme', role: 'PM', status: 'Applied', date: '2026-10-01' }] } });
-    fireEvent.click(screen.getByText(/Application Tracker/));
+    fireEvent.click(screen.getByRole('tab', { name: /Tracker/ }));
     fireEvent.click(screen.getByRole('button', { name: /Acme, PM/ }));
     const selects = [...document.querySelectorAll('select')];
     expect(selects.length).toBe(1);
@@ -166,7 +166,7 @@ describe('Tracker: stages and next steps', () => {
     { id: 2, company: 'Brightpath', role: 'PM', status: 'Applied', date: day(11) },
     { id: 3, company: 'Northwind', role: 'PM', status: 'Interviewing', date: day(12), appliedOn: day(12) },
   ];
-  const track = (p = {}) => { const r = setup({ memory: { applications: apps }, ...p }); fireEvent.click(screen.getByText(/Application Tracker/)); return r; };
+  const track = (p = {}) => { const r = setup({ memory: { applications: apps }, ...p }); fireEvent.click(screen.getByRole('tab', { name: /Tracker/ })); return r; };
 
   it('shows an Applied job older than 7 days under No reply, with no stored change', () => {
     track();
@@ -177,7 +177,7 @@ describe('Tracker: stages and next steps', () => {
 
   it('counts only what the user entered', () => {
     track();
-    expect(text()).toMatch(/Heard back\s*1\s*of 3/);
+    expect(text()).toMatch(/Heard back\s*1\s*33%/);
   });
 
   it('moves a job to Interviewing, stamps the dates and triggers the existing Pro prompt', () => {
@@ -193,7 +193,7 @@ describe('Tracker: stages and next steps', () => {
   it('opens Interview Coach for the job, carrying company, role and description', () => {
     const p = track({ memory: { applications: [{ ...apps[2], jd: 'Own the payments roadmap.' }] } });
     fireEvent.click(screen.getByRole('button', { name: /Northwind/ }));
-    fireEvent.click(screen.getAllByText('Practise for this job')[0]); // the same step shows in "Do this next" and in the detail panel
+    fireEvent.click(screen.getAllByText('Practise for this job')[0]); // the same step shows in "Today's best move" and in the detail panel
     expect(p.setActiveModule).toHaveBeenCalledWith('simulate');
     expect(applyUpdate(p).activeJob).toMatchObject({ appId: 3, company: 'Northwind', role: 'PM', jd: 'Own the payments roadmap.' });
   });
@@ -218,7 +218,7 @@ describe('Tracker: stages and next steps', () => {
 
   it('keeps old rows working: an ISO created_at date and an unknown status', () => {
     setup({ memory: { applications: [{ id: 9, company: 'Old Co', role: 'PM', status: 'Applied', date: '2024-01-01T08:00:00Z' }, { id: 10, company: 'Odd Co', role: 'PM', status: 'Mystery', date: '2024-01-01' }] } });
-    fireEvent.click(screen.getByText(/Application Tracker/));
+    fireEvent.click(screen.getByRole('tab', { name: /Tracker/ }));
     expect(screen.getByRole('region', { name: /No reply/ }).textContent).toContain('Old Co');
     expect(text()).toContain('Odd Co');
   });
@@ -227,9 +227,9 @@ describe('Tracker: stages and next steps', () => {
 describe('Tracker: empty', () => {
   it('offers to add a job or go search', () => {
     setup();
-    fireEvent.click(screen.getByText(/Application Tracker/));
+    fireEvent.click(screen.getByRole('tab', { name: /Tracker/ }));
     expect(screen.getByText('Your tracker is empty')).toBeTruthy();
-    fireEvent.click(screen.getByText('Find jobs'));
+    fireEvent.click(screen.getByText('Search for jobs'));
     expect(screen.getByText(/Find Jobs Now/)).toBeTruthy();
   });
 });
