@@ -1,3 +1,4 @@
+import { digestResume } from '../../lib/resumeDigest.js';
 // Pure utility functions extracted for testability
 
 export const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -90,4 +91,13 @@ export function moveCardPure(state, card, from, to) {
     editCards: to === 'edit' ? [...newEdit, card] : newEdit,
     doneCards: to === 'done' ? [...newDone, card] : newDone,
   };
+}
+
+// Before/after comparison prompt. Each resume goes through whole when it fits, otherwise as a section-aware digest
+// (never just its first 2000 characters, which hid everything after the first role).
+export function buildAnalysisPrompt(originalText, newText) {
+  return `Compare these two resumes. Long resumes are condensed to their key sections. Return ONLY raw JSON (start with {):
+{"atsScore":0,"parameters":{"keywords":0,"impactMetrics":0,"formatting":0,"missingSections":0,"summaryHeadline":0},"addedKeywords":[],"changesSummary":[]}
+ORIGINAL: ${digestResume(originalText).text}
+IMPROVED: ${digestResume(newText).text}`;
 }

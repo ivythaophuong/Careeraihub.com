@@ -42,6 +42,12 @@ function InterviewDashboard({ memory, onNavigate }) {
   const clarityScore   = Math.min(100, sessions.length * 25 + (scanResult ? 15 : 0));
   const overallScore   = Math.min(100, Math.round((concreteScore + starScore + clarityScore) / 3));
 
+  // Scores here are practice-activity counts, not an assessment of answer quality,
+  // so show nothing until the user has actually practised.
+  const hasData   = sessions.length > 0 || starStories.length > 0;
+  const UNLOCK_AT = 40;
+  const STRONG_AT = 70;
+
   const RED    = '#FF5A5A';
   const AMBER  = '#FFB84D';
   const GREEN  = '#00E5A0';
@@ -50,13 +56,13 @@ function InterviewDashboard({ memory, onNavigate }) {
   const metrics = [
     {
       label: 'Concrete examples', score: concreteScore,
-      color: concreteScore < 40 ? RED : concreteScore < 70 ? AMBER : GREEN,
-      tag:   concreteScore < 40 ? 'Priority 1' : concreteScore < 70 ? 'In progress' : 'Strong',
+      color: concreteScore < UNLOCK_AT ? RED : concreteScore < STRONG_AT ? AMBER : GREEN,
+      tag:   concreteScore < UNLOCK_AT ? 'Priority 1' : concreteScore < STRONG_AT ? 'In progress' : 'Strong',
     },
     {
       label: 'STAR structure', score: starScore,
-      color: starScore < 40 ? AMBER : starScore < 70 ? AMBER : GREEN,
-      tag:   starScore < 40 ? 'Unlocks at 40' : starScore < 70 ? 'Building' : 'Strong',
+      color: starScore < UNLOCK_AT ? AMBER : starScore < STRONG_AT ? AMBER : GREEN,
+      tag:   starScore < UNLOCK_AT ? `Unlocks at ${UNLOCK_AT}` : starScore < STRONG_AT ? 'Building' : 'Strong',
     },
     {
       label: 'Clarity', score: clarityScore,
@@ -66,7 +72,7 @@ function InterviewDashboard({ memory, onNavigate }) {
     {
       label: 'Overall readiness', score: overallScore,
       color: TEAL,
-      tag:   overallScore < 30 ? 'Getting started' : overallScore < 70 ? 'In progress' : 'Ready',
+      tag:   overallScore < 30 ? 'Getting started' : overallScore < STRONG_AT ? 'In progress' : 'Ready',
     },
   ];
 
@@ -76,8 +82,8 @@ function InterviewDashboard({ memory, onNavigate }) {
     {
       label: 'Concrete examples',
       desc:  'Anchor every answer with a specific number, outcome, or named result.',
-      color: concreteScore < 40 ? RED : concreteScore < 70 ? AMBER : GREEN,
-      tag:   concreteScore < 40 ? 'Weakest' : concreteScore < 70 ? 'In progress' : 'Done',
+      color: concreteScore < UNLOCK_AT ? RED : concreteScore < STRONG_AT ? AMBER : GREEN,
+      tag:   !hasData ? 'Not started' : concreteScore < UNLOCK_AT ? 'Weakest' : concreteScore < STRONG_AT ? 'In progress' : 'Done',
       bar:   concreteScore,
       unlocked: true,
       meta: `${Math.max(0, 3 - sessions.length)} sessions · ${sessions.length > 0 ? 'in progress' : 'start today'}`,
@@ -85,11 +91,11 @@ function InterviewDashboard({ memory, onNavigate }) {
     {
       label: 'STAR structure',
       desc:  'Situation · Task · Action · Result — every behavioural answer follows this arc.',
-      color: starScore < 40 ? AMBER : GREEN,
-      tag:   starScore < 40 ? 'Gap' : 'Building',
+      color: starScore < UNLOCK_AT ? AMBER : GREEN,
+      tag:   !hasData ? 'Not started' : starScore < UNLOCK_AT ? 'Gap' : 'Building',
       bar:   starScore,
-      unlocked: concreteScore >= 40,
-      meta: `2 sessions · ${concreteScore < 40 ? 'unlocks after Concrete examples clears 40' : 'start now'}`,
+      unlocked: concreteScore >= UNLOCK_AT,
+      meta: `2 sessions · ${concreteScore < UNLOCK_AT ? `unlocks after Concrete examples clears ${UNLOCK_AT}` : 'start now'}`,
     },
     {
       label: 'Clarity + delivery',
@@ -111,15 +117,13 @@ function InterviewDashboard({ memory, onNavigate }) {
     },
   ];
 
-  const daysLeft = Math.max(2, 9 - sessions.length * 2);
-
   return (
     <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Sub-header */}
       <div style={{ color: 'var(--lp-text3)', fontSize: 13 }}>
-        {overallScore === 0
-          ? 'Start your first session to calculate your readiness score.'
-          : `You are ${overallScore}% interview-ready. ${weakest.label} is your critical unlock — one focused session today moves you to ${Math.min(100, overallScore + 9)}+.`}
+        {!hasData
+          ? 'Start your first session to see your progress here.'
+          : `You have completed ${sessions.length} practice session${sessions.length === 1 ? '' : 's'} and banked ${starStories.length} STAR stor${starStories.length === 1 ? 'y' : 'ies'}. ${weakest.label} has had the least practice so far.`}
       </div>
 
       {/* 4 metric cards */}
@@ -129,19 +133,19 @@ function InterviewDashboard({ memory, onNavigate }) {
             background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)',
             borderRadius: 10, padding: '16px 14px',
           }}>
-            <div style={{ color: m.color, fontSize: 24, fontWeight: 900, lineHeight: 1, marginBottom: 6 }}>
-              {m.score}<span style={{ fontSize: 13, color: 'var(--lp-text3)', fontWeight: 500 }}>/100</span>
+            <div style={{ color: hasData ? m.color : 'var(--lp-text3)', fontSize: 24, fontWeight: 900, lineHeight: 1, marginBottom: 6 }}>
+              {hasData ? m.score : '—'}{hasData && <span style={{ fontSize: 13, color: 'var(--lp-text3)', fontWeight: 500 }}>/100</span>}
             </div>
             <div style={{ color: 'var(--lp-text)', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
               {m.label}
             </div>
-            <div style={{ color: m.color, fontSize: 10, fontWeight: 800 }}>{m.tag}</div>
+            <div style={{ color: hasData ? m.color : 'var(--lp-text3)', fontSize: 10, fontWeight: 800 }}>{hasData ? m.tag : 'No data yet'}</div>
           </div>
         ))}
       </div>
 
       {/* AI bubble */}
-      <div style={{
+      {hasData && <div style={{
         background: 'var(--lp-bg3)',
         border: '1px solid rgba(236,72,153,.18)',
         borderLeft: '4px solid var(--lp-teal)',
@@ -156,15 +160,12 @@ function InterviewDashboard({ memory, onNavigate }) {
           flexShrink: 0, marginTop: 1,
         }}>AI</div>
         <div style={{ color: 'var(--lp-text2)', fontSize: 13, lineHeight: 1.65 }}>
-          Biggest gap:{' '}
+          Least practised so far:{' '}
           <span style={{ color: 'var(--lp-teal)', fontWeight: 700 }}>{weakest.label}</span>
-          {' '}at {weakest.score}/100. You describe situations well but omit numbers and named outcomes.
-          Once you clear 70, STAR structure drills unlock.{' '}
-          <span style={{ color: AMBER }}>
-            Estimated interview-ready: {daysLeft} days at current pace.
-          </span>
+          {' '}({weakest.score}/100). These scores count your practice activity; they do not grade your answers.
+          STAR drills unlock once Concrete examples reaches {UNLOCK_AT}.
         </div>
-      </div>
+      </div>}
 
       {/* Recommended next */}
       <div style={{

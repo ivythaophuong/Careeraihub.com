@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { C } from '../../styles/theme';
 import { callLLM, extractJSON } from '../../lib/ai.jsx';
 import { OrbitSpinner } from '../../components/OrbitMark';
+import { userLevelIndex, isCacheCurrent, MARKET_CACHE_VERSION } from './salaryLevel';
 import '../../styles/featurePage.css';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -33,103 +34,97 @@ function AiBubble({ children }) {
 }
 
 // ── Market Data Tab ───────────────────────────────────────────────────────────
-function getStaticFallback(form) {
-  const role    = form?.role    || 'Professional';
-  const level   = form?.level   || 'Senior';
-  const market  = form?.market  || 'Singapore';
-  const cur     = market === 'Singapore' ? 'SGD' : market === 'Malaysia' ? 'MYR' : market === 'Australia' ? 'AUD' : 'USD';
+const CURRENCY = { Singapore: 'SGD', 'Southeast Asia': 'USD', Global: 'USD' };
 
-  const LEVEL_ROWS = [
-    { label: 'Junior',    range: '3–6K',   pct: 30  },
-    { label: 'Mid',       range: '6–10K',  pct: 55  },
-    { label: 'Senior',    range: '9–15K',  pct: 75  },
-    { label: 'Principal', range: '13–20K', pct: 90  },
-    { label: 'VP / Head', range: '18K+',   pct: 100 },
-  ];
-  const userIdx = LEVEL_ROWS.findIndex(r => level.toLowerCase().includes(r.label.toLowerCase()));
-  const levels = LEVEL_ROWS.map((r, i) => ({ ...r, isUser: i === (userIdx >= 0 ? userIdx : 2) }));
-
-  return {
-    levels,
-    companies: [
-      { name: 'Top tech co.',  role: level, p50: `${cur} 9K`,  p75: `${cur} 12K`  },
-      { name: 'Regional tech', role: level, p50: `${cur} 8K`,  p75: `${cur} 10K`  },
-      { name: 'Startup',       role: level, p50: `${cur} 7K`,  p75: `${cur} 9.5K` },
-      { name: 'MNC',           role: level, p50: `${cur} 10K`, p75: `${cur} 13K`  },
-      { name: 'Scale-up',      role: level, p50: `${cur} 8.5K`, p75: `${cur} 11K` },
-    ],
-    totalComp: {
-      base:   `${cur} 9–13K / mo`,
-      bonus:  '10–15% of base',
-      rsus:   `${cur} 20–60K over 4yr`,
-      target: `${cur} 120–180K / yr`,
-    },
-    aiInsight: `Market data for ${level} ${role} in ${market}. Use the Negotiation tab to get a personalised script based on your actual offer.`,
-  };
-}
-
-function MarketDataTab({ form, memory, updateMemory, showToast }) {
+function MarketDataTab({ form, memory, updateMemory, setForm }) {
+  const role   = form?.role   || '';
+  const level  = form?.level  || '';
+  const market = form?.market || 'Singapore';
+  const cur    = CURRENCY[market] || 'USD';
+  const ctx    = { role, level, market };
   const cached = memory?.salaryMarket;
-  const [data, setData]       = useState(cached?.data || null);
-  const [loading, setLoading] = useState(false);
+  const fresh  = isCacheCurrent(cached, ctx);
+
+  const [data, setData]             = useState(fresh ? cached.data : null);
+  const [computedAt, setComputedAt] = useState(fresh ? cached.computedAt : null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
 
   useEffect(() => {
-    if (!data) loadMarket();
+    if (!role) return;
+    if (isCacheCurrent(memory?.salaryMarket, ctx)) {
+      setData(memory.salaryMarket.data); setComputedAt(memory.salaryMarket.computedAt);
+    } else {
+      loadMarket();
+    }
     // eslint-disable-next-line
-  }, []);
+  }, [role, level, market]);
 
   const loadMarket = async () => {
-    setLoading(true);
+    setLoading(true); setError('');
     try {
       const raw = await callLLM([{ role: 'user', content:
-        `You are a compensation analyst for ${form?.market || 'Singapore'} tech roles.
-Role family: ${form?.role || 'Product Manager'}
-Market: ${form?.market || 'Singapore'}
+        `You are a compensation analyst for ${market} tech roles.
+Give approximate MONTHLY BASE salary ranges in ${cur} for the role family "${role}" at five levels. These are market estimates, not figures from a salary survey, and they say nothing about any individual candidate. Do not name specific employers.
 
 Return ONLY raw JSON (no markdown, start with {):
 {
   "levels": [
-    {"label":"Associate PM","range":"4–7K","pct":40,"isUser":false},
-    {"label":"PM","range":"7–11K","pct":60,"isUser":false},
-    {"label":"Senior PM","range":"9–15K","pct":78,"isUser":true},
-    {"label":"Principal PM","range":"13–20K","pct":90,"isUser":false},
-    {"label":"VP / Head of Product","range":"18K+","pct":100,"isUser":false}
+    {"label":"Junior","range":"<low>–<high>K","pct":0-100},
+    {"label":"Mid","range":"<low>–<high>K","pct":0-100},
+    {"label":"Senior","range":"<low>–<high>K","pct":0-100},
+    {"label":"Principal","range":"<low>–<high>K","pct":0-100},
+    {"label":"VP / Head","range":"<low>K+","pct":0-100}
   ],
-  "companies": [
-    {"name":"Grab","role":"Sr PM","p50":"SGD 11K","p75":"SGD 13.5K"},
-    {"name":"Sea Limited","role":"Sr PM","p50":"SGD 10K","p75":"SGD 12K"},
-    {"name":"ByteDance","role":"PM","p50":"SGD 9.5K","p75":"SGD 12K"},
-    {"name":"Shopee","role":"Sr PM","p50":"SGD 9K","p75":"SGD 11K"},
-    {"name":"Lazada","role":"Sr PM","p50":"SGD 8.5K","p75":"SGD 10.5K"}
-  ],
-  "totalComp": {
-    "base":"SGD 11–13K / mo",
-    "bonus":"10–15% of base",
-    "rsus":"SGD 30–80K over 4yr",
-    "target":"SGD 165–185K / yr"
-  },
-  "aiInsight": "2-sentence personalized insight about their market position and anchor strategy"
-}` }], 900);
+  "employerTypes": [
+    {"name":"Top tech co.","p50":"${cur} <n>K","p75":"${cur} <n>K"},
+    {"name":"Regional tech","p50":"${cur} <n>K","p75":"${cur} <n>K"},
+    {"name":"Startup","p50":"${cur} <n>K","p75":"${cur} <n>K"},
+    {"name":"MNC","p50":"${cur} <n>K","p75":"${cur} <n>K"},
+    {"name":"Scale-up","p50":"${cur} <n>K","p75":"${cur} <n>K"}
+  ],${level ? `
+  "totalComp": {"base":"${cur} <low>–<high>K / mo","bonus":"<low>–<high>% of base","equity":"typical equity at larger tech employers, or varies"},` : ''}
+  "aiInsight": "2 sentences about pay for this role family in this market. Do not mention the candidate's level, current salary or equity."
+}
+${level ? `The totalComp values are typical for the ${level} level, not for any specific person.` : ''}` }], 900);
       const parsed = extractJSON(raw);
       if (parsed.error) throw new Error(parsed.msg);
-      setData(parsed);
-      if (updateMemory) updateMemory(m => ({ ...m, salaryMarket: { data: parsed, forRole: form?.role, computedAt: new Date().toISOString() } }));
+      if (!Array.isArray(parsed.levels) || parsed.levels.length === 0) throw new Error('The market data came back incomplete.');
+      const at = new Date().toISOString();
+      setData(parsed); setComputedAt(at);
+      if (updateMemory) updateMemory(m => ({ ...m, salaryMarket: { data: parsed, v: MARKET_CACHE_VERSION, forRole: role, forLevel: level, forMarket: market, computedAt: at } }));
     } catch {
-      setData(getStaticFallback(form));
+      // No invented numbers as a fallback: say it failed and let the user retry.
+      setData(null);
+      setError('Market data is temporarily unavailable. Nothing was saved. Try again.');
     }
     setLoading(false);
   };
+
+  if (!role) {
+    return <div style={{ padding: 24, color: 'var(--lp-text3)', fontSize: 13 }}>Set your target role in your profile to see market ranges.</div>;
+  }
 
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 12 }}>
         <OrbitSpinner size={40} />
-        <div style={{ color: 'var(--lp-text3)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Loading market data…</div>
+        <div style={{ color: 'var(--lp-text3)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Estimating market ranges…</div>
       </div>
     );
   }
 
-  if (!data) return null;
+  if (error || !data) {
+    return (
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ color: 'var(--lp-text2)', fontSize: 13 }}>{error || 'No market data yet.'}</div>
+        <button onClick={loadMarket} style={{ padding: '8px 18px', background: 'var(--lp-teal)', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Try again</button>
+      </div>
+    );
+  }
+
+  const userIdx = userLevelIndex(level);
+  const generated = computedAt ? new Date(computedAt).toLocaleDateString() : null;
 
   return (
     <div style={{ padding: 24 }}>
@@ -138,53 +133,73 @@ Return ONLY raw JSON (no markdown, start with {):
         {/* Left: salary range bars */}
         <div>
           <div style={{ background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 12, padding: '18px 20px', marginBottom: 16 }}>
-            <SLabel>{form?.market || 'Singapore'} {form?.role || 'PM'} salary ranges · 2026</SLabel>
+            <SLabel>{market} {role} monthly base · AI estimate</SLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {(data.levels || []).map((lv, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 140, fontSize: 12.5, color: lv.isUser ? 'var(--lp-teal)' : 'var(--lp-text2)', fontWeight: lv.isUser ? 700 : 400, flexShrink: 0 }}>
-                    {lv.label}{lv.isUser ? ' — You' : ''}
+              {(data.levels || []).map((lv, i) => {
+                const isUser = i === userIdx;
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 140, fontSize: 12.5, color: isUser ? 'var(--lp-teal)' : 'var(--lp-text2)', fontWeight: isUser ? 700 : 400, flexShrink: 0 }}>
+                      {lv.label}{isUser ? ' — your level' : ''}
+                    </div>
+                    <div style={{ flex: 1, height: 8, background: 'var(--lp-bg2)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', width: `${lv.pct}%`, borderRadius: 4,
+                        background: isUser ? 'linear-gradient(90deg,var(--lp-teal),#00E5A0)' : 'rgba(255,255,255,.12)',
+                        transition: 'width .6s',
+                      }} />
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: isUser ? 700 : 400, color: isUser ? 'var(--lp-teal)' : 'var(--lp-text3)', width: 56, textAlign: 'right', flexShrink: 0 }}>
+                      {lv.range}
+                    </div>
                   </div>
-                  <div style={{ flex: 1, height: 8, background: 'var(--lp-bg2)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', width: `${lv.pct}%`, borderRadius: 4,
-                      background: lv.isUser
-                        ? 'linear-gradient(90deg,var(--lp-teal),#00E5A0)'
-                        : 'rgba(255,255,255,.12)',
-                      transition: 'width .6s',
-                    }} />
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: lv.isUser ? 700 : 400, color: lv.isUser ? 'var(--lp-teal)' : 'var(--lp-text3)', width: 56, textAlign: 'right', flexShrink: 0 }}>
-                    {lv.range}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+            {userIdx < 0 && (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--lp-bdr)' }}>
+                <div style={{ fontSize: 12, color: 'var(--lp-text3)', marginBottom: 8 }}>
+                  {level === 'Intern' ? 'Internships are not covered by these ranges.' : 'You haven\'t told us your level, so no row is highlighted. Which one are you?'}
+                </div>
+                {setForm && level !== 'Intern' && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {[['Junior', 'Junior'], ['Mid', 'Mid'], ['Senior', 'Senior'], ['Lead / Staff', 'Principal'], ['Director+', 'VP / Head']].map(([val, lbl]) => (
+                      <button key={val} onClick={() => setForm(p => ({ ...p, level: val }))} style={{
+                        background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text2)',
+                        borderRadius: 7, padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+                      }}>{lbl}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* AI bubble */}
           <AiBubble>
             {data.aiInsight}
           </AiBubble>
+          <div style={{ marginTop: 10, fontSize: 11, color: 'var(--lp-text3)', lineHeight: 1.5 }}>
+            AI-generated estimate, not from a salary survey or employer data{generated ? ` · generated ${generated}` : ''}. Check it against real job listings before you rely on it.
+          </div>
         </div>
 
-        {/* Right: company benchmarks + total comp */}
+        {/* Right: employer types + total comp */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 12, padding: '18px 20px' }}>
-            <SLabel>Company benchmarks</SLabel>
+            <SLabel>By employer type · AI estimate</SLabel>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--lp-bdr)' }}>
-                  {['Company', 'Role', 'P50', 'P75'].map(h => (
+                  {['Employer type', 'P50', 'P75'].map(h => (
                     <th key={h} style={{ padding: '4px 8px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--lp-text3)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {(data.companies || []).map((co, i) => (
-                  <tr key={i} style={{ borderBottom: i < data.companies.length - 1 ? '1px solid var(--lp-bdr)' : 'none' }}>
+                {(data.employerTypes || []).map((co, i, arr) => (
+                  <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--lp-bdr)' : 'none' }}>
                     <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 600, color: 'var(--lp-text)' }}>{co.name}</td>
-                    <td style={{ padding: '10px 8px', fontSize: 12, color: 'var(--lp-text3)' }}>{co.role}</td>
                     <td style={{ padding: '10px 8px', fontSize: 12, color: 'var(--lp-text2)' }}>{co.p50}</td>
                     <td style={{ padding: '10px 8px', fontSize: 12, color: 'var(--lp-text2)' }}>{co.p75}</td>
                   </tr>
@@ -193,25 +208,26 @@ Return ONLY raw JSON (no markdown, start with {):
             </table>
           </div>
 
-          <div style={{ background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 12, padding: '18px 20px' }}>
-            <SLabel>Total comp breakdown</SLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[
-                { k: 'Base salary', v: data.totalComp?.base },
-                { k: 'Annual bonus', v: data.totalComp?.bonus },
-                { k: 'RSUs (at Grab/Sea)', v: data.totalComp?.rsus },
-              ].map(({ k, v }) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>{k}</span>
-                  <span style={{ fontSize: 12.5, color: 'var(--lp-text)', fontWeight: 600 }}>{v}</span>
-                </div>
-              ))}
-              <div style={{ borderTop: '1px solid var(--lp-bdr)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--lp-teal)' }}>Target total comp</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--lp-teal)' }}>{data.totalComp?.target}</span>
+          {userIdx >= 0 && data.totalComp && (
+            <div style={{ background: 'var(--lp-bg3)', border: '1px solid var(--lp-bdr)', borderRadius: 12, padding: '18px 20px' }}>
+              <SLabel>Typical total comp at {level} level · AI estimate</SLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { k: 'Base salary', v: data.totalComp.base },
+                  { k: 'Annual bonus', v: data.totalComp.bonus },
+                  { k: 'Equity (RSUs / options)', v: data.totalComp.equity },
+                ].map(({ k, v }) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                    <span style={{ fontSize: 12.5, color: 'var(--lp-text2)' }}>{k}</span>
+                    <span style={{ fontSize: 12.5, color: 'var(--lp-text)', fontWeight: 600, textAlign: 'right' }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 12, fontSize: 11, color: 'var(--lp-text3)' }}>
+                This is a market pattern, not your compensation. Add your own numbers in Negotiation roleplay.
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -245,6 +261,7 @@ Role: ${form?.role || 'Not specified'} · Stage: ${stage}
 Situation: ${offer}
 Target: ${target || 'Not specified'}
 Resume: ${resumeCtx.slice(0, 600) || 'Not provided'}
+Use only what the candidate wrote above. Do not assume their current salary, level, equity or employer; if something is missing, say it is missing. Market figures are estimates.
 Return ONLY raw JSON (start with {):
 {"marketMin":"$X","marketMid":"$X","marketMax":"$X","assessment":"2-3 sentence honest market position","scripts":[{"label":"Opening Move","text":"ready-to-say script"},{"label":"When They Push Back","text":"counter script"},{"label":"Closing Strong","text":"closing script"}],"leverage":["point 1","point 2","point 3"],"winCondition":"what success looks like"}
 Be specific. Scripts must be ready to say out loud.` }], 1200);
@@ -358,7 +375,7 @@ function StrategyTab({ form }) {
   const scripts = [
     {
       title: 'Anchor high — first number wins',
-      body: `"Based on my research into ${market} market rates for ${role} and my ${form?.level || 'senior'}-level experience, I'm targeting a base of [X]. I'm excited about this role and I believe we can find a number that works."`,
+      body: `"Based on my research into ${market} market rates for ${role} and my ${form?.level ? form.level.toLowerCase() + '-level ' : ''}experience, I'm targeting a base of [X]. I'm excited about this role and I believe we can find a number that works."`,
       color: 'var(--lp-teal)',
     },
     {
@@ -379,7 +396,7 @@ function StrategyTab({ form }) {
     'Never accept on the spot — ask for time to review',
     'Negotiate base, bonus, RSUs, and start date separately',
     'Get the final offer in writing before giving notice',
-    'Counter at least once — 80% of companies expect it',
+    'Counter at least once — employers often expect a counter',
   ];
 
   return (
@@ -418,7 +435,7 @@ const TABS = [
   { id: 'strategy',  label: 'Your strategy'        },
 ];
 
-export default function SalaryCoach({ resumeText, form, memory, updateMemory, showToast }) {
+export default function SalaryCoach({ resumeText, form, setForm, memory, updateMemory, showToast }) {
   const [tab, setTab] = useState('market');
 
   return (
@@ -427,7 +444,7 @@ export default function SalaryCoach({ resumeText, form, memory, updateMemory, sh
       <div style={{ padding: '18px 24px 0', borderBottom: '1px solid var(--lp-bdr)' }}>
         <div style={{ color: 'var(--lp-text)', fontWeight: 900, fontSize: 22, marginBottom: 2 }}>Salary Prep</div>
         <div style={{ color: 'var(--lp-text3)', fontSize: 13, marginBottom: 0 }}>
-          {form?.market || 'Singapore'} {form?.role || 'PM'} market data for your level, AI negotiation roleplay, and your personalised anchoring strategy.
+          {form?.market || 'Singapore'} {form?.role || 'PM'} market estimates, AI negotiation roleplay, and anchoring scripts you fill in with your own numbers.
         </div>
         {/* Tab bar */}
         <div style={{ display: 'flex', gap: 0, marginTop: 14 }}>
@@ -446,7 +463,7 @@ export default function SalaryCoach({ resumeText, form, memory, updateMemory, sh
       </div>
 
       {/* Content */}
-      {tab === 'market'   && <MarketDataTab   form={form} memory={memory} updateMemory={updateMemory} showToast={showToast} />}
+      {tab === 'market'   && <MarketDataTab   form={form} setForm={setForm} memory={memory} updateMemory={updateMemory} />}
       {tab === 'roleplay' && <NegotiationTab  form={form} resumeText={resumeText} showToast={showToast} />}
       {tab === 'strategy' && <StrategyTab     form={form} />}
     </div>

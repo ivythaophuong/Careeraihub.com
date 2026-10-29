@@ -6,6 +6,8 @@ import { TEMPLATES } from '../ATSBuilder/resumeTemplates.jsx';
 import html2pdf from 'html2pdf.js';
 import mammoth from 'mammoth';
 import { extractTextFromPdfFile } from '../../lib/resumeParser.js';
+import { neutralizeInventedFigures, hasPlaceholder, revertInsertion } from '../../lib/factGuard.js';
+import { prepareJdMatch, checkKeywords } from '../../lib/resumeDigest.js';
 
 // ── Preserved scan logic ──────────────────────────────────────────────────────
 
@@ -302,12 +304,21 @@ function dataToResumeText(data) {
   return lines.join('\n');
 }
 
+// A rewrite may only reuse figures the resume already contains; any other figure becomes a [X] blank.
+function guardIssues(issues, resume) {
+  return (issues || []).map(issue => {
+    const g = neutralizeInventedFigures(issue.fix, resume);
+    return { ...issue, fix: g.text, needsInput: hasPlaceholder(g.text) };
+  });
+}
+
 function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMemory, memory }) {
   const [jd, setJd]           = useState('');
   const [loading, setLoading] = useState(false);
   const [scanErr, setScanErr] = useState('');
   const [result, setResult]   = useState(null);
   const [prevMatchScore, setPrevMatchScore] = useState(null);
+  const [scanNotice, setScanNotice] = useState(null);
   const [showVersionPicker, setShowVersionPicker] = useState(false);
   const [appliedFixes, setAppliedFixes]       = useState({});
   const [editingIdx, setEditingIdx]           = useState(null);
@@ -316,20 +327,24 @@ function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMe
   const [editorText, setEditorText]           = useState('');
   const [copyDone, setCopyDone]               = useState(false);
   const [editorPatchStatus, setEditorPatchStatus] = useState({});
+  const [patchRecords, setPatchRecords]     = useState({}); // idx -> { inserted, original } so Revert can restore the source text
 
-  const patchResume = (fixText, original, idx) => {
+  const patchResume = (fixText, original, idx, trueOriginal) => {
     const base = editorText || resumeCtx;
     const clean = (original?.replace(/^["'"]+|["'"]+$/g, '') || '').trim();
     let patchedText = null;
+    let matched = null;
     if (clean) {
       const exactPos = base.indexOf(clean);
       if (exactPos !== -1) {
+        matched = clean;
         patchedText = base.slice(0, exactPos) + fixText + base.slice(exactPos + clean.length);
       } else {
         const escaped = clean.split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\n]+');
         const m = base.match(new RegExp(escaped, 'i'));
         if (m) {
           const start = base.indexOf(m[0]);
+          matched = m[0];
           patchedText = base.slice(0, start) + fixText + base.slice(start + m[0].length);
         }
       }
@@ -337,10 +352,28 @@ function JDMatchTab({ resumeText, setResumeText, form, setActiveModule, updateMe
     if (patchedText !== null) {
       setEditorText(patchedText);
       setEditorPatchStatus(s => ({ ...s, [idx]: 'patched' }));
+      setPatchRecords(r => ({ ...r, [idx]: { inserted: fixText, original: trueOriginal ?? matched } }));
     } else {
       if (!editorText) setEditorText(base);
       setEditorPatchStatus(s => ({ ...s, [idx]: 'not_found' }));
     }
+  };
+
+  // Undo a fix in the resume text itself, not just on the card. If the user has since rewritten that passage
+  // in the editor we cannot find it, so we say so and keep the fix applied rather than pretend it was undone.
+  const revertFix = (idx) => {
+    const rec = patchRecords[idx];
+    if (rec) {
+      const restored = revertInsertion(editorText, rec);
+      if (restored === null) {
+        setEditorPatchStatus(s => ({ ...s, [idx]: 'revert_failed' }));
+        return;
+      }
+      setEditorText(restored);
+    }
+    setAppliedFixes(f => { const n = { ...f }; delete n[idx]; return n; });
+    setEditorPatchStatus(s => { const n = { ...s }; delete n[idx]; return n; });
+    setPatchRecords(r => { const n = { ...r }; delete n[idx]; return n; });
   };
   const [selectedTpl, setSelectedTpl]         = useState('modern');
   const [pdfDownloading, setPdfDownloading]   = useState(false);
@@ -416,15 +449,17 @@ ${src.slice(0, 4000)}` }], 3000);
     if (!jd.trim()) return;
     const lastAnalysis = (memory?.jdAnalyses || []).find(a => a.matchScore > 0);
     setPrevMatchScore(lastAnalysis?.matchScore ?? null);
-    setLoading(true); setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditDraft(''); setEditMode(false); setEditorPatchStatus({}); setFailDismissed(false); setPdfExported(false);
+    const prepared = prepareJdMatch(resumeCtx, jd);
+    setScanNotice(prepared.notice);
+    setLoading(true); setResult(null); setScanErr('');  setAppliedFixes({}); setEditingIdx(null); setEditDraft(''); setEditMode(false); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false);
     try {
       const raw = await callLLM([{ role: 'user', content:
         `Compare this resume against the job description and return a match analysis.
 Resume:
-${resumeCtx.slice(0, 3000) || 'No resume provided — infer from context.'}
+${prepared.resume || 'No resume provided.'}
 
 Job Description:
-${jd.slice(0, 2000)}
+${prepared.jd}
 
 Return ONLY raw JSON (no markdown, start with {):
 {
@@ -437,20 +472,25 @@ Return ONLY raw JSON (no markdown, start with {):
     {"label":"Skills alignment","score":0-100},
     {"label":"Format score","score":0-100}
   ],
-  "missingKeywords": ["keyword1","keyword2","keyword3","keyword4","keyword5","keyword6","keyword7"],
-  "aiInsight": "2-sentence specific advice about the biggest gap and estimated score improvement after rewrite",
+  "jdKeywords": ["up to 15 distinct skills, tools or requirements copied word for word from the job description"],
+  "aiInsight": "2-sentence specific advice about the biggest gap, without promising a score improvement",
   "issues": [
-    {"severity":"critical|warning","type":"Vague Bullet|Missing Metric|Weak Ownership|Weak Impact","original":"exact short quote max 8 words from the resume","fix":"XYZ rewrite of the SAME bullet — keep the exact same role, company, and technologies already in the resume. Only improve structure, add estimated metrics, and strengthen ownership language. Never invent tools, products, or experiences not mentioned in the resume."}
+    {"severity":"critical|warning","type":"Vague Bullet|Missing Metric|Weak Ownership|Weak Impact","original":"exact short quote max 8 words from the resume","fix":"XYZ rewrite of the SAME bullet — keep the exact same role, company, and technologies already in the resume. Only improve structure and clarity. Never add a number, percentage, count, team size, timeline, tool, certification, or any level of ownership or scope that the resume does not already state. Where a figure would strengthen the bullet, write [X] (for example by [X]%) so the candidate fills in their real value, or leave it out."}
   ]
 }
 Generate 3-5 issues. Each issue must target an actual weak bullet from the resume. Fix must rewrite that bullet only — same context, better structure and impact. Do NOT reference the target company's specific tools, products, or proprietary services unless the candidate already mentions them in their resume.` }], 1500);
       const parsed = extractJSON(raw);
       if (!parsed.error) {
-        setResult(parsed);
+        // Keyword presence is decided by code over the full resume and JD, not by what the AI happened to see.
+        const kw = checkKeywords(parsed.jdKeywords, resumeCtx, jd);
+        const total = kw.matched.length + kw.missing.length;
+        const bars = (parsed.bars || []).map(b => (total > 0 && /keyword/i.test(b.label) ? { ...b, score: Math.round((kw.matched.length / total) * 100) } : b));
+        const finalResult = { ...parsed, bars, missingKeywords: kw.missing, matchedKeywords: kw.matched, issues: guardIssues(parsed.issues, resumeCtx) };
+        setResult(finalResult);
         if (updateMemory) {
           updateMemory(
             m => ({ jdAnalyses: [{ date: new Date().toISOString(), roleTitle: parsed.roleTitle, matchScore: parsed.matchScore }, ...(m.jdAnalyses || [])].slice(0, 20) }),
-            { table: 'jd_analyses', data: { role_title: parsed.roleTitle || form?.role || '', company: parsed.company || '', match_score: parsed.matchScore, keywords: parsed.bars || [], gaps: parsed.missingKeywords || [], advice: parsed.aiInsight || '' } }
+            { table: 'jd_analyses', data: { role_title: parsed.roleTitle || form?.role || '', company: parsed.company || '', match_score: parsed.matchScore, keywords: finalResult.bars || [], gaps: finalResult.missingKeywords || [], advice: parsed.aiInsight || '' } }
           );
         }
       }
@@ -817,7 +857,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
       {/* ── Context bar ── */}
       <div style={{ padding: '14px 36px', borderBottom: '1px solid var(--lp-bdr)', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
-          onClick={() => { setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditMode(false); setEditorText(''); setEditorPatchStatus({}); setFailDismissed(false); setPdfExported(false); }}
+          onClick={() => { setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditMode(false); setEditorText(''); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false); }}
           style={{ background: 'none', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text3)', borderRadius: 7, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
         >← New scan</button>
         <div style={{ fontSize: 12, color: 'var(--lp-text3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -887,6 +927,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
             {/* Verdict + bars */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--lp-text)', lineHeight: 1.3 }}>{result.verdict}</div>
+              {scanNotice && <div style={{ fontSize: 11, color: '#FFB84D', lineHeight: 1.5 }}>{scanNotice}</div>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {(result.bars || []).map((b, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -904,7 +945,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
 
         {/* Scan another job */}
         <button
-          onClick={() => { setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditMode(false); setEditorText(''); setEditorPatchStatus({}); setFailDismissed(false); setPdfExported(false); }}
+          onClick={() => { setResult(null); setScanErr(''); setAppliedFixes({}); setEditingIdx(null); setEditMode(false); setEditorText(''); setEditorPatchStatus({}); setPatchRecords({}); setFailDismissed(false); setPdfExported(false); }}
           style={{ alignSelf: 'flex-start', background: 'transparent', border: '1px solid var(--lp-bdr)', borderRadius: 8, color: 'var(--lp-text3)', fontSize: 12, fontWeight: 600, padding: '7px 16px', cursor: 'pointer' }}
         >Scan another job</button>
 
@@ -995,6 +1036,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                     {applied && <span style={{ fontSize: 10, color: '#00E5A0', fontWeight: 700 }}>✓ Applied</span>}
                     {editorPatchStatus[i] === 'patched' && <span style={{ fontSize: 9, color: '#00E5A0', fontFamily: "'JetBrains Mono',monospace", opacity: .7 }}>· in resume</span>}
                     {editorPatchStatus[i] === 'not_found' && <span style={{ fontSize: 9, color: '#FFB84D', fontFamily: "'JetBrains Mono',monospace", opacity: .7 }}>· paste manually</span>}
+                    {editorPatchStatus[i] === 'revert_failed' && <span style={{ fontSize: 9, color: '#FFB84D', fontFamily: "'JetBrains Mono',monospace" }}>· edited in resume, restore it there</span>}
                   </div>
 
                   {/* Original */}
@@ -1006,6 +1048,11 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <div style={{ fontSize: 18, color: 'var(--lp-teal)', flexShrink: 0, lineHeight: 1.4, marginTop: 1 }}>→</div>
                     <div style={{ fontSize: 13, color: applied ? '#00E5A0' : 'var(--lp-text)', lineHeight: 1.6 }}>{applied || issue.fix}</div>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: issue.needsInput ? '#FFB84D' : 'var(--lp-text3)', lineHeight: 1.5, paddingLeft: 28 }}>
+                    {issue.needsInput
+                      ? 'AI draft — [X] marks a number only you know. Fill in your real figure before applying; leave it out if you have none.'
+                      : 'AI draft — check it matches what you actually did before applying.'}
                   </div>
 
                   {/* Edit textarea (shown when editing an already-applied fix) */}
@@ -1023,13 +1070,14 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                       />
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button
+                          disabled={hasPlaceholder(editDraft)}
                           onClick={() => {
                             setAppliedFixes(f => ({ ...f, [i]: editDraft }));
                             setEditingIdx(null);
-                            patchResume(editDraft, applied, i);
+                            patchResume(editDraft, applied || issue.original, i, patchRecords[i]?.original);
                           }}
-                          style={{ padding: '8px 18px', background: '#00E5A0', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                        >Save ✓</button>
+                          style={{ padding: '8px 18px', background: '#00E5A0', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: hasPlaceholder(editDraft) ? 'not-allowed' : 'pointer', opacity: hasPlaceholder(editDraft) ? .45 : 1 }}
+                        >{hasPlaceholder(editDraft) ? 'Replace [X] to save' : 'Save ✓'}</button>
                         <button
                           onClick={() => setEditingIdx(null)}
                           style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--lp-bdr)', color: 'var(--lp-text3)', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}
@@ -1044,6 +1092,7 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                       {!applied && (
                         <button
                           onClick={() => {
+                            if (issue.needsInput) { setEditingIdx(i); setEditDraft(issue.fix); return; }
                             setAppliedFixes(f => ({ ...f, [i]: issue.fix }));
                             patchResume(issue.fix, issue.original, i);
                           }}
@@ -1053,13 +1102,13 @@ Generate 3-5 issues. Each issue must target an actual weak bullet from the resum
                             border: '1px solid rgba(236,72,153,.3)',
                             color: 'var(--lp-teal)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           }}
-                        >Apply fix →</button>
+                        >{issue.needsInput ? 'Fill in & apply →' : 'Apply fix →'}</button>
                       )}
                       {applied && (
                         <>
                           <button onClick={() => { setEditingIdx(i); setEditDraft(applied); }}
                             style={{ padding: '4px 12px', background: 'transparent', border: '1px solid rgba(0,229,160,.3)', color: '#00E5A0', borderRadius: 6, fontSize: 10, cursor: 'pointer' }}>Edit</button>
-                          <button onClick={() => { setAppliedFixes(f => { const n = { ...f }; delete n[i]; return n; }); setEditorPatchStatus(s => { const n = { ...s }; delete n[i]; return n; }); }}
+                          <button onClick={() => revertFix(i)}
                             style={{ padding: '4px 12px', background: 'transparent', border: '1px solid rgba(255,90,90,.25)', color: '#FF5A5A', borderRadius: 6, fontSize: 10, cursor: 'pointer' }}>Revert</button>
                         </>
                       )}

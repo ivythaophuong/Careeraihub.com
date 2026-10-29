@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import './landing.css';
+import { SUPABASE_URL, SUPABASE_ANON } from '../../lib/supabase';
 import './landing-v10.css';
 import './landing-v36.css';
 import { OrbitMark } from '../../components/OrbitMark';
@@ -1089,39 +1090,32 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
     setSearching(true); setResOpen(true);
     setResults([{ type: 'loading' }]); setResCount('');
 
-    const appId = import.meta.env.VITE_ADZUNA_APP_ID;
-    const appKey = import.meta.env.VITE_ADZUNA_APP_KEY;
-    const adzunaReady = appId && appId !== 'your_app_id';
-
-    if (adzunaReady) {
-      try {
-        const country = loc.toLowerCase().includes('singapore') ? 'sg' : 'gb';
-        const expMap = { 'Entry level': 1, 'Mid level': 3, 'Senior': 5, 'Director+': 10 };
-        const minSal = expMap[exp] ? `&salary_min=${expMap[exp] * 12000}` : '';
-        const url = `https://api.adzuna.com/v1/api/jobs/${country}/search/1?app_id=${appId}&app_key=${appKey}&what=${encodeURIComponent(title)}&where=${encodeURIComponent(loc)}&results_per_page=6&sort_by=date&content-type=application/json${minSal}`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!resp.ok) throw new Error('adzuna ' + resp.status);
-        const data = await resp.json();
-        const jobs = data.results || [];
-        if (!jobs.length) throw new Error('no results');
-        setResCount(`${(data.count || 0).toLocaleString()} live results · Showing top ${jobs.length}`);
-        setResults(jobs.map((j, i) => ({
-          type: 'job', id: `job-${Date.now()}-${i}`,
-          role: j.title || title,
-          company: j.company?.display_name || 'Company',
-          location: j.location?.display_name || loc,
-          link: j.redirect_url || '#',
-          salary: j.salary_min ? `SGD ${Math.round(j.salary_min / 12).toLocaleString()}–${Math.round(j.salary_max / 12).toLocaleString()}/mo` : '',
-          ago: j.created ? timeAgo(new Date(j.created)) : '',
-          desc: j.description ? j.description.replace(/<[^>]+>/g, '').slice(0, 120) + '...' : '',
-          emoji: EMOJIS[i % EMOJIS.length],
-        })));
-      } catch {
-        setResCount(`Results for "${title}" in ${loc}`);
-        setResults([{ type: 'fallback', title, location: loc }]);
-      }
-    } else {
-      await new Promise(r => setTimeout(r, 800));
+    // Live results come from the `jobs` Edge Function (the Adzuna keys stay on the server).
+    // If it is unavailable or returns nothing, fall back to search links on the major boards.
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ what: title, where: loc, experience: exp }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!resp.ok) throw new Error('jobs ' + resp.status);
+      const data = await resp.json();
+      const jobs = data.jobs || [];
+      if (!jobs.length) throw new Error('no results');
+      setResCount(`${(data.count || 0).toLocaleString()} live results · Showing top ${jobs.length}`);
+      setResults(jobs.map((j, i) => ({
+        type: 'job', id: `job-${Date.now()}-${i}`,
+        role: j.title || title,
+        company: j.company || 'Company',
+        location: j.location || loc,
+        link: j.link || '#',
+        salary: j.salaryMin ? `SGD ${Math.round(j.salaryMin / 12).toLocaleString()}–${Math.round(j.salaryMax / 12).toLocaleString()}/mo` : '',
+        ago: j.created ? timeAgo(new Date(j.created)) : '',
+        desc: j.description ? j.description.slice(0, 120) + '...' : '',
+        emoji: EMOJIS[i % EMOJIS.length],
+      })));
+    } catch {
       setResCount(`Results for "${title}" in ${loc}`);
       setResults([{ type: 'fallback', title, location: loc }]);
     }
@@ -1263,12 +1257,6 @@ function SearchCard({ onJoin, onModuleSelect, onTrackerOpen, onSnack, onAgenticC
                     />
                   </div>
                 ))}
-                {results[0]?.type === 'fallback' && (
-                  <div className="api-setup-hint">
-                    <span className="api-hint-icon">⚡</span>
-                    <span>Want inline AI-ranked results? <a href="https://developer.adzuna.com" target="_blank" rel="noopener noreferrer" className="api-hint-link">Get your free Adzuna API key</a> — takes 2 minutes.</span>
-                  </div>
-                )}
                 {renderedResults.length > 0 && (
                   <div className="results-nudge">
                     <div className="rn-text"><strong>Sign up free</strong> to unlock your full AI fit score and salary intel for every role</div>
@@ -4148,7 +4136,7 @@ export default function LandingPage({ setAuthModal, onModuleSelect }) {
             </div>
             <p style={{fontSize:13,color:'var(--text3)',fontWeight:300,lineHeight:1.7,maxWidth:300,margin:0}}>Try everything free. Upgrade when you're ready to be found by the right recruiters.</p>
           </div>
-          <div className="reveal" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:1,background:'var(--border)',borderRadius:16,overflow:'hidden',border:'1px solid var(--border)'}}>
+          <div className="reveal v36-price-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:1,background:'var(--border)',borderRadius:16,overflow:'hidden',border:'1px solid var(--border)'}}>
             {/* Free */}
             <div style={{background:'var(--bg2)',padding:'28px 24px',display:'flex',flexDirection:'column',gap:0}}>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,letterSpacing:'.14em',textTransform:'uppercase',color:'var(--text3)',marginBottom:20}}>Free</div>

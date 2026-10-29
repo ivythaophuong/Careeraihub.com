@@ -20,7 +20,7 @@ export default function STARBuilder({ resumeText, form, memory, updateMemory, se
       const raw = await callLLM([{ role: 'user', content: `You are an elite interview coach. Refine this STAR story into a compelling, metric-driven, interview-ready response.
 
 Target Role: ${form.role || 'Not specified'}
-Level: ${form.level || 'Senior'}
+Level: ${form.level || 'not stated'}
 Industry: ${form.industry || 'Not specified'}
 
 Raw STAR Story:

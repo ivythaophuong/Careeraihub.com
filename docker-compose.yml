@@ -7,11 +7,12 @@ services:
     container_name: career-ai-hub
     restart: unless-stopped
     ports:
-      # Exposes the container's port 80 to the host's port 8081.
-      # Nginx Proxy Manager (NPM) should forward traffic to 127.0.0.1:8081
-      - "127.0.0.1:8081:80"
-    env_file:
-      - .env
+      # Host port 8081 -> container port 80.
+      # Nginx Proxy Manager currently forwards careeraihub.com to the server's public IP on port 8081
+      # (see its proxy host), so this port must stay published on all interfaces. Do NOT change it to
+      # "127.0.0.1:8081:80" unless the proxy host is first re-pointed at "career-ai-hub:80" on the
+      # shared npm_net network; otherwise the site goes down.
+      - "8081:80"
     networks:
       - npm_net
 

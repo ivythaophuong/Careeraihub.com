@@ -5,7 +5,6 @@ import {
   buildRebuildPrompt,
   moveCardPure,
   arrayBufferToBase64,
-  FREE_DONE_LIMIT,
   SEVERITY_ORDER,
 } from './atsBuilderUtils.js';
 
@@ -164,7 +163,6 @@ describe('moveCardPure', () => {
     const next = moveCardPure(emptyState, card, 'gaps', 'edit', false);
     expect(next.gapCards).toHaveLength(0);
     expect(next.editCards).toContainEqual(card);
-    expect(next.blocked).toBe(false);
   });
 
   it('moves card from edit to done', () => {
@@ -172,7 +170,6 @@ describe('moveCardPure', () => {
     const next = moveCardPure(state, card, 'edit', 'done', false);
     expect(next.editCards).toHaveLength(0);
     expect(next.doneCards).toContainEqual(card);
-    expect(next.blocked).toBe(false);
   });
 
   it('moves card from done back to edit', () => {
@@ -182,39 +179,14 @@ describe('moveCardPure', () => {
     expect(next.editCards).toContainEqual(card);
   });
 
-  it('blocks free user from adding 3rd card to done', () => {
+  // The pro gate was removed from ATS Builder (397b844): any number of cards can be moved to done.
+  it('moves a third card to done without any limit', () => {
     const card2 = { id: 'g2', title: 'No metrics' };
     const card3 = { id: 'g3', title: 'Weak summary' };
-    const state = {
-      gapCards: [card3],
-      editCards: [],
-      doneCards: [card, card2], // already at limit
-    };
-    const next = moveCardPure(state, card3, 'gaps', 'done', true /* isFree */);
-    expect(next.blocked).toBe(true);
-    expect(next.doneCards).toHaveLength(2); // unchanged
-    expect(next.gapCards).toContainEqual(card3); // card stays in gaps
-  });
-
-  it('allows premium user to exceed FREE_DONE_LIMIT', () => {
-    const card2 = { id: 'g2', title: 'No metrics' };
-    const card3 = { id: 'g3', title: 'Weak summary' };
-    const state = {
-      gapCards: [card3],
-      editCards: [],
-      doneCards: [card, card2],
-    };
-    const next = moveCardPure(state, card3, 'gaps', 'done', false /* isPremium */);
-    expect(next.blocked).toBe(false);
+    const state = { gapCards: [card3], editCards: [], doneCards: [card, card2] };
+    const next = moveCardPure(state, card3, 'gaps', 'done');
     expect(next.doneCards).toHaveLength(3);
-  });
-
-  it('free user can move up to FREE_DONE_LIMIT cards', () => {
-    const card2 = { id: 'g2', title: 'No metrics' };
-    const state = { gapCards: [card2], editCards: [], doneCards: [card] }; // 1 in done
-    const next = moveCardPure(state, card2, 'gaps', 'done', true);
-    expect(next.blocked).toBe(false);
-    expect(next.doneCards).toHaveLength(FREE_DONE_LIMIT);
+    expect(next.gapCards).toHaveLength(0);
   });
 
   it('does not duplicate card when moved', () => {
@@ -241,13 +213,6 @@ describe('arrayBufferToBase64', () => {
   it('handles empty buffer', () => {
     const buffer = new ArrayBuffer(0);
     expect(arrayBufferToBase64(buffer)).toBe('');
-  });
-});
-
-// ── FREE_DONE_LIMIT constant ───────────────────────────────────────────────────
-describe('FREE_DONE_LIMIT', () => {
-  it('is exactly 2', () => {
-    expect(FREE_DONE_LIMIT).toBe(2);
   });
 });
 

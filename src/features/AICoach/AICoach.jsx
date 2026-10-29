@@ -13,7 +13,7 @@ function buildSystemPrompt(memory, form) {
   const lines = [
     `You are an expert AI career coach. You have full context on the user's profile.`,
     `Target role: ${form?.role || 'not specified'}`,
-    `Level: ${form?.level || 'Senior'}`,
+    `Level: ${form?.level || 'not stated'}`,
     `Market: ${form?.market || 'Singapore'}`,
     `Industry: ${form?.industry || 'Tech'}`,
   ];

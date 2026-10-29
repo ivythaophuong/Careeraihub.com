@@ -212,7 +212,7 @@ function ActionItems({ items, setActiveModule }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function Dashboard({ memory, form, user, setActiveModule, resumeText, resumeProfile, profileLoading }) {
+export default function Dashboard({ memory, form, user, setActiveModule, resumeText, resumeProfile, profileLoading, syncedAt }) {
   const [trustScore, setTrustScore] = useState(0);
 
   useEffect(() => {
@@ -220,7 +220,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
     sb.select('candidate_trust_profiles', { user_id: `eq.${user.id}` }, user.token)
       .then(rows => setTrustScore(rows?.[0]?.trust_score || 0))
       .catch(() => {});
-  }, [user]);
+  }, [user, syncedAt]);
 
   const validScans = (memory.scanHistory || []).filter(s => s.status !== 'failed' && s.score > 0);
   const atsScore   = validScans[0]?.score ?? 0;
@@ -247,7 +247,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
     if (atsScore < 70)   gaps.push(`ATS score ${atsScore}/100${atsDelta !== null ? ` (${atsDelta > 0 ? '+' : ''}${atsDelta} vs last scan)` : ''} — paste a JD to close keyword gaps`);
     if (starCount < 3)   gaps.push(`${starCount} STAR ${starCount === 1 ? 'story' : 'stories'} saved — aim for 8+`);
     if (readiness < 70)  gaps.push(`interview readiness ${readiness}/100 — run a mock session`);
-    if (trustScore < 65) gaps.push(`trust score ${trustScore}/100 — verify credentials`);
+    if (trustScore < 65) gaps.push(`practice score ${trustScore}/100 — practise interview answers and STAR stories`);
     if (gaps.length === 0) {
       if (atsDelta > 0) return `ATS score improved +${atsDelta} pts since last scan. Keep running mock sessions to stay sharp.`;
       return 'Profile looks strong. Keep running mock sessions to stay sharp.';
@@ -260,7 +260,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
     if (atsScore < 70)   steps.push('Scan resume against your target JD — close keyword gaps');
     if (starCount < 8)   steps.push(`Add ${8 - starCount} STAR ${8 - starCount === 1 ? 'story' : 'stories'} to cover behavioral questions`);
     if (readiness < 80)  steps.push('Complete 2 mock interview sessions this week');
-    if (trustScore < 65) steps.push('Verify at least one credential to unlock TrustMatch');
+    if (trustScore < 65) steps.push('Raise your practice score with interview answers and STAR stories');
     steps.push('Review AI feedback and refine target role keywords');
     return steps.slice(0, 4);
   }, [atsScore, starCount, readiness, trustScore]);
@@ -269,7 +269,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
     atsScore < 70   && { label: 'Improve ATS Score',  why: `Score ${atsScore}/100 — add missing keywords from your target JD`,         color: '#FF5A5A', id: 'scan'       },
     starCount < 5   && { label: 'Build STAR Bank',     why: `${starCount} of 8 stories saved — cover all behavioral categories`,         color: '#FFB84D', id: 'star'       },
     readiness < 70  && { label: 'Run Mock Interview',  why: `Readiness ${readiness}/100 — simulate to sharpen your answers`,             color: '#EC4899', id: 'simulate'   },
-    trustScore < 65 && { label: 'Verify Credentials', why: `Trust score ${trustScore}/100 — verification unlocks TrustMatch hiring`,    color: '#8B7CF6', id: 'trustmatch' },
+    trustScore < 65 && { label: 'Raise Practice Score', why: `Practice score ${trustScore}/100 — it builds from your interview and STAR practice`, color: '#8B7CF6', id: 'simulate' },
     jdCount < 3     && { label: 'Analyze More JDs',   why: `${jdCount} JD${jdCount !== 1 ? 's' : ''} scanned — tailor prep to each role`, color: '#00E5A0', id: 'jd'        },
   ].filter(Boolean).slice(0, 4), [atsScore, starCount, readiness, trustScore, jdCount]);
 
@@ -281,7 +281,7 @@ export default function Dashboard({ memory, form, user, setActiveModule, resumeT
     { iconLabel: 'ATS Score',   value: atsScore > 0 ? atsScore : '—',    label: 'Resume ATS',        delta: atsDeltaLabel,              color: '#EC4899', pct: atsScore,                        onClick: () => setActiveModule('scan')       },
     { iconLabel: 'Readiness',   value: readiness > 0 ? readiness : '—',  label: 'Interview prep',    delta: readiness > 0 ? `${100 - readiness} pts to go` : 'Start a session',                      color: '#FFB84D', pct: readiness,                       onClick: () => setActiveModule('simulate')   },
     { iconLabel: 'STAR Bank',   value: starCount,                         label: 'Stories saved',     delta: starCount >= 8 ? '✓ Solid bank' : `target: 8`,                                            color: '#FFB800', pct: Math.min(100, starCount * 12.5), onClick: () => setActiveModule('star')       },
-    { iconLabel: 'Trust Score', value: trustScore > 0 ? trustScore : '—', label: 'Verified profile', delta: trustScore >= 65 ? '✓ TrustMatch on' : 'Verify → unlock',                                 color: trustScore >= 65 ? '#00E5A0' : '#FF5A5A', pct: trustScore, onClick: () => setActiveModule('trustmatch') },
+    { iconLabel: 'Practice Score', value: trustScore > 0 ? trustScore : '—', label: 'From your practice', delta: trustScore >= 65 ? '✓ Strong' : 'Practise to raise it',                                 color: trustScore >= 65 ? '#00E5A0' : '#FF5A5A', pct: trustScore, onClick: () => setActiveModule('trustmatch') },
     { iconLabel: 'JDs Scanned', value: jdCount,                           label: 'Roles analyzed',   delta: jdCount > 0 ? `${jdCount} role${jdCount !== 1 ? 's' : ''} analyzed` : 'Scan a JD →',     color: '#8B7CF6', pct: Math.min(100, jdCount * 20),   onClick: () => setActiveModule('jd')         },
   ];
 
